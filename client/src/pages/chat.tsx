@@ -1,24 +1,111 @@
 import { useState, useRef, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/lib/auth-context";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, Send, Bot, User, Sparkles } from "lucide-react";
+import {
+  Loader2,
+  Send,
+  Bot,
+  User,
+  Plus,
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  MoreVertical,
+  Pin,
+  Trash2,
+  Edit2,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
+interface Conversation {
+  id: number;
+  title: string;
+  isPinned: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function Chat() {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { data: conversationsData } = useQuery({
+    queryKey: ["conversations"],
+    queryFn: async () => {
+      const response = await fetch("/api/conversations", { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch conversations");
+      return response.json();
+    },
+    enabled: !!user,
+  });
+
+  const conversations = conversationsData?.conversations || [];
+
+  const loadConversation = async (id: number) => {
+    const response = await fetch(`/api/conversations/${id}/messages`, {
+      credentials: "include",
+    });
+    const data = await response.json();
+    setMessages(data.messages.map((m: any) => ({ role: m.role, content: m.content })));
+    setCurrentConversationId(id);
+  };
+
+  const createConversationMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title: "New Chat" }),
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      setCurrentConversationId(data.conversation.id);
+      setMessages([]);
+    },
+  });
+
+  const deleteConversationMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await fetch(`/api/conversations/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      setCurrentConversationId(null);
+      setMessages([]);
+    },
+  });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -40,23 +127,21 @@ export default function Chat() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           messages: [...messages, userMessage],
+          conversationId: currentConversationId,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to get response");
-      }
+      if (!response.ok) throw new Error("Failed to get response");
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error("No response stream");
-      }
+      if (!reader) throw new Error("No response stream");
 
       let assistantMessage = "";
+      let newConvId = currentConversationId;
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       while (true) {
@@ -69,10 +154,21 @@ export default function Chat() {
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             const data = line.slice(6);
-            if (data === "[DONE]") continue;
+            if (data === "[DONE]") {
+              if (newConvId) {
+                queryClient.invalidateQueries({ queryKey: ["conversations"] });
+                if (!currentConversationId) {
+                  setCurrentConversationId(newConvId);
+                }
+              }
+              continue;
+            }
 
             try {
               const parsed = JSON.parse(data);
+              if (parsed.conversationId && !currentConversationId) {
+                newConvId = parsed.conversationId;
+              }
               if (parsed.content) {
                 assistantMessage += parsed.content;
                 setMessages((prev) => {
@@ -84,23 +180,15 @@ export default function Chat() {
                   return newMessages;
                 });
               }
-              if (parsed.error) {
-                throw new Error(parsed.error);
-              }
-            } catch (e) {
-              // Skip invalid JSON
-            }
+              if (parsed.error) throw new Error(parsed.error);
+            } catch (e) {}
           }
         }
       }
-    } catch (error: any) {
-      console.error("Chat error:", error);
+    } catch (error) {
       setMessages((prev) => [
         ...prev,
-        {
-          role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
-        },
+        { role: "assistant", content: "Sorry, I encountered an error. Please try again." },
       ]);
     } finally {
       setIsLoading(false);
@@ -114,80 +202,161 @@ export default function Chat() {
     }
   };
 
-  return (
-    <div className="max-w-5xl mx-auto h-[calc(100vh-12rem)]">
-      <Card className="h-full flex flex-col">
-        <CardHeader className="border-b">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <CardTitle className="text-2xl">AI Assistant</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Ask me anything - I can search the web and help with any question
-              </p>
-            </div>
-          </div>
-        </CardHeader>
+  const groupedConversations = () => {
+    const now = new Date();
+    const today: Conversation[] = [];
+    const yesterday: Conversation[] = [];
+    const lastWeek: Conversation[] = [];
+    const older: Conversation[] = [];
 
-        <CardContent className="flex-1 flex flex-col p-0">
-          {messages.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center p-8">
-              <div className="text-center space-y-6 max-w-2xl">
-                <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-purple-600/20 flex items-center justify-center">
-                  <Bot className="w-10 h-10 text-primary" />
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-bold">Welcome to AI Assistant</h2>
-                  <p className="text-muted-foreground">
-                    I'm powered by GPT-4 with web search capabilities. I can help you with:
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="p-4 rounded-lg bg-card border border-border">
-                    <div className="text-lg mb-2">💡</div>
-                    <div className="font-semibold">General Knowledge</div>
-                    <div className="text-muted-foreground text-xs">
-                      Answer any question on any topic
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-lg bg-card border border-border">
-                    <div className="text-lg mb-2">🔍</div>
-                    <div className="font-semibold">Web Research</div>
-                    <div className="text-muted-foreground text-xs">
-                      Find current information online
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-lg bg-card border border-border">
-                    <div className="text-lg mb-2">🛠️</div>
-                    <div className="font-semibold">Problem Solving</div>
-                    <div className="text-muted-foreground text-xs">
-                      Debug and troubleshoot issues
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-lg bg-card border border-border">
-                    <div className="text-lg mb-2">⌨️</div>
-                    <div className="font-semibold">Typing Tips</div>
-                    <div className="text-muted-foreground text-xs">
-                      Improve your typing skills
-                    </div>
-                  </div>
-                </div>
+    conversations.forEach((conv: Conversation) => {
+      const convDate = new Date(conv.updatedAt);
+      const diffTime = now.getTime() - convDate.getTime();
+      const diffDays = diffTime / (1000 * 3600 * 24);
+
+      if (diffDays < 1) today.push(conv);
+      else if (diffDays < 2) yesterday.push(conv);
+      else if (diffDays < 7) lastWeek.push(conv);
+      else older.push(conv);
+    });
+
+    return { today, yesterday, lastWeek, older };
+  };
+
+  const filtered = conversations.filter((c: Conversation) =>
+    c.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const { today, yesterday, lastWeek, older } = groupedConversations();
+
+  return (
+    <div className="fixed inset-0 top-16 flex">
+      {/* Sidebar */}
+      <div
+        className={cn(
+          "bg-background border-r border-border transition-all duration-300 flex flex-col",
+          sidebarOpen ? "w-80" : "w-0"
+        )}
+      >
+        {sidebarOpen && (
+          <>
+            <div className="p-3 border-b border-border">
+              <Button
+                onClick={() => createConversationMutation.mutate()}
+                className="w-full"
+                data-testid="button-new-chat"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Chat
+              </Button>
+            </div>
+
+            <div className="p-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search conversations..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
               </div>
             </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+            <div className="flex-1 overflow-y-auto">
+              {searchTerm ? (
+                <div className="p-2">
+                  {filtered.map((conv: Conversation) => (
+                    <ConversationItem
+                      key={conv.id}
+                      conversation={conv}
+                      isActive={currentConversationId === conv.id}
+                      onSelect={() => loadConversation(conv.id)}
+                      onDelete={() => deleteConversationMutation.mutate(conv.id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {today.length > 0 && (
+                    <ConversationGroup
+                      title="Today"
+                      conversations={today}
+                      currentId={currentConversationId}
+                      onSelect={loadConversation}
+                      onDelete={deleteConversationMutation.mutate}
+                    />
+                  )}
+                  {yesterday.length > 0 && (
+                    <ConversationGroup
+                      title="Yesterday"
+                      conversations={yesterday}
+                      currentId={currentConversationId}
+                      onSelect={loadConversation}
+                      onDelete={deleteConversationMutation.mutate}
+                    />
+                  )}
+                  {lastWeek.length > 0 && (
+                    <ConversationGroup
+                      title="Previous 7 Days"
+                      conversations={lastWeek}
+                      currentId={currentConversationId}
+                      onSelect={loadConversation}
+                      onDelete={deleteConversationMutation.mutate}
+                    />
+                  )}
+                  {older.length > 0 && (
+                    <ConversationGroup
+                      title="Older"
+                      conversations={older}
+                      currentId={currentConversationId}
+                      onSelect={loadConversation}
+                      onDelete={deleteConversationMutation.mutate}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Toggle Sidebar Button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute left-0 top-0 z-10"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+      >
+        {sidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+      </Button>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {messages.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="text-center space-y-6 max-w-2xl">
+              <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-purple-600/20 flex items-center justify-center">
+                <Bot className="w-10 h-10 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold mb-2">How can I help you today?</h2>
+                <p className="text-muted-foreground">
+                  I'm powered by GPT-4 with web search. Ask me anything!
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
               {messages.map((message, index) => (
                 <div
                   key={index}
-                  className={cn(
-                    "flex gap-4",
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  )}
+                  className={cn("flex gap-4", message.role === "user" ? "justify-end" : "")}
                 >
                   {message.role === "assistant" && (
-                    <Avatar className="w-8 h-8 border-2 border-background shadow-lg">
+                    <Avatar className="w-8 h-8 flex-shrink-0">
                       <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600">
                         <Bot className="w-4 h-4 text-white" />
                       </AvatarFallback>
@@ -195,7 +364,7 @@ export default function Chat() {
                   )}
                   <div
                     className={cn(
-                      "max-w-[80%] rounded-2xl px-4 py-3",
+                      "rounded-2xl px-4 py-3 max-w-[80%]",
                       message.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted"
@@ -212,7 +381,7 @@ export default function Chat() {
                     )}
                   </div>
                   {message.role === "user" && (
-                    <Avatar className="w-8 h-8 border-2 border-background shadow-lg">
+                    <Avatar className="w-8 h-8 flex-shrink-0">
                       <AvatarFallback className="bg-secondary">
                         <User className="w-4 h-4" />
                       </AvatarFallback>
@@ -221,8 +390,8 @@ export default function Chat() {
                 </div>
               ))}
               {isLoading && (
-                <div className="flex gap-4 justify-start">
-                  <Avatar className="w-8 h-8 border-2 border-background shadow-lg">
+                <div className="flex gap-4">
+                  <Avatar className="w-8 h-8">
                     <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600">
                       <Bot className="w-4 h-4 text-white" />
                     </AvatarFallback>
@@ -234,40 +403,121 @@ export default function Chat() {
               )}
               <div ref={messagesEndRef} />
             </div>
-          )}
-
-          <div className="border-t p-4">
-            <div className="flex gap-3">
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder="Ask me anything... (Press Enter to send, Shift+Enter for new line)"
-                className="min-h-[60px] max-h-[200px] resize-none"
-                disabled={isLoading}
-                data-testid="input-chat-message"
-              />
-              <Button
-                onClick={sendMessage}
-                disabled={isLoading || !input.trim()}
-                size="icon"
-                className="h-[60px] w-[60px]"
-                data-testid="button-send-message"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              AI can make mistakes. Verify important information.
-            </p>
           </div>
-        </CardContent>
-      </Card>
+        )}
+
+        {/* Input Area */}
+        <div className="border-t border-border p-4">
+          <div className="max-w-3xl mx-auto flex gap-3">
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder="Message AI Assistant..."
+              className="min-h-[56px] max-h-[200px] resize-none"
+              disabled={isLoading}
+              data-testid="input-chat-message"
+            />
+            <Button
+              onClick={sendMessage}
+              disabled={isLoading || !input.trim()}
+              size="icon"
+              className="h-[56px] w-[56px] flex-shrink-0"
+              data-testid="button-send-message"
+            >
+              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            AI can make mistakes. Verify important information.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConversationGroup({
+  title,
+  conversations,
+  currentId,
+  onSelect,
+  onDelete,
+}: {
+  title: string;
+  conversations: Conversation[];
+  currentId: number | null;
+  onSelect: (id: number) => void;
+  onDelete: (id: number) => void;
+}) {
+  return (
+    <div className="mb-4">
+      <h3 className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        {title}
+      </h3>
+      <div className="space-y-1 px-2">
+        {conversations.map((conv) => (
+          <ConversationItem
+            key={conv.id}
+            conversation={conv}
+            isActive={currentId === conv.id}
+            onSelect={() => onSelect(conv.id)}
+            onDelete={() => onDelete(conv.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ConversationItem({
+  conversation,
+  isActive,
+  onSelect,
+  onDelete,
+}: {
+  conversation: Conversation;
+  isActive: boolean;
+  onSelect: () => void;
+  onDelete: () => void;
+}) {
+  const [showMenu, setShowMenu] = useState(false);
+
+  return (
+    <div
+      className={cn(
+        "group relative px-3 py-2 rounded-lg cursor-pointer transition-colors",
+        isActive ? "bg-accent" : "hover:bg-accent/50"
+      )}
+      onClick={onSelect}
+      onMouseEnter={() => setShowMenu(true)}
+      onMouseLeave={() => setShowMenu(false)}
+    >
+      <div className="flex items-center gap-2">
+        <MessageSquare className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        <span className="text-sm truncate flex-1">{conversation.title}</span>
+        {showMenu && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
     </div>
   );
 }

@@ -309,11 +309,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/chat", async (req, res) => {
+  app.get("/api/conversations", isAuthenticated, async (req, res) => {
     try {
-      const { messages } = req.body;
+      const conversations = await storage.getUserConversations(req.user!.id);
+      res.json({ conversations });
+    } catch (error: any) {
+      console.error("Get conversations error:", error);
+      res.status(500).json({ message: "Failed to fetch conversations" });
+    }
+  });
 
-      if (!messages || !Array.isArray(messages)) {
+  app.post("/api/conversations", isAuthenticated, async (req, res) => {
+    try {
+      const conversation = await storage.createConversation({
+        userId: req.user!.id,
+        title: req.body.title || "New Chat",
+        isPinned: 0,
+      });
+      res.json({ conversation });
+    } catch (error: any) {
+      console.error("Create conversation error:", error);
+      res.status(500).json({ message: "Failed to create conversation" });
+    }
+  });
+
+  app.patch("/api/conversations/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const conversation = await storage.updateConversation(id, req.body);
+      res.json({ conversation });
+    } catch (error: any) {
+      console.error("Update conversation error:", error);
+      res.status(500).json({ message: "Failed to update conversation" });
+    }
+  });
+
+  app.delete("/api/conversations/:id", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteConversation(id);
+      res.json({ message: "Conversation deleted" });
+    } catch (error: any) {
+      console.error("Delete conversation error:", error);
+      res.status(500).json({ message: "Failed to delete conversation" });
+    }
+  });
+
+  app.get("/api/conversations/:id/messages", isAuthenticated, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const messages = await storage.getConversationMessages(id);
+      res.json({ messages });
+    } catch (error: any) {
+      console.error("Get messages error:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  app.post("/api/chat", isAuthenticated, async (req, res) => {
+    try {
+      const { messages: requestMessages, conversationId } = req.body;
+
+      if (!requestMessages || !Array.isArray(requestMessages)) {
         return res.status(400).json({ message: "Invalid request: messages array required" });
       }
 
@@ -321,17 +378,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ message: "AI service not configured" });
       }
 
-      const lastUserMessage = messages.filter((m: ChatMessage) => m.role === "user").pop();
-      const performSearch = lastUserMessage ? shouldPerformWebSearch(lastUserMessage.content) : false;
+      const lastUserMessage = requestMessages.filter((m: ChatMessage) => m.role === "user").pop();
+      if (!lastUserMessage) {
+        return res.status(400).json({ message: "No user message found" });
+      }
+
+      let convId = conversationId;
+      if (!convId) {
+        const conversation = await storage.createConversation({
+          userId: req.user!.id,
+          title: lastUserMessage.content.substring(0, 100),
+          isPinned: 0,
+        });
+        convId = conversation.id;
+      }
+
+      await storage.createMessage({
+        conversationId: convId,
+        role: "user",
+        content: lastUserMessage.content,
+      });
+
+      const performSearch = shouldPerformWebSearch(lastUserMessage.content);
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
       try {
-        for await (const chunk of streamChatCompletion(messages, performSearch)) {
-          res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+        let assistantResponse = "";
+        for await (const chunk of streamChatCompletion(requestMessages, performSearch)) {
+          assistantResponse += chunk;
+          res.write(`data: ${JSON.stringify({ content: chunk, conversationId: convId })}\n\n`);
         }
+        
+        await storage.createMessage({
+          conversationId: convId,
+          role: "assistant",
+          content: assistantResponse,
+        });
+
         res.write("data: [DONE]\n\n");
         res.end();
       } catch (streamError: any) {
