@@ -1,16 +1,33 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Keyboard, BarChart2, User, Settings, Trophy } from "lucide-react";
+import { Keyboard, BarChart2, User, Settings, Trophy, LogOut } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const { user, logout } = useAuth();
 
   const navItems = [
     { href: "/", icon: Keyboard, label: "Type" },
     { href: "/leaderboard", icon: Trophy, label: "Leaderboard" },
-    { href: "/profile", icon: User, label: "Profile" },
-    { href: "/settings", icon: Settings, label: "Settings" },
+    { href: "/profile", icon: User, label: "Profile", requiresAuth: true },
+    { href: "/settings", icon: Settings, label: "Settings", requiresAuth: true },
   ];
+
+  const handleLogout = async () => {
+    await logout();
+    setLocation("/login");
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground flex flex-col">
@@ -25,6 +42,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           <nav className="flex items-center gap-1">
             {navItems.map((item) => {
+              if (item.requiresAuth && !user) return null;
               const Icon = item.icon;
               const isActive = location === item.href;
               return (
@@ -43,6 +61,50 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="ml-2 h-10 w-10 rounded-full p-0">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {user.username[0].toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col">
+                      <span className="font-semibold">{user.username}</span>
+                      <span className="text-xs text-muted-foreground">{user.email}</span>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} data-testid="button-logout">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex items-center gap-2 ml-2">
+                <Link href="/login">
+                  <a>
+                    <Button variant="ghost" size="sm" data-testid="button-nav-login">
+                      Sign In
+                    </Button>
+                  </a>
+                </Link>
+                <Link href="/register">
+                  <a>
+                    <Button size="sm" data-testid="button-nav-register">
+                      Sign Up
+                    </Button>
+                  </a>
+                </Link>
+              </div>
+            )}
           </nav>
         </div>
       </header>

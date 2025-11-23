@@ -4,10 +4,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, Zap, Target, Clock } from "lucide-react";
 import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
+import { useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 type TestMode = 15 | 30 | 60 | 120;
 
 export default function TypingTest() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [mode, setMode] = useState<TestMode>(30);
   const [text, setText] = useState("");
   const [userInput, setUserInput] = useState("");
@@ -17,9 +22,40 @@ export default function TypingTest() {
   const [isFinished, setIsFinished] = useState(false);
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
+  const [errors, setErrors] = useState(0);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const saveResultMutation = useMutation({
+    mutationFn: async (result: { wpm: number; accuracy: number; mode: number; characters: number; errors: number }) => {
+      const response = await fetch("/api/test-results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(result),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to save test result");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Test Saved!",
+        description: "Your result has been saved to your profile.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Save Failed",
+        description: "Could not save your test result. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const resetTest = useCallback(() => {
     setText(generateText(100));
@@ -55,12 +91,13 @@ export default function TypingTest() {
   useEffect(() => {
     if (isActive && startTime) {
       const chars = userInput.length;
-      const errors = userInput.split("").filter((char, i) => char !== text[i]).length;
-      const correctChars = chars - errors;
+      const errorCount = userInput.split("").filter((char, i) => char !== text[i]).length;
+      const correctChars = chars - errorCount;
       const timeElapsed = (Date.now() - startTime) / 1000;
       
       setWpm(calculateWPM(correctChars, timeElapsed));
       setAccuracy(calculateAccuracy(correctChars, chars));
+      setErrors(errorCount);
     }
   }, [userInput, isActive, startTime, text]);
 
@@ -73,6 +110,16 @@ export default function TypingTest() {
       origin: { y: 0.6 },
       colors: ['#FFD700', '#00FFFF', '#FF00FF']
     });
+
+    if (user) {
+      saveResultMutation.mutate({
+        wpm,
+        accuracy,
+        mode,
+        characters: userInput.length,
+        errors,
+      });
+    }
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
