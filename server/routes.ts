@@ -19,6 +19,10 @@ declare global {
       id: string;
       username: string;
       email: string;
+      avatarColor?: string | null;
+      bio?: string | null;
+      country?: string | null;
+      keyboardLayout?: string | null;
     }
   }
 }
