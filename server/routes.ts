@@ -5,7 +5,7 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
-import { insertUserSchema, loginSchema, insertTestResultSchema, type User } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, type User } from "@shared/schema";
 import { fromError } from "zod-validation-error";
 import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "@neondatabase/serverless";
@@ -93,6 +93,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: user.id,
         username: user.username,
         email: user.email,
+        avatarColor: user.avatarColor,
+        bio: user.bio,
+        country: user.country,
+        keyboardLayout: user.keyboardLayout,
       });
     } catch (error) {
       done(error);
@@ -150,6 +154,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               id: user.id,
               username: user.username,
               email: user.email,
+              avatarColor: user.avatarColor,
+              bio: user.bio,
+              country: user.country,
+              keyboardLayout: user.keyboardLayout,
             },
           });
         }
@@ -189,6 +197,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: user.id,
             username: user.username,
             email: user.email,
+            avatarColor: user.avatarColor,
+            bio: user.bio,
+            country: user.country,
+            keyboardLayout: user.keyboardLayout,
           },
         });
       });
@@ -259,6 +271,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Get leaderboard error:", error);
       res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  app.patch("/api/profile", isAuthenticated, async (req, res) => {
+    try {
+      const parsed = updateProfileSchema.safeParse(req.body);
+
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: fromError(parsed.error).toString(),
+        });
+      }
+
+      const updatedUser = await storage.updateUserProfile(req.user!.id, parsed.data);
+      res.json({
+        message: "Profile updated successfully",
+        user: {
+          id: updatedUser.id,
+          username: updatedUser.username,
+          email: updatedUser.email,
+          avatarColor: updatedUser.avatarColor,
+          bio: updatedUser.bio,
+          country: updatedUser.country,
+          keyboardLayout: updatedUser.keyboardLayout,
+        },
+      });
+    } catch (error: any) {
+      console.error("Update profile error:", error);
+      res.status(500).json({ message: "Failed to update profile" });
     }
   });
 

@@ -16,7 +16,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Loader2, User as UserIcon, TrendingUp } from "lucide-react";
+import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -101,41 +102,64 @@ export default function Profile() {
 
   return (
       <div className="max-w-5xl mx-auto space-y-8">
-        <div className="flex items-center gap-6 p-6 rounded-2xl bg-card border border-border">
+        <div className="flex items-start gap-6 p-6 rounded-2xl bg-card border border-border">
           <Avatar className="w-24 h-24 border-4 border-background shadow-xl">
-            <AvatarFallback className="bg-primary text-primary-foreground text-3xl">
+            <AvatarFallback className={cn(user.avatarColor || "bg-primary", "text-primary-foreground text-3xl")}>
               {user.username[0].toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold">{user.username}</h1>
-              <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/20">
-                PRO
-              </Badge>
+          <div className="flex-1 space-y-3">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-3xl font-bold">{user.username}</h1>
+                  <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/20">
+                    PRO
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground mt-1">{user.email}</p>
+                {user.bio && (
+                  <p className="text-foreground/80 mt-2 max-w-2xl">{user.bio}</p>
+                )}
+                <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                  {user.country && (
+                    <div className="flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
+                      <span>{user.country}</span>
+                    </div>
+                  )}
+                  {user.keyboardLayout && (
+                    <div className="flex items-center gap-1">
+                      <Keyboard className="w-4 h-4" />
+                      <span>{user.keyboardLayout}</span>
+                    </div>
+                  )}
+                  {stats && (
+                    <span>{stats.totalTests} Tests Completed</span>
+                  )}
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setLocation("/profile/edit")} data-testid="button-edit-profile">
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Profile
+              </Button>
             </div>
-            <p className="text-muted-foreground">{user.email}</p>
-            {stats && (
-              <p className="text-muted-foreground text-sm">
-                {stats.totalTests} Tests Completed
-              </p>
-            )}
-          </div>
-          <div className="ml-auto flex gap-8 text-center">
-            {stats ? (
-              <>
-                <div>
-                  <div className="text-3xl font-bold font-mono">{stats.avgWpm || 0}</div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg WPM</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold font-mono text-primary">{stats.bestWpm || 0}</div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Best WPM</div>
-                </div>
-              </>
-            ) : (
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            )}
+            <div className="flex gap-8">
+              {stats ? (
+                <>
+                  <div>
+                    <div className="text-3xl font-bold font-mono">{stats.avgWpm || 0}</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg WPM</div>
+                  </div>
+                  <div>
+                    <div className="text-3xl font-bold font-mono text-primary">{stats.bestWpm || 0}</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Best WPM</div>
+                  </div>
+                </>
+              ) : (
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              )}
+            </div>
           </div>
         </div>
 

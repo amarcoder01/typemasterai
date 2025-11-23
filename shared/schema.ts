@@ -8,6 +8,10 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  avatarColor: text("avatar_color").default("bg-primary"),
+  bio: text("bio"),
+  country: text("country"),
+  keyboardLayout: text("keyboard_layout").default("QWERTY"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -22,9 +26,17 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export const updateProfileSchema = z.object({
+  avatarColor: z.string().optional(),
+  bio: z.string().max(200, "Bio must be less than 200 characters").optional(),
+  country: z.string().optional(),
+  keyboardLayout: z.string().optional(),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type LoginCredentials = z.infer<typeof loginSchema>;
+export type UpdateProfile = z.infer<typeof updateProfileSchema>;
 
 export const testResults = pgTable("test_results", {
   id: serial("id").primaryKey(),
