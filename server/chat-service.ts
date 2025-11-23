@@ -182,16 +182,38 @@ async function performWebScraping(query: string): Promise<string> {
 }
 
 export function shouldPerformWebSearch(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+
+  const urlPattern = /\b(?:https?:\/\/)?(?:www\.)?[\w-]+\.(?:com|org|net|io|co|ai|dev|app|info|edu|gov)\b/i;
+  if (urlPattern.test(message)) {
+    return true;
+  }
+
   const searchTriggers = [
     "search",
     "find",
     "look up",
+    "lookup",
     "what is",
+    "what are",
     "who is",
     "when did",
+    "when was",
     "where is",
+    "where can",
     "how to",
     "how do",
+    "how does",
+    "why is",
+    "why did",
+    "tell me about",
+    "info about",
+    "information about",
+    "information on",
+    "details about",
+    "learn about",
+    "explain",
+    "describe",
     "current",
     "latest",
     "recent",
@@ -201,11 +223,27 @@ export function shouldPerformWebSearch(message: string): boolean {
     "2025",
     "update",
     "website",
-    "information about",
+    "company",
+    "organization",
+    "service",
+    "product",
+    "compare",
+    "difference between",
+    "best",
+    "top",
+    "review",
+    "guide",
   ];
 
-  const lowerMessage = message.toLowerCase();
-  return searchTriggers.some((trigger) => lowerMessage.includes(trigger));
+  const hasSearchTrigger = searchTriggers.some((trigger) => lowerMessage.includes(trigger));
+  
+  const questionWords = ["what", "who", "when", "where", "why", "how", "which"];
+  const isQuestion = questionWords.some((word) => lowerMessage.startsWith(word)) || lowerMessage.includes("?");
+  
+  const requestPhrases = ["give me", "show me", "can you", "could you", "i want", "i need"];
+  const isRequest = requestPhrases.some((phrase) => lowerMessage.includes(phrase));
+
+  return hasSearchTrigger || (isQuestion && lowerMessage.length > 15) || isRequest;
 }
 
 export interface ChatMessage {
