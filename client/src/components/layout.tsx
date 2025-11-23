@@ -20,8 +20,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", icon: Keyboard, label: "Type" },
     { href: "/leaderboard", icon: Trophy, label: "Leaderboard" },
-    { href: "/profile", icon: User, label: "Profile", requiresAuth: true },
-    { href: "/settings", icon: Settings, label: "Settings", requiresAuth: true },
+    { href: "/profile", icon: User, label: "Profile" },
+    { href: "/settings", icon: Settings, label: "Settings" },
   ];
 
   const handleLogout = async () => {
@@ -42,7 +42,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           <nav className="flex items-center gap-1">
             {navItems.map((item) => {
-              if (item.requiresAuth && !user) return null;
               const Icon = item.icon;
               const isActive = location === item.href;
               return (

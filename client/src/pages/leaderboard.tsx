@@ -1,4 +1,3 @@
-import Layout from "@/components/layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Trophy, Medal } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -18,7 +17,6 @@ export default function Leaderboard() {
   const leaderboard = data?.leaderboard || [];
 
   return (
-    <Layout>
        <div className="max-w-4xl mx-auto">
         <div className="flex flex-col items-center gap-4 mb-10">
           <div className="p-3 rounded-full bg-primary/10 text-primary">
@@ -84,6 +82,5 @@ export default function Leaderboard() {
           </CardContent>
         </Card>
        </div>
-    </Layout>
   );
 }

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import AuthPromptDialog from "@/components/auth-prompt-dialog";
 
 type TestMode = 15 | 30 | 60 | 120;
 
@@ -23,6 +24,7 @@ export default function TypingTest() {
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
   const [errors, setErrors] = useState(0);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -66,6 +68,7 @@ export default function TypingTest() {
     setIsFinished(false);
     setWpm(0);
     setAccuracy(100);
+    setShowAuthPrompt(false);
     inputRef.current?.focus();
   }, [mode]);
 
@@ -119,6 +122,8 @@ export default function TypingTest() {
         characters: userInput.length,
         errors,
       });
+    } else {
+      setShowAuthPrompt(true);
     }
   };
 
@@ -309,6 +314,14 @@ export default function TypingTest() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Auth Prompt Dialog */}
+      <AuthPromptDialog
+        open={showAuthPrompt}
+        onOpenChange={setShowAuthPrompt}
+        title="Save Your Progress"
+        description={`Great job! You scored ${wpm} WPM with ${accuracy}% accuracy. Create an account to save your results and track your progress over time!`}
+      />
     </div>
   );
 }

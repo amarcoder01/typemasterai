@@ -1,4 +1,3 @@
-import Layout from "@/components/layout";
 import { 
   BarChart, 
   Bar, 
@@ -13,10 +12,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Loader2 } from "lucide-react";
+import { Loader2, User as UserIcon, TrendingUp } from "lucide-react";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -47,8 +47,47 @@ export default function Profile() {
   });
 
   if (!user) {
-    setLocation("/login");
-    return null;
+    return (
+        <div className="max-w-3xl mx-auto">
+          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+            <CardContent className="p-12">
+              <div className="flex flex-col items-center text-center space-y-6">
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                  <UserIcon className="w-10 h-10 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-bold">View Your Typing Stats</h2>
+                  <p className="text-muted-foreground max-w-md">
+                    Sign in to access your personal profile, track your progress over time, and see detailed analytics of your typing performance.
+                  </p>
+                </div>
+                <div className="grid grid-cols-3 gap-4 w-full max-w-md pt-4">
+                  <div className="p-4 bg-background/50 rounded-lg">
+                    <div className="text-2xl font-bold text-primary">📊</div>
+                    <div className="text-xs text-muted-foreground mt-1">Charts</div>
+                  </div>
+                  <div className="p-4 bg-background/50 rounded-lg">
+                    <div className="text-2xl font-bold text-primary">📈</div>
+                    <div className="text-xs text-muted-foreground mt-1">History</div>
+                  </div>
+                  <div className="p-4 bg-background/50 rounded-lg">
+                    <div className="text-2xl font-bold text-primary">🏆</div>
+                    <div className="text-xs text-muted-foreground mt-1">Stats</div>
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <Button onClick={() => setLocation("/register")} size="lg">
+                    Create Account
+                  </Button>
+                  <Button onClick={() => setLocation("/login")} variant="outline" size="lg">
+                    Sign In
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+    );
   }
 
   const stats = statsData?.stats;
@@ -61,7 +100,6 @@ export default function Profile() {
   }));
 
   return (
-    <Layout>
       <div className="max-w-5xl mx-auto space-y-8">
         <div className="flex items-center gap-6 p-6 rounded-2xl bg-card border border-border">
           <Avatar className="w-24 h-24 border-4 border-background shadow-xl">
@@ -172,6 +210,7 @@ export default function Profile() {
               </div>
             ) : (
               <div className="text-center py-12 text-muted-foreground">
+                <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>No tests completed yet.</p>
                 <p className="text-sm mt-2">Start typing to see your results here!</p>
               </div>
@@ -179,6 +218,5 @@ export default function Profile() {
           </CardContent>
         </Card>
       </div>
-    </Layout>
   );
 }

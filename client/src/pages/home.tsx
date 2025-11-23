@@ -1,10 +1,8 @@
-import Layout from "@/components/layout";
 import TypingTest from "@/components/typing-test";
 import generatedImage from '@assets/generated_images/subtle_dark_geometric_pattern_background_for_typing_app.png';
 
 export default function Home() {
   return (
-    <Layout>
       <div className="relative">
          {/* Ambient Background */}
         <div className="fixed inset-0 z-[-1] opacity-20 pointer-events-none">
@@ -23,6 +21,5 @@ export default function Home() {
 
         <TypingTest />
       </div>
-    </Layout>
   );
 }

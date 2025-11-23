@@ -1,17 +1,21 @@
-import Layout from "@/components/layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Moon, Volume2, Keyboard, Type } from "lucide-react";
+import { Moon, Volume2, Keyboard } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 export default function Settings() {
+  const { user } = useAuth();
+
   return (
-    <Layout>
       <div className="max-w-2xl mx-auto space-y-8">
         <div className="space-y-2">
            <h1 className="text-3xl font-bold">Settings</h1>
-           <p className="text-muted-foreground">Customize your typing experience</p>
+           <p className="text-muted-foreground">
+             Customize your typing experience
+             {!user && " (Settings are saved locally on this device)"}
+           </p>
         </div>
 
         <div className="space-y-6">
@@ -117,6 +121,5 @@ export default function Settings() {
           </Card>
         </div>
       </div>
-    </Layout>
   );
 }
