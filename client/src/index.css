@@ -35,47 +35,9 @@
   --radius: 0.5rem;
 }
 
+/* Focus Flow Theme - Dark (Default) */
+:root.focus,
 :root {
-  /* Dark Theme Default - "Focus Flow" */
-  --background: 220 15% 10%; /* Deep Charcoal */
-  --foreground: 220 10% 90%; /* Off-white */
-  
-  --card: 220 15% 13%;
-  --card-foreground: 220 10% 90%;
-  
-  --popover: 220 15% 13%;
-  --popover-foreground: 220 10% 90%;
-  
-  --primary: 45 100% 50%; /* Cyber Amber */
-  --primary-foreground: 220 15% 10%;
-  
-  --secondary: 220 15% 20%;
-  --secondary-foreground: 220 10% 90%;
-  
-  --muted: 220 15% 20%;
-  --muted-foreground: 220 10% 60%;
-  
-  --accent: 220 15% 25%;
-  --accent-foreground: 45 100% 50%;
-  
-  --destructive: 0 85% 60%;
-  --destructive-foreground: 210 40% 98%;
-
-  --border: 220 15% 20%;
-  --input: 220 15% 20%;
-  --ring: 45 100% 50%;
-  
-  --radius: 0.5rem;
-  
-  --chart-1: 45 100% 50%;
-  --chart-2: 170 100% 50%;
-  --chart-3: 280 80% 60%;
-  --chart-4: 340 80% 60%;
-  --chart-5: 20 80% 60%;
-}
-
-.dark {
-  /* Same as root for now since we are dark-first */
   --background: 220 15% 10%;
   --foreground: 220 10% 90%;
   --card: 220 15% 13%;
@@ -90,11 +52,101 @@
   --muted-foreground: 220 10% 60%;
   --accent: 220 15% 25%;
   --accent-foreground: 45 100% 50%;
-  --destructive: 0 62.8% 30.6%;
+  --destructive: 0 85% 60%;
   --destructive-foreground: 210 40% 98%;
   --border: 220 15% 20%;
   --input: 220 15% 20%;
   --ring: 45 100% 50%;
+  --radius: 0.5rem;
+  --chart-1: 45 100% 50%;
+  --chart-2: 170 100% 50%;
+  --chart-3: 280 80% 60%;
+  --chart-4: 340 80% 60%;
+  --chart-5: 20 80% 60%;
+}
+
+/* Light Theme */
+:root.light {
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 98%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 45 93% 47%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 210 40% 96%;
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 85% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 45 93% 47%;
+  --chart-1: 45 93% 47%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 280 65% 60%;
+  --chart-4: 340 75% 55%;
+  --chart-5: 20 70% 50%;
+}
+
+/* Cyberpunk Theme */
+:root.cyber {
+  --background: 280 50% 5%;
+  --foreground: 310 100% 95%;
+  --card: 280 50% 8%;
+  --card-foreground: 310 100% 95%;
+  --popover: 280 50% 8%;
+  --popover-foreground: 310 100% 95%;
+  --primary: 310 100% 60%;
+  --primary-foreground: 280 50% 5%;
+  --secondary: 280 40% 15%;
+  --secondary-foreground: 310 100% 95%;
+  --muted: 280 40% 15%;
+  --muted-foreground: 310 50% 70%;
+  --accent: 180 100% 50%;
+  --accent-foreground: 280 50% 5%;
+  --destructive: 0 100% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 280 40% 20%;
+  --input: 280 40% 20%;
+  --ring: 310 100% 60%;
+  --chart-1: 310 100% 60%;
+  --chart-2: 180 100% 50%;
+  --chart-3: 45 100% 50%;
+  --chart-4: 120 100% 50%;
+  --chart-5: 0 100% 60%;
+}
+
+/* Retro Theme */
+:root.retro {
+  --background: 30 20% 15%;
+  --foreground: 40 70% 85%;
+  --card: 30 20% 18%;
+  --card-foreground: 40 70% 85%;
+  --popover: 30 20% 18%;
+  --popover-foreground: 40 70% 85%;
+  --primary: 25 95% 53%;
+  --primary-foreground: 30 20% 15%;
+  --secondary: 30 15% 25%;
+  --secondary-foreground: 40 70% 85%;
+  --muted: 30 15% 25%;
+  --muted-foreground: 40 40% 60%;
+  --accent: 160 70% 45%;
+  --accent-foreground: 30 20% 15%;
+  --destructive: 0 70% 55%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 30 15% 30%;
+  --input: 30 15% 30%;
+  --ring: 25 95% 53%;
+  --chart-1: 25 95% 53%;
+  --chart-2: 160 70% 45%;
+  --chart-3: 200 80% 50%;
+  --chart-4: 340 70% 55%;
+  --chart-5: 50 90% 55%;
 }
 
 @layer base {

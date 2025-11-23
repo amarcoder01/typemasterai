@@ -4,9 +4,11 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Moon, Volume2, Keyboard } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 
 export default function Settings() {
   const { user } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   return (
       <div className="max-w-2xl mx-auto space-y-8">
@@ -33,7 +35,7 @@ export default function Settings() {
                   <span>Theme</span>
                   <span className="font-normal text-xs text-muted-foreground">Select your preferred color scheme</span>
                 </Label>
-                <Select defaultValue="focus">
+                <Select value={theme} onValueChange={(value) => setTheme(value as any)}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Select theme" />
                   </SelectTrigger>
