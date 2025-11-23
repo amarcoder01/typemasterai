@@ -235,15 +235,19 @@ export function shouldPerformWebSearch(message: string): boolean {
     "guide",
   ];
 
+  const trimmedMessage = lowerMessage.trim();
   const hasSearchTrigger = searchTriggers.some((trigger) => lowerMessage.includes(trigger));
   
   const questionWords = ["what", "who", "when", "where", "why", "how", "which"];
-  const isQuestion = questionWords.some((word) => lowerMessage.startsWith(word)) || lowerMessage.includes("?");
+  const hasQuestionWord = questionWords.some((word) => trimmedMessage.startsWith(word + " ") || trimmedMessage === word);
+  
+  const hasQuestionMark = lowerMessage.includes("?");
+  const isRealQuestion = hasQuestionWord || (hasQuestionMark && trimmedMessage.length >= 10);
   
   const requestPhrases = ["give me", "show me", "can you", "could you", "i want", "i need"];
   const isRequest = requestPhrases.some((phrase) => lowerMessage.includes(phrase));
 
-  return hasSearchTrigger || (isQuestion && lowerMessage.length > 15) || isRequest;
+  return hasSearchTrigger || isRealQuestion || isRequest;
 }
 
 export interface ChatMessage {
