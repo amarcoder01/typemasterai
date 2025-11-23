@@ -47,9 +47,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               const isActive = location === item.href;
               return (
                 <Link key={item.href} href={item.href}>
-                  <a
+                  <div
                     className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-md transition-all duration-200 text-sm font-medium",
+                      "flex items-center gap-2 px-4 py-2 rounded-md transition-all duration-200 text-sm font-medium cursor-pointer",
                       isActive
                         ? "text-primary bg-primary/10"
                         : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -57,7 +57,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   >
                     <Icon className="w-4 h-4" />
                     <span className="hidden sm:inline">{item.label}</span>
-                  </a>
+                  </div>
                 </Link>
               );
             })}
@@ -90,18 +90,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             ) : (
               <div className="flex items-center gap-2 ml-2">
                 <Link href="/login">
-                  <a>
-                    <Button variant="ghost" size="sm" data-testid="button-nav-login">
-                      Sign In
-                    </Button>
-                  </a>
+                  <Button variant="ghost" size="sm" data-testid="button-nav-login">
+                    Sign In
+                  </Button>
                 </Link>
                 <Link href="/register">
-                  <a>
-                    <Button size="sm" data-testid="button-nav-register">
-                      Sign Up
-                    </Button>
-                  </a>
+                  <Button size="sm" data-testid="button-nav-register">
+                    Sign Up
+                  </Button>
                 </Link>
               </div>
             )}

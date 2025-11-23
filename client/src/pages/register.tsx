@@ -135,9 +135,14 @@ export default function Register() {
               </Button>
               <p className="text-sm text-center text-muted-foreground">
                 Already have an account?{" "}
-                <a href="/login" className="text-primary hover:underline" data-testid="link-login">
+                <button
+                  type="button"
+                  onClick={() => setLocation("/login")}
+                  className="text-primary hover:underline"
+                  data-testid="link-login"
+                >
                   Sign in
-                </a>
+                </button>
               </p>
             </CardFooter>
           </form>
