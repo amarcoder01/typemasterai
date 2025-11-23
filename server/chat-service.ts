@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import * as cheerio from "cheerio";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -10,41 +11,173 @@ interface BingSearchResult {
   snippet: string;
 }
 
-export async function performWebSearch(query: string): Promise<string> {
-  if (!process.env.BING_GROUNDING_KEY) {
-    return "Web search is not configured. Please add BING_GROUNDING_KEY to enable web search.";
+interface ScrapedData {
+  title: string;
+  content: string;
+  url: string;
+}
+
+async function scrapeWebPage(url: string): Promise<ScrapedData | null> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) return null;
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    $("script, style, nav, footer, iframe").remove();
+
+    const title = $("title").text() || $("h1").first().text();
+    const paragraphs = $("p")
+      .map((_, el) => $(el).text().trim())
+      .get()
+      .filter((text) => text.length > 50)
+      .slice(0, 5);
+
+    const content = paragraphs.join("\n\n");
+
+    return {
+      title: title.trim(),
+      content: content.substring(0, 2000),
+      url,
+    };
+  } catch (error) {
+    console.error(`Scraping error for ${url}:`, error);
+    return null;
+  }
+}
+
+async function tryBingSearch(query: string, apiKey: string): Promise<BingSearchResult[]> {
+  const response = await fetch(
+    `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=5&mkt=en-US`,
+    {
+      headers: {
+        "Ocp-Apim-Subscription-Key": apiKey,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Bing API error: ${response.status}`);
   }
 
+  const data = await response.json();
+  return data.webPages?.value || [];
+}
+
+export async function performWebSearch(query: string): Promise<string> {
+  const keys = [
+    process.env.BING_GROUNDING_KEY,
+    process.env.BING_GROUNDING_KEY_1,
+    process.env.BING_GROUNDING_KEY_2,
+  ].filter(Boolean);
+
+  if (keys.length === 0) {
+    return "⚠️ Web search is not configured. Please add BING_GROUNDING_KEY to enable web search.";
+  }
+
+  let results: BingSearchResult[] = [];
+  let lastError: Error | null = null;
+
+  for (const key of keys) {
+    try {
+      results = await tryBingSearch(query, key!);
+      if (results.length > 0) break;
+    } catch (error: any) {
+      lastError = error;
+      console.error(`Bing API failed with key ending in ...${key!.slice(-4)}:`, error.message);
+    }
+  }
+
+  if (results.length === 0 && lastError) {
+    console.log("Falling back to web scraping...");
+    return await performWebScraping(query);
+  }
+
+  if (results.length === 0) {
+    return "🔍 No search results found. Using AI knowledge only.";
+  }
+
+  let searchSummary = "**🌐 Web Search Results:**\n\n";
+  const scrapedContent: string[] = [];
+
+  for (let i = 0; i < Math.min(results.length, 3); i++) {
+    const result = results[i];
+    searchSummary += `${i + 1}. **[${result.name}](${result.url})**\n   ${result.snippet}\n\n`;
+
+    const scraped = await scrapeWebPage(result.url);
+    if (scraped && scraped.content) {
+      scrapedContent.push(
+        `**From ${scraped.title}:**\n${scraped.content.substring(0, 800)}`
+      );
+    }
+  }
+
+  if (scrapedContent.length > 0) {
+    searchSummary += "\n**📄 Detailed Content:**\n\n" + scrapedContent.join("\n\n---\n\n");
+  }
+
+  return searchSummary;
+}
+
+async function performWebScraping(query: string): Promise<string> {
   try {
-    const response = await fetch(
-      `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=5`,
-      {
-        headers: {
-          "Ocp-Apim-Subscription-Key": process.env.BING_GROUNDING_KEY,
-        },
-      }
-    );
+    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const response = await fetch(searchUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
 
     if (!response.ok) {
-      throw new Error(`Bing API error: ${response.status}`);
+      return "🔍 Web scraping failed. Using AI knowledge only.";
     }
 
-    const data = await response.json();
-    const results: BingSearchResult[] = data.webPages?.value || [];
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    const results: Array<{ title: string; url: string; snippet: string }> = [];
+
+    $(".result").each((i, elem) => {
+      if (i >= 5) return;
+
+      const title = $(elem).find(".result__a").text().trim();
+      const url = $(elem).find(".result__url").text().trim();
+      const snippet = $(elem).find(".result__snippet").text().trim();
+
+      if (title && url) {
+        results.push({ title, url: `https://${url}`, snippet });
+      }
+    });
 
     if (results.length === 0) {
-      return "No web search results found.";
+      return "🔍 No web results found. Using AI knowledge only.";
     }
 
-    let searchSummary = "**Web Search Results:**\n\n";
-    results.forEach((result, index) => {
-      searchSummary += `${index + 1}. **${result.name}**\n   ${result.snippet}\n   Source: ${result.url}\n\n`;
-    });
+    let searchSummary = "**🌐 Web Search Results (via scraping):**\n\n";
+
+    for (let i = 0; i < results.length; i++) {
+      const result = results[i];
+      searchSummary += `${i + 1}. **[${result.title}](${result.url})**\n   ${result.snippet}\n\n`;
+    }
+
+    const firstUrl = results[0].url;
+    const scraped = await scrapeWebPage(firstUrl);
+    if (scraped && scraped.content) {
+      searchSummary += `\n**📄 Content from ${scraped.title}:**\n\n${scraped.content}`;
+    }
 
     return searchSummary;
   } catch (error) {
-    console.error("Web search error:", error);
-    return "Web search failed. Using AI knowledge only.";
+    console.error("Web scraping error:", error);
+    return "🔍 Web scraping failed. Using AI knowledge only.";
   }
 }
 
@@ -56,7 +189,9 @@ export function shouldPerformWebSearch(message: string): boolean {
     "what is",
     "who is",
     "when did",
+    "where is",
     "how to",
+    "how do",
     "current",
     "latest",
     "recent",
@@ -64,6 +199,9 @@ export function shouldPerformWebSearch(message: string): boolean {
     "today",
     "2024",
     "2025",
+    "update",
+    "website",
+    "information about",
   ];
 
   const lowerMessage = message.toLowerCase();
@@ -102,11 +240,11 @@ export async function* streamChatCompletion(
 
 Guidelines:
 - Be helpful, accurate, and concise
-- When web search results are provided, cite your sources
+- When web search results are provided, cite your sources and synthesize the information
 - Use markdown formatting for better readability
 - If you don't know something current, acknowledge it
 - Be conversational but professional
-${searchResults ? `\n\nWeb search results have been provided above. Use them to answer the user's question with proper citations.` : ""}`,
+${searchResults ? `\n\nWeb search results have been provided above. Use them to answer the user's question comprehensively with proper citations.` : ""}`,
   };
 
   const allMessages = [systemMessage, ...messages];
