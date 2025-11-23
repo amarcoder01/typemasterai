@@ -12,6 +12,7 @@ import Profile from "@/pages/profile";
 import ProfileEdit from "@/pages/profile-edit";
 import Leaderboard from "@/pages/leaderboard";
 import Settings from "@/pages/settings";
+import Chat from "@/pages/chat";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
 
@@ -27,6 +28,7 @@ function Router() {
             <Route path="/profile" component={Profile} />
             <Route path="/profile/edit" component={ProfileEdit} />
             <Route path="/leaderboard" component={Leaderboard} />
+            <Route path="/chat" component={Chat} />
             <Route path="/settings" component={Settings} />
             <Route component={NotFound} />
           </Switch>

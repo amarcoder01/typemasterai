@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Keyboard, BarChart2, User, Settings, Trophy, LogOut } from "lucide-react";
+import { Keyboard, BarChart2, User, Settings, Trophy, LogOut, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +20,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", icon: Keyboard, label: "Type" },
     { href: "/leaderboard", icon: Trophy, label: "Leaderboard" },
+    { href: "/chat", icon: Sparkles, label: "AI Chat" },
     { href: "/profile", icon: User, label: "Profile" },
     { href: "/settings", icon: Settings, label: "Settings" },
   ];

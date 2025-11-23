@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { streamChatCompletion, shouldPerformWebSearch, type ChatMessage } from "./chat-service";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
@@ -301,6 +302,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Update profile error:", error);
       res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  app.post("/api/chat", async (req, res) => {
+    try {
+      const { messages } = req.body;
+
+      if (!messages || !Array.isArray(messages)) {
+        return res.status(400).json({ message: "Invalid request: messages array required" });
+      }
+
+      if (!process.env.OPENAI_API_KEY) {
+        return res.status(503).json({ message: "AI service not configured" });
+      }
+
+      const lastUserMessage = messages.filter((m: ChatMessage) => m.role === "user").pop();
+      const performSearch = lastUserMessage ? shouldPerformWebSearch(lastUserMessage.content) : false;
+
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      try {
+        for await (const chunk of streamChatCompletion(messages, performSearch)) {
+          res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+        }
+        res.write("data: [DONE]\n\n");
+        res.end();
+      } catch (streamError: any) {
+        console.error("Streaming error:", streamError);
+        res.write(`data: ${JSON.stringify({ error: streamError.message })}\n\n`);
+        res.end();
+      }
+    } catch (error: any) {
+      console.error("Chat API error:", error);
+      res.status(500).json({ message: "Chat service error" });
     }
   });
 
