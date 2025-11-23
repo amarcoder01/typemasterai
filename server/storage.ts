@@ -53,9 +53,9 @@ export interface IStorage {
   
   createConversation(conversation: InsertConversation): Promise<Conversation>;
   getUserConversations(userId: string): Promise<Conversation[]>;
-  getConversation(id: number): Promise<Conversation | undefined>;
-  updateConversation(id: number, data: Partial<Conversation>): Promise<Conversation>;
-  deleteConversation(id: number): Promise<void>;
+  getConversation(id: number, userId: string): Promise<Conversation | undefined>;
+  updateConversation(id: number, userId: string, data: Partial<Conversation>): Promise<Conversation | undefined>;
+  deleteConversation(id: number, userId: string): Promise<void>;
   
   createMessage(message: InsertMessage): Promise<Message>;
   getConversationMessages(conversationId: number): Promise<Message[]>;
@@ -162,26 +162,26 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(conversations.updatedAt));
   }
 
-  async getConversation(id: number): Promise<Conversation | undefined> {
+  async getConversation(id: number, userId: string): Promise<Conversation | undefined> {
     const result = await db
       .select()
       .from(conversations)
-      .where(eq(conversations.id, id))
+      .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
       .limit(1);
     return result[0];
   }
 
-  async updateConversation(id: number, data: Partial<Conversation>): Promise<Conversation> {
+  async updateConversation(id: number, userId: string, data: Partial<Conversation>): Promise<Conversation | undefined> {
     const result = await db
       .update(conversations)
       .set({ ...data, updatedAt: new Date() })
-      .where(eq(conversations.id, id))
+      .where(and(eq(conversations.id, id), eq(conversations.userId, userId)))
       .returning();
     return result[0];
   }
 
-  async deleteConversation(id: number): Promise<void> {
-    await db.delete(conversations).where(eq(conversations.id, id));
+  async deleteConversation(id: number, userId: string): Promise<void> {
+    await db.delete(conversations).where(and(eq(conversations.id, id), eq(conversations.userId, userId)));
   }
 
   async createMessage(message: InsertMessage): Promise<Message> {

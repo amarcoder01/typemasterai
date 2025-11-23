@@ -66,7 +66,7 @@ export type TestResult = typeof testResults.$inferSelect;
 
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
-  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   title: text("title").notNull().default("New Chat"),
   isPinned: integer("is_pinned").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),

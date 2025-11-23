@@ -336,7 +336,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/conversations/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const conversation = await storage.updateConversation(id, req.body);
+      const conversation = await storage.updateConversation(id, req.user!.id, req.body);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
       res.json({ conversation });
     } catch (error: any) {
       console.error("Update conversation error:", error);
@@ -347,7 +350,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/conversations/:id", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      await storage.deleteConversation(id);
+      const conversation = await storage.getConversation(id, req.user!.id);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      await storage.deleteConversation(id, req.user!.id);
       res.json({ message: "Conversation deleted" });
     } catch (error: any) {
       console.error("Delete conversation error:", error);
@@ -358,6 +365,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/conversations/:id/messages", isAuthenticated, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const conversation = await storage.getConversation(id, req.user!.id);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
       const messages = await storage.getConversationMessages(id);
       res.json({ messages });
     } catch (error: any) {
@@ -391,6 +402,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isPinned: 0,
         });
         convId = conversation.id;
+      } else {
+        const conversation = await storage.getConversation(convId, req.user!.id);
+        if (!conversation) {
+          return res.status(404).json({ message: "Conversation not found" });
+        }
       }
 
       await storage.createMessage({
