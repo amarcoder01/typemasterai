@@ -317,12 +317,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const difficulty = req.query.difficulty as string | undefined;
       const customPrompt = req.query.customPrompt as string | undefined;
       const generateIfMissing = req.query.generate === "true";
+      const forceGenerate = req.query.forceGenerate === "true";
       
       let paragraph: any = undefined;
       let isGenerated = false;
       
+      // If forceGenerate is true, always create new AI content
+      if (forceGenerate && mode) {
+        console.log(`🔄 Force generating new AI paragraph for ${language}/${mode}/${difficulty || 'medium'}`);
+        
+        try {
+          const content = await generateTypingParagraph(
+            language, 
+            mode, 
+            (difficulty as "easy" | "medium" | "hard") || "medium"
+          );
+          const wordCount = content.split(/\s+/).length;
+          
+          // Save to database
+          paragraph = await storage.createTypingParagraph({
+            language,
+            mode,
+            difficulty: (difficulty as "easy" | "medium" | "hard") || "medium",
+            content,
+            wordCount,
+          });
+          
+          isGenerated = true;
+          console.log(`✅ Force generated and saved new paragraph`);
+        } catch (aiError) {
+          console.error("❌ Force generation failed:", aiError);
+          // Continue to try other methods
+        }
+      }
+      
       // If custom prompt is provided, always generate with AI
-      if (customPrompt && customPrompt.trim()) {
+      if (!paragraph && customPrompt && customPrompt.trim()) {
         console.log(`🤖 Generating custom AI paragraph: "${customPrompt}"`);
         
         try {

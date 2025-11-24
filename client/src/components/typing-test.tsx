@@ -196,8 +196,40 @@ export default function TypingTest() {
   });
 
   const resetTest = useCallback(async () => {
-    // Fetch a fresh paragraph
-    await fetchParagraph();
+    // Fetch a fresh paragraph - always generate new content
+    try {
+      // Force AI generation for fresh content
+      const url = `/api/typing/paragraph?language=${language}&mode=${paragraphMode}&difficulty=${difficulty}&forceGenerate=true&t=${Date.now()}`;
+      
+      const response = await fetch(url, {
+        cache: 'no-store',
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const paragraphText = data.paragraph.content;
+        
+        // Calculate words needed and extend if necessary
+        const wordsNeeded = Math.ceil((mode / 60) * 50);
+        const currentWords = paragraphText.split(/\s+/).length;
+        
+        let extendedText = paragraphText;
+        if (currentWords < wordsNeeded) {
+          const repetitionsNeeded = Math.ceil(wordsNeeded / currentWords);
+          extendedText = Array(repetitionsNeeded).fill(paragraphText).join(" ");
+        }
+        
+        setText(extendedText);
+        setOriginalText(paragraphText);
+      } else {
+        // Fallback to regular fetch
+        await fetchParagraph();
+      }
+    } catch (error) {
+      console.error("Error in resetTest:", error);
+      await fetchParagraph();
+    }
+    
     setUserInput("");
     setOriginalText("");
     setStartTime(null);
@@ -208,7 +240,7 @@ export default function TypingTest() {
     setAccuracy(100);
     setShowAuthPrompt(false);
     setTimeout(() => inputRef.current?.focus(), 0);
-  }, [mode, fetchParagraph]);
+  }, [mode, language, paragraphMode, difficulty, fetchParagraph]);
 
   // Initial setup and when time mode changes
   useEffect(() => {
