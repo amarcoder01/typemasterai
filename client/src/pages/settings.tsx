@@ -38,11 +38,28 @@ export default function Settings() {
   const [soundEnabled, setSoundEnabled] = useState(false); // Disabled by default
   const [soundType, setSoundType] = useState<SoundType>('mechanical');
 
+  // Typing behavior settings state
+  const [smoothCaret, setSmoothCaret] = useState(true);
+  const [quickRestart, setQuickRestart] = useState(true);
+
   // Load sound settings on mount
   useEffect(() => {
     const settings = keyboardSound.getSettings();
     setSoundEnabled(settings.enabled);
     setSoundType(settings.soundType);
+  }, []);
+
+  // Load typing behavior settings on mount
+  useEffect(() => {
+    const smoothCaretSetting = localStorage.getItem('smoothCaret');
+    const quickRestartSetting = localStorage.getItem('quickRestart');
+    
+    if (smoothCaretSetting !== null) {
+      setSmoothCaret(smoothCaretSetting === 'true');
+    }
+    if (quickRestartSetting !== null) {
+      setQuickRestart(quickRestartSetting === 'true');
+    }
   }, []);
 
   const handleSoundEnabledChange = (enabled: boolean) => {
@@ -62,6 +79,24 @@ export default function Settings() {
     toast({
       title: "Sound Type Changed",
       description: `Switched to ${type} sound`,
+    });
+  };
+
+  const handleSmoothCaretChange = (enabled: boolean) => {
+    setSmoothCaret(enabled);
+    localStorage.setItem('smoothCaret', enabled.toString());
+    toast({
+      title: enabled ? "Smooth Caret Enabled" : "Smooth Caret Disabled",
+      description: enabled ? "Cursor will animate smoothly" : "Cursor will jump instantly",
+    });
+  };
+
+  const handleQuickRestartChange = (enabled: boolean) => {
+    setQuickRestart(enabled);
+    localStorage.setItem('quickRestart', enabled.toString());
+    toast({
+      title: enabled ? "Quick Restart Enabled" : "Quick Restart Disabled",
+      description: enabled ? "Press Tab to restart" : "Use the restart button",
     });
   };
 
@@ -275,7 +310,12 @@ export default function Settings() {
                   <span>Smooth Caret</span>
                   <span className="font-normal text-xs text-muted-foreground">Animate cursor movement</span>
                 </Label>
-                <Switch id="smooth-caret" defaultChecked />
+                <Switch
+                  id="smooth-caret"
+                  checked={smoothCaret}
+                  onCheckedChange={handleSmoothCaretChange}
+                  data-testid="switch-smooth-caret"
+                />
               </div>
 
               <div className="flex items-center justify-between">
@@ -283,7 +323,12 @@ export default function Settings() {
                   <span>Quick Restart</span>
                   <span className="font-normal text-xs text-muted-foreground">Press 'Tab' to restart test</span>
                 </Label>
-                <Switch id="quick-restart" defaultChecked />
+                <Switch
+                  id="quick-restart"
+                  checked={quickRestart}
+                  onCheckedChange={handleQuickRestartChange}
+                  data-testid="switch-quick-restart"
+                />
               </div>
             </CardContent>
           </Card>

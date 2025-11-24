@@ -92,9 +92,13 @@ export default function TypingTest() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
   const [testCompletionDate, setTestCompletionDate] = useState<Date>(new Date());
+  const [smoothCaret, setSmoothCaret] = useState(true);
+  const [quickRestart, setQuickRestart] = useState(true);
+  const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const charRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
   const { data: languagesData } = useQuery({
     queryKey: ["languages"],
@@ -395,6 +399,75 @@ export default function TypingTest() {
       setText(text + " " + originalText);
     }
   };
+
+  // Load typing behavior settings on mount
+  useEffect(() => {
+    const smoothCaretSetting = localStorage.getItem('smoothCaret');
+    const quickRestartSetting = localStorage.getItem('quickRestart');
+    
+    if (smoothCaretSetting !== null) {
+      setSmoothCaret(smoothCaretSetting === 'true');
+    }
+    if (quickRestartSetting !== null) {
+      setQuickRestart(quickRestartSetting === 'true');
+    }
+  }, []);
+
+  // Update cursor position based on typing progress and layout changes
+  const updateCursorPosition = useCallback(() => {
+    // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
+      const charElement = document.querySelector(`[data-char-index="${userInput.length}"]`) as HTMLElement;
+      if (charElement && containerRef.current) {
+        const charRect = charElement.getBoundingClientRect();
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const relativeLeft = charRect.left - containerRect.left;
+        const relativeTop = charRect.top - containerRect.top;
+        const height = charRect.height || 40; // Use actual height or fallback
+        setCursorPosition({ left: relativeLeft, top: relativeTop, height });
+      } else if (containerRef.current) {
+        // Fallback: get first character's height for proper sizing
+        const firstChar = document.querySelector(`[data-char-index="0"]`) as HTMLElement;
+        const height = firstChar?.getBoundingClientRect().height || 40;
+        setCursorPosition({ left: 0, top: 0, height });
+      }
+    });
+  }, [userInput.length]);
+
+  useEffect(() => {
+    updateCursorPosition();
+  }, [updateCursorPosition, text]);
+
+  // Recalculate cursor position on resize/layout changes
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateCursorPosition();
+    });
+
+    resizeObserver.observe(containerRef.current);
+    return () => resizeObserver.disconnect();
+  }, [updateCursorPosition]);
+
+  // Quick restart with Tab key (only when typing input is focused)
+  useEffect(() => {
+    if (!quickRestart) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only restart if Tab is pressed, no modifiers, and the typing input is focused
+      if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const activeElement = document.activeElement;
+        if (activeElement === inputRef.current) {
+          e.preventDefault();
+          resetTest();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [quickRestart, resetTest]);
 
   // Focus handling - only focus when clicking on the typing area
   useEffect(() => {
@@ -798,14 +871,28 @@ export default function TypingTest() {
           onClick={() => inputRef.current?.focus()}
         >
           {text.split("").map((char, index) => (
-            <span key={index} className={cn("relative", getCharClass(index))}>
-              {/* Cursor */}
-              {index === userInput.length && !isFinished && (
-                <span className="absolute -left-[1px] top-1 bottom-1 w-[2px] bg-primary animate-cursor-blink" />
-              )}
+            <span 
+              key={`${text.length}-${index}`}
+              data-char-index={index}
+              className={cn("relative", getCharClass(index))}
+            >
               {char}
             </span>
           ))}
+          {/* Single persistent cursor with smooth transitions */}
+          {!isFinished && (
+            <span 
+              className={cn(
+                "absolute w-[2px] bg-primary animate-cursor-blink pointer-events-none",
+                smoothCaret && "transition-all duration-100 ease-out"
+              )}
+              style={{ 
+                left: `${cursorPosition.left}px`,
+                top: `${cursorPosition.top}px`,
+                height: `${cursorPosition.height}px`
+              }}
+            />
+          )}
         </div>
         
         {/* Focus Overlay */}
