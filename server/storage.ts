@@ -8,6 +8,8 @@ import {
   messages,
   typingParagraphs,
   keystrokeAnalytics,
+  races,
+  raceParticipants,
   type User,
   type InsertUser,
   type TestResult,
@@ -20,6 +22,10 @@ import {
   type InsertTypingParagraph,
   type KeystrokeAnalytics,
   type InsertKeystrokeAnalytics,
+  type Race,
+  type InsertRace,
+  type RaceParticipant,
+  type InsertRaceParticipant,
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -100,6 +106,19 @@ export interface IStorage {
     bestStreak: number;
   }>;
   updateUserStreak(userId: string): Promise<void>;
+  
+  // Multiplayer Racing
+  createRace(race: InsertRace): Promise<Race>;
+  getRace(id: number): Promise<Race | undefined>;
+  getRaceByCode(roomCode: string): Promise<Race | undefined>;
+  updateRaceStatus(id: number, status: string, startedAt?: Date, finishedAt?: Date): Promise<void>;
+  getActiveRaces(): Promise<Race[]>;
+  
+  createRaceParticipant(participant: InsertRaceParticipant): Promise<RaceParticipant>;
+  getRaceParticipants(raceId: number): Promise<RaceParticipant[]>;
+  updateParticipantProgress(id: number, progress: number, wpm: number, accuracy: number, errors: number): Promise<void>;
+  finishParticipant(id: number, position: number): Promise<void>;
+  getRaceWithParticipants(raceId: number): Promise<{ race: Race; participants: RaceParticipant[] } | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -569,6 +588,76 @@ export class DatabaseStorage implements IStorage {
         lastTestDate: now,
       })
       .where(eq(users.id, userId));
+  }
+
+  // Multiplayer Racing Methods
+  async createRace(race: InsertRace): Promise<Race> {
+    const result = await db.insert(races).values(race).returning();
+    return result[0];
+  }
+
+  async getRace(id: number): Promise<Race | undefined> {
+    const result = await db.select().from(races).where(eq(races.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getRaceByCode(roomCode: string): Promise<Race | undefined> {
+    const result = await db.select().from(races).where(eq(races.roomCode, roomCode)).limit(1);
+    return result[0];
+  }
+
+  async updateRaceStatus(id: number, status: string, startedAt?: Date, finishedAt?: Date): Promise<void> {
+    const updateData: any = { status };
+    if (startedAt) updateData.startedAt = startedAt;
+    if (finishedAt) updateData.finishedAt = finishedAt;
+    await db.update(races).set(updateData).where(eq(races.id, id));
+  }
+
+  async getActiveRaces(): Promise<Race[]> {
+    return await db
+      .select()
+      .from(races)
+      .where(sql`${races.status} IN ('waiting', 'countdown', 'racing')`)
+      .orderBy(desc(races.createdAt));
+  }
+
+  async createRaceParticipant(participant: InsertRaceParticipant): Promise<RaceParticipant> {
+    const result = await db.insert(raceParticipants).values(participant).returning();
+    return result[0];
+  }
+
+  async getRaceParticipants(raceId: number): Promise<RaceParticipant[]> {
+    return await db
+      .select()
+      .from(raceParticipants)
+      .where(eq(raceParticipants.raceId, raceId))
+      .orderBy(raceParticipants.joinedAt);
+  }
+
+  async updateParticipantProgress(id: number, progress: number, wpm: number, accuracy: number, errors: number): Promise<void> {
+    await db
+      .update(raceParticipants)
+      .set({ progress, wpm, accuracy, errors })
+      .where(eq(raceParticipants.id, id));
+  }
+
+  async finishParticipant(id: number, position: number): Promise<void> {
+    await db
+      .update(raceParticipants)
+      .set({ 
+        isFinished: 1, 
+        finishPosition: position,
+        finishedAt: new Date()
+      })
+      .where(eq(raceParticipants.id, id));
+  }
+
+  async getRaceWithParticipants(raceId: number): Promise<{ race: Race; participants: RaceParticipant[] } | undefined> {
+    const race = await this.getRace(raceId);
+    if (!race) return undefined;
+
+    const participants = await this.getRaceParticipants(raceId);
+    return { race, participants };
   }
 }
 

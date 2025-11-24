@@ -13,6 +13,7 @@ import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "@neondatabase/serverless";
 import rateLimit from "express-rate-limit";
 import DOMPurify from "isomorphic-dompurify";
+import { raceWebSocket } from "./websocket";
 
 const PgSession = ConnectPgSimple(session);
 
@@ -784,7 +785,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Multiplayer Racing Routes
+  app.post("/api/races/quick-match", async (req, res) => {
+    try {
+      const user = req.user;
+      const username = user ? user.username : `Guest_${Math.random().toString(36).substring(2, 8)}`;
+      const avatarColor = user?.avatarColor || "bg-primary";
+
+      const activeRaces = await storage.getActiveRaces();
+      const availableRace = activeRaces.find(r => r.status === "waiting" && r.isPrivate === 0);
+
+      let race;
+      if (availableRace) {
+        race = availableRace;
+      } else {
+        const paragraph = await storage.getRandomParagraph("english", "quote");
+        if (!paragraph) {
+          return res.status(500).json({ message: "No paragraph available" });
+        }
+
+        const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        race = await storage.createRace({
+          roomCode,
+          status: "waiting",
+          paragraphId: paragraph.id,
+          paragraphContent: paragraph.content,
+          maxPlayers: 4,
+          isPrivate: 0,
+        });
+      }
+
+      const participant = await storage.createRaceParticipant({
+        raceId: race.id,
+        userId: user?.id,
+        guestName: user ? undefined : username,
+        username,
+        avatarColor,
+        progress: 0,
+        wpm: 0,
+        accuracy: 0,
+        errors: 0,
+        isFinished: 0,
+      });
+
+      res.json({ race, participant });
+    } catch (error: any) {
+      console.error("Quick match error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/races/create", async (req, res) => {
+    try {
+      const { isPrivate, maxPlayers } = req.body;
+      const user = req.user;
+      const username = user ? user.username : `Guest_${Math.random().toString(36).substring(2, 8)}`;
+      const avatarColor = user?.avatarColor || "bg-primary";
+
+      const paragraph = await storage.getRandomParagraph("english", "quote");
+      if (!paragraph) {
+        return res.status(500).json({ message: "No paragraph available" });
+      }
+
+      const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const race = await storage.createRace({
+        roomCode,
+        status: "waiting",
+        paragraphId: paragraph.id,
+        paragraphContent: paragraph.content,
+        maxPlayers: maxPlayers || 4,
+        isPrivate: isPrivate ? 1 : 0,
+      });
+
+      const participant = await storage.createRaceParticipant({
+        raceId: race.id,
+        userId: user?.id,
+        guestName: user ? undefined : username,
+        username,
+        avatarColor,
+        progress: 0,
+        wpm: 0,
+        accuracy: 0,
+        errors: 0,
+        isFinished: 0,
+      });
+
+      res.json({ race, participant });
+    } catch (error: any) {
+      console.error("Create race error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/races/join/:roomCode", async (req, res) => {
+    try {
+      const { roomCode } = req.params;
+      const user = req.user;
+      const username = user ? user.username : `Guest_${Math.random().toString(36).substring(2, 8)}`;
+      const avatarColor = user?.avatarColor || "bg-primary";
+
+      const race = await storage.getRaceByCode(roomCode.toUpperCase());
+      if (!race) {
+        return res.status(404).json({ message: "Race not found" });
+      }
+
+      if (race.status !== "waiting") {
+        return res.status(400).json({ message: "Race has already started" });
+      }
+
+      const participants = await storage.getRaceParticipants(race.id);
+      if (participants.length >= race.maxPlayers) {
+        return res.status(400).json({ message: "Race is full" });
+      }
+
+      const participant = await storage.createRaceParticipant({
+        raceId: race.id,
+        userId: user?.id,
+        guestName: user ? undefined : username,
+        username,
+        avatarColor,
+        progress: 0,
+        wpm: 0,
+        accuracy: 0,
+        errors: 0,
+        isFinished: 0,
+      });
+
+      res.json({ race, participant });
+    } catch (error: any) {
+      console.error("Join race error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/races/:id", async (req, res) => {
+    try {
+      const raceId = parseInt(req.params.id);
+      const raceData = await storage.getRaceWithParticipants(raceId);
+      
+      if (!raceData) {
+        return res.status(404).json({ message: "Race not found" });
+      }
+
+      res.json(raceData);
+    } catch (error: any) {
+      console.error("Get race error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/races/active", async (req, res) => {
+    try {
+      const activeRaces = await storage.getActiveRaces();
+      res.json(activeRaces);
+    } catch (error: any) {
+      console.error("Get active races error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   const httpServer = createServer(app);
+  
+  raceWebSocket.initialize(httpServer);
 
   return httpServer;
 }
