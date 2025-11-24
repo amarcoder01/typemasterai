@@ -75,3 +75,11 @@ Preferred communication style: Simple, everyday language.
 - **Name Rotation System**: Tracks recently used names and avoids repetition. Automatically refreshes pool in background when stock runs low, ensuring fresh opponents every race.
 - **Stealth Mode UI**: Removed all "bot" mentions from UI ("Start Race (Bots will join)" → "Start Race"). Users experience feels completely real with no exposure of AI opponents.
 - **Cost Optimization**: Reduced OpenAI API calls from ~100/day to ~1/day for 100 races, saving ~$0.95/day while maintaining realistic variety.
+
+### Direct Keyboard Typing System (November 24, 2025)
+- **Seamless Typing Experience**: Replaced visible Input component with hidden auto-focused input field that captures keystrokes automatically. Users simply start typing without clicking into a text box, matching modern typing test UX (MonkeyType, TypeRacer style).
+- **Multi-Language Support**: Implemented full IME/composition event handling (onCompositionStart/End) to support all 23+ languages including accented Latin characters (é, ñ, ü via dead keys) and CJK input (Chinese, Japanese, Korean via IME).
+- **Stale Closure Prevention**: Used refs (currentIndexRef, errorsRef, isComposingRef) to prevent React state closure issues during rapid typing, ensuring all characters are processed correctly even when typing very fast.
+- **Robust Error Handling**: Index always advances (whether character is correct or incorrect), allowing users to type through mistakes and complete the race. Accuracy clamped to 0-100% range to prevent negative values during edge cases (e.g., backspacing after errors).
+- **Backspace Support**: Users can press Backspace to move backward and retype characters, improving the typing experience and matching traditional typing test behavior.
+- **Visual Feedback**: Real-time paragraph display with green text (already typed), highlighted character (current), and gray text (remaining), providing clear visual guidance without any input field visible.

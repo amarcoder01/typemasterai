@@ -4,7 +4,6 @@ import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
 import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
@@ -43,12 +42,22 @@ export default function RacePage() {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isRacing, setIsRacing] = useState(false);
-  const [input, setInput] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [errors, setErrors] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const hiddenInputRef = useRef<HTMLInputElement>(null);
+  const currentIndexRef = useRef(0);
+  const errorsRef = useRef(0);
+  const isComposingRef = useRef(false);
+
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  useEffect(() => {
+    errorsRef.current = errors;
+  }, [errors]);
 
   useEffect(() => {
     if (!params?.id) return;
@@ -83,10 +92,76 @@ export default function RacePage() {
   }, [ws, myParticipant, race]);
 
   useEffect(() => {
-    if (isRacing && inputRef.current) {
-      inputRef.current.focus();
+    if (isRacing && hiddenInputRef.current) {
+      hiddenInputRef.current.focus();
     }
   }, [isRacing]);
+
+  function handleCompositionStart() {
+    isComposingRef.current = true;
+  }
+
+  function handleCompositionEnd(e: React.CompositionEvent<HTMLInputElement>) {
+    isComposingRef.current = false;
+    if (e.data) {
+      processInput(e.data);
+    }
+    if (hiddenInputRef.current) {
+      hiddenInputRef.current.value = '';
+    }
+  }
+
+  function handleTyping(e: React.FormEvent<HTMLInputElement>) {
+    if (!isRacing || !race || isComposingRef.current) return;
+
+    const input = e.currentTarget;
+    const value = input.value;
+
+    if (value.length === 0) return;
+
+    processInput(value);
+    input.value = '';
+  }
+
+  function processInput(value: string) {
+    if (!race) return;
+
+    let localIndex = currentIndexRef.current;
+    let localErrors = errorsRef.current;
+
+    for (let i = 0; i < value.length; i++) {
+      if (localIndex >= race.paragraphContent.length) {
+        break;
+      }
+
+      const typedChar = value[i];
+      const expectedChar = race.paragraphContent[localIndex];
+
+      if (typedChar !== expectedChar) {
+        localErrors++;
+      }
+
+      localIndex++;
+    }
+
+    currentIndexRef.current = localIndex;
+    errorsRef.current = localErrors;
+    setCurrentIndex(localIndex);
+    setErrors(localErrors);
+    updateProgress(localIndex, localErrors);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!isRacing) return;
+
+    if (e.key === 'Backspace' && currentIndexRef.current > 0) {
+      e.preventDefault();
+      const newIndex = currentIndexRef.current - 1;
+      currentIndexRef.current = newIndex;
+      setCurrentIndex(newIndex);
+      updateProgress(newIndex);
+    }
+  }
 
   useEffect(() => {
     if (race && myParticipant && currentIndex >= race.paragraphContent.length && !myParticipant.isFinished) {
@@ -209,28 +284,6 @@ export default function RacePage() {
     }
   }
 
-  function handleInput(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!isRacing || !race) return;
-
-    const value = e.target.value;
-    const expected = race.paragraphContent.substring(currentIndex, currentIndex + value.length);
-
-    if (value === expected) {
-      setInput(value);
-      
-      if (value.length === 1 && value === race.paragraphContent[currentIndex]) {
-        const newIndex = currentIndex + 1;
-        setCurrentIndex(newIndex);
-        setInput("");
-        
-        updateProgress(newIndex);
-      }
-    } else {
-      const newErrors = errors + 1;
-      setErrors(newErrors);
-      updateProgress(currentIndex, newErrors);
-    }
-  }
 
   function updateProgress(progress: number, errorCount = errors) {
     if (!myParticipant || !startTime || !race) return;
@@ -238,7 +291,8 @@ export default function RacePage() {
     const elapsedMinutes = (Date.now() - startTime) / 60000;
     const wordsTyped = progress / 5;
     const wpm = Math.round(wordsTyped / elapsedMinutes);
-    const accuracy = progress > 0 ? Math.round(((progress - errorCount) / progress) * 100) : 100;
+    const rawAccuracy = progress > 0 ? ((progress - errorCount) / progress) * 100 : 100;
+    const accuracy = Math.max(0, Math.min(100, Math.round(rawAccuracy)));
 
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
@@ -398,8 +452,8 @@ export default function RacePage() {
 
   if (race.status === "racing" || isRacing) {
     const textBefore = race.paragraphContent.substring(0, currentIndex);
-    const textCurrent = race.paragraphContent.substring(currentIndex, currentIndex + input.length + 1);
-    const textAfter = race.paragraphContent.substring(currentIndex + input.length + 1);
+    const textCurrent = race.paragraphContent[currentIndex] || "";
+    const textAfter = race.paragraphContent.substring(currentIndex + 1);
 
     return (
       <div className="min-h-screen bg-background">
@@ -458,21 +512,30 @@ export default function RacePage() {
 
             <Card>
               <CardContent className="pt-6">
-                <div className="text-2xl leading-relaxed mb-6 font-mono">
-                  <span className="text-muted-foreground">{textBefore}</span>
-                  <span className="bg-primary/20">{textCurrent}</span>
-                  <span>{textAfter}</span>
+                <div className="text-2xl leading-relaxed font-mono select-none" data-testid="text-paragraph">
+                  <span className="text-green-500">{textBefore}</span>
+                  <span className="bg-primary text-primary-foreground px-1">{textCurrent}</span>
+                  <span className="text-muted-foreground">{textAfter}</span>
                 </div>
-
-                <Input
-                  ref={inputRef}
+                {isRacing && (
+                  <p className="text-sm text-muted-foreground mt-4 text-center">
+                    Just start typing! Press Backspace to correct mistakes.
+                  </p>
+                )}
+                <input
+                  ref={hiddenInputRef}
                   type="text"
-                  value={input}
-                  onChange={handleInput}
-                  disabled={!isRacing}
-                  className="text-lg"
-                  autoFocus
+                  onInput={handleTyping}
+                  onKeyDown={handleKeyDown}
+                  onCompositionStart={handleCompositionStart}
+                  onCompositionEnd={handleCompositionEnd}
+                  className="absolute opacity-0 pointer-events-none"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
                   data-testid="input-typing"
+                  aria-label="Typing input"
                 />
               </CardContent>
             </Card>
