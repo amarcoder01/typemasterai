@@ -6,6 +6,7 @@ import {
   testResults,
   conversations,
   messages,
+  typingParagraphs,
   type User,
   type InsertUser,
   type TestResult,
@@ -14,6 +15,7 @@ import {
   type InsertConversation,
   type Message,
   type InsertMessage,
+  type TypingParagraph,
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -59,6 +61,10 @@ export interface IStorage {
   
   createMessage(message: InsertMessage): Promise<Message>;
   getConversationMessages(conversationId: number): Promise<Message[]>;
+  
+  getRandomParagraph(language: string, mode?: string): Promise<TypingParagraph | undefined>;
+  getAvailableLanguages(): Promise<string[]>;
+  getAvailableModes(): Promise<string[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -195,6 +201,36 @@ export class DatabaseStorage implements IStorage {
       .from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(messages.createdAt);
+  }
+
+  async getRandomParagraph(language: string, mode?: string): Promise<TypingParagraph | undefined> {
+    const conditions = mode 
+      ? and(eq(typingParagraphs.language, language), eq(typingParagraphs.mode, mode))
+      : eq(typingParagraphs.language, language);
+    
+    const paragraphs = await db
+      .select()
+      .from(typingParagraphs)
+      .where(conditions);
+    
+    if (paragraphs.length === 0) return undefined;
+    
+    const randomIndex = Math.floor(Math.random() * paragraphs.length);
+    return paragraphs[randomIndex];
+  }
+
+  async getAvailableLanguages(): Promise<string[]> {
+    const result = await db
+      .selectDistinct({ language: typingParagraphs.language })
+      .from(typingParagraphs);
+    return result.map(r => r.language);
+  }
+
+  async getAvailableModes(): Promise<string[]> {
+    const result = await db
+      .selectDistinct({ mode: typingParagraphs.mode })
+      .from(typingParagraphs);
+    return result.map(r => r.mode);
   }
 }
 

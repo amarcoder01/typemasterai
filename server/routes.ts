@@ -309,6 +309,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/typing/paragraph", async (req, res) => {
+    try {
+      const language = (req.query.language as string) || "en";
+      const mode = req.query.mode as string | undefined;
+      
+      const paragraph = await storage.getRandomParagraph(language, mode);
+      
+      if (!paragraph) {
+        return res.status(404).json({ message: "No paragraphs found for the specified criteria" });
+      }
+      
+      res.json({ paragraph });
+    } catch (error: any) {
+      console.error("Get paragraph error:", error);
+      res.status(500).json({ message: "Failed to fetch paragraph" });
+    }
+  });
+
+  app.get("/api/typing/languages", async (req, res) => {
+    try {
+      const languages = await storage.getAvailableLanguages();
+      res.json({ languages });
+    } catch (error: any) {
+      console.error("Get languages error:", error);
+      res.status(500).json({ message: "Failed to fetch languages" });
+    }
+  });
+
+  app.get("/api/typing/modes", async (req, res) => {
+    try {
+      const modes = await storage.getAvailableModes();
+      res.json({ modes });
+    } catch (error: any) {
+      console.error("Get modes error:", error);
+      res.status(500).json({ message: "Failed to fetch modes" });
+    }
+  });
+
   app.get("/api/conversations", isAuthenticated, async (req, res) => {
     try {
       const conversations = await storage.getUserConversations(req.user!.id);

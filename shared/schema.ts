@@ -100,3 +100,28 @@ export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
+
+export const typingParagraphs = pgTable("typing_paragraphs", {
+  id: serial("id").primaryKey(),
+  language: text("language").notNull(),
+  mode: text("mode").notNull(),
+  difficulty: text("difficulty").notNull().default("medium"),
+  content: text("content").notNull(),
+  wordCount: integer("word_count").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  languageIdx: index("paragraph_language_idx").on(table.language),
+  modeIdx: index("paragraph_mode_idx").on(table.mode),
+  languageModeIdx: index("paragraph_language_mode_idx").on(table.language, table.mode),
+}));
+
+export const insertTypingParagraphSchema = createInsertSchema(typingParagraphs, {
+  language: z.string().min(2).max(10),
+  mode: z.string().min(1),
+  difficulty: z.enum(["easy", "medium", "hard"]),
+  content: z.string().min(50),
+  wordCount: z.number().int().positive(),
+}).omit({ id: true, createdAt: true });
+
+export type InsertTypingParagraph = z.infer<typeof insertTypingParagraphSchema>;
+export type TypingParagraph = typeof typingParagraphs.$inferSelect;
