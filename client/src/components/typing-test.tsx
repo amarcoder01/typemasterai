@@ -196,6 +196,16 @@ export default function TypingTest() {
   });
 
   const resetTest = useCallback(async () => {
+    // Reset test state first
+    setUserInput("");
+    setStartTime(null);
+    setTimeLeft(mode);
+    setIsActive(false);
+    setIsFinished(false);
+    setWpm(0);
+    setAccuracy(100);
+    setShowAuthPrompt(false);
+    
     // Fetch a fresh paragraph - always generate new content
     try {
       // Force AI generation for fresh content
@@ -230,15 +240,6 @@ export default function TypingTest() {
       await fetchParagraph();
     }
     
-    setUserInput("");
-    setOriginalText("");
-    setStartTime(null);
-    setTimeLeft(mode);
-    setIsActive(false);
-    setIsFinished(false);
-    setWpm(0);
-    setAccuracy(100);
-    setShowAuthPrompt(false);
     setTimeout(() => inputRef.current?.focus(), 0);
   }, [mode, language, paragraphMode, difficulty, fetchParagraph]);
 
