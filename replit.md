@@ -2,11 +2,27 @@
 
 ## Overview
 
-TypeFlow is a high-performance typing test web application built with a modern full-stack architecture. The application allows users to test their typing speed and accuracy, track their progress over time, and compete on a global leaderboard. It features real-time analytics, multiple test modes (15s, 30s, 60s, 120s), multi-language support (23 languages including English, Spanish, French, German, Italian, Portuguese, Japanese, Chinese, Hindi, Russian, Arabic, Korean, Marathi, Bengali, Tamil, Telugu, Vietnamese, Turkish, Polish, Dutch, Swedish, Thai, and Indonesian), diverse paragraph modes (8+ categories), user authentication with AI chat assistant, and comprehensive progress tracking with visual charts.
+TypeFlow is a high-performance typing test web application built with a modern full-stack architecture. The application allows users to test their typing speed and accuracy, track their progress over time, and compete on a global leaderboard. It features real-time analytics, multiple test modes (15s, 30s, 60s, 120s), multi-language support (23 languages including English, Spanish, French, German, Italian, Portuguese, Japanese, Chinese, Hindi, Russian, Arabic, Korean, Marathi, Bengali, Tamil, Telugu, Vietnamese, Turkish, Polish, Dutch, Swedish, Thai, and Indonesian), diverse paragraph modes (8+ categories), user authentication with AI chat assistant, comprehensive progress tracking with visual charts, and AI-powered content generation with real-time loading states and user feedback.
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+
+## Recent Changes
+
+### November 24, 2025 - Enhanced UX with Loading States
+- **Loading States for AI Generation**: Added comprehensive loading indicators for "New Paragraph" and "AI Custom Content" features
+  - Buttons show "Generating..." text with spinning icon during AI generation
+  - Buttons and inputs disabled during generation to prevent conflicts
+  - Visual feedback through button styling changes (dimmed appearance when disabled)
+- **Success Notifications**: Implemented toast notifications for generation lifecycle
+  - Start: "🤖 Generating New Paragraph..." / "🤖 Generating Custom Content..."
+  - Success: "✨ New Paragraph Ready!" / "✨ Custom Content Ready!"
+  - Error: "❌ Generation Failed" with fallback messages
+- **Cache-Busting Implementation**: Added timestamp-based cache busting and no-cache headers to ensure fresh content on each request
+- **AI Prompt Fix**: Resolved contradictory AI prompt that caused refusal messages for English language generation
+- **Database Cleanup**: Removed invalid refusal message paragraphs from database
+- **Force Generation**: "New Paragraph" button now always generates fresh AI content instead of database lookup (forceGenerate=true parameter)
 
 ## System Architecture
 
@@ -32,6 +48,9 @@ Preferred communication style: Simple, everyday language.
 - Framer Motion for smooth animations and transitions (note: dependency removed but imports still present in code)
 - Canvas Confetti for celebratory effects on test completion
 - Custom Tailwind animations via `tw-animate-css`
+- Real-time loading states with spinning icon animations for AI content generation
+- Toast notifications for generation progress (loading, success, error states)
+- Disabled UI states during asynchronous operations to prevent user conflicts
 
 ### Backend Architecture
 
