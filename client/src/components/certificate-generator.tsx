@@ -129,14 +129,37 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date }: Ce
     });
     ctx.fillText(`Completed on ${formattedDate}`, canvas.width / 2, 680);
 
-    // TypeMasterAI branding
+    // Logo/Seal placeholder (decorative circle)
+    ctx.beginPath();
+    ctx.arc(100, 100, 50, 0, Math.PI * 2);
+    ctx.strokeStyle = "#00ffff";
+    ctx.lineWidth = 3;
+    ctx.stroke();
     ctx.fillStyle = "#00ffff";
     ctx.font = "bold 32px 'DM Sans', sans-serif";
-    ctx.fillText("TypeMasterAI", canvas.width / 2, 740);
+    ctx.textAlign = "center";
+    ctx.fillText("TM", 100, 110);
+
+    // TypeMasterAI branding
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#00ffff";
+    ctx.font = "bold 36px 'DM Sans', sans-serif";
+    ctx.fillText("TypeMasterAI", canvas.width / 2, 730);
     
     ctx.fillStyle = "#64748b";
-    ctx.font = "16px 'DM Sans', sans-serif";
-    ctx.fillText("Master Your Typing with AI", canvas.width / 2, 765);
+    ctx.font = "18px 'DM Sans', sans-serif";
+    ctx.fillText("Master Your Typing with AI", canvas.width / 2, 760);
+
+    // Signature line
+    ctx.strokeStyle = "#475569";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(canvas.width - 350, 750);
+    ctx.lineTo(canvas.width - 150, 750);
+    ctx.stroke();
+    ctx.fillStyle = "#64748b";
+    ctx.font = "12px 'DM Sans', sans-serif";
+    ctx.fillText("Certified by TypeMasterAI", canvas.width - 250, 765);
   };
 
   const downloadCertificate = () => {
