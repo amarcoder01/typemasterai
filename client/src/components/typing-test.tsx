@@ -68,6 +68,7 @@ export default function TypingTest() {
   const [language, setLanguage] = useState("en");
   const [paragraphMode, setParagraphMode] = useState<string>("general");
   const [text, setText] = useState("");
+  const [originalText, setOriginalText] = useState(""); // Store original paragraph for repeating
   const [userInput, setUserInput] = useState("");
   const [startTime, setStartTime] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(mode);
@@ -107,7 +108,22 @@ export default function TypingTest() {
         throw new Error("Failed to fetch paragraph");
       }
       const data = await response.json();
-      setText(data.paragraph.content);
+      const paragraphText = data.paragraph.content;
+      
+      // Calculate how many words needed for the selected time
+      // Average typing speed is ~40 WPM, so multiply mode (seconds) by expected WPM/60
+      const wordsNeeded = Math.ceil((mode / 60) * 50); // 50 WPM as baseline
+      const currentWords = paragraphText.split(/\s+/).length;
+      
+      // If paragraph is too short for the time mode, repeat it
+      let extendedText = paragraphText;
+      if (currentWords < wordsNeeded) {
+        const repetitionsNeeded = Math.ceil(wordsNeeded / currentWords);
+        extendedText = Array(repetitionsNeeded).fill(paragraphText).join(" ");
+      }
+      
+      setText(extendedText);
+      setOriginalText(paragraphText);
       
       // Notify user if fallback was used
       if (data.fallbackUsed) {
@@ -165,6 +181,7 @@ export default function TypingTest() {
   const resetTest = useCallback(() => {
     fetchParagraph();
     setUserInput("");
+    setOriginalText("");
     setStartTime(null);
     setTimeLeft(mode);
     setIsActive(false);
@@ -179,6 +196,7 @@ export default function TypingTest() {
   useEffect(() => {
     fetchParagraph();
     setUserInput("");
+    setOriginalText("");
     setStartTime(null);
     setTimeLeft(mode);
     setIsActive(false);
@@ -193,6 +211,7 @@ export default function TypingTest() {
     if (text) {
       fetchParagraph();
       setUserInput("");
+      setOriginalText("");
       setStartTime(null);
       setIsActive(false);
       setIsFinished(false);
@@ -263,8 +282,10 @@ export default function TypingTest() {
 
     setUserInput(value);
 
-    // Auto-scroll cursor into view if needed (simplified)
-    // Ideally we'd calculate line height and scroll container
+    // If approaching end of text and time still remaining, extend the paragraph
+    if (value.length >= text.length - 20 && timeLeft > 5 && originalText) {
+      setText(text + " " + originalText);
+    }
   };
 
   // Focus handling - only focus when clicking on the typing area
