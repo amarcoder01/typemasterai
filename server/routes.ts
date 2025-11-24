@@ -317,10 +317,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paragraph = await storage.getRandomParagraph(language, mode);
       
       if (!paragraph) {
-        return res.status(404).json({ message: "No paragraphs found for the specified criteria" });
+        return res.status(500).json({ message: "No paragraphs available in database" });
       }
       
-      res.json({ paragraph });
+      res.json({ 
+        paragraph,
+        fallbackUsed: paragraph.language !== language || (mode && paragraph.mode !== mode)
+      });
     } catch (error: any) {
       console.error("Get paragraph error:", error);
       res.status(500).json({ message: "Failed to fetch paragraph" });
