@@ -105,11 +105,11 @@ export default function Settings() {
   };
 
   const changePasswordMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (data: { currentPassword: string; newPassword: string }) => {
       const response = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword }),
+        body: JSON.stringify(data),
       });
       
       if (!response.ok) {
@@ -171,6 +171,16 @@ export default function Settings() {
   const getPasswordStrength = (password: string) => {
     if (password.length === 0) return { strength: 0, label: '', color: '' };
     
+    // Must meet minimum requirements to even start calculating strength
+    const meetsMinimum = password.length >= 8 && 
+                        /[A-Z]/.test(password) && 
+                        /[a-z]/.test(password) && 
+                        /\d/.test(password);
+    
+    if (!meetsMinimum) {
+      return { strength: 0, label: 'Weak', color: 'text-destructive' };
+    }
+    
     let strength = 0;
     if (password.length >= 8) strength++;
     if (password.length >= 12) strength++;
@@ -222,7 +232,42 @@ export default function Settings() {
   };
 
   const handleChangePassword = () => {
-    const errors = validatePassword();
+    // Capture values at the moment of submission to avoid race conditions
+    const currentPwd = currentPassword;
+    const newPwd = newPassword;
+    const confirmPwd = confirmPassword;
+    
+    // Re-validate with frozen values
+    const errors: string[] = [];
+    
+    if (!currentPwd) {
+      errors.push("Current password is required");
+    }
+    
+    if (!newPwd) {
+      errors.push("New password is required");
+    } else {
+      if (newPwd.length < 8) {
+        errors.push("Password must be at least 8 characters");
+      }
+      if (!/[A-Z]/.test(newPwd)) {
+        errors.push("Password must contain at least one uppercase letter");
+      }
+      if (!/[a-z]/.test(newPwd)) {
+        errors.push("Password must contain at least one lowercase letter");
+      }
+      if (!/\d/.test(newPwd)) {
+        errors.push("Password must contain at least one number");
+      }
+    }
+    
+    if (newPwd && confirmPwd && newPwd !== confirmPwd) {
+      errors.push("Passwords do not match");
+    }
+    
+    if (newPwd && currentPwd && newPwd === currentPwd) {
+      errors.push("New password must be different from current password");
+    }
     
     if (errors.length > 0) {
       toast({
@@ -233,7 +278,8 @@ export default function Settings() {
       return;
     }
     
-    changePasswordMutation.mutate();
+    // Submit with frozen values
+    changePasswordMutation.mutate({ currentPassword: currentPwd, newPassword: newPwd });
   };
 
   return (
@@ -416,6 +462,7 @@ export default function Settings() {
                           data-testid="input-current-password"
                           placeholder="Enter your current password"
                           className="pr-10"
+                          autoComplete="current-password"
                         />
                         <button
                           type="button"
@@ -440,6 +487,7 @@ export default function Settings() {
                           data-testid="input-new-password"
                           placeholder="Enter new password"
                           className="pr-10"
+                          autoComplete="new-password"
                         />
                         <button
                           type="button"
@@ -542,6 +590,7 @@ export default function Settings() {
                           data-testid="input-confirm-password"
                           placeholder="Re-enter new password"
                           className="pr-10"
+                          autoComplete="new-password"
                         />
                         <button
                           type="button"

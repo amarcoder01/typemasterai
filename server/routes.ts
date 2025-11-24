@@ -426,8 +426,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Current password and new password are required" });
       }
 
+      // Comprehensive password validation
       if (newPassword.length < 8) {
-        return res.status(400).json({ message: "New password must be at least 8 characters" });
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      }
+
+      if (!/[A-Z]/.test(newPassword)) {
+        return res.status(400).json({ message: "Password must contain at least one uppercase letter" });
+      }
+
+      if (!/[a-z]/.test(newPassword)) {
+        return res.status(400).json({ message: "Password must contain at least one lowercase letter" });
+      }
+
+      if (!/\d/.test(newPassword)) {
+        return res.status(400).json({ message: "Password must contain at least one number" });
       }
 
       const user = await storage.getUser(req.user!.id);
@@ -438,6 +451,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isValidPassword = await bcrypt.compare(currentPassword, user.password);
       if (!isValidPassword) {
         return res.status(401).json({ message: "Current password is incorrect" });
+      }
+
+      // Ensure new password is different from current password
+      const isSameAsOld = await bcrypt.compare(newPassword, user.password);
+      if (isSameAsOld) {
+        return res.status(400).json({ message: "New password must be different from current password" });
       }
 
       const hashedPassword = await bcrypt.hash(newPassword, 10);
