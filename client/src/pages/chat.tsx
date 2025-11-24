@@ -29,6 +29,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Message {
   role: "user" | "assistant";
@@ -230,6 +236,7 @@ export default function Chat() {
   const { today, yesterday, lastWeek, older } = groupedConversations();
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="fixed inset-0 top-16 flex z-40">
       {/* Sidebar - ChatGPT Dark Style */}
       <div
@@ -242,24 +249,38 @@ export default function Chat() {
           <>
             {/* Top header with collapse and new chat icons */}
             <div className="flex items-center justify-between p-2 border-b border-zinc-800/50">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-lg hover:bg-zinc-800/50 text-zinc-300"
-                onClick={() => setSidebarOpen(false)}
-                data-testid="button-close-sidebar"
-              >
-                <PanelLeft className="w-5 h-5" />
-              </Button>
-              <Button
-                onClick={() => createConversationMutation.mutate()}
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-lg hover:bg-zinc-800/50 text-zinc-300"
-                data-testid="button-new-chat-icon"
-              >
-                <SquarePen className="w-5 h-5" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 rounded-lg hover:bg-zinc-800/50 text-zinc-300"
+                    onClick={() => setSidebarOpen(false)}
+                    data-testid="button-close-sidebar"
+                  >
+                    <PanelLeft className="w-5 h-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>Close sidebar</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={() => createConversationMutation.mutate()}
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 rounded-lg hover:bg-zinc-800/50 text-zinc-300"
+                    data-testid="button-new-chat-icon"
+                  >
+                    <SquarePen className="w-5 h-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>New chat</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
 
             {/* New Chat Button */}
@@ -347,15 +368,22 @@ export default function Chat() {
 
       {/* Open Sidebar Button - Only when closed */}
       {!sidebarOpen && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute left-2 top-2 z-50 h-8 w-8 rounded-full hover:bg-zinc-800/50"
-          onClick={() => setSidebarOpen(true)}
-          data-testid="button-open-sidebar"
-        >
-          <ChevronRight className="w-4 h-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute left-2 top-2 z-50 h-8 w-8 rounded-full hover:bg-zinc-800/50"
+              onClick={() => setSidebarOpen(true)}
+              data-testid="button-open-sidebar"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>Open sidebar</p>
+          </TooltipContent>
+        </Tooltip>
       )}
 
       {/* Main Chat Area */}
@@ -649,15 +677,22 @@ export default function Chat() {
         <div className="border-t border-border bg-background">
           <div className="max-w-3xl mx-auto px-4 py-6">
             <div className="relative bg-background border border-border rounded-3xl shadow-sm hover:shadow-md transition-shadow">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="absolute left-3 bottom-3 h-10 w-10 rounded-lg hover:bg-muted text-muted-foreground"
-                disabled={isLoading}
-                data-testid="button-attach-file"
-              >
-                <Paperclip className="w-5 h-5" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute left-3 bottom-3 h-10 w-10 rounded-lg hover:bg-muted text-muted-foreground"
+                    disabled={isLoading}
+                    data-testid="button-attach-file"
+                  >
+                    <Paperclip className="w-5 h-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Attach files</p>
+                </TooltipContent>
+              </Tooltip>
               <Textarea
                 ref={textareaRef}
                 value={input}
@@ -668,24 +703,31 @@ export default function Chat() {
                 disabled={isLoading}
                 data-testid="input-chat-message"
               />
-              <Button
-                onClick={sendMessage}
-                disabled={isLoading || !input.trim()}
-                size="icon"
-                className={cn(
-                  "absolute right-3 bottom-3 h-10 w-10 rounded-full transition-all",
-                  input.trim() && !isLoading 
-                    ? "bg-foreground hover:bg-foreground/90 text-background" 
-                    : "bg-muted text-muted-foreground cursor-not-allowed"
-                )}
-                data-testid="button-send-message"
-              >
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={sendMessage}
+                    disabled={isLoading || !input.trim()}
+                    size="icon"
+                    className={cn(
+                      "absolute right-3 bottom-3 h-10 w-10 rounded-full transition-all",
+                      input.trim() && !isLoading 
+                        ? "bg-foreground hover:bg-foreground/90 text-background" 
+                        : "bg-muted text-muted-foreground cursor-not-allowed"
+                    )}
+                    data-testid="button-send-message"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>{isLoading ? 'Sending...' : 'Send message'}</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
             <p className="text-xs text-muted-foreground text-center mt-3">
               AI can make mistakes. Verify important information.
@@ -694,6 +736,7 @@ export default function Chat() {
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
 
