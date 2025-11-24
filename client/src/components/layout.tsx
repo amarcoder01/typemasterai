@@ -20,6 +20,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { href: "/", icon: Keyboard, label: "Type" },
     { href: "/leaderboard", icon: Trophy, label: "Leaderboard" },
+    { href: "/analytics", icon: BarChart2, label: "Analytics" },
     { href: "/chat", icon: Sparkles, label: "AI Chat" },
     { href: "/profile", icon: User, label: "Profile" },
     { href: "/settings", icon: Settings, label: "Settings" },

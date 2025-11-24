@@ -125,3 +125,30 @@ export const insertTypingParagraphSchema = createInsertSchema(typingParagraphs, 
 
 export type InsertTypingParagraph = z.infer<typeof insertTypingParagraphSchema>;
 export type TypingParagraph = typeof typingParagraphs.$inferSelect;
+
+export const keystrokeAnalytics = pgTable("keystroke_analytics", {
+  id: serial("id").primaryKey(),
+  testResultId: integer("test_result_id").notNull().references(() => testResults.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  expectedKey: text("expected_key").notNull(),
+  typedKey: text("typed_key").notNull(),
+  isCorrect: integer("is_correct").notNull(),
+  position: integer("position").notNull(),
+  timestamp: integer("timestamp").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("keystroke_user_id_idx").on(table.userId),
+  testResultIdIdx: index("keystroke_test_result_id_idx").on(table.testResultId),
+  expectedKeyIdx: index("keystroke_expected_key_idx").on(table.expectedKey),
+}));
+
+export const insertKeystrokeAnalyticsSchema = createInsertSchema(keystrokeAnalytics, {
+  expectedKey: z.string().min(1),
+  typedKey: z.string().min(1),
+  isCorrect: z.number().int().min(0).max(1),
+  position: z.number().int().min(0),
+  timestamp: z.number().int().min(0),
+}).omit({ id: true, createdAt: true });
+
+export type InsertKeystrokeAnalytics = z.infer<typeof insertKeystrokeAnalyticsSchema>;
+export type KeystrokeAnalytics = typeof keystrokeAnalytics.$inferSelect;

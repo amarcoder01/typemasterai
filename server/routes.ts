@@ -7,7 +7,7 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
-import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, type User } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, type User } from "@shared/schema";
 import { fromError } from "zod-validation-error";
 import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "@neondatabase/serverless";
@@ -313,6 +313,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Get leaderboard error:", error);
       res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  app.get("/api/analytics", isAuthenticated, async (req, res) => {
+    try {
+      const days = req.query.days ? parseInt(req.query.days as string) : 30;
+      const analytics = await storage.getUserAnalytics(req.user!.id, days);
+      res.json({ analytics });
+    } catch (error: any) {
+      console.error("Analytics fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  app.post("/api/analytics/keystrokes", isAuthenticated, async (req, res) => {
+    try {
+      const { testResultId, keystrokes } = req.body;
+      
+      if (!testResultId || !Array.isArray(keystrokes) || keystrokes.length === 0) {
+        return res.status(400).json({ message: "Invalid request: testResultId and keystrokes array required" });
+      }
+
+      // Verify test result belongs to authenticated user
+      const ownsTest = await storage.verifyTestResultOwnership(testResultId, req.user!.id);
+      
+      if (!ownsTest) {
+        return res.status(403).json({ message: "Unauthorized: test result does not belong to user" });
+      }
+
+      // Validate and sanitize each keystroke, injecting server-side userId and testResultId
+      const validatedKeystrokes = [];
+      for (const keystroke of keystrokes) {
+        const parsed = insertKeystrokeAnalyticsSchema.safeParse({
+          ...keystroke,
+          userId: req.user!.id,
+          testResultId: testResultId,
+        });
+
+        if (!parsed.success) {
+          return res.status(400).json({
+            message: "Keystroke validation failed",
+            errors: fromError(parsed.error).toString(),
+          });
+        }
+
+        validatedKeystrokes.push(parsed.data);
+      }
+
+      await storage.saveBulkKeystrokeAnalytics(validatedKeystrokes);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Keystroke analytics save error:", error);
+      res.status(500).json({ message: "Failed to save keystroke analytics" });
     }
   });
 

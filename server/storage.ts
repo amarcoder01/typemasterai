@@ -7,6 +7,7 @@ import {
   conversations,
   messages,
   typingParagraphs,
+  keystrokeAnalytics,
   type User,
   type InsertUser,
   type TestResult,
@@ -17,6 +18,8 @@ import {
   type InsertMessage,
   type TypingParagraph,
   type InsertTypingParagraph,
+  type KeystrokeAnalytics,
+  type InsertKeystrokeAnalytics,
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -42,6 +45,7 @@ export interface IStorage {
   
   createTestResult(result: InsertTestResult): Promise<TestResult>;
   getUserTestResults(userId: string, limit?: number): Promise<TestResult[]>;
+  verifyTestResultOwnership(testResultId: number, userId: string): Promise<boolean>;
   getUserStats(userId: string): Promise<{
     totalTests: number;
     bestWpm: number;
@@ -73,6 +77,20 @@ export interface IStorage {
   getAvailableLanguages(): Promise<string[]>;
   getAvailableModes(): Promise<string[]>;
   createTypingParagraph(paragraph: InsertTypingParagraph): Promise<TypingParagraph>;
+  
+  saveKeystrokeAnalytics(keystroke: InsertKeystrokeAnalytics): Promise<KeystrokeAnalytics>;
+  saveBulkKeystrokeAnalytics(keystrokes: InsertKeystrokeAnalytics[]): Promise<void>;
+  getUserAnalytics(userId: string, days?: number): Promise<{
+    wpmOverTime: Array<{ date: string; wpm: number; accuracy: number; testCount: number }>;
+    mistakesHeatmap: Array<{ key: string; errorCount: number; totalCount: number; errorRate: number }>;
+    consistency: {
+      avgWpm: number;
+      stdDeviation: number;
+      minWpm: number;
+      maxWpm: number;
+    };
+    commonMistakes: Array<{ expectedKey: string; typedKey: string; count: number }>;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -128,6 +146,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(testResults.userId, userId))
       .orderBy(desc(testResults.createdAt))
       .limit(limit);
+  }
+
+  async verifyTestResultOwnership(testResultId: number, userId: string): Promise<boolean> {
+    const result = await db
+      .select({ id: testResults.id })
+      .from(testResults)
+      .where(and(eq(testResults.id, testResultId), eq(testResults.userId, userId)))
+      .limit(1);
+    
+    return result.length > 0;
   }
 
   async getUserStats(userId: string): Promise<{
@@ -347,6 +375,120 @@ export class DatabaseStorage implements IStorage {
   async createTypingParagraph(paragraph: InsertTypingParagraph): Promise<TypingParagraph> {
     const result = await db.insert(typingParagraphs).values(paragraph).returning();
     return result[0];
+  }
+
+  async saveKeystrokeAnalytics(keystroke: InsertKeystrokeAnalytics): Promise<KeystrokeAnalytics> {
+    const result = await db.insert(keystrokeAnalytics).values(keystroke).returning();
+    return result[0];
+  }
+
+  async saveBulkKeystrokeAnalytics(keystrokes: InsertKeystrokeAnalytics[]): Promise<void> {
+    if (keystrokes.length === 0) return;
+    await db.insert(keystrokeAnalytics).values(keystrokes);
+  }
+
+  async getUserAnalytics(userId: string, days: number = 30): Promise<{
+    wpmOverTime: Array<{ date: string; wpm: number; accuracy: number; testCount: number }>;
+    mistakesHeatmap: Array<{ key: string; errorCount: number; totalCount: number; errorRate: number }>;
+    consistency: {
+      avgWpm: number;
+      stdDeviation: number;
+      minWpm: number;
+      maxWpm: number;
+    };
+    commonMistakes: Array<{ expectedKey: string; typedKey: string; count: number }>;
+  }> {
+    // Get WPM over time (grouped by date)
+    const wpmDataQuery = await db.execute(sql`
+      SELECT 
+        DATE(created_at) as date,
+        AVG(wpm)::int as wpm,
+        AVG(accuracy)::numeric(5,2) as accuracy,
+        COUNT(*)::int as test_count
+      FROM test_results
+      WHERE user_id = ${userId}
+        AND created_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+      GROUP BY DATE(created_at)
+      ORDER BY date ASC
+    `);
+    
+    const wpmOverTime = wpmDataQuery.rows.map((row: any) => ({
+      date: row.date,
+      wpm: Number(row.wpm),
+      accuracy: Number(row.accuracy),
+      testCount: Number(row.test_count),
+    }));
+
+    // Get mistakes heatmap (errors per key)
+    const heatmapQuery = await db.execute(sql`
+      SELECT 
+        expected_key as key,
+        COUNT(CASE WHEN is_correct = 0 THEN 1 END)::int as error_count,
+        COUNT(*)::int as total_count,
+        (COUNT(CASE WHEN is_correct = 0 THEN 1 END)::float / NULLIF(COUNT(*), 0) * 100)::numeric(5,2) as error_rate
+      FROM keystroke_analytics
+      WHERE user_id = ${userId}
+        AND created_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+      GROUP BY expected_key
+      HAVING COUNT(CASE WHEN is_correct = 0 THEN 1 END) > 0
+      ORDER BY error_count DESC
+      LIMIT 50
+    `);
+
+    const mistakesHeatmap = heatmapQuery.rows.map((row: any) => ({
+      key: row.key,
+      errorCount: Number(row.error_count),
+      totalCount: Number(row.total_count),
+      errorRate: Number(row.error_rate),
+    }));
+
+    // Get consistency metrics
+    const consistencyQuery = await db.execute(sql`
+      SELECT 
+        AVG(wpm)::numeric(10,2) as avg_wpm,
+        STDDEV(wpm)::numeric(10,2) as std_deviation,
+        MIN(wpm)::int as min_wpm,
+        MAX(wpm)::int as max_wpm
+      FROM test_results
+      WHERE user_id = ${userId}
+        AND created_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+    `);
+
+    const consistencyData = consistencyQuery.rows[0] as any;
+    const consistency = {
+      avgWpm: Number(consistencyData?.avg_wpm || 0),
+      stdDeviation: Number(consistencyData?.std_deviation || 0),
+      minWpm: Number(consistencyData?.min_wpm || 0),
+      maxWpm: Number(consistencyData?.max_wpm || 0),
+    };
+
+    // Get common mistakes (expected key vs typed key)
+    const mistakesQuery = await db.execute(sql`
+      SELECT 
+        expected_key,
+        typed_key,
+        COUNT(*)::int as count
+      FROM keystroke_analytics
+      WHERE user_id = ${userId}
+        AND is_correct = 0
+        AND created_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+      GROUP BY expected_key, typed_key
+      ORDER BY count DESC
+      LIMIT 20
+    `);
+
+    const commonMistakes = mistakesQuery.rows.map((row: any) => ({
+      expectedKey: row.expected_key,
+      typedKey: row.typed_key,
+      count: Number(row.count),
+    }));
+
+    return {
+      wpmOverTime,
+      mistakesHeatmap,
+      consistency,
+      commonMistakes,
+    };
   }
 }
 

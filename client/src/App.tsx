@@ -16,6 +16,7 @@ import Settings from "@/pages/settings";
 import Chat from "@/pages/chat";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import Analytics from "@/pages/analytics";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import TermsOfService from "@/pages/terms-of-service";
 import CookiePolicy from "@/pages/cookie-policy";
@@ -34,6 +35,7 @@ function Router() {
             <Route path="/profile" component={Profile} />
             <Route path="/profile/edit" component={ProfileEdit} />
             <Route path="/leaderboard" component={Leaderboard} />
+            <Route path="/analytics" component={Analytics} />
             <Route path="/chat" component={Chat} />
             <Route path="/settings" component={Settings} />
             <Route path="/privacy-policy" component={PrivacyPolicy} />
