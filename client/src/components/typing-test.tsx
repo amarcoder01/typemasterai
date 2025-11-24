@@ -24,6 +24,17 @@ const LANGUAGE_NAMES: Record<string, string> = {
   ru: "Russian",
   ar: "Arabic",
   ko: "Korean",
+  mr: "Marathi",
+  bn: "Bengali",
+  ta: "Tamil",
+  te: "Telugu",
+  vi: "Vietnamese",
+  tr: "Turkish",
+  pl: "Polish",
+  nl: "Dutch",
+  sv: "Swedish",
+  th: "Thai",
+  id: "Indonesian",
 };
 
 const MODE_NAMES: Record<string, string> = {

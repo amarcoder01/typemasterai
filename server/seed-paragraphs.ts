@@ -400,6 +400,210 @@ const paragraphsData = [
     wordCount: 24,
   },
 
+  // MARATHI - General
+  {
+    language: "mr",
+    mode: "general",
+    difficulty: "easy",
+    content: "नमस्कार! आज हवामान खूप छान आहे. महाराष्ट्र ही भारतातील एक महत्त्वाची राज्य आहे. मराठी भाषा खूप समृद्ध आणि सुंदर आहे.",
+    wordCount: 24,
+  },
+  {
+    language: "mr",
+    mode: "general",
+    difficulty: "medium",
+    content: "तंत्रज्ञान आपल्या जीवनात मोठे बदल घडवून आणत आहे. संगणक आणि स्मार्टफोन आता आपल्या दैनंदिन जीवनाचा भाग बनले आहेत. शिक्षण आणि माहिती मिळवणे आता खूप सोपे झाले आहे.",
+    wordCount: 30,
+  },
+  {
+    language: "mr",
+    mode: "technical",
+    difficulty: "medium",
+    content: "कृत्रिम बुद्धिमत्ता हे आधुनिक तंत्रज्ञानाचे एक महत्त्वाचे क्षेत्र आहे. मशीन लर्निंग अल्गोरिदम मोठ्या प्रमाणात डेटा विश्लेषण करू शकतात. या तंत्रज्ञानाचा उपयोग आरोग्य, वित्त आणि उत्पादन क्षेत्रात होत आहे.",
+    wordCount: 32,
+  },
+
+  // BENGALI - General
+  {
+    language: "bn",
+    mode: "general",
+    difficulty: "easy",
+    content: "নমস্কার! আজ আবহাওয়া খুব ভালো। বাংলাদেশ এবং ভারতে বাংলা ভাষা প্রচলিত। বাংলা সাহিত্য অত্যন্ত সমৃদ্ধ এবং সুন্দর।",
+    wordCount: 22,
+  },
+  {
+    language: "bn",
+    mode: "general",
+    difficulty: "medium",
+    content: "প্রযুক্তি আমাদের জীবনে বিপ্লব এনেছে। কম্পিউটার এবং স্মার্টফোন এখন দৈনন্দিন জীবনের অংশ। ইন্টারনেট তথ্য এবং যোগাযোগকে সহজ করেছে।",
+    wordCount: 24,
+  },
+
+  // TAMIL - General
+  {
+    language: "ta",
+    mode: "general",
+    difficulty: "easy",
+    content: "வணக்கம்! இன்று வானிலை மிகவும் நன்றாக உள்ளது. தமிழ் மொழி மிகவும் பழமையான மொழிகளில் ஒன்று. தமிழ் இலக்கியம் மிகவும் சிறப்பானது.",
+    wordCount: 24,
+  },
+  {
+    language: "ta",
+    mode: "general",
+    difficulty: "medium",
+    content: "தொழில்நுட்பம் நமது வாழ்க்கையில் பெரிய மாற்றங்களை ஏற்படுத்தியுள்ளது. கணினிகள் மற்றும் ஸ்மார்ட்போன்கள் இப்போது அன்றாட வாழ்வின் பகுதியாக உள்ளன. தகவல் மற்றும் தொடர்பு இப்போது மிகவும் எளிதாக உள்ளது.",
+    wordCount: 28,
+  },
+
+  // TELUGU - General
+  {
+    language: "te",
+    mode: "general",
+    difficulty: "easy",
+    content: "నమస్కారం! ఈరోజు వాతావరణం చాలా బాగుంది. తెలుగు భాష చాలా మధురమైనది. తెలుగు సాహిత్యం చాలా గొప్పది.",
+    wordCount: 18,
+  },
+  {
+    language: "te",
+    mode: "general",
+    difficulty: "medium",
+    content: "సాంకేతికత మన జీవితాలలో పెద్ద మార్పులను తెచ్చింది. కంప్యూటర్లు మరియు స్మార్ట్‌ఫోన్‌లు ఇప్పుడు రోజువారీ జీవితంలో భాగం. సమాచారం మరియు కమ్యూనికేషన్ ఇప్పుడు చాలా సులభం.",
+    wordCount: 22,
+  },
+
+  // VIETNAMESE - General
+  {
+    language: "vi",
+    mode: "general",
+    difficulty: "easy",
+    content: "Xin chào! Hôm nay thời tiết rất đẹp. Việt Nam là một đất nước xinh đẹp với văn hóa phong phú. Người Việt Nam rất thân thiện và hiếu khách.",
+    wordCount: 29,
+  },
+  {
+    language: "vi",
+    mode: "general",
+    difficulty: "medium",
+    content: "Công nghệ đang thay đổi cuộc sống của chúng ta. Máy tính và điện thoại thông minh đã trở thành một phần không thể thiếu. Internet giúp kết nối mọi người trên toàn thế giới.",
+    wordCount: 34,
+  },
+  {
+    language: "vi",
+    mode: "technical",
+    difficulty: "medium",
+    content: "Trí tuệ nhân tạo đang cách mạng hóa nhiều ngành công nghiệp. Các thuật toán học máy có thể phân tích lượng dữ liệu lớn. Công nghệ này được ứng dụng trong y tế, tài chính và sản xuất.",
+    wordCount: 35,
+  },
+
+  // TURKISH - General
+  {
+    language: "tr",
+    mode: "general",
+    difficulty: "easy",
+    content: "Merhaba! Bugün hava çok güzel. Türkiye güzel bir ülkedir ve zengin bir tarihe sahiptir. Türk mutfağı dünyada çok ünlüdür.",
+    wordCount: 22,
+  },
+  {
+    language: "tr",
+    mode: "general",
+    difficulty: "medium",
+    content: "Teknoloji hayatımızı değiştiriyor. Bilgisayarlar ve akıllı telefonlar artık günlük yaşamımızın bir parçası. İnternet bilgiye erişimi kolaylaştırdı ve dünyayı birbirine bağladı.",
+    wordCount: 23,
+  },
+  {
+    language: "tr",
+    mode: "technical",
+    difficulty: "medium",
+    content: "Yapay zeka modern teknolojinin önemli bir alanıdır. Makine öğrenmesi algoritmaları büyük veri kümelerini analiz edebilir. Bu teknoloji sağlık, finans ve üretim sektörlerinde kullanılmaktadır.",
+    wordCount: 24,
+  },
+
+  // POLISH - General
+  {
+    language: "pl",
+    mode: "general",
+    difficulty: "easy",
+    content: "Cześć! Dzisiaj pogoda jest bardzo ładna. Polska jest pięknym krajem z bogatą historią. Polska kuchnia jest bardzo smaczna i różnorodna.",
+    wordCount: 23,
+  },
+  {
+    language: "pl",
+    mode: "general",
+    difficulty: "medium",
+    content: "Technologia zmienia nasze życie. Komputery i smartfony stały się częścią codzienności. Internet ułatwił dostęp do informacji i połączył ludzi na całym świecie.",
+    wordCount: 23,
+  },
+
+  // DUTCH - General
+  {
+    language: "nl",
+    mode: "general",
+    difficulty: "easy",
+    content: "Hallo! Het weer is vandaag heel mooi. Nederland is een prachtig land met rijke geschiedenis. De Nederlandse cultuur is zeer divers en interessant.",
+    wordCount: 25,
+  },
+  {
+    language: "nl",
+    mode: "general",
+    difficulty: "medium",
+    content: "Technologie verandert ons leven. Computers en smartphones zijn nu deel van het dagelijks leven. Internet heeft toegang tot informatie vergemakkelijkt en de wereld verbonden.",
+    wordCount: 26,
+  },
+
+  // SWEDISH - General
+  {
+    language: "sv",
+    mode: "general",
+    difficulty: "easy",
+    content: "Hej! Vädret är mycket fint idag. Sverige är ett vackert land med rik historia. Svensk kultur är mycket intressant och mångsidig.",
+    wordCount: 23,
+  },
+  {
+    language: "sv",
+    mode: "general",
+    difficulty: "medium",
+    content: "Teknologi förändrar våra liv. Datorer och smartphones har blivit en del av vardagen. Internet har gjort det lättare att få tillgång till information och förbundit världen.",
+    wordCount: 28,
+  },
+
+  // THAI - General
+  {
+    language: "th",
+    mode: "general",
+    difficulty: "easy",
+    content: "สวัสดีครับ! วันนี้อากาศดีมาก ประเทศไทยเป็นประเทศที่สวยงาม วัฒนธรรมไทยมีความหลากหลายและน่าสนใจ",
+    wordCount: 16,
+  },
+  {
+    language: "th",
+    mode: "general",
+    difficulty: "medium",
+    content: "เทคโนโลยีกำลังเปลี่ยนแปลงชีวิตของเรา คอมพิวเตอร์และสมาร์ทโฟนกลายเป็นส่วนหนึ่งของชีวิตประจำวัน อินเทอร์เน็ตทำให้การเข้าถึงข้อมูลง่ายขึ้นและเชื่อมโยงโลก",
+    wordCount: 20,
+  },
+
+  // INDONESIAN - General
+  {
+    language: "id",
+    mode: "general",
+    difficulty: "easy",
+    content: "Halo! Cuaca hari ini sangat bagus. Indonesia adalah negara yang indah dengan budaya yang kaya. Makanan Indonesia sangat lezat dan beragam.",
+    wordCount: 24,
+  },
+  {
+    language: "id",
+    mode: "general",
+    difficulty: "medium",
+    content: "Teknologi mengubah kehidupan kita. Komputer dan smartphone telah menjadi bagian dari kehidupan sehari-hari. Internet memudahkan akses informasi dan menghubungkan dunia.",
+    wordCount: 22,
+  },
+  {
+    language: "id",
+    mode: "technical",
+    difficulty: "medium",
+    content: "Kecerdasan buatan adalah bidang penting dalam teknologi modern. Algoritma pembelajaran mesin dapat menganalisis data dalam jumlah besar. Teknologi ini digunakan dalam kesehatan, keuangan, dan manufaktur.",
+    wordCount: 27,
+  },
+
   // ENGLISH - News
   {
     language: "en",
