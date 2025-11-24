@@ -134,13 +134,34 @@ export default function TypingTest() {
     setWpm(0);
     setAccuracy(100);
     setShowAuthPrompt(false);
-    inputRef.current?.focus();
+    setTimeout(() => inputRef.current?.focus(), 0);
   }, [mode, language, paragraphMode]);
 
-  // Initial setup
+  // Initial setup and when time mode changes
   useEffect(() => {
-    resetTest();
-  }, [resetTest]);
+    fetchParagraph();
+    setUserInput("");
+    setStartTime(null);
+    setTimeLeft(mode);
+    setIsActive(false);
+    setIsFinished(false);
+    setWpm(0);
+    setAccuracy(100);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, [mode]);
+
+  // Fetch new paragraph when language or paragraph mode changes
+  useEffect(() => {
+    if (text) {
+      fetchParagraph();
+      setUserInput("");
+      setStartTime(null);
+      setIsActive(false);
+      setIsFinished(false);
+      setWpm(0);
+      setAccuracy(100);
+    }
+  }, [language, paragraphMode]);
 
   // Timer logic
   useEffect(() => {
