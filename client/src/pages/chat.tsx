@@ -504,9 +504,91 @@ export default function Chat() {
                               pre: ({node, ...props}) => (
                                 <pre className="my-4 bg-muted/40 rounded-lg border border-border/40 overflow-hidden" {...props} />
                               ),
-                              blockquote: ({node, ...props}) => (
-                                <blockquote className="border-l-4 border-primary/50 pl-4 py-2 my-4 bg-primary/5 rounded-r-lg italic text-foreground/80" {...props} />
-                              ),
+                              blockquote: ({node, children, ...props}) => {
+                                // Extract text content from children for admonition detection
+                                const extractText = (children: any): string => {
+                                  if (typeof children === 'string') return children;
+                                  if (Array.isArray(children)) {
+                                    return children.map(extractText).join('');
+                                  }
+                                  if (children?.props?.children) {
+                                    return extractText(children.props.children);
+                                  }
+                                  return '';
+                                };
+                                
+                                const text = extractText(children).trim().toLowerCase();
+                                
+                                // Check for admonition markers at the START of the blockquote
+                                const notePattern = /^(\*\*note:?\*\*|ℹ️|📘|\*\*info:?\*\*|note:|info:)/i;
+                                
+                                if (notePattern.test(text)) {
+                                  return (
+                                    <blockquote className="border-l-4 border-blue-500 pl-4 py-3 my-4 bg-blue-500/10 rounded-r-lg text-foreground" {...props}>
+                                      <div className="flex items-start gap-2">
+                                        <span className="text-blue-500 text-lg flex-shrink-0 mt-0.5">ℹ️</span>
+                                        <div className="flex-1">{children}</div>
+                                      </div>
+                                    </blockquote>
+                                  );
+                                }
+                                
+                                const warningPattern = /^(\*\*warning:?\*\*|⚠️|\*\*caution:?\*\*|warning:|caution:)/i;
+                                const successPattern = /^(\*\*success:?\*\*|✅|✓|\*\*done:?\*\*|success:|done:)/i;
+                                const dangerPattern = /^(\*\*danger:?\*\*|❌|\*\*error:?\*\*|\*\*critical:?\*\*|danger:|error:|critical:)/i;
+                                const tipPattern = /^(\*\*tip:?\*\*|💡|\*\*hint:?\*\*|tip:|hint:)/i;
+                                
+                                if (warningPattern.test(text)) {
+                                  return (
+                                    <blockquote className="border-l-4 border-yellow-500 pl-4 py-3 my-4 bg-yellow-500/10 rounded-r-lg text-foreground" {...props}>
+                                      <div className="flex items-start gap-2">
+                                        <span className="text-yellow-500 text-lg flex-shrink-0 mt-0.5">⚠️</span>
+                                        <div className="flex-1">{children}</div>
+                                      </div>
+                                    </blockquote>
+                                  );
+                                }
+                                
+                                if (successPattern.test(text)) {
+                                  return (
+                                    <blockquote className="border-l-4 border-green-500 pl-4 py-3 my-4 bg-green-500/10 rounded-r-lg text-foreground" {...props}>
+                                      <div className="flex items-start gap-2">
+                                        <span className="text-green-500 text-lg flex-shrink-0 mt-0.5">✅</span>
+                                        <div className="flex-1">{children}</div>
+                                      </div>
+                                    </blockquote>
+                                  );
+                                }
+                                
+                                if (dangerPattern.test(text)) {
+                                  return (
+                                    <blockquote className="border-l-4 border-red-500 pl-4 py-3 my-4 bg-red-500/10 rounded-r-lg text-foreground" {...props}>
+                                      <div className="flex items-start gap-2">
+                                        <span className="text-red-500 text-lg flex-shrink-0 mt-0.5">❌</span>
+                                        <div className="flex-1">{children}</div>
+                                      </div>
+                                    </blockquote>
+                                  );
+                                }
+                                
+                                if (tipPattern.test(text)) {
+                                  return (
+                                    <blockquote className="border-l-4 border-purple-500 pl-4 py-3 my-4 bg-purple-500/10 rounded-r-lg text-foreground" {...props}>
+                                      <div className="flex items-start gap-2">
+                                        <span className="text-purple-500 text-lg flex-shrink-0 mt-0.5">💡</span>
+                                        <div className="flex-1">{children}</div>
+                                      </div>
+                                    </blockquote>
+                                  );
+                                }
+                                
+                                // Default blockquote (for sources and general quotes)
+                                return (
+                                  <blockquote className="border-l-4 border-primary/50 pl-4 py-3 my-4 bg-primary/5 rounded-r-lg text-foreground/90" {...props}>
+                                    {children}
+                                  </blockquote>
+                                );
+                              },
                               strong: ({node, ...props}) => (
                                 <strong className="font-semibold text-foreground" {...props} />
                               ),

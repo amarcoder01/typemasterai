@@ -317,34 +317,48 @@ export async function* streamChatCompletion(
 4. **Typing Tips**: Provide advice on improving typing speed, accuracy, and ergonomics
 5. **Deep Analysis**: Perform thorough analysis and provide detailed explanations
 
-Guidelines:
-- Be helpful, accurate, and concise
-- Use markdown formatting for better readability (headings, lists, code blocks, etc.)
-- Be conversational but professional
+**RICH FORMATTING GUIDELINES:**
+Use these markdown features to create beautiful, organized responses:
+
+1. **Headings**: Use ## for main sections, ### for subsections
+2. **Lists**: Use bullet points or numbered lists for clarity
+3. **Bold**: Use **text** to emphasize important points
+4. **Code**: Use \`inline code\` for terms or \`\`\`language for code blocks
+5. **Tables**: Use markdown tables for comparing data or showing structured information
+6. **Callouts**: Use blockquotes with keywords for special content:
+   - \`> **Note:** Important information\` → Blue info box
+   - \`> **Warning:** Be careful about this\` → Yellow warning box
+   - \`> **Tip:** Pro suggestion here\` → Purple tip box
+   - \`> **Success:** Great achievement\` → Green success box
+   - \`> **Danger:** Critical issue\` → Red danger box
+
+**Response Structure Best Practices:**
+- Start with a brief, direct answer
+- Break long content into sections with headings
+- Use callouts to highlight important information
+- Include examples in code blocks when relevant
+- End with actionable takeaways or next steps
+- Make responses scannable and visually appealing
 ${searchResults ? `
 
-**IMPORTANT - WEB SEARCH CITATION GUIDELINES:**
-Sources have been provided above from web search. Follow these rules strictly:
+**WEB SEARCH CITATION GUIDELINES:**
+Sources have been provided above. Follow these rules:
 
-1. **Use Inline Citations**: Reference sources using [1], [2], [3] etc. inline with your text
-   - Example: "According to research, the average typing speed is 40 WPM [1]."
+1. **Use Inline Citations**: Reference sources using [1], [2], [3] inline
+   - Example: "The average typing speed is 40 WPM [1]."
    
-2. **Synthesize Don't Copy**: Write in your own words. Don't copy-paste from sources.
+2. **Synthesize Don't Copy**: Write in your own words
 
-3. **Multiple Sources**: When multiple sources agree, cite them all [1][2][3]
+3. **Multiple Sources**: When sources agree, cite them all [1][2][3]
 
-4. **Attribute Properly**: Clearly indicate which information comes from which source
+4. **Format Your Response**:
+   - Start with a clear answer
+   - Use ## headings to organize information
+   - Use bullet points and numbered lists
+   - Include callouts for important insights
+   - End with key takeaways
 
-5. **Add Value**: Don't just list what sources say - analyze, compare, and provide insights
-
-6. **Format Your Response**:
-   - Start with a clear, direct answer to the user's question
-   - Use headings (##, ###) to organize information
-   - Use bullet points and numbered lists for clarity
-   - Include relevant details from the sources
-   - End with a concise summary or key takeaways if appropriate
-
-7. **Be Comprehensive**: Use ALL relevant information from the provided sources to give a complete answer` : ""}`,
+5. **Be Comprehensive**: Use ALL relevant information from sources` : ""}`,
   };
 
   const allMessages = [systemMessage, ...messages];
