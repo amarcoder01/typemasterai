@@ -94,11 +94,24 @@ export default function TypingTest() {
       }
       const data = await response.json();
       setText(data.paragraph.content);
+      
+      // Notify user if fallback was used
+      if (data.fallbackUsed) {
+        const requestedLang = LANGUAGE_NAMES[language] || language;
+        const deliveredLang = LANGUAGE_NAMES[data.paragraph.language] || data.paragraph.language;
+        const deliveredMode = MODE_NAMES[data.paragraph.mode] || data.paragraph.mode;
+        
+        toast({
+          title: "Content adjusted",
+          description: `${requestedLang} ${MODE_NAMES[paragraphMode] || paragraphMode} not available. Showing ${deliveredLang} ${deliveredMode} instead.`,
+          variant: "default",
+        });
+      }
     } catch (error) {
       console.error("Error fetching paragraph:", error);
       setText(generateText(100));
       toast({
-        title: "Using fallback text",
+        title: "Using random text",
         description: "Could not load paragraph from database.",
         variant: "default",
       });
@@ -270,6 +283,10 @@ export default function TypingTest() {
   const availableLanguages = languagesData?.languages || ["en"];
   const availableModes = modesData?.modes || ["general"];
 
+  // RTL languages that need right-to-left direction
+  const rtlLanguages = ["ar", "he"];
+  const isRTL = rtlLanguages.includes(language);
+
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
       {/* Language & Mode Selectors */}
@@ -365,6 +382,8 @@ export default function TypingTest() {
         {/* Visual Text Display */}
         <div 
           ref={containerRef}
+          lang={language}
+          dir={isRTL ? "rtl" : "ltr"}
           className={cn(
             "w-full h-full p-8 text-2xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300",
             !isActive && !isFinished && "blur-[1px] opacity-70 group-hover:blur-0 group-hover:opacity-100"
