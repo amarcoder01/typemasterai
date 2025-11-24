@@ -228,7 +228,7 @@ export default function Chat() {
   const { today, yesterday, lastWeek, older } = groupedConversations();
 
   return (
-    <div className="fixed inset-0 top-16 flex">
+    <div className="fixed inset-0 top-16 flex z-40">
       {/* Sidebar - ChatGPT Dark Style */}
       <div
         className={cn(
