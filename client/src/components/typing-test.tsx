@@ -109,7 +109,7 @@ export default function TypingTest() {
     },
   });
 
-  const fetchParagraph = async (useCustomPrompt = false) => {
+  const fetchParagraph = useCallback(async (useCustomPrompt = false) => {
     try {
       // Try with AI generation enabled
       let url = `/api/typing/paragraph?language=${language}&mode=${paragraphMode}&difficulty=${difficulty}&generate=true`;
@@ -161,7 +161,7 @@ export default function TypingTest() {
         variant: "default",
       });
     }
-  };
+  }, [language, paragraphMode, difficulty, customPrompt, mode, toast]);
 
   const saveResultMutation = useMutation({
     mutationFn: async (result: { wpm: number; accuracy: number; mode: number; characters: number; errors: number }) => {
@@ -193,8 +193,9 @@ export default function TypingTest() {
     },
   });
 
-  const resetTest = useCallback(() => {
-    fetchParagraph();
+  const resetTest = useCallback(async () => {
+    // Fetch a fresh paragraph
+    await fetchParagraph();
     setUserInput("");
     setOriginalText("");
     setStartTime(null);
@@ -205,7 +206,7 @@ export default function TypingTest() {
     setAccuracy(100);
     setShowAuthPrompt(false);
     setTimeout(() => inputRef.current?.focus(), 0);
-  }, [mode, language, paragraphMode]);
+  }, [mode, fetchParagraph]);
 
   // Initial setup and when time mode changes
   useEffect(() => {
@@ -307,12 +308,12 @@ export default function TypingTest() {
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      // Don't focus if clicking on select dropdowns or buttons
-      if (target.tagName === 'SELECT' || target.tagName === 'OPTION' || target.tagName === 'BUTTON') {
+      // Don't focus if clicking on interactive elements
+      if (target.tagName === 'SELECT' || target.tagName === 'OPTION' || target.tagName === 'BUTTON' || target.tagName === 'INPUT') {
         return;
       }
-      // Don't focus if clicking inside a select dropdown
-      if (target.closest('select')) {
+      // Don't focus if clicking inside interactive elements
+      if (target.closest('select') || target.closest('button') || target.closest('input')) {
         return;
       }
       inputRef.current?.focus();
