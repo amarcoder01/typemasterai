@@ -232,37 +232,50 @@ export default function Chat() {
       {/* Sidebar - ChatGPT Dark Style */}
       <div
         className={cn(
-          "bg-gradient-to-b from-zinc-950 to-zinc-900 border-r border-zinc-800 transition-all duration-300 flex flex-col",
+          "bg-gradient-to-b from-zinc-950 to-zinc-900 border-r border-zinc-800 transition-all duration-300 flex flex-col relative",
           sidebarOpen ? "w-64" : "w-0"
         )}
       >
         {sidebarOpen && (
           <>
-            <div className="p-2.5">
+            {/* Collapse Button - Inside Sidebar */}
+            <div className="absolute -right-4 top-2 z-50">
               <Button
-                onClick={() => createConversationMutation.mutate()}
-                variant="outline"
-                className="w-full justify-start gap-3 bg-transparent border-zinc-700 hover:bg-zinc-800/50 text-zinc-100"
-                data-testid="button-new-chat"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-full bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300"
+                onClick={() => setSidebarOpen(false)}
+                data-testid="button-close-sidebar"
               >
-                <Plus className="w-4 h-4" />
-                New chat
+                <ChevronLeft className="w-4 h-4" />
               </Button>
             </div>
 
-            <div className="px-2.5 pb-2">
+            <div className="p-2">
+              <Button
+                onClick={() => createConversationMutation.mutate()}
+                variant="outline"
+                className="w-full justify-start gap-2 h-9 rounded-lg bg-transparent border-zinc-700 hover:bg-zinc-800/50 text-zinc-100"
+                data-testid="button-new-chat"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-sm">New chat</span>
+              </Button>
+            </div>
+
+            <div className="px-2 pb-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
                 <Input
                   placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 bg-zinc-800/50 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-zinc-600"
+                  className="h-8 pl-9 text-sm rounded-lg bg-zinc-800/50 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-zinc-600"
                 />
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent px-1">
               {searchTerm ? (
                 <div className="p-2">
                   {filtered.map((conv: Conversation) => (
@@ -320,16 +333,18 @@ export default function Chat() {
         )}
       </div>
 
-      {/* Toggle Sidebar Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute left-0 top-0 z-10 hover:bg-zinc-800/50"
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        data-testid="button-toggle-sidebar"
-      >
-        {sidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-      </Button>
+      {/* Open Sidebar Button - Only when closed */}
+      {!sidebarOpen && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute left-2 top-2 z-50 h-8 w-8 rounded-full hover:bg-zinc-800/50"
+          onClick={() => setSidebarOpen(true)}
+          data-testid="button-open-sidebar"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      )}
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col bg-background">
@@ -459,11 +474,11 @@ function ConversationGroup({
   onDelete: (id: number) => void;
 }) {
   return (
-    <div className="mb-3">
-      <h3 className="px-3 py-1.5 text-xs font-medium text-zinc-500 uppercase tracking-wide">
+    <div className="mb-2">
+      <h3 className="px-2 py-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
         {title}
       </h3>
-      <div className="space-y-0.5 px-1">
+      <div className="space-y-0.5">
         {conversations.map((conv) => (
           <ConversationItem
             key={conv.id}
@@ -489,49 +504,54 @@ function ConversationItem({
   onSelect: () => void;
   onDelete: () => void;
 }) {
-  const [showMenu, setShowMenu] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <div
       className={cn(
-        "group relative px-3 py-2.5 rounded-lg cursor-pointer transition-all",
+        "group relative px-2 py-2 rounded-lg cursor-pointer transition-all",
         isActive 
           ? "bg-zinc-800 text-zinc-100" 
           : "text-zinc-300 hover:bg-zinc-800/50"
       )}
       onClick={onSelect}
-      onMouseEnter={() => setShowMenu(true)}
-      onMouseLeave={() => setShowMenu(false)}
       data-testid={`conversation-${conversation.id}`}
     >
-      <div className="flex items-center gap-2.5">
-        <MessageSquare className="w-4 h-4 flex-shrink-0" />
+      <div className="flex items-center gap-2">
+        <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
         <span className="text-sm truncate flex-1">{conversation.title}</span>
-        {showMenu && (
-          <DropdownMenu>
+        <div className={cn("opacity-0 group-hover:opacity-100 transition-opacity", isOpen && "opacity-100")}>
+          <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-6 w-6 flex-shrink-0 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-100"
+                className="h-7 w-7 flex-shrink-0 rounded-md hover:bg-zinc-700 text-zinc-400 hover:text-zinc-100"
+                data-testid={`button-menu-${conversation.id}`}
               >
                 <MoreVertical className="w-3.5 h-3.5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-zinc-800 border-zinc-700">
+            <DropdownMenuContent 
+              align="end" 
+              className="bg-zinc-800 border-zinc-700 min-w-[160px]"
+              onClick={(e) => e.stopPropagation()}
+            >
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete();
+                  setIsOpen(false);
                 }}
-                className="text-zinc-300 hover:bg-zinc-700 focus:bg-zinc-700 focus:text-zinc-100"
+                className="text-zinc-300 hover:bg-zinc-700 focus:bg-zinc-700 focus:text-zinc-100 cursor-pointer"
+                data-testid={`button-delete-${conversation.id}`}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
+        </div>
       </div>
     </div>
   );
