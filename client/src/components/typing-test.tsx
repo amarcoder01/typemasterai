@@ -301,6 +301,16 @@ export default function TypingTest() {
   const rtlLanguages = ["ar", "he"];
   const isRTL = rtlLanguages.includes(language);
 
+  // Format time display (e.g., 60s → 1:00, 90s → 1:30)
+  const formatTime = (seconds: number): string => {
+    if (seconds < 60) {
+      return `${seconds}s`;
+    }
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
       {/* Language & Mode Selectors */}
@@ -416,7 +426,7 @@ export default function TypingTest() {
       <div className="grid grid-cols-4 gap-4">
          <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border">
             <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Time</span>
-            <span className="text-4xl font-mono font-bold text-primary">{timeLeft}</span>
+            <span className="text-4xl font-mono font-bold text-primary">{formatTime(timeLeft)}</span>
          </div>
          <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border">
             <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">WPM</span>
