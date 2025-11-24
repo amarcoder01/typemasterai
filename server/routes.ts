@@ -14,6 +14,7 @@ import { Pool } from "@neondatabase/serverless";
 import rateLimit from "express-rate-limit";
 import DOMPurify from "isomorphic-dompurify";
 import { raceWebSocket } from "./websocket";
+import { botNamePool } from "./bot-name-pool";
 
 const PgSession = ConnectPgSimple(session);
 
@@ -41,6 +42,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   const sessionSecret = process.env.SESSION_SECRET || "typemasterai-secret-key-change-in-production";
+  
+  botNamePool.initialize().catch(error => {
+    console.error("Failed to initialize bot name pool:", error);
+  });
   
   if (sessionSecret === "typemasterai-secret-key-change-in-production" && process.env.NODE_ENV === "production") {
     console.error("🚨 SECURITY ALERT: Production is using the default SESSION_SECRET. This is highly insecure!");

@@ -1,10 +1,6 @@
-import OpenAI from "openai";
 import { storage } from "./storage";
 import type { RaceParticipant } from "@shared/schema";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { botNamePool } from "./bot-name-pool";
 
 const avatarColors = [
   "bg-red-500",
@@ -31,62 +27,7 @@ class BotService {
   private botProfiles: Map<number, BotProfile> = new Map();
 
   async generateUniqueBotNames(count: number): Promise<string[]> {
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are a creative username generator. Generate realistic usernames that real people would actually use online. Mix different styles: professional usernames, casual nicknames, gaming handles, and creative names. Make them sound like REAL HUMANS, not obviously bots.",
-          },
-          {
-            role: "user",
-            content: `Generate ${count} unique, realistic usernames for online typing competitors. These should feel like REAL PEOPLE'S actual usernames. Include variety:
-- Professional: alex_codes, sarah_dev, mike_writes
-- Casual: jenny123, tomsmith, chris_j
-- Gaming style: NightRacer, ShadowKeys, StarTyper
-- Creative: pixel_master, code_wizard, fast_fingers_99
-- International: yuki_fast, maria_type, raj_speed
-
-Mix styles randomly. Keep them 6-16 characters. Make them feel authentic like real users from around the world. Return ONLY the usernames, one per line, no numbering or extra text.`,
-          },
-        ],
-        temperature: 1.3,
-        max_tokens: 200,
-      });
-
-      const names = response.choices[0].message.content
-        ?.trim()
-        .split("\n")
-        .map(name => name.trim())
-        .filter(name => name.length >= 3 && name.length <= 20)
-        .slice(0, count) || [];
-
-      if (names.length < count) {
-        const fallbackNames = this.generateFallbackNames(count - names.length);
-        return [...names, ...fallbackNames];
-      }
-
-      return names;
-    } catch (error) {
-      console.error("Error generating bot names with OpenAI:", error);
-      return this.generateFallbackNames(count);
-    }
-  }
-
-  private generateFallbackNames(count: number): string[] {
-    const prefixes = ["Speed", "Quick", "Fast", "Swift", "Rapid", "Turbo", "Pro", "Elite", "Master", "Expert"];
-    const suffixes = ["Typer", "Fingers", "Keys", "Racer", "Champion", "Wizard", "Ninja", "Ace", "Star", "Legend"];
-    const names: string[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-      const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
-      const number = Math.floor(Math.random() * 999);
-      names.push(`${prefix}${suffix}${number > 99 ? number : ""}`);
-    }
-
-    return names;
+    return botNamePool.getRandomNames(count);
   }
 
   async addBotsToRace(raceId: number, botCount: number): Promise<RaceParticipant[]> {

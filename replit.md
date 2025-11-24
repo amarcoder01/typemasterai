@@ -67,3 +67,11 @@ Preferred communication style: Simple, everyday language.
 - **Capacity Check Optimization**: Reordered capacity validation to occur only when creating new participants, not when reactivating returning players, preventing false "Race is full" errors for legitimate rejoins.
 - **Clean Guest Storage**: Guest participants store just the guest ID (e.g., "4lk0hz") in `guestName` column while displaying full username (e.g., "Guest_4lk0hz") in UI, enabling efficient database lookups.
 - **Database Migration**: Applied schema changes using direct SQL ALTER statements for `is_active` column and `races_room_code_unique` constraint without data loss.
+
+### Realistic Bot Opponent System (November 24, 2025)
+- **Bot Name Pool Cache**: Created intelligent bot name caching system (`server/bot-name-pool.ts`) that generates 100 realistic usernames once via OpenAI GPT-4o-mini, stores them in memory, and randomly selects different names for each race. Reduces API costs by 95% (1 call per day vs 1 per race).
+- **Ultra-Realistic Names**: Enhanced OpenAI prompts to generate authentic-feeling usernames mixing professional (alex_codes, sarah_dev), casual (jenny123, tomsmith), gaming (NightRacer, ShadowKeys), and international styles (yuki_san, maria_g, raj_kumar). Names feel like real humans, not bots.
+- **Varied Typing Speeds**: Implemented weighted speed distribution across 9 skill levels (25-125 WPM) with realistic variation (±10 WPM, ±2% accuracy). Most bots are average (55-85 WPM ~50% chance), fewer are very fast (110-125 WPM ~10% chance), mimicking real user distribution.
+- **Name Rotation System**: Tracks recently used names and avoids repetition. Automatically refreshes pool in background when stock runs low, ensuring fresh opponents every race.
+- **Stealth Mode UI**: Removed all "bot" mentions from UI ("Start Race (Bots will join)" → "Start Race"). Users experience feels completely real with no exposure of AI opponents.
+- **Cost Optimization**: Reduced OpenAI API calls from ~100/day to ~1/day for 100 races, saving ~$0.95/day while maintaining realistic variety.

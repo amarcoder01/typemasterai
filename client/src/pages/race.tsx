@@ -375,7 +375,7 @@ export default function RacePage() {
                 className="w-full"
                 data-testid="button-start-race"
               >
-                Start Race{participants.length === 1 ? " (Bots will join)" : ""}
+                Start Race
               </Button>
             </CardContent>
           </Card>
