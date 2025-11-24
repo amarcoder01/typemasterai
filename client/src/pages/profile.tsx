@@ -170,7 +170,7 @@ export default function Profile() {
 
   return (
       <div className="max-w-5xl mx-auto space-y-8">
-        <div className="flex items-start gap-6 p-6 rounded-2xl bg-card border border-border">
+        <div className="flex items-start gap-6 p-6 rounded-2xl bg-card/70 backdrop-blur-md border border-border/50 shadow-xl">
           <Avatar className="w-24 h-24 border-4 border-background shadow-xl">
             <AvatarFallback className={cn(user.avatarColor || "bg-primary", "text-primary-foreground text-3xl")}>
               {user.username[0].toUpperCase()}
@@ -233,7 +233,7 @@ export default function Profile() {
 
         {chartData.length > 0 && (
           <div className="grid md:grid-cols-2 gap-6">
-            <Card>
+            <Card className="border-border/50 bg-card/60 backdrop-blur-md">
               <CardHeader>
                 <CardTitle>WPM History</CardTitle>
               </CardHeader>
@@ -255,7 +255,7 @@ export default function Profile() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-border/50 bg-card/60 backdrop-blur-md">
               <CardHeader>
                 <CardTitle>Accuracy Trends</CardTitle>
               </CardHeader>
@@ -279,7 +279,7 @@ export default function Profile() {
           </div>
         )}
 
-        <Card>
+        <Card className="border-border/50 bg-card/60 backdrop-blur-md">
           <CardHeader>
             <CardTitle>Recent Tests</CardTitle>
           </CardHeader>
@@ -310,7 +310,7 @@ export default function Profile() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-border/50 bg-card/60 backdrop-blur-md">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
