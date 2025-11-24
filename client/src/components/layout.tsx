@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Keyboard, BarChart2, User, Settings, Trophy, LogOut, Sparkles } from "lucide-react";
+import { Keyboard, BarChart2, User, Settings, Trophy, LogOut, Sparkles, Github, Twitter, Mail, Globe, Zap, Shield, BookOpen, Users, Award, TrendingUp } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -109,12 +109,215 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="py-6 border-t border-border/40 text-center text-muted-foreground text-xs">
-        <div className="flex items-center justify-center gap-4 mb-2">
-          <span className="px-2 py-1 rounded bg-accent/50 font-mono">v1.0.0</span>
-          <span className="px-2 py-1 rounded bg-accent/50 font-mono">git: main</span>
+      <footer className="border-t border-border/40 bg-card/30 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-12">
+          {/* Main Footer Content */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
+            {/* Brand Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-gradient-to-br from-primary to-purple-500 rounded-lg flex items-center justify-center text-primary-foreground font-mono font-bold text-xl">
+                  T
+                </div>
+                <h2 className="text-xl font-bold">TypeMasterAI</h2>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Master your typing speed with AI-powered tests, real-time analytics, and personalized training. Join thousands of users improving their productivity.
+              </p>
+              <div className="flex gap-3">
+                <a
+                  href="https://twitter.com/typemasterai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-9 h-9 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  data-testid="link-twitter"
+                  aria-label="Twitter"
+                >
+                  <Twitter className="w-4 h-4" />
+                </a>
+                <a
+                  href="https://github.com/typemasterai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-9 h-9 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  data-testid="link-github"
+                  aria-label="GitHub"
+                >
+                  <Github className="w-4 h-4" />
+                </a>
+                <a
+                  href="mailto:hello@typemasterai.com"
+                  className="w-9 h-9 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  data-testid="link-email"
+                  aria-label="Email"
+                >
+                  <Mail className="w-4 h-4" />
+                </a>
+                <a
+                  href="https://typemasterai.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-9 h-9 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  data-testid="link-website"
+                  aria-label="Website"
+                >
+                  <Globe className="w-4 h-4" />
+                </a>
+              </div>
+            </div>
+
+            {/* Product Links */}
+            <div>
+              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-primary" />
+                Product
+              </h3>
+              <ul className="space-y-3">
+                <li>
+                  <Link href="/">
+                    <a className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-features">
+                      <Keyboard className="w-3 h-3" />
+                      Typing Tests
+                    </a>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/leaderboard">
+                    <a className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-leaderboard">
+                      <Trophy className="w-3 h-3" />
+                      Leaderboard
+                    </a>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/chat">
+                    <a className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-ai-chat">
+                      <Sparkles className="w-3 h-3" />
+                      AI Assistant
+                    </a>
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/profile">
+                    <a className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-analytics">
+                      <TrendingUp className="w-3 h-3" />
+                      Analytics
+                    </a>
+                  </Link>
+                </li>
+                <li>
+                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-certificates">
+                    <Award className="w-3 h-3" />
+                    Certificates
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Resources */}
+            <div>
+              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-primary" />
+                Resources
+              </h3>
+              <ul className="space-y-3">
+                <li>
+                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-blog">
+                    Blog
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-guides">
+                    Typing Guides
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-tips">
+                    Improvement Tips
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-api">
+                    API Documentation
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-help">
+                    Help Center
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Company & Legal */}
+            <div>
+              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                Company
+              </h3>
+              <ul className="space-y-3">
+                <li>
+                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-about">
+                    About Us
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-contact">
+                    Contact
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-careers">
+                    Careers
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-privacy">
+                    <Shield className="w-3 h-3" />
+                    Privacy Policy
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-terms">
+                    Terms of Service
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Stats Bar */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-y border-border/40 mb-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary font-mono">23+</div>
+              <div className="text-xs text-muted-foreground mt-1">Languages</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary font-mono">10k+</div>
+              <div className="text-xs text-muted-foreground mt-1">Active Users</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary font-mono">1M+</div>
+              <div className="text-xs text-muted-foreground mt-1">Tests Completed</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary font-mono">AI</div>
+              <div className="text-xs text-muted-foreground mt-1">Powered</div>
+            </div>
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-6">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="px-2 py-1 rounded bg-accent/50 font-mono">v1.0.0</span>
+              <span className="hidden sm:inline">•</span>
+              <span className="hidden sm:inline">Made with ❤️ for typing enthusiasts</span>
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
+              © {new Date().getFullYear()} <span className="font-semibold text-foreground">TypeMasterAI</span>. All rights reserved. Master Your Typing with AI.
+            </p>
+          </div>
         </div>
-        <p>© 2025 TypeMasterAI. Master Your Typing with AI.</p>
       </footer>
     </div>
   );
