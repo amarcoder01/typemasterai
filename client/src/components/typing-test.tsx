@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import AuthPromptDialog from "@/components/auth-prompt-dialog";
 import { SearchableSelect } from "@/components/searchable-select";
 
-type TestMode = 15 | 30 | 60 | 120;
+type TestMode = 15 | 30 | 45 | 60 | 90 | 120 | 180 | number;
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English",
@@ -49,10 +49,22 @@ const MODE_NAMES: Record<string, string> = {
   business: "Business",
 };
 
+const TIME_PRESETS = [
+  { value: 15, label: "15s" },
+  { value: 30, label: "30s" },
+  { value: 45, label: "45s" },
+  { value: 60, label: "1 min" },
+  { value: 90, label: "1.5 min" },
+  { value: 120, label: "2 min" },
+  { value: 180, label: "3 min" },
+];
+
 export default function TypingTest() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [mode, setMode] = useState<TestMode>(30);
+  const [mode, setMode] = useState<TestMode>(60);
+  const [customTime, setCustomTime] = useState<string>("");
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const [language, setLanguage] = useState("en");
   const [paragraphMode, setParagraphMode] = useState<string>("general");
   const [text, setText] = useState("");
@@ -327,22 +339,76 @@ export default function TypingTest() {
         </div>
 
         {/* Time Mode Selector */}
-        <div className="flex justify-center gap-4">
-          {[15, 30, 60, 120].map((m) => (
+        <div className="flex flex-col gap-3">
+          <div className="flex justify-center gap-2 flex-wrap">
+            {TIME_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                onClick={() => {
+                  setMode(preset.value);
+                  setShowCustomInput(false);
+                }}
+                className={cn(
+                  "px-4 py-2 rounded-full text-sm font-medium transition-all",
+                  mode === preset.value && !showCustomInput
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                )}
+                data-testid={`button-time-${preset.value}`}
+              >
+                {preset.label}
+              </button>
+            ))}
             <button
-              key={m}
-              onClick={() => setMode(m as TestMode)}
+              onClick={() => setShowCustomInput(!showCustomInput)}
               className={cn(
                 "px-4 py-2 rounded-full text-sm font-medium transition-all",
-                mode === m 
+                showCustomInput
                   ? "bg-primary text-primary-foreground" 
                   : "bg-secondary text-muted-foreground hover:text-foreground"
               )}
-              data-testid={`button-time-${m}`}
+              data-testid="button-custom-time"
             >
-              {m}s
+              Custom
             </button>
-          ))}
+          </div>
+          
+          {showCustomInput && (
+            <div className="flex items-center justify-center gap-2">
+              <input
+                type="number"
+                min="5"
+                max="600"
+                value={customTime}
+                onChange={(e) => setCustomTime(e.target.value)}
+                placeholder="Enter seconds (5-600)"
+                className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm w-48 focus:outline-none focus:ring-2 focus:ring-primary"
+                data-testid="input-custom-time"
+              />
+              <button
+                onClick={() => {
+                  const time = parseInt(customTime);
+                  if (time >= 5 && time <= 600) {
+                    setMode(time);
+                    toast({
+                      title: "Custom time set",
+                      description: `Test duration: ${time} seconds`,
+                    });
+                  } else {
+                    toast({
+                      title: "Invalid time",
+                      description: "Please enter a value between 5 and 600 seconds",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90"
+                data-testid="button-set-custom-time"
+              >
+                Set
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
