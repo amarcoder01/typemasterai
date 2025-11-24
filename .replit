@@ -4,6 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
+packages = ["poppler_utils"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -36,7 +37,7 @@ localPort = 37035
 externalPort = 3002
 
 [[ports]]
-localPort = 39877
+localPort = 42499
 externalPort = 5173
 
 [[ports]]

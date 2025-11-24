@@ -58,8 +58,11 @@ export default function Chat() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: conversationsData } = useQuery({
     queryKey: ["conversations"],
@@ -130,12 +133,85 @@ export default function Chat() {
     scrollToBottom();
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    const userMessage: Message = { role: "user", content: input };
+    // Validate file type
+    const validTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf',
+      'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
+    ];
+
+    if (!validTypes.includes(file.type)) {
+      alert('Unsupported file type. Please upload an image (JPG, PNG, GIF, WebP), PDF, Word document, or text file.');
+      return;
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
+      return;
+    }
+
+    setUploadedFile(file);
+  };
+
+  const analyzeFile = async (file: File): Promise<string> => {
+    setIsAnalyzingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/analyze-file', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to analyze file');
+      }
+
+      const data = await response.json();
+      return data.analysis;
+    } catch (error) {
+      console.error('File analysis error:', error);
+      throw error;
+    } finally {
+      setIsAnalyzingFile(false);
+    }
+  };
+
+  const sendMessage = async () => {
+    if ((!input.trim() && !uploadedFile) || isLoading) return;
+
+    let messageContent = input;
+    let fileAnalysis = "";
+
+    // Analyze file if uploaded
+    if (uploadedFile) {
+      try {
+        fileAnalysis = await analyzeFile(uploadedFile);
+        messageContent = `${input}\n\n[Attached file: ${uploadedFile.name}]\n\n${fileAnalysis}`;
+      } catch (error) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: `Error analyzing file: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.` },
+        ]);
+        setUploadedFile(null);
+        setIsAnalyzingFile(false);
+        return;
+      }
+    }
+
+    const userMessage: Message = { role: "user", content: messageContent };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
+    setUploadedFile(null);
     setIsLoading(true);
 
     try {
@@ -686,20 +762,50 @@ export default function Chat() {
         <div className="border-t border-border bg-background">
           <div className="max-w-3xl mx-auto px-4 py-6">
             <div className="relative bg-background border border-border rounded-3xl shadow-sm hover:shadow-md transition-shadow">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,.pdf,.doc,.docx,.txt"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              {/* File Preview */}
+              {uploadedFile && (
+                <div className="px-14 pt-3">
+                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg border border-border">
+                    <Paperclip className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm text-foreground flex-1 truncate">
+                      {uploadedFile.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {(uploadedFile.size / 1024).toFixed(1)} KB
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 rounded-full hover:bg-background"
+                      onClick={() => setUploadedFile(null)}
+                    >
+                      <span className="text-xs">×</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="absolute left-3 bottom-3 h-10 w-10 rounded-lg hover:bg-muted text-muted-foreground"
-                    disabled={isLoading}
+                    disabled={isLoading || isAnalyzingFile}
+                    onClick={() => fileInputRef.current?.click()}
                     data-testid="button-attach-file"
                   >
                     <Paperclip className="w-5 h-5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p>Attach files</p>
+                  <p>Attach image, PDF, or document</p>
                 </TooltipContent>
               </Tooltip>
               <Textarea

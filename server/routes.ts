@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { streamChatCompletion, shouldPerformWebSearch, type ChatMessage } from "./chat-service";
 import { generateTypingParagraph } from "./ai-paragraph-generator";
+import { analyzeFile } from "./file-analyzer";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
@@ -15,6 +16,7 @@ import rateLimit from "express-rate-limit";
 import DOMPurify from "isomorphic-dompurify";
 import { raceWebSocket } from "./websocket";
 import { botNamePool } from "./bot-name-pool";
+import multer from "multer";
 
 const PgSession = ConnectPgSimple(session);
 
@@ -712,6 +714,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Get messages error:", error);
       res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  // File upload middleware - memory storage for immediate processing
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB limit
+    },
+    fileFilter: (req: any, file: any, cb: any) => {
+      const allowedMimeTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain'
+      ];
+
+      if (allowedMimeTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Invalid file type. Only images, PDFs, Word documents, and text files are allowed.'));
+      }
+    },
+  });
+
+  // File analysis endpoint
+  app.post("/api/analyze-file", isAuthenticated, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const analysis = await analyzeFile(req.file);
+
+      res.json({
+        success: true,
+        analysis,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        mimeType: req.file.mimetype,
+      });
+    } catch (error) {
+      console.error("File analysis error:", error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to analyze file",
+      });
     }
   });
 
