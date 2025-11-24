@@ -12,6 +12,38 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 24, 2025 - Security & Account Management Enhancements
+- **Rate Limiting**: Implemented comprehensive rate limiting to prevent abuse
+  - Authentication endpoints: 10 requests per 15 minutes (prevents brute-force attacks)
+  - Chat API: 30 requests per minute (prevents API abuse)
+  - AI generation endpoints: 20 requests per 5 minutes (prevents excessive AI usage)
+  - Uses express-rate-limit with proper headers and customizable error messages
+- **Input Sanitization**: Added DOMPurify for XSS protection
+  - Sanitizes user bios before saving and displaying
+  - Sanitizes chat messages before processing and storage
+  - Strips all HTML tags while preserving text content
+- **Session Security**: Enhanced session secret handling
+  - Added production validation for SESSION_SECRET environment variable
+  - Logs warnings when using default/fallback session secret
+  - Alerts in production when security configuration is weak
+- **Error Boundary**: Implemented React ErrorBoundary component
+  - Catches and displays errors gracefully without crashing the entire app
+  - Shows user-friendly error UI with reload and retry options
+  - Displays error details in development mode for debugging
+  - Mounted at app root to protect all routes and components
+- **Password Management**: Added password change functionality
+  - Secure password change in settings page for authenticated users
+  - Validates current password before allowing change
+  - Enforces minimum 8-character password length
+  - Uses bcrypt hashing with 10 rounds
+  - Rate-limited to prevent brute-force attempts
+- **Account Deletion**: Implemented account deletion with safeguards
+  - Confirmation dialog with detailed warning about data loss
+  - Cascading delete removes all user data (test results, conversations, profile)
+  - Proper session destruction after account deletion
+  - Rate-limited to prevent abuse
+  - Only accessible to authenticated users
+
 ### November 24, 2025 - Legal Pages & Production Readiness
 - **Comprehensive Legal Documentation**: Created full suite of legal and informational pages
   - Privacy Policy: Complete data collection, usage, AI integration, and user rights documentation
