@@ -155,3 +155,64 @@ export const insertKeystrokeAnalyticsSchema = createInsertSchema(keystrokeAnalyt
 
 export type InsertKeystrokeAnalytics = z.infer<typeof insertKeystrokeAnalyticsSchema>;
 export type KeystrokeAnalytics = typeof keystrokeAnalytics.$inferSelect;
+
+// Multiplayer Racing System
+export const races = pgTable("races", {
+  id: serial("id").primaryKey(),
+  roomCode: varchar("room_code", { length: 6 }).notNull().unique(),
+  status: text("status").notNull().default("waiting"), // waiting, countdown, racing, finished
+  paragraphId: integer("paragraph_id").references(() => typingParagraphs.id),
+  paragraphContent: text("paragraph_content").notNull(),
+  maxPlayers: integer("max_players").notNull().default(4),
+  isPrivate: integer("is_private").notNull().default(0),
+  startedAt: timestamp("started_at"),
+  finishedAt: timestamp("finished_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  roomCodeIdx: index("race_room_code_idx").on(table.roomCode),
+  statusIdx: index("race_status_idx").on(table.status),
+  createdAtIdx: index("race_created_at_idx").on(table.createdAt),
+}));
+
+export const raceParticipants = pgTable("race_participants", {
+  id: serial("id").primaryKey(),
+  raceId: integer("race_id").notNull().references(() => races.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  guestName: text("guest_name"),
+  username: text("username").notNull(),
+  avatarColor: text("avatar_color").default("bg-primary"),
+  progress: integer("progress").notNull().default(0), // characters typed
+  wpm: integer("wpm").notNull().default(0),
+  accuracy: real("accuracy").notNull().default(0),
+  errors: integer("errors").notNull().default(0),
+  isFinished: integer("is_finished").notNull().default(0),
+  finishPosition: integer("finish_position"),
+  finishedAt: timestamp("finished_at"),
+  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+}, (table) => ({
+  raceIdIdx: index("participant_race_id_idx").on(table.raceId),
+  userIdIdx: index("participant_user_id_idx").on(table.userId),
+  raceStatusIdx: index("participant_race_status_idx").on(table.raceId, table.isFinished),
+}));
+
+export const insertRaceSchema = createInsertSchema(races, {
+  roomCode: z.string().length(6),
+  status: z.enum(["waiting", "countdown", "racing", "finished"]),
+  paragraphContent: z.string().min(50),
+  maxPlayers: z.number().int().min(2).max(10),
+  isPrivate: z.number().int().min(0).max(1),
+}).omit({ id: true, createdAt: true });
+
+export const insertRaceParticipantSchema = createInsertSchema(raceParticipants, {
+  username: z.string().min(1).max(30),
+  progress: z.number().int().min(0),
+  wpm: z.number().int().min(0).max(500),
+  accuracy: z.number().min(0).max(100),
+  errors: z.number().int().min(0),
+  isFinished: z.number().int().min(0).max(1),
+}).omit({ id: true, joinedAt: true });
+
+export type InsertRace = z.infer<typeof insertRaceSchema>;
+export type Race = typeof races.$inferSelect;
+export type InsertRaceParticipant = z.infer<typeof insertRaceParticipantSchema>;
+export type RaceParticipant = typeof raceParticipants.$inferSelect;
