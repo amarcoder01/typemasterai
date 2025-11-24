@@ -181,6 +181,7 @@ export const raceParticipants = pgTable("race_participants", {
   guestName: text("guest_name"),
   username: text("username").notNull(),
   avatarColor: text("avatar_color").default("bg-primary"),
+  isBot: integer("is_bot").notNull().default(0),
   progress: integer("progress").notNull().default(0), // characters typed
   wpm: integer("wpm").notNull().default(0),
   accuracy: real("accuracy").notNull().default(0),
@@ -205,6 +206,7 @@ export const insertRaceSchema = createInsertSchema(races, {
 
 export const insertRaceParticipantSchema = createInsertSchema(raceParticipants, {
   username: z.string().min(1).max(30),
+  isBot: z.number().int().min(0).max(1),
   progress: z.number().int().min(0),
   wpm: z.number().int().min(0).max(500),
   accuracy: z.number().min(0).max(100),

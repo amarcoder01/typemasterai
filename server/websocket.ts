@@ -1,5 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
+import { botService } from "./bot-service";
 import type { Server } from "http";
 
 interface RaceClient {
@@ -131,11 +132,36 @@ class RaceWebSocketServer {
     const raceRoom = this.races.get(raceId);
     if (!raceRoom) return;
 
+    const race = await storage.getRace(raceId);
+    if (!race) return;
+
+    let participants = await storage.getRaceParticipants(raceId);
+    const humanCount = participants.filter(p => p.isBot === 0).length;
+    
+    if (humanCount > 0 && participants.length < race.maxPlayers) {
+      const botsNeeded = Math.min(
+        race.maxPlayers - participants.length,
+        Math.max(1, race.maxPlayers - humanCount - 1)
+      );
+      
+      if (botsNeeded > 0) {
+        const bots = await botService.addBotsToRace(raceId, botsNeeded);
+        
+        this.broadcastToRace(raceId, {
+          type: "bots_added",
+          bots,
+        });
+        
+        participants = await storage.getRaceParticipants(raceId);
+      }
+    }
+
     await storage.updateRaceStatus(raceId, "countdown");
 
     this.broadcastToRace(raceId, {
       type: "countdown_start",
       countdown: 3,
+      participants,
     });
 
     let countdown = 3;
@@ -155,6 +181,17 @@ class RaceWebSocketServer {
         
         this.broadcastToRace(raceId, {
           type: "race_start",
+        });
+
+        const allParticipants = await storage.getRaceParticipants(raceId);
+        const bots = allParticipants.filter(p => p.isBot === 1);
+        
+        bots.forEach(bot => {
+          botService.startBotTyping(
+            bot.id,
+            race.paragraphContent.length,
+            (data) => this.broadcastToRace(raceId, data)
+          );
         });
       }
     }, 1000);
@@ -198,6 +235,8 @@ class RaceWebSocketServer {
 
     if (allFinished) {
       await storage.updateRaceStatus(raceId, "finished", undefined, new Date());
+      
+      botService.stopAllBotsInRace(raceId, updatedParticipants);
       
       this.broadcastToRace(raceId, {
         type: "race_finished",
