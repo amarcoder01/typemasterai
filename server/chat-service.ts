@@ -221,70 +221,48 @@ async function performWebScraping(query: string): Promise<string> {
 export function shouldPerformWebSearch(message: string): boolean {
   const lowerMessage = message.toLowerCase();
 
+  // Always search if user provides a URL
   const urlPattern = /\b(?:https?:\/\/)?(?:www\.)?[\w-]+\.(?:com|org|net|io|co|ai|dev|app|info|edu|gov)\b/i;
   if (urlPattern.test(message)) {
     return true;
   }
 
-  const searchTriggers = [
-    "search",
-    "find",
+  // Only trigger web search for EXPLICIT search requests or time-sensitive queries
+  const explicitSearchTriggers = [
+    "search for",
+    "search about",
+    "google",
     "look up",
     "lookup",
-    "what is",
-    "what are",
-    "who is",
-    "when did",
-    "when was",
-    "where is",
-    "where can",
-    "how to",
-    "how do",
-    "how does",
-    "why is",
-    "why did",
-    "tell me about",
-    "info about",
-    "information about",
-    "information on",
-    "details about",
-    "learn about",
-    "explain",
-    "describe",
+    "find online",
+    "find on the web",
+    "web search",
+    "search the web",
+    "search the internet",
+  ];
+
+  // Time-sensitive / freshness-related triggers
+  const freshnessTriggers = [
     "current",
     "latest",
     "recent",
     "news",
     "today",
+    "this week",
+    "this month",
+    "this year",
     "2024",
     "2025",
-    "update",
-    "website",
-    "company",
-    "organization",
-    "service",
-    "product",
-    "compare",
-    "difference between",
-    "best",
-    "top",
-    "review",
-    "guide",
+    "update on",
+    "updates on",
+    "what's new",
+    "breaking",
   ];
 
-  const trimmedMessage = lowerMessage.trim();
-  const hasSearchTrigger = searchTriggers.some((trigger) => lowerMessage.includes(trigger));
-  
-  const questionWords = ["what", "who", "when", "where", "why", "how", "which"];
-  const hasQuestionWord = questionWords.some((word) => trimmedMessage.startsWith(word + " ") || trimmedMessage === word);
-  
-  const hasQuestionMark = lowerMessage.includes("?");
-  const isRealQuestion = hasQuestionWord || (hasQuestionMark && trimmedMessage.length >= 10);
-  
-  const requestPhrases = ["give me", "show me", "can you", "could you", "i want", "i need"];
-  const isRequest = requestPhrases.some((phrase) => lowerMessage.includes(phrase));
+  const hasExplicitSearch = explicitSearchTriggers.some((trigger) => lowerMessage.includes(trigger));
+  const hasFreshnessTrigger = freshnessTriggers.some((trigger) => lowerMessage.includes(trigger));
 
-  return hasSearchTrigger || isRealQuestion || isRequest;
+  return hasExplicitSearch || hasFreshnessTrigger;
 }
 
 export interface ChatMessage {
