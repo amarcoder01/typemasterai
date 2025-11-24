@@ -432,27 +432,26 @@ export default function Settings() {
 
           {/* Security - Only show if user is logged in */}
           {user && (
-            <Card className="border-destructive/50">
+            <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="w-5 h-5" /> Security & Privacy
                 </CardTitle>
-                <CardDescription>Manage your account security settings</CardDescription>
+                <CardDescription>Manage your password and account settings</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-8">
                 {/* Change Password */}
                 <div className="space-y-4">
-                  <div>
-                    <Label className="text-base font-semibold">Change Password</Label>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Update your password to keep your account secure
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-medium">Change Password</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Keep your account secure with a strong password
                     </p>
                   </div>
                   
-                  <div className="space-y-4">
-                    {/* Current Password */}
-                    <div className="space-y-2">
-                      <Label htmlFor="current-password">Current Password</Label>
+                  <div className="grid gap-3">
+                    <div className="grid gap-2">
+                      <Label htmlFor="current-password" className="text-xs">Current Password</Label>
                       <div className="relative">
                         <Input
                           id="current-password"
@@ -460,14 +459,14 @@ export default function Settings() {
                           value={currentPassword}
                           onChange={(e) => setCurrentPassword(e.target.value)}
                           data-testid="input-current-password"
-                          placeholder="Enter your current password"
-                          className="pr-10"
+                          placeholder="••••••••"
+                          className="pr-10 h-9"
                           autoComplete="current-password"
                         />
                         <button
                           type="button"
                           onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                           data-testid="toggle-current-password"
                         >
                           {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -475,9 +474,8 @@ export default function Settings() {
                       </div>
                     </div>
                     
-                    {/* New Password */}
-                    <div className="space-y-2">
-                      <Label htmlFor="new-password">New Password</Label>
+                    <div className="grid gap-2">
+                      <Label htmlFor="new-password" className="text-xs">New Password</Label>
                       <div className="relative">
                         <Input
                           id="new-password"
@@ -485,102 +483,23 @@ export default function Settings() {
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           data-testid="input-new-password"
-                          placeholder="Enter new password"
-                          className="pr-10"
+                          placeholder="••••••••"
+                          className="pr-10 h-9"
                           autoComplete="new-password"
                         />
                         <button
                           type="button"
                           onClick={() => setShowNewPassword(!showNewPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                           data-testid="toggle-new-password"
                         >
                           {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
-                      
-                      {/* Password Strength Indicator */}
-                      {newPassword && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">Password Strength:</span>
-                            <span className={cn("font-medium", passwordStrength.color)}>
-                              {passwordStrength.label}
-                            </span>
-                          </div>
-                          <div className="flex gap-1 h-1">
-                            {[1, 2, 3, 4, 5].map((level) => (
-                              <div
-                                key={level}
-                                className={cn(
-                                  "flex-1 rounded-full transition-colors",
-                                  level <= passwordStrength.strength
-                                    ? passwordStrength.strength <= 2
-                                      ? "bg-destructive"
-                                      : passwordStrength.strength <= 3
-                                      ? "bg-yellow-500"
-                                      : passwordStrength.strength <= 4
-                                      ? "bg-blue-500"
-                                      : "bg-green-500"
-                                    : "bg-muted"
-                                )}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Password Requirements */}
-                      <div className="space-y-1 text-xs">
-                        <p className="text-muted-foreground font-medium">Password must contain:</p>
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
-                            {newPassword.length >= 8 ? (
-                              <CheckCircle2 className="w-3 h-3 text-green-500" />
-                            ) : (
-                              <XCircle className="w-3 h-3 text-muted-foreground" />
-                            )}
-                            <span className={newPassword.length >= 8 ? "text-foreground" : "text-muted-foreground"}>
-                              At least 8 characters
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {/[A-Z]/.test(newPassword) ? (
-                              <CheckCircle2 className="w-3 h-3 text-green-500" />
-                            ) : (
-                              <XCircle className="w-3 h-3 text-muted-foreground" />
-                            )}
-                            <span className={/[A-Z]/.test(newPassword) ? "text-foreground" : "text-muted-foreground"}>
-                              One uppercase letter
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {/[a-z]/.test(newPassword) ? (
-                              <CheckCircle2 className="w-3 h-3 text-green-500" />
-                            ) : (
-                              <XCircle className="w-3 h-3 text-muted-foreground" />
-                            )}
-                            <span className={/[a-z]/.test(newPassword) ? "text-foreground" : "text-muted-foreground"}>
-                              One lowercase letter
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {/\d/.test(newPassword) ? (
-                              <CheckCircle2 className="w-3 h-3 text-green-500" />
-                            ) : (
-                              <XCircle className="w-3 h-3 text-muted-foreground" />
-                            )}
-                            <span className={/\d/.test(newPassword) ? "text-foreground" : "text-muted-foreground"}>
-                              One number
-                            </span>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                     
-                    {/* Confirm Password */}
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password">Confirm New Password</Label>
+                    <div className="grid gap-2">
+                      <Label htmlFor="confirm-password" className="text-xs">Confirm Password</Label>
                       <div className="relative">
                         <Input
                           id="confirm-password"
@@ -588,94 +507,107 @@ export default function Settings() {
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           data-testid="input-confirm-password"
-                          placeholder="Re-enter new password"
-                          className="pr-10"
+                          placeholder="••••••••"
+                          className="pr-10 h-9"
                           autoComplete="new-password"
                         />
                         <button
                           type="button"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                           data-testid="toggle-confirm-password"
                         >
                           {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
-                      
-                      {/* Password Match Indicator */}
-                      {confirmPassword && (
-                        <div className="flex items-center gap-2 text-xs">
-                          {newPassword === confirmPassword ? (
-                            <>
-                              <CheckCircle2 className="w-3 h-3 text-green-500" />
-                              <span className="text-green-500">Passwords match</span>
-                            </>
-                          ) : (
-                            <>
-                              <AlertCircle className="w-3 h-3 text-destructive" />
-                              <span className="text-destructive">Passwords do not match</span>
-                            </>
-                          )}
-                        </div>
-                      )}
                     </div>
                     
                     <Button
                       onClick={handleChangePassword}
                       disabled={!currentPassword || !newPassword || !confirmPassword || changePasswordMutation.isPending || validatePassword().length > 0}
                       data-testid="button-change-password"
-                      className="w-full"
+                      size="sm"
+                      className="mt-2"
                     >
-                      {changePasswordMutation.isPending ? "Changing Password..." : "Change Password"}
+                      {changePasswordMutation.isPending ? "Updating..." : "Update Password"}
                     </Button>
                   </div>
                 </div>
 
-                <div className="border-t pt-6">
-                  <div className="space-y-3">
-                    <Label className="text-base font-semibold text-destructive">Danger Zone</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Once you delete your account, there is no going back. All your test results, conversations, and profile data will be permanently deleted.
-                    </p>
-                    
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button 
-                          variant="destructive" 
-                          className="gap-2"
-                          data-testid="button-delete-account"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Delete Account
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete your account
-                            and remove all your data from our servers, including:
-                            <ul className="list-disc list-inside mt-2 space-y-1">
-                              <li>All typing test results</li>
-                              <li>AI chat conversations</li>
-                              <li>Profile information</li>
-                              <li>Leaderboard entries</li>
-                            </ul>
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deleteAccountMutation.mutate()}
-                            className="bg-destructive hover:bg-destructive/90"
-                            data-testid="button-confirm-delete"
-                          >
-                            {deleteAccountMutation.isPending ? "Deleting..." : "Delete Account"}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                {/* Danger Zone */}
+                <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="rounded-full bg-destructive/10 p-2">
+                      <AlertCircle className="w-4 h-4 text-destructive" />
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <h3 className="text-sm font-semibold text-destructive">Delete Account</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Permanently remove your account and all associated data. This action cannot be undone.
+                      </p>
+                    </div>
                   </div>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                        data-testid="button-delete-account"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-2" />
+                        Delete My Account
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="flex items-center gap-2">
+                          <div className="rounded-full bg-destructive/10 p-2">
+                            <AlertCircle className="w-5 h-5 text-destructive" />
+                          </div>
+                          Delete Account?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-3">
+                          <p>This will permanently delete your TypeMasterAI account and remove all your data from our servers.</p>
+                          
+                          <div className="rounded-md bg-muted p-3 space-y-2">
+                            <p className="text-xs font-medium text-foreground">This includes:</p>
+                            <ul className="text-xs space-y-1 text-muted-foreground">
+                              <li className="flex items-center gap-2">
+                                <span className="w-1 h-1 rounded-full bg-current"></span>
+                                All typing test results and statistics
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <span className="w-1 h-1 rounded-full bg-current"></span>
+                                AI chat conversation history
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <span className="w-1 h-1 rounded-full bg-current"></span>
+                                Profile information and preferences
+                              </li>
+                              <li className="flex items-center gap-2">
+                                <span className="w-1 h-1 rounded-full bg-current"></span>
+                                Leaderboard rankings and achievements
+                              </li>
+                            </ul>
+                          </div>
+                          
+                          <p className="text-xs font-medium text-destructive">This action cannot be undone.</p>
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteAccountMutation.mutate()}
+                          className="bg-destructive hover:bg-destructive/90"
+                          data-testid="button-confirm-delete"
+                        >
+                          {deleteAccountMutation.isPending ? "Deleting..." : "Yes, Delete My Account"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </CardContent>
             </Card>
