@@ -9,6 +9,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import AuthPromptDialog from "@/components/auth-prompt-dialog";
 import { SearchableSelect } from "@/components/searchable-select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type TestMode = 15 | 30 | 45 | 60 | 90 | 120 | 180 | number;
 
@@ -334,89 +340,137 @@ export default function TypingTest() {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
-      {/* Language & Mode Selectors */}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-center gap-4 flex-wrap">
-          <SearchableSelect
-            value={language}
-            onValueChange={setLanguage}
-            options={availableLanguages.map((lang: string) => ({
-              value: lang,
-              label: LANGUAGE_NAMES[lang] || lang,
-            }))}
-            placeholder="Select language"
-            searchPlaceholder="Search languages..."
-            emptyText="No language found."
-            icon={<Globe className="w-4 h-4" />}
-          />
+    <TooltipProvider delayDuration={300}>
+      <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
+        {/* Language & Mode Selectors */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <SearchableSelect
+                    value={language}
+                    onValueChange={setLanguage}
+                    options={availableLanguages.map((lang: string) => ({
+                      value: lang,
+                      label: LANGUAGE_NAMES[lang] || lang,
+                    }))}
+                    placeholder="Select language"
+                    searchPlaceholder="Search languages..."
+                    emptyText="No language found."
+                    icon={<Globe className="w-4 h-4" />}
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Choose from 23+ languages including English, Spanish, Hindi, Marathi, Japanese, and more</p>
+              </TooltipContent>
+            </Tooltip>
 
-          <SearchableSelect
-            value={paragraphMode}
-            onValueChange={setParagraphMode}
-            options={availableModes.map((m: string) => ({
-              value: m,
-              label: MODE_NAMES[m] || m,
-            }))}
-            placeholder="Select mode"
-            searchPlaceholder="Search modes..."
-            emptyText="No mode found."
-            icon={<BookOpen className="w-4 h-4" />}
-          />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <SearchableSelect
+                    value={paragraphMode}
+                    onValueChange={setParagraphMode}
+                    options={availableModes.map((m: string) => ({
+                      value: m,
+                      label: MODE_NAMES[m] || m,
+                    }))}
+                    placeholder="Select mode"
+                    searchPlaceholder="Search modes..."
+                    emptyText="No mode found."
+                    icon={<BookOpen className="w-4 h-4" />}
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Select paragraph topic: General, Programming, Business, News, Entertainment, etc.</p>
+              </TooltipContent>
+            </Tooltip>
 
-          <SearchableSelect
-            value={difficulty}
-            onValueChange={(val) => setDifficulty(val as "easy" | "medium" | "hard")}
-            options={[
-              { value: "easy", label: "Easy" },
-              { value: "medium", label: "Medium" },
-              { value: "hard", label: "Hard" },
-            ]}
-            placeholder="Select difficulty"
-            searchPlaceholder="Search difficulty..."
-            emptyText="No difficulty found."
-            icon={<Target className="w-4 h-4" />}
-          />
-          
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Sparkles className="w-3 h-3" />
-            <span>AI-powered</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <SearchableSelect
+                    value={difficulty}
+                    onValueChange={(val) => setDifficulty(val as "easy" | "medium" | "hard")}
+                    options={[
+                      { value: "easy", label: "Easy" },
+                      { value: "medium", label: "Medium" },
+                      { value: "hard", label: "Hard" },
+                    ]}
+                    placeholder="Select difficulty"
+                    searchPlaceholder="Search difficulty..."
+                    emptyText="No difficulty found."
+                    icon={<Target className="w-4 h-4" />}
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Easy: Short & simple | Medium: Standard | Hard: Long & complex</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Sparkles className="w-3 h-3" />
+                  <span>AI-powered</span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>AI automatically generates paragraphs for unsupported combinations and saves them</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
-        </div>
 
         {/* Time Mode Selector */}
         <div className="flex flex-col gap-3">
           <div className="flex justify-center gap-2 flex-wrap">
             {TIME_PRESETS.map((preset) => (
-              <button
-                key={preset.value}
-                onClick={() => {
-                  setMode(preset.value);
-                  setShowCustomInput(false);
-                }}
-                className={cn(
-                  "px-4 py-2 rounded-full text-sm font-medium transition-all",
-                  mode === preset.value && !showCustomInput
-                    ? "bg-primary text-primary-foreground" 
-                    : "bg-secondary text-muted-foreground hover:text-foreground"
-                )}
-                data-testid={`button-time-${preset.value}`}
-              >
-                {preset.label}
-              </button>
+              <Tooltip key={preset.value}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => {
+                      setMode(preset.value);
+                      setShowCustomInput(false);
+                    }}
+                    className={cn(
+                      "px-4 py-2 rounded-full text-sm font-medium transition-all",
+                      mode === preset.value && !showCustomInput
+                        ? "bg-primary text-primary-foreground" 
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
+                    )}
+                    data-testid={`button-time-${preset.value}`}
+                  >
+                    {preset.label}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Test your typing speed for {preset.label}</p>
+                </TooltipContent>
+              </Tooltip>
             ))}
-            <button
-              onClick={() => setShowCustomInput(!showCustomInput)}
-              className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-all",
-                showCustomInput
-                  ? "bg-primary text-primary-foreground" 
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
-              )}
-              data-testid="button-custom-time"
-            >
-              Custom
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setShowCustomInput(!showCustomInput)}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm font-medium transition-all",
+                    showCustomInput
+                      ? "bg-primary text-primary-foreground" 
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  )}
+                  data-testid="button-custom-time"
+                >
+                  Custom
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Set your own test duration (5-600 seconds)</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           
           {showCustomInput && (
@@ -460,24 +514,52 @@ export default function TypingTest() {
 
       {/* Stats Overview (Live) */}
       <div className="grid grid-cols-4 gap-4">
-         <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border">
-            <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Time</span>
-            <span className="text-4xl font-mono font-bold text-primary">{formatTime(timeLeft)}</span>
-         </div>
-         <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border">
-            <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">WPM</span>
-            <span className="text-4xl font-mono font-bold">{wpm}</span>
-         </div>
-         <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border">
-            <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Accuracy</span>
-            <span className="text-4xl font-mono font-bold">{accuracy}%</span>
-         </div>
-          <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border">
-            <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Status</span>
-            <span className={cn("text-4xl font-mono font-bold", isActive ? "text-green-500" : "text-muted-foreground")}>
-              {isActive ? "GO" : isFinished ? "DONE" : "READY"}
-            </span>
-         </div>
+         <Tooltip>
+           <TooltipTrigger asChild>
+             <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Time</span>
+               <span className="text-4xl font-mono font-bold text-primary">{formatTime(timeLeft)}</span>
+             </div>
+           </TooltipTrigger>
+           <TooltipContent>
+             <p>Time remaining in this test</p>
+           </TooltipContent>
+         </Tooltip>
+         <Tooltip>
+           <TooltipTrigger asChild>
+             <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">WPM</span>
+               <span className="text-4xl font-mono font-bold">{wpm}</span>
+             </div>
+           </TooltipTrigger>
+           <TooltipContent>
+             <p>Words Per Minute - Your typing speed in real-time</p>
+           </TooltipContent>
+         </Tooltip>
+         <Tooltip>
+           <TooltipTrigger asChild>
+             <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Accuracy</span>
+               <span className="text-4xl font-mono font-bold">{accuracy}%</span>
+             </div>
+           </TooltipTrigger>
+           <TooltipContent>
+             <p>Percentage of correctly typed characters</p>
+           </TooltipContent>
+         </Tooltip>
+         <Tooltip>
+           <TooltipTrigger asChild>
+             <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Status</span>
+               <span className={cn("text-4xl font-mono font-bold", isActive ? "text-green-500" : "text-muted-foreground")}>
+                 {isActive ? "GO" : isFinished ? "DONE" : "READY"}
+               </span>
+             </div>
+           </TooltipTrigger>
+           <TooltipContent>
+             <p>Test status: READY → Click to start | GO → Test running | DONE → Test complete</p>
+           </TooltipContent>
+         </Tooltip>
       </div>
 
       {/* Typing Area */}
@@ -524,13 +606,20 @@ export default function TypingTest() {
 
       {/* Controls */}
       <div className="flex justify-center">
-        <button
-          onClick={resetTest}
-          className="flex items-center gap-2 px-8 py-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-secondary-foreground font-medium"
-        >
-          <RefreshCw className="w-5 h-5" />
-          Restart Test
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={resetTest}
+              className="flex items-center gap-2 px-8 py-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-secondary-foreground font-medium"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Restart Test
+            </button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Get a new paragraph and restart the test</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Result Modal / Section */}
@@ -603,6 +692,7 @@ export default function TypingTest() {
         title="Save Your Progress"
         description={`Great job! You scored ${wpm} WPM with ${accuracy}% accuracy. Create an account to save your results and track your progress over time!`}
       />
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
