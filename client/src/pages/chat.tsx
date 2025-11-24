@@ -11,11 +11,14 @@ import {
   Bot,
   User,
   Plus,
-  ChevronLeft,
   ChevronRight,
   Search,
   MoreVertical,
   Trash2,
+  Sparkles,
+  Paperclip,
+  PanelLeft,
+  SquarePen,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -237,24 +240,38 @@ export default function Chat() {
       >
         {sidebarOpen && (
           <>
-            <div className="flex items-center justify-between p-2">
+            {/* Top header with collapse and new chat icons */}
+            <div className="flex items-center justify-between p-2 border-b border-zinc-800/50">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-lg hover:bg-zinc-800/50 text-zinc-300"
+                onClick={() => setSidebarOpen(false)}
+                data-testid="button-close-sidebar"
+              >
+                <PanelLeft className="w-5 h-5" />
+              </Button>
+              <Button
+                onClick={() => createConversationMutation.mutate()}
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-lg hover:bg-zinc-800/50 text-zinc-300"
+                data-testid="button-new-chat-icon"
+              >
+                <SquarePen className="w-5 h-5" />
+              </Button>
+            </div>
+
+            {/* New Chat Button */}
+            <div className="px-2 pt-2 pb-2">
               <Button
                 onClick={() => createConversationMutation.mutate()}
                 variant="outline"
-                className="flex-1 justify-start gap-2 h-10 rounded-lg bg-transparent border-zinc-700 hover:bg-zinc-800/50 text-zinc-100"
+                className="w-full justify-start gap-2 h-10 rounded-lg bg-transparent border-zinc-700 hover:bg-zinc-800/50 text-zinc-100"
                 data-testid="button-new-chat"
               >
                 <Plus className="w-4 h-4" />
                 <span className="text-sm font-medium">New chat</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 rounded-lg hover:bg-zinc-800/50 text-zinc-300 ml-1"
-                onClick={() => setSidebarOpen(false)}
-                data-testid="button-close-sidebar"
-              >
-                <ChevronLeft className="w-5 h-5" />
               </Button>
             </div>
 
@@ -345,10 +362,73 @@ export default function Chat() {
       <div className="flex-1 flex flex-col bg-background">
         {messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center p-8">
-            <div className="text-center space-y-4 max-w-2xl">
-              <h1 className="text-4xl font-semibold tracking-tight" data-testid="text-welcome-heading">
-                What can I help with?
+            <div className="text-center space-y-8 max-w-4xl w-full px-4">
+              {/* Icon */}
+              <div className="flex justify-center mb-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg">
+                  <Sparkles className="w-8 h-8 text-white" />
+                </div>
+              </div>
+              
+              {/* Heading */}
+              <h1 className="text-4xl font-semibold tracking-tight text-foreground" data-testid="text-welcome-heading">
+                How can I help you today?
               </h1>
+              
+              {/* Suggestion Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto mt-6">
+                <button
+                  onClick={() => setInput("What are the best practices for improving typing speed?")}
+                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 transition-colors"
+                  data-testid="suggestion-typing-speed"
+                >
+                  <div className="font-medium text-foreground group-hover:text-primary transition-colors">
+                    Improve typing speed
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    Learn techniques to type faster and more accurately
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => setInput("How do I maintain proper typing posture?")}
+                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 transition-colors"
+                  data-testid="suggestion-typing-posture"
+                >
+                  <div className="font-medium text-foreground group-hover:text-primary transition-colors">
+                    Typing ergonomics
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    Tips for healthy typing habits and posture
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => setInput("What is a good typing speed for professionals?")}
+                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 transition-colors"
+                  data-testid="suggestion-professional-speed"
+                >
+                  <div className="font-medium text-foreground group-hover:text-primary transition-colors">
+                    Professional standards
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    Average typing speeds for different professions
+                  </div>
+                </button>
+                
+                <button
+                  onClick={() => setInput("How can I practice touch typing effectively?")}
+                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 transition-colors"
+                  data-testid="suggestion-touch-typing"
+                >
+                  <div className="font-medium text-foreground group-hover:text-primary transition-colors">
+                    Touch typing practice
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-1">
+                    Effective methods to master touch typing
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -416,13 +496,22 @@ export default function Chat() {
         <div className="border-t border-border bg-background">
           <div className="max-w-3xl mx-auto px-4 py-6">
             <div className="relative bg-background border border-border rounded-3xl shadow-sm hover:shadow-md transition-shadow">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute left-3 bottom-3 h-10 w-10 rounded-lg hover:bg-muted text-muted-foreground"
+                disabled={isLoading}
+                data-testid="button-attach-file"
+              >
+                <Paperclip className="w-5 h-5" />
+              </Button>
               <Textarea
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyPress}
-                placeholder="Message AI Assistant..."
-                className="min-h-[56px] max-h-[200px] resize-none border-0 bg-transparent px-5 py-4 pr-14 focus-visible:ring-0 focus-visible:ring-offset-0"
+                placeholder="Message TypeMasterAI..."
+                className="min-h-[56px] max-h-[200px] resize-none border-0 bg-transparent pl-14 pr-14 py-4 focus-visible:ring-0 focus-visible:ring-offset-0"
                 disabled={isLoading}
                 data-testid="input-chat-message"
               />
@@ -431,9 +520,9 @@ export default function Chat() {
                 disabled={isLoading || !input.trim()}
                 size="icon"
                 className={cn(
-                  "absolute right-3 bottom-3 h-10 w-10 rounded-xl transition-all",
+                  "absolute right-3 bottom-3 h-10 w-10 rounded-full transition-all",
                   input.trim() && !isLoading 
-                    ? "bg-primary hover:bg-primary/90" 
+                    ? "bg-foreground hover:bg-foreground/90 text-background" 
                     : "bg-muted text-muted-foreground cursor-not-allowed"
                 )}
                 data-testid="button-send-message"
