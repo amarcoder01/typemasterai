@@ -280,20 +280,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
           {/* Stats Bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-y border-border/40 mb-6">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary font-mono">23+</div>
+            <div className="text-center" data-testid="stat-languages">
+              <div className="text-2xl font-bold text-primary font-mono" data-testid="stat-languages-value">23+</div>
               <div className="text-xs text-muted-foreground mt-1">Languages</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary font-mono">10k+</div>
+            <div className="text-center" data-testid="stat-users">
+              <div className="text-2xl font-bold text-primary font-mono" data-testid="stat-users-value">10k+</div>
               <div className="text-xs text-muted-foreground mt-1">Active Users</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary font-mono">1M+</div>
+            <div className="text-center" data-testid="stat-tests">
+              <div className="text-2xl font-bold text-primary font-mono" data-testid="stat-tests-value">1M+</div>
               <div className="text-xs text-muted-foreground mt-1">Tests Completed</div>
             </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary font-mono">AI</div>
+            <div className="text-center" data-testid="stat-ai">
+              <div className="text-2xl font-bold text-primary font-mono" data-testid="stat-ai-value">AI</div>
               <div className="text-xs text-muted-foreground mt-1">Powered</div>
             </div>
           </div>
