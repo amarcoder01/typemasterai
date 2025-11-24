@@ -45,30 +45,30 @@ export async function generateTypingParagraph(
   
   if (customPrompt) {
     // Custom user-specified content
-    prompt = `Generate a ${difficulty}-level typing practice paragraph in ${languageName} language about: "${customPrompt}".
+    const scriptNote = language !== 'en' ? ` Use appropriate script (Devanagari for Hindi/Marathi, Arabic script for Arabic, etc.).` : '';
+    
+    prompt = `Generate a ${difficulty}-level typing practice paragraph about: "${customPrompt}".
 
 Requirements:
-1. Write ${wordCount} words
+1. Write ${wordCount} words in ${languageName}
 2. Use proper grammar and natural sentence structure
-3. Make it engaging and educational about the topic: "${customPrompt}"
-4. Use only ${languageName} language - no English words
-5. Use appropriate script (Devanagari for Hindi/Marathi, Arabic script for Arabic, etc.)
-6. Make it suitable for typing practice (clear, well-structured sentences)
-7. Focus specifically on the user's requested topic: "${customPrompt}"
+3. Make it engaging and educational about the topic: "${customPrompt}"${scriptNote}
+4. Make it suitable for typing practice (clear, well-structured sentences)
+5. Focus specifically on the user's requested topic: "${customPrompt}"
 
 Return ONLY the paragraph text, no explanations or meta-commentary.`;
   } else {
     // Standard mode-based content
-    prompt = `Generate a ${difficulty}-level typing practice paragraph in ${languageName} language about the topic: "${mode}".
+    const scriptNote = language !== 'en' ? ` Use appropriate script (Devanagari for Hindi/Marathi, Arabic script for Arabic, etc.).` : '';
+    
+    prompt = `Generate a ${difficulty}-level typing practice paragraph in ${languageName} about the topic: "${mode}".
 
 Requirements:
 1. Write ${wordCount} words
 2. Use proper grammar and natural sentence structure
-3. Make it engaging and educational
-4. Use only ${languageName} language - no English words
-5. Use appropriate script (Devanagari for Hindi/Marathi, Arabic script for Arabic, etc.)
-6. Make it suitable for typing practice (clear, well-structured sentences)
-7. For technical/programming modes, include relevant terminology in ${languageName}
+3. Make it engaging and educational${scriptNote}
+4. Make it suitable for typing practice (clear, well-structured sentences)
+5. For technical/programming modes, include relevant terminology
 
 Topic context:
 - general: everyday life, culture, or common knowledge
