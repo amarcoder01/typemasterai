@@ -11,6 +11,8 @@ import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSch
 import { fromError } from "zod-validation-error";
 import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "@neondatabase/serverless";
+import rateLimit from "express-rate-limit";
+import DOMPurify from "isomorphic-dompurify";
 
 const PgSession = ConnectPgSimple(session);
 
@@ -33,6 +35,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     throw new Error("DATABASE_URL must be set");
   }
 
+  if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
+    console.warn("⚠️ WARNING: SESSION_SECRET is not set in production. Using fallback value is insecure.");
+  }
+
+  const sessionSecret = process.env.SESSION_SECRET || "typemasterai-secret-key-change-in-production";
+  
+  if (sessionSecret === "typemasterai-secret-key-change-in-production" && process.env.NODE_ENV === "production") {
+    console.error("🚨 SECURITY ALERT: Production is using the default SESSION_SECRET. This is highly insecure!");
+  }
+
   const sessionPool = new Pool({ connectionString: process.env.DATABASE_URL });
 
   app.use(
@@ -41,7 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pool: sessionPool,
         createTableIfMissing: true,
       }),
-      secret: process.env.SESSION_SECRET || "typemasterai-secret-key-change-in-production",
+      secret: sessionSecret,
       resave: false,
       saveUninitialized: false,
       cookie: {
@@ -55,6 +67,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.use(passport.initialize());
   app.use(passport.session());
+
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { message: "Too many authentication attempts, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  const chatLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 30,
+    message: { message: "Too many chat requests, please slow down" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  const aiGenerationLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 20,
+    message: { message: "Too many AI generation requests, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
 
   passport.use(
     new LocalStrategy(
@@ -116,7 +152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(401).json({ message: "Unauthorized" });
   }
 
-  app.post("/api/auth/register", async (req, res, next) => {
+  app.post("/api/auth/register", authLimiter, async (req, res, next) => {
     try {
       const parsed = insertUserSchema.safeParse(req.body);
       
@@ -174,7 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", (req, res, next) => {
+  app.post("/api/auth/login", authLimiter, (req, res, next) => {
     const parsed = loginSchema.safeParse(req.body);
     
     if (!parsed.success) {
@@ -291,7 +327,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const updatedUser = await storage.updateUserProfile(req.user!.id, parsed.data);
+      const sanitizedData = {
+        ...parsed.data,
+        bio: parsed.data.bio ? DOMPurify.sanitize(parsed.data.bio, { ALLOWED_TAGS: [] }) : parsed.data.bio,
+      };
+
+      const updatedUser = await storage.updateUserProfile(req.user!.id, sanitizedData);
       res.json({
         message: "Profile updated successfully",
         user: {
@@ -310,7 +351,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/typing/paragraph", async (req, res) => {
+  app.get("/api/typing/paragraph", aiGenerationLimiter, async (req, res) => {
     try {
       const language = (req.query.language as string) || "en";
       const mode = req.query.mode as string | undefined;
@@ -528,7 +569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/chat", isAuthenticated, async (req, res) => {
+  app.post("/api/chat", isAuthenticated, chatLimiter, async (req, res) => {
     try {
       const { messages: requestMessages, conversationId } = req.body;
 
@@ -540,7 +581,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(503).json({ message: "AI service not configured" });
       }
 
-      const lastUserMessage = requestMessages.filter((m: ChatMessage) => m.role === "user").pop();
+      const sanitizedMessages = requestMessages.map((m: ChatMessage) => ({
+        ...m,
+        content: DOMPurify.sanitize(m.content, { ALLOWED_TAGS: [] }),
+      }));
+
+      const lastUserMessage = sanitizedMessages.filter((m: ChatMessage) => m.role === "user").pop();
       if (!lastUserMessage) {
         return res.status(400).json({ message: "No user message found" });
       }
@@ -574,7 +620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       try {
         let assistantResponse = "";
-        for await (const chunk of streamChatCompletion(requestMessages, performSearch)) {
+        for await (const chunk of streamChatCompletion(sanitizedMessages, performSearch)) {
           assistantResponse += chunk;
           res.write(`data: ${JSON.stringify({ content: chunk, conversationId: convId })}\n\n`);
         }
