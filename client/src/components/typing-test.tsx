@@ -229,9 +229,20 @@ export default function TypingTest() {
     // Ideally we'd calculate line height and scroll container
   };
 
-  // Focus handling
+  // Focus handling - only focus when clicking on the typing area
   useEffect(() => {
-    const handleClick = () => inputRef.current?.focus();
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // Don't focus if clicking on select dropdowns or buttons
+      if (target.tagName === 'SELECT' || target.tagName === 'OPTION' || target.tagName === 'BUTTON') {
+        return;
+      }
+      // Don't focus if clicking inside a select dropdown
+      if (target.closest('select')) {
+        return;
+      }
+      inputRef.current?.focus();
+    };
     document.addEventListener("click", handleClick);
     return () => document.removeEventListener("click", handleClick);
   }, []);
