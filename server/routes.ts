@@ -391,7 +391,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (err) {
           console.error("Logout error after account deletion:", err);
         }
-        res.json({ message: "Account deleted successfully" });
+        
+        req.session.destroy((destroyErr) => {
+          if (destroyErr) {
+            console.error("Session destroy error after account deletion:", destroyErr);
+          }
+          res.json({ message: "Account deleted successfully" });
+        });
       });
     } catch (error: any) {
       console.error("Delete account error:", error);
