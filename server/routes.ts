@@ -826,6 +826,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accuracy: 0,
         errors: 0,
         isFinished: 0,
+        isBot: 0,
       });
 
       res.json({ race, participant });
@@ -868,6 +869,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accuracy: 0,
         errors: 0,
         isFinished: 0,
+        isBot: 0,
       });
 
       res.json({ race, participant });
@@ -909,6 +911,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accuracy: 0,
         errors: 0,
         isFinished: 0,
+        isBot: 0,
       });
 
       res.json({ race, participant });
@@ -920,8 +923,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/races/:id", async (req, res) => {
     try {
-      const raceId = parseInt(req.params.id);
-      const raceData = await storage.getRaceWithParticipants(raceId);
+      const id = req.params.id;
+      
+      let raceData;
+      if (/^\d+$/.test(id)) {
+        const raceId = parseInt(id);
+        raceData = await storage.getRaceWithParticipants(raceId);
+      } else {
+        const race = await storage.getRaceByCode(id);
+        if (race) {
+          raceData = await storage.getRaceWithParticipants(race.id);
+        }
+      }
       
       if (!raceData) {
         return res.status(404).json({ message: "Race not found" });

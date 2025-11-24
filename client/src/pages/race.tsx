@@ -53,8 +53,8 @@ export default function RacePage() {
   useEffect(() => {
     if (!params?.id) return;
 
-    const raceId = parseInt(params.id);
-    const savedParticipant = localStorage.getItem(`race_${raceId}_participant`);
+    const roomCodeOrId = params.id;
+    const savedParticipant = localStorage.getItem(`race_${roomCodeOrId}_participant`);
     
     if (savedParticipant) {
       const participant = JSON.parse(savedParticipant);
@@ -72,15 +72,15 @@ export default function RacePage() {
   }, [params?.id]);
 
   useEffect(() => {
-    if (ws && myParticipant && params?.id && ws.readyState === WebSocket.OPEN) {
+    if (ws && myParticipant && race && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
         type: "join",
-        raceId: parseInt(params.id),
+        raceId: race.id,
         participantId: myParticipant.id,
         username: myParticipant.username,
       }));
     }
-  }, [ws, myParticipant, params?.id]);
+  }, [ws, myParticipant, race]);
 
   useEffect(() => {
     if (isRacing && inputRef.current) {
@@ -397,6 +397,11 @@ export default function RacePage() {
                               <span className="font-medium">{p.username}</span>
                               {p.id === myParticipant?.id && (
                                 <span className="text-xs text-primary">(You)</span>
+                              )}
+                              {p.isFinished === 1 && p.finishPosition && (
+                                <span className="text-xs font-semibold text-yellow-500" data-testid={`text-position-${p.id}`}>
+                                  {p.finishPosition === 1 ? '🥇 1st' : p.finishPosition === 2 ? '🥈 2nd' : p.finishPosition === 3 ? '🥉 3rd' : `#${p.finishPosition}`}
+                                </span>
                               )}
                             </div>
                             <div className="flex items-center gap-4">

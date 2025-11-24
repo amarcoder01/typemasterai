@@ -1,7 +1,7 @@
 # TypeMasterAI - AI-Powered Typing Test Application
 
 ## Overview
-TypeMasterAI is a high-performance, full-stack typing test web application designed to help users improve their typing skills. It offers real-time analytics, various test durations (15s, 30s, 60s, 120s), multi-language support (23 languages), diverse paragraph categories, user authentication, and an AI chat assistant. The application tracks progress with visual charts and provides AI-powered content generation for customized practice. **NEW: Real-Time Multiplayer Racing** allows users to compete head-to-head with instant matchmaking, private rooms, live progress tracking, and WebSocket-powered real-time updates. Its core purpose is to provide an engaging and effective platform for typing mastery, with a vision for expanding market reach and user engagement through advanced AI features and a competitive environment.
+TypeMasterAI is a high-performance, full-stack typing test web application designed to help users improve their typing skills. It offers real-time analytics, various test durations (15s, 30s, 60s, 120s), multi-language support (23 languages), diverse paragraph categories, user authentication, and an AI chat assistant. The application tracks progress with visual charts and provides AI-powered content generation for customized practice. **NEW: Real-Time Multiplayer Racing** allows users to compete head-to-head with instant matchmaking, private rooms, live progress tracking, and WebSocket-powered real-time updates. **LATEST: AI Ghost Racers** automatically fill race rooms with realistic bot opponents featuring OpenAI-generated unique names, human-like typing patterns, and variable skill levels to ensure competitive races even when few human players are online. Its core purpose is to provide an engaging and effective platform for typing mastery, with a vision for expanding market reach and user engagement through advanced AI features and a competitive environment.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -17,6 +17,7 @@ Preferred communication style: Simple, everyday language.
 ### Backend Architecture
 - **Server Framework**: Express.js on Node.js with TypeScript, running in dual-mode (dev/prod).
 - **Real-Time Communication**: WebSocket server (ws library) for multiplayer racing with room management, participant tracking, countdown timers, live progress broadcasting, and automatic race state transitions.
+- **AI Ghost Racer System**: Intelligent bot service that automatically populates race rooms when human players are scarce. Features OpenAI GPT-4o-mini-powered unique username generation with fallback algorithms, 7 realistic skill levels (35-130 WPM, 88-99% accuracy), human-like typing patterns with variable delays (50-200ms), error injection, typing bursts/pauses, and race-condition-free finish handling using atomic counter with SELECT FOR UPDATE row locking and isNewFinish flag for idempotent broadcasts. Bot progress persisted to PostgreSQL for seamless synchronization.
 - **Authentication & Security**: Passport.js with LocalStrategy, bcryptjs for password hashing (10 rounds), Express session with PostgreSQL store, HTTP-only cookies, rate limiting, DOMPurify for XSS protection, and React ErrorBoundary for graceful error handling.
 - **API Design**: RESTful API with endpoints for authentication, test results, statistics, leaderboard, multi-language typing content, and multiplayer race management (quick match, create room, join room, race state).
 
@@ -26,8 +27,8 @@ Preferred communication style: Simple, everyday language.
     - **Users**: UUID, username, email, hashed password, avatar color, streak tracking, timestamp.
     - **Test Results**: Serial ID, foreign key to users, WPM, accuracy, mode (duration), character/error count, timestamp.
     - **Typing Paragraphs**: Serial ID, language code (23 supported), mode/category (8+ categories), difficulty, content, word count, timestamp.
-    - **Races**: Serial ID, unique room code (6 chars), status (waiting/countdown/racing/finished), paragraph content, max players, privacy flag, start/finish timestamps.
-    - **Race Participants**: Serial ID, foreign key to races, optional user ID (supports guests), username, avatar color, real-time progress (characters typed), live WPM, accuracy, error count, finish position, timestamps.
+    - **Races**: Serial ID, unique room code (6 chars), status (waiting/countdown/racing/finished), paragraph content, max players, privacy flag, **finish counter for atomic position assignment**, start/finish timestamps.
+    - **Race Participants**: Serial ID, foreign key to races, optional user ID (supports guests), username, avatar color, **isBot flag for AI ghost racers**, real-time progress (characters typed), live WPM, accuracy, error count, finish position (atomically assigned via race-level counter with SELECT FOR UPDATE locking), isFinished flag, timestamps.
 - **Validation & Type Safety**: Zod for runtime validation, Drizzle-Zod for schema conversion, strict TypeScript configuration.
 
 ### Build & Deployment
@@ -43,5 +44,16 @@ Preferred communication style: Simple, everyday language.
 ### Key NPM Packages
 - **UI & Styling**: `@radix-ui/*`, `tailwindcss`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`, `canvas-confetti`, `recharts`.
 - **Data & Forms**: `@tanstack/react-query`, `react-hook-form`, `@hookform/resolvers`, `zod`, `drizzle-zod`.
-- **Backend**: `express`, `express-session`, `passport`, `passport-local`, `bcryptjs`, `drizzle-orm`, `@neondatabase/serverless`, `ws`.
+- **Backend**: `express`, `express-session`, `passport`, `passport-local`, `bcryptjs`, `drizzle-orm`, `@neondatabase/serverless`, `ws`, `openai` (GPT-4o-mini for bot username generation).
 - **Development Tools**: `vite`, `@vitejs/plugin-react`, `typescript`, `tsx`, `esbuild`, `drizzle-kit`.
+
+## Recent Changes
+
+### AI Ghost Racer Implementation (November 24, 2025)
+- **Intelligent Bot System**: Created comprehensive AI bot service (`server/bot-service.ts`) with OpenAI GPT-4o-mini integration for generating unique, believable usernames for each race. Fallback to algorithmic generation ensures reliability.
+- **Realistic Skill Levels**: Implemented 7 difficulty tiers from beginner (35-50 WPM, 88-92% accuracy) to elite (120-130 WPM, 98-99% accuracy) with human-like variance.
+- **Human-Like Typing Simulation**: Bots type with realistic patterns including variable delays (50-200ms), typing bursts/pauses, intentional mistakes, and natural rhythm variations to mimic real human behavior.
+- **Automatic Lobby Filling**: Race countdown system intelligently adds AI ghost racers when fewer than max players join, ensuring competitive races always have sufficient opponents.
+- **Race-Condition-Free Finish Handling**: Implemented atomic finish position assignment using race-level `finishCounter` with PostgreSQL SELECT FOR UPDATE row locking, transaction-based serialization, and `isNewFinish` flag to prevent duplicate broadcasts. This guarantees exactly one position per racer and exactly one finish event broadcast to clients, even under high concurrency.
+- **Database Schema Updates**: Added `isBot` flag to `race_participants` table for tracking AI racers, and `finishCounter` to `races` table for contention-safe position assignment.
+- **Production-Ready Implementation**: Comprehensive error handling, timer cleanup, profile management, and resource cleanup ensure stable performance under load.

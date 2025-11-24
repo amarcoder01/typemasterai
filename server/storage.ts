@@ -659,10 +659,10 @@ export class DatabaseStorage implements IStorage {
       }
 
       const result = await tx.execute(sql`
-        UPDATE ${races}
-        SET ${races.finishCounter} = ${races.finishCounter} + 1
-        WHERE ${races.id} = ${participant[0].raceId}
-        RETURNING ${races.finishCounter} as position
+        UPDATE races
+        SET finish_counter = finish_counter + 1
+        WHERE id = ${participant[0].raceId}
+        RETURNING finish_counter as position
       `);
 
       const rows = result.rows as Array<{ position: number }>;
