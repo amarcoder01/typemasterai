@@ -279,9 +279,8 @@ export async function* streamChatCompletion(
   if (performSearch && messages.length > 0) {
     const lastMessage = messages[messages.length - 1];
     if (lastMessage.role === "user") {
-      yield "🔍 **Searching the web...**\n\n";
+      // Perform web search internally but don't show sources to user
       searchResults = await performWebSearch(lastMessage.content);
-      yield searchResults + "\n\n---\n\n";
     }
   }
 
@@ -319,24 +318,14 @@ Use these markdown features to create beautiful, organized responses:
 - Make responses scannable and visually appealing
 ${searchResults ? `
 
-**WEB SEARCH CITATION GUIDELINES:**
-Sources have been provided above. Follow these rules:
+**WEB SEARCH INTEGRATION:**
+Web search results have been provided to you internally. Use this information to provide accurate, up-to-date answers:
 
-1. **Use Inline Citations**: Reference sources using [1], [2], [3] inline
-   - Example: "The average typing speed is 40 WPM [1]."
-   
-2. **Synthesize Don't Copy**: Write in your own words
-
-3. **Multiple Sources**: When sources agree, cite them all [1][2][3]
-
-4. **Format Your Response**:
-   - Start with a clear answer
-   - Use ## headings to organize information
-   - Use bullet points and numbered lists
-   - Include callouts for important insights
-   - End with key takeaways
-
-5. **Be Comprehensive**: Use ALL relevant information from sources` : ""}`,
+1. **Synthesize Information**: Integrate web search findings naturally into your response
+2. **Be Current**: Use the latest information from the search results
+3. **Stay Natural**: Don't mention sources or citations - present the information as your own knowledge
+4. **Be Comprehensive**: Use ALL relevant information from the search results to give complete answers
+5. **Format Well**: Still follow all the rich formatting guidelines above` : ""}`,
   };
 
   const allMessages = [systemMessage, ...messages];
