@@ -104,26 +104,42 @@ export async function performWebSearch(query: string): Promise<string> {
     return "🔍 No search results found. Using AI knowledge only.";
   }
 
-  let searchSummary = "**🌐 Web Search Results:**\n\n";
-  const scrapedContent: string[] = [];
+  let searchContent = "";
+  const sources: string[] = [];
 
-  for (let i = 0; i < Math.min(results.length, 3); i++) {
+  for (let i = 0; i < Math.min(results.length, 5); i++) {
     const result = results[i];
-    searchSummary += `${i + 1}. **[${result.name}](${result.url})**\n   ${result.snippet}\n\n`;
-
-    const scraped = await scrapeWebPage(result.url);
-    if (scraped && scraped.content) {
-      scrapedContent.push(
-        `**From ${scraped.title}:**\n${scraped.content.substring(0, 800)}`
+    const citation = i + 1;
+    
+    try {
+      const domain = new URL(result.url).hostname.replace('www.', '');
+      sources.push(
+        `**[${citation}] ${result.name}**\n` +
+        `🔗 ${domain}\n` +
+        `${result.snippet}\n` +
+        `[Read more →](${result.url})`
       );
+    } catch {
+      sources.push(
+        `**[${citation}] ${result.name}**\n` +
+        `${result.snippet}\n` +
+        `[Read more →](${result.url})`
+      );
+    }
+
+    if (i < 2) {
+      const scraped = await scrapeWebPage(result.url);
+      if (scraped && scraped.content) {
+        searchContent += `\n**Content from source [${citation}]:**\n${scraped.content.substring(0, 600)}\n`;
+      }
     }
   }
 
-  if (scrapedContent.length > 0) {
-    searchSummary += "\n**📄 Detailed Content:**\n\n" + scrapedContent.join("\n\n---\n\n");
-  }
-
-  return searchSummary;
+  return (
+    `### 📚 Sources\n\n` +
+    sources.join('\n\n---\n\n') +
+    (searchContent ? `\n\n### 📄 Extracted Content\n${searchContent}` : '')
+  );
 }
 
 async function performWebScraping(query: string): Promise<string> {
@@ -161,20 +177,41 @@ async function performWebScraping(query: string): Promise<string> {
       return "🔍 No web results found. Using AI knowledge only.";
     }
 
-    let searchSummary = "**🌐 Web Search Results (via scraping):**\n\n";
+    let searchContent = "";
+    const sources: string[] = [];
 
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
-      searchSummary += `${i + 1}. **[${result.title}](${result.url})**\n   ${result.snippet}\n\n`;
+      const citation = i + 1;
+      
+      try {
+        const domain = new URL(result.url).hostname.replace('www.', '');
+        sources.push(
+          `**[${citation}] ${result.title}**\n` +
+          `🔗 ${domain}\n` +
+          `${result.snippet}\n` +
+          `[Read more →](${result.url})`
+        );
+      } catch {
+        sources.push(
+          `**[${citation}] ${result.title}**\n` +
+          `${result.snippet}\n` +
+          `[Read more →](${result.url})`
+        );
+      }
     }
 
     const firstUrl = results[0].url;
     const scraped = await scrapeWebPage(firstUrl);
     if (scraped && scraped.content) {
-      searchSummary += `\n**📄 Content from ${scraped.title}:**\n\n${scraped.content}`;
+      searchContent = `\n**Content from source [1]:**\n${scraped.content.substring(0, 600)}\n`;
     }
 
-    return searchSummary;
+    return (
+      `### 📚 Sources\n\n` +
+      sources.join('\n\n---\n\n') +
+      (searchContent ? `\n\n### 📄 Extracted Content\n${searchContent}` : '')
+    );
   } catch (error) {
     console.error("Web scraping error:", error);
     return "🔍 Web scraping failed. Using AI knowledge only.";
@@ -264,7 +301,7 @@ export async function* streamChatCompletion(
   if (performSearch && messages.length > 0) {
     const lastMessage = messages[messages.length - 1];
     if (lastMessage.role === "user") {
-      yield "🔍 Searching the web...\n\n";
+      yield "🔍 **Searching the web...**\n\n";
       searchResults = await performWebSearch(lastMessage.content);
       yield searchResults + "\n\n---\n\n";
     }
@@ -282,11 +319,32 @@ export async function* streamChatCompletion(
 
 Guidelines:
 - Be helpful, accurate, and concise
-- When web search results are provided, cite your sources and synthesize the information
-- Use markdown formatting for better readability
-- If you don't know something current, acknowledge it
+- Use markdown formatting for better readability (headings, lists, code blocks, etc.)
 - Be conversational but professional
-${searchResults ? `\n\nWeb search results have been provided above. Use them to answer the user's question comprehensively with proper citations.` : ""}`,
+${searchResults ? `
+
+**IMPORTANT - WEB SEARCH CITATION GUIDELINES:**
+Sources have been provided above from web search. Follow these rules strictly:
+
+1. **Use Inline Citations**: Reference sources using [1], [2], [3] etc. inline with your text
+   - Example: "According to research, the average typing speed is 40 WPM [1]."
+   
+2. **Synthesize Don't Copy**: Write in your own words. Don't copy-paste from sources.
+
+3. **Multiple Sources**: When multiple sources agree, cite them all [1][2][3]
+
+4. **Attribute Properly**: Clearly indicate which information comes from which source
+
+5. **Add Value**: Don't just list what sources say - analyze, compare, and provide insights
+
+6. **Format Your Response**:
+   - Start with a clear, direct answer to the user's question
+   - Use headings (##, ###) to organize information
+   - Use bullet points and numbered lists for clarity
+   - Include relevant details from the sources
+   - End with a concise summary or key takeaways if appropriate
+
+7. **Be Comprehensive**: Use ALL relevant information from the provided sources to give a complete answer` : ""}`,
   };
 
   const allMessages = [systemMessage, ...messages];
