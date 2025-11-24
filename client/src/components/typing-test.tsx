@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { generateText, calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles } from "lucide-react";
+import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award } from "lucide-react";
 import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -9,6 +9,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import AuthPromptDialog from "@/components/auth-prompt-dialog";
 import { SearchableSelect } from "@/components/searchable-select";
+import { CertificateGenerator } from "@/components/certificate-generator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Tooltip,
   TooltipContent,
@@ -88,6 +90,8 @@ export default function TypingTest() {
   const [errors, setErrors] = useState(0);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showCertificate, setShowCertificate] = useState(false);
+  const [testCompletionDate, setTestCompletionDate] = useState<Date>(new Date());
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -345,6 +349,7 @@ export default function TypingTest() {
   const finishTest = () => {
     setIsActive(false);
     setIsFinished(true);
+    setTestCompletionDate(new Date());
     confetti({
       particleCount: 100,
       spread: 70,
@@ -865,19 +870,31 @@ export default function TypingTest() {
                 </div>
               </div>
 
-              <div className="mt-8 flex gap-3">
-                <button
-                  onClick={resetTest}
-                  className="flex-1 py-3 bg-primary text-primary-foreground font-bold rounded-lg hover:opacity-90 transition-opacity"
-                >
-                  Next Test
-                </button>
-                <button
-                  onClick={() => setIsFinished(false)}
-                  className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition-colors"
-                >
-                  Close
-                </button>
+              <div className="mt-8 flex flex-col gap-3">
+                {user && (
+                  <button
+                    onClick={() => setShowCertificate(true)}
+                    className="w-full py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    data-testid="button-view-certificate"
+                  >
+                    <Award className="w-5 h-5" />
+                    Get Certificate
+                  </button>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={resetTest}
+                    className="flex-1 py-3 bg-primary text-primary-foreground font-bold rounded-lg hover:opacity-90 transition-opacity"
+                  >
+                    Next Test
+                  </button>
+                  <button
+                    onClick={() => setIsFinished(false)}
+                    className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -891,6 +908,24 @@ export default function TypingTest() {
         title="Save Your Progress"
         description={`Great job! You scored ${wpm} WPM with ${accuracy}% accuracy. Create an account to save your results and track your progress over time!`}
       />
+
+      {/* Certificate Dialog */}
+      <Dialog open={showCertificate} onOpenChange={setShowCertificate}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">Your Achievement Certificate</DialogTitle>
+          </DialogHeader>
+          {user && (
+            <CertificateGenerator
+              username={user.username}
+              wpm={wpm}
+              accuracy={accuracy}
+              mode={mode}
+              date={testCompletionDate}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
       </div>
     </TooltipProvider>
   );
