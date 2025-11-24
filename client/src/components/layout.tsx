@@ -174,35 +174,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </h3>
               <ul className="space-y-3">
                 <li>
-                  <Link href="/">
-                    <a className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-features">
-                      <Keyboard className="w-3 h-3" />
-                      Typing Tests
-                    </a>
+                  <Link href="/" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-features">
+                    <Keyboard className="w-3 h-3" />
+                    Typing Tests
                   </Link>
                 </li>
                 <li>
-                  <Link href="/leaderboard">
-                    <a className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-leaderboard">
-                      <Trophy className="w-3 h-3" />
-                      Leaderboard
-                    </a>
+                  <Link href="/leaderboard" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-leaderboard">
+                    <Trophy className="w-3 h-3" />
+                    Leaderboard
                   </Link>
                 </li>
                 <li>
-                  <Link href="/chat">
-                    <a className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-ai-chat">
-                      <Sparkles className="w-3 h-3" />
-                      AI Assistant
-                    </a>
+                  <Link href="/chat" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-ai-chat">
+                    <Sparkles className="w-3 h-3" />
+                    AI Assistant
                   </Link>
                 </li>
                 <li>
-                  <Link href="/profile">
-                    <a className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-analytics">
-                      <TrendingUp className="w-3 h-3" />
-                      Analytics
-                    </a>
+                  <Link href="/profile" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-analytics">
+                    <TrendingUp className="w-3 h-3" />
+                    Analytics
                   </Link>
                 </li>
                 <li>
