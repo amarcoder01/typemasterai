@@ -214,14 +214,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </h3>
               <ul className="space-y-3">
                 <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-blog">
-                    Blog
-                  </a>
+                  <Link href="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-blog">
+                    About Us
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-guides">
-                    Typing Guides
-                  </a>
+                  <Link href="/contact" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-guides">
+                    Contact Us
+                  </Link>
                 </li>
                 <li>
                   <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-tips">
@@ -245,18 +245,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div>
               <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" />
-                Company
+                Legal
               </h3>
               <ul className="space-y-3">
                 <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-about">
-                    About Us
-                  </a>
+                  <Link href="/privacy-policy" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-privacy">
+                    <Shield className="w-3 h-3" />
+                    Privacy Policy
+                  </Link>
                 </li>
                 <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-contact">
-                    Contact
-                  </a>
+                  <Link href="/terms-of-service" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-terms">
+                    Terms of Service
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/cookie-policy" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-cookies">
+                    Cookie Policy
+                  </Link>
                 </li>
                 <li>
                   <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-careers">
@@ -264,14 +270,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-privacy">
-                    <Shield className="w-3 h-3" />
-                    Privacy Policy
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-terms">
-                    Terms of Service
+                  <a href="mailto:hello@typemasterai.com" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-contact">
+                    Contact
                   </a>
                 </li>
               </ul>

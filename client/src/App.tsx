@@ -15,6 +15,11 @@ import Settings from "@/pages/settings";
 import Chat from "@/pages/chat";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import PrivacyPolicy from "@/pages/privacy-policy";
+import TermsOfService from "@/pages/terms-of-service";
+import CookiePolicy from "@/pages/cookie-policy";
+import About from "@/pages/about";
+import Contact from "@/pages/contact";
 
 function Router() {
   return (
@@ -30,6 +35,11 @@ function Router() {
             <Route path="/leaderboard" component={Leaderboard} />
             <Route path="/chat" component={Chat} />
             <Route path="/settings" component={Settings} />
+            <Route path="/privacy-policy" component={PrivacyPolicy} />
+            <Route path="/terms-of-service" component={TermsOfService} />
+            <Route path="/cookie-policy" component={CookiePolicy} />
+            <Route path="/about" component={About} />
+            <Route path="/contact" component={Contact} />
             <Route component={NotFound} />
           </Switch>
         </Layout>
