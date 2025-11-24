@@ -815,19 +815,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const participant = await storage.createRaceParticipant({
-        raceId: race.id,
-        userId: user?.id,
-        guestName: user ? undefined : username,
-        username,
-        avatarColor,
-        progress: 0,
-        wpm: 0,
-        accuracy: 0,
-        errors: 0,
-        isFinished: 0,
-        isBot: 0,
-      });
+      const participants = await storage.getRaceParticipants(race.id);
+      let participant = participants.find(p => 
+        user ? p.userId === user.id : p.guestName === username
+      );
+
+      if (!participant) {
+        participant = await storage.createRaceParticipant({
+          raceId: race.id,
+          userId: user?.id,
+          guestName: user ? undefined : username,
+          username,
+          avatarColor,
+          progress: 0,
+          wpm: 0,
+          accuracy: 0,
+          errors: 0,
+          isFinished: 0,
+          isBot: 0,
+        });
+      }
 
       res.json({ race, participant });
     } catch (error: any) {
@@ -858,7 +865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isPrivate: isPrivate ? 1 : 0,
       });
 
-      const participant = await storage.createRaceParticipant({
+      let participant = await storage.createRaceParticipant({
         raceId: race.id,
         userId: user?.id,
         guestName: user ? undefined : username,
@@ -896,23 +903,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const participants = await storage.getRaceParticipants(race.id);
-      if (participants.length >= race.maxPlayers) {
-        return res.status(400).json({ message: "Race is full" });
-      }
+      
+      let participant = participants.find(p => 
+        user ? p.userId === user.id : p.guestName === username
+      );
 
-      const participant = await storage.createRaceParticipant({
-        raceId: race.id,
-        userId: user?.id,
-        guestName: user ? undefined : username,
-        username,
-        avatarColor,
-        progress: 0,
-        wpm: 0,
-        accuracy: 0,
-        errors: 0,
-        isFinished: 0,
-        isBot: 0,
-      });
+      if (!participant) {
+        if (participants.length >= race.maxPlayers) {
+          return res.status(400).json({ message: "Race is full" });
+        }
+
+        participant = await storage.createRaceParticipant({
+          raceId: race.id,
+          userId: user?.id,
+          guestName: user ? undefined : username,
+          username,
+          avatarColor,
+          progress: 0,
+          wpm: 0,
+          accuracy: 0,
+          errors: 0,
+          isFinished: 0,
+          isBot: 0,
+        });
+      }
 
       res.json({ race, participant });
     } catch (error: any) {
