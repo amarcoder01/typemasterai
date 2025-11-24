@@ -64,6 +64,7 @@ export interface IStorage {
   getConversationMessages(conversationId: number): Promise<Message[]>;
   
   getRandomParagraph(language: string, mode?: string): Promise<TypingParagraph | undefined>;
+  getExactParagraph(language: string, mode: string): Promise<TypingParagraph | undefined>;
   getAvailableLanguages(): Promise<string[]>;
   getAvailableModes(): Promise<string[]>;
   createTypingParagraph(paragraph: InsertTypingParagraph): Promise<TypingParagraph>;
@@ -203,6 +204,21 @@ export class DatabaseStorage implements IStorage {
       .from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(messages.createdAt);
+  }
+
+  async getExactParagraph(language: string, mode: string): Promise<TypingParagraph | undefined> {
+    // Get ONLY exact language + mode match, no fallbacks
+    const specificParagraphs = await db
+      .select()
+      .from(typingParagraphs)
+      .where(and(eq(typingParagraphs.language, language), eq(typingParagraphs.mode, mode)));
+    
+    if (specificParagraphs.length > 0) {
+      const randomIndex = Math.floor(Math.random() * specificParagraphs.length);
+      return specificParagraphs[randomIndex];
+    }
+    
+    return undefined;
   }
 
   async getRandomParagraph(language: string, mode?: string): Promise<TypingParagraph | undefined> {

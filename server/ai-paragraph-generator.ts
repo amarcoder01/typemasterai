@@ -64,22 +64,31 @@ Topic context:
 Return ONLY the paragraph text, no explanations or meta-commentary.`;
 
   try {
+    console.log(`📝 Prompt for ${languageName}/${mode}:`, prompt.substring(0, 200) + "...");
+    
     const response = await openai.chat.completions.create({
-      model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+      model: "gpt-4o", // Using gpt-4o which is well-supported by Replit AI Integrations
       messages: [{ role: "user", content: prompt }],
-      max_completion_tokens: 500,
-      temperature: 1,
+      max_tokens: 500,
+      temperature: 0.9,
     });
 
+    console.log(`📦 API Response:`, JSON.stringify(response, null, 2).substring(0, 500));
+    
     const content = response.choices[0]?.message?.content?.trim() || "";
     
     if (!content) {
+      console.error("Empty content from AI. Full response:", JSON.stringify(response));
       throw new Error("AI generated empty content");
     }
 
+    console.log(`✅ Generated ${content.split(/\s+/).length} words for ${languageName}/${mode}`);
     return content;
-  } catch (error) {
-    console.error("AI paragraph generation error:", error);
+  } catch (error: any) {
+    console.error("❌ AI paragraph generation error:", error.message || error);
+    if (error.response) {
+      console.error("API Error Response:", error.response.data);
+    }
     throw error;
   }
 }

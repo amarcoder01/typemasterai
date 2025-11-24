@@ -316,12 +316,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const mode = req.query.mode as string | undefined;
       const generateIfMissing = req.query.generate === "true";
       
-      let paragraph = await storage.getRandomParagraph(language, mode);
+      let paragraph: any = undefined;
       let isGenerated = false;
       
-      // If no paragraph found and AI generation is requested
+      // Check for exact match first (no fallbacks)
+      if (mode) {
+        paragraph = await storage.getExactParagraph(language, mode);
+      }
+      
+      // If no exact match found and AI generation is requested
       if (!paragraph && generateIfMissing && mode) {
-        console.log(`Generating AI paragraph for ${language}/${mode}`);
+        console.log(`🤖 Generating AI paragraph for ${language}/${mode}`);
         
         try {
           const content = await generateTypingParagraph(language, mode, "medium");
@@ -337,12 +342,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           isGenerated = true;
-          console.log(`Successfully generated and saved paragraph for ${language}/${mode}`);
+          console.log(`✅ Successfully generated and saved paragraph for ${language}/${mode}`);
         } catch (aiError) {
-          console.error("AI generation failed:", aiError);
+          console.error("❌ AI generation failed:", aiError);
           // Fall back to existing logic if AI generation fails
           paragraph = await storage.getRandomParagraph(language, mode);
         }
+      }
+      
+      // If still no paragraph, use fallback system
+      if (!paragraph) {
+        paragraph = await storage.getRandomParagraph(language, mode);
       }
       
       if (!paragraph) {
@@ -351,7 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ 
         paragraph,
-        fallbackUsed: paragraph.language !== language || (mode && paragraph.mode !== mode),
+        fallbackUsed: !isGenerated && (paragraph.language !== language || (mode && paragraph.mode !== mode)),
         isGenerated,
       });
     } catch (error: any) {
