@@ -11,7 +11,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const stored = localStorage.getItem("typeflow-theme");
+    const stored = localStorage.getItem("typemasterai-theme");
     return (stored as Theme) || "focus";
   });
 
@@ -19,7 +19,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     root.classList.remove("focus", "light", "cyber", "retro");
     root.classList.add(theme);
-    localStorage.setItem("typeflow-theme", theme);
+    localStorage.setItem("typemasterai-theme", theme);
   }, [theme]);
 
   const setTheme = (newTheme: Theme) => {

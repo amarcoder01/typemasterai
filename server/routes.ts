@@ -41,7 +41,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pool: sessionPool,
         createTableIfMissing: true,
       }),
-      secret: process.env.SESSION_SECRET || "typeflow-secret-key-change-in-production",
+      secret: process.env.SESSION_SECRET || "typemasterai-secret-key-change-in-production",
       resave: false,
       saveUninitialized: false,
       cookie: {
