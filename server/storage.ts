@@ -37,6 +37,8 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserProfile(userId: string, profile: Partial<User>): Promise<User>;
+  updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
+  deleteUser(userId: string): Promise<void>;
   
   createTestResult(result: InsertTestResult): Promise<TestResult>;
   getUserTestResults(userId: string, limit?: number): Promise<TestResult[]>;
@@ -98,6 +100,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return result[0];
+  }
+
+  async updateUserPassword(userId: string, hashedPassword: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.id, userId));
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, userId));
   }
 
   async createTestResult(result: InsertTestResult): Promise<TestResult> {

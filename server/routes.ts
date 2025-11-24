@@ -351,6 +351,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/auth/change-password", authLimiter, isAuthenticated, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ message: "Current password and new password are required" });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({ message: "New password must be at least 8 characters" });
+      }
+
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(401).json({ message: "Current password is incorrect" });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUserPassword(req.user!.id, hashedPassword);
+
+      res.json({ message: "Password changed successfully" });
+    } catch (error: any) {
+      console.error("Change password error:", error);
+      res.status(500).json({ message: "Failed to change password" });
+    }
+  });
+
+  app.delete("/api/auth/delete-account", authLimiter, isAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteUser(req.user!.id);
+      
+      req.logout((err) => {
+        if (err) {
+          console.error("Logout error after account deletion:", err);
+        }
+        res.json({ message: "Account deleted successfully" });
+      });
+    } catch (error: any) {
+      console.error("Delete account error:", error);
+      res.status(500).json({ message: "Failed to delete account" });
+    }
+  });
+
   app.get("/api/typing/paragraph", aiGenerationLimiter, async (req, res) => {
     try {
       const language = (req.query.language as string) || "en";

@@ -2,13 +2,121 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Moon, Volume2, Keyboard } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Moon, Volume2, Keyboard, Shield, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+  
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to change password");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Password Changed",
+        description: "Your password has been updated successfully",
+      });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Password Change Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/auth/delete-account", {
+        method: "DELETE",
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to delete account");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Account Deleted",
+        description: "Your account has been permanently deleted",
+      });
+      logout();
+      navigate("/");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Account Deletion Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleChangePassword = () => {
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Password Mismatch",
+        description: "New password and confirmation do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (newPassword.length < 8) {
+      toast({
+        title: "Password Too Short",
+        description: "Password must be at least 8 characters",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    changePasswordMutation.mutate();
+  };
 
   return (
       <div className="max-w-2xl mx-auto space-y-8">
@@ -121,6 +229,117 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Security - Only show if user is logged in */}
+          {user && (
+            <Card className="border-destructive/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="w-5 h-5" /> Security & Privacy
+                </CardTitle>
+                <CardDescription>Manage your account security settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Change Password */}
+                <div className="space-y-4">
+                  <Label className="text-base font-semibold">Change Password</Label>
+                  
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="current-password">Current Password</Label>
+                      <Input
+                        id="current-password"
+                        type="password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        data-testid="input-current-password"
+                        placeholder="Enter current password"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="new-password">New Password</Label>
+                      <Input
+                        id="new-password"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        data-testid="input-new-password"
+                        placeholder="Enter new password (min 8 characters)"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="confirm-password">Confirm New Password</Label>
+                      <Input
+                        id="confirm-password"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        data-testid="input-confirm-password"
+                        placeholder="Confirm new password"
+                      />
+                    </div>
+                    
+                    <Button
+                      onClick={handleChangePassword}
+                      disabled={!currentPassword || !newPassword || !confirmPassword || changePasswordMutation.isPending}
+                      data-testid="button-change-password"
+                    >
+                      {changePasswordMutation.isPending ? "Changing..." : "Change Password"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold text-destructive">Danger Zone</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Once you delete your account, there is no going back. All your test results, conversations, and profile data will be permanently deleted.
+                    </p>
+                    
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="destructive" 
+                          className="gap-2"
+                          data-testid="button-delete-account"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Delete Account
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete your account
+                            and remove all your data from our servers, including:
+                            <ul className="list-disc list-inside mt-2 space-y-1">
+                              <li>All typing test results</li>
+                              <li>AI chat conversations</li>
+                              <li>Profile information</li>
+                              <li>Leaderboard entries</li>
+                            </ul>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteAccountMutation.mutate()}
+                            className="bg-destructive hover:bg-destructive/90"
+                            data-testid="button-confirm-delete"
+                          >
+                            {deleteAccountMutation.isPending ? "Deleting..." : "Delete Account"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
   );
