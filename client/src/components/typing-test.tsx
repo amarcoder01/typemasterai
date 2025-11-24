@@ -97,18 +97,8 @@ export default function TypingTest() {
       const data = await response.json();
       setText(data.paragraph.content);
       
-      // Notify user if AI generated new content
-      if (data.isGenerated) {
-        const languageName = LANGUAGE_NAMES[language] || language;
-        const modeName = MODE_NAMES[paragraphMode] || paragraphMode;
-        
-        toast({
-          title: "✨ AI Generated Content",
-          description: `Created new ${languageName} ${modeName} paragraph just for you!`,
-        });
-      }
       // Notify user if fallback was used
-      else if (data.fallbackUsed) {
+      if (data.fallbackUsed) {
         const requestedLang = LANGUAGE_NAMES[language] || language;
         const deliveredLang = LANGUAGE_NAMES[data.paragraph.language] || data.paragraph.language;
         const deliveredMode = MODE_NAMES[data.paragraph.mode] || data.paragraph.mode;
