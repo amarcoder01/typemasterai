@@ -87,6 +87,7 @@ export default function TypingTest() {
   const [accuracy, setAccuracy] = useState(100);
   const [errors, setErrors] = useState(0);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -111,6 +112,15 @@ export default function TypingTest() {
 
   const fetchParagraph = useCallback(async (useCustomPrompt = false) => {
     try {
+      // Set loading state when using custom prompt
+      if (useCustomPrompt) {
+        setIsGenerating(true);
+        toast({
+          title: "🤖 Generating Custom Content...",
+          description: "AI is creating a paragraph based on your request",
+        });
+      }
+      
       // Try with AI generation enabled - add timestamp to prevent caching
       let url = `/api/typing/paragraph?language=${language}&mode=${paragraphMode}&difficulty=${difficulty}&generate=true&t=${Date.now()}`;
       
@@ -153,6 +163,12 @@ export default function TypingTest() {
           description: `${requestedLang} ${MODE_NAMES[paragraphMode] || paragraphMode} not available. Showing ${deliveredLang} ${deliveredMode} instead.`,
           variant: "default",
         });
+      } else if (useCustomPrompt) {
+        // Show success message for custom content
+        toast({
+          title: "✨ Custom Content Ready!",
+          description: "AI created your requested paragraph",
+        });
       }
     } catch (error) {
       console.error("Error fetching paragraph:", error);
@@ -162,6 +178,10 @@ export default function TypingTest() {
         description: "Could not load paragraph from database.",
         variant: "default",
       });
+    } finally {
+      if (useCustomPrompt) {
+        setIsGenerating(false);
+      }
     }
   }, [language, paragraphMode, difficulty, customPrompt, mode, toast]);
 
@@ -205,6 +225,13 @@ export default function TypingTest() {
     setWpm(0);
     setAccuracy(100);
     setShowAuthPrompt(false);
+    setIsGenerating(true);
+    
+    // Show loading toast
+    toast({
+      title: "🤖 Generating New Paragraph...",
+      description: "AI is creating fresh content for you",
+    });
     
     // Fetch a fresh paragraph - always generate new content
     try {
@@ -231,17 +258,34 @@ export default function TypingTest() {
         
         setText(extendedText);
         setOriginalText(paragraphText);
+        
+        // Show success toast
+        toast({
+          title: "✨ New Paragraph Ready!",
+          description: `Fresh ${difficulty} difficulty content generated`,
+        });
       } else {
         // Fallback to regular fetch
         await fetchParagraph();
+        toast({
+          title: "⚠️ Using Existing Content",
+          description: "Could not generate new content, using database paragraph",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error in resetTest:", error);
       await fetchParagraph();
+      toast({
+        title: "❌ Generation Failed",
+        description: "Using existing content instead",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
-    
-    setTimeout(() => inputRef.current?.focus(), 0);
-  }, [mode, language, paragraphMode, difficulty, fetchParagraph]);
+  }, [mode, language, paragraphMode, difficulty, fetchParagraph, toast]);
 
   // Initial setup and when time mode changes
   useEffect(() => {
@@ -520,15 +564,21 @@ export default function TypingTest() {
               <TooltipTrigger asChild>
                 <button
                   onClick={resetTest}
-                  className="px-4 py-2 rounded-full text-sm font-medium transition-all bg-secondary text-muted-foreground hover:text-foreground flex items-center gap-2"
+                  disabled={isGenerating}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2",
+                    isGenerating
+                      ? "bg-primary/50 text-primary-foreground cursor-not-allowed"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  )}
                   data-testid="button-new-paragraph"
                 >
-                  <RefreshCw className="w-4 h-4" />
-                  New Paragraph
+                  <RefreshCw className={cn("w-4 h-4", isGenerating && "animate-spin")} />
+                  {isGenerating ? "Generating..." : "New Paragraph"}
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Get a fresh paragraph without changing settings</p>
+                <p>{isGenerating ? "AI is generating fresh content..." : "Get a fresh paragraph without changing settings"}</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -602,10 +652,14 @@ export default function TypingTest() {
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   placeholder="E.g., 'about artificial intelligence and future technology'"
-                  className="flex-1 px-4 py-2 rounded-lg bg-secondary text-foreground placeholder:text-muted-foreground border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                  disabled={isGenerating}
+                  className={cn(
+                    "flex-1 px-4 py-2 rounded-lg text-foreground placeholder:text-muted-foreground border border-border focus:outline-none focus:ring-2 focus:ring-primary",
+                    isGenerating ? "bg-secondary/50 cursor-not-allowed" : "bg-secondary"
+                  )}
                   data-testid="input-custom-prompt"
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && customPrompt.trim()) {
+                    if (e.key === 'Enter' && customPrompt.trim() && !isGenerating) {
                       fetchParagraph(true);
                       setUserInput("");
                       setOriginalText("");
@@ -628,10 +682,6 @@ export default function TypingTest() {
                       setIsFinished(false);
                       setWpm(0);
                       setAccuracy(100);
-                      toast({
-                        title: "Generating custom content",
-                        description: "AI is creating a paragraph based on your request...",
-                      });
                     } else {
                       toast({
                         title: "Empty prompt",
@@ -640,11 +690,17 @@ export default function TypingTest() {
                       });
                     }
                   }}
-                  className="px-6 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center gap-2"
+                  disabled={isGenerating || !customPrompt.trim()}
+                  className={cn(
+                    "px-6 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all",
+                    isGenerating || !customPrompt.trim()
+                      ? "bg-primary/50 text-primary-foreground cursor-not-allowed"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90"
+                  )}
                   data-testid="button-generate-custom"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  Generate
+                  <Sparkles className={cn("w-4 h-4", isGenerating && "animate-spin")} />
+                  {isGenerating ? "Generating..." : "Generate"}
                 </button>
               </div>
               <p className="text-xs text-muted-foreground text-center">
