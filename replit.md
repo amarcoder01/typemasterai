@@ -2,7 +2,7 @@
 
 ## Overview
 
-TypeFlow is a high-performance typing test web application built with a modern full-stack architecture. The application allows users to test their typing speed and accuracy, track their progress over time, and compete on a global leaderboard. It features real-time analytics, multiple test modes (15s, 30s, 60s, 120s), user authentication, and comprehensive progress tracking with visual charts.
+TypeFlow is a high-performance typing test web application built with a modern full-stack architecture. The application allows users to test their typing speed and accuracy, track their progress over time, and compete on a global leaderboard. It features real-time analytics, multiple test modes (15s, 30s, 60s, 120s), multi-language support (12+ languages), diverse paragraph modes (8+ categories), user authentication with AI chat assistant, and comprehensive progress tracking with visual charts.
 
 ## User Preferences
 
@@ -52,6 +52,7 @@ Preferred communication style: Simple, everyday language.
 - Test results endpoints (`/api/test-results` - GET/POST)
 - Statistics endpoint (`/api/stats`)
 - Leaderboard endpoint (`/api/leaderboard`)
+- Multi-language typing endpoints (`/api/typing/paragraph`, `/api/typing/languages`, `/api/typing/modes`)
 
 ### Data Layer
 
@@ -73,6 +74,16 @@ Preferred communication style: Simple, everyday language.
 - Serial integer primary key
 - Foreign key to users (cascade delete)
 - WPM (words per minute, 0-500 range)
+
+*Typing Paragraphs Table:*
+- Serial integer primary key
+- Language code (2-10 chars: en, es, fr, de, it, pt, ja, zh, hi, ru, ar, ko)
+- Mode/category (general, entertainment, technical, quotes, programming, news, stories, business)
+- Difficulty level (easy, medium, hard)
+- Content (paragraph text, minimum 50 chars)
+- Word count (integer)
+- Created timestamp
+- Indexes on language, mode, and combined language+mode for query optimization
 - Accuracy (0-100 percentage)
 - Mode (test duration in seconds)
 - Character count and error count

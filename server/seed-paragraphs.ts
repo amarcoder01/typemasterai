@@ -141,6 +141,132 @@ const paragraphsData = [
     content: "El cine latinoamericano ha ganado reconocimiento mundial con películas galardonadas. Directores talentosos cuentan historias únicas que reflejan la cultura y las experiencias de la región. Los festivales internacionales celebran estas producciones cinematográficas.",
     wordCount: 34,
   },
+  
+  // SPANISH - Technical
+  {
+    language: "es",
+    mode: "technical",
+    difficulty: "medium",
+    content: "La inteligencia artificial está transformando la industria tecnológica. Los algoritmos de aprendizaje automático procesan grandes cantidades de datos para identificar patrones y hacer predicciones precisas. Las aplicaciones van desde reconocimiento de voz hasta vehículos autónomos.",
+    wordCount: 38,
+  },
+  
+  // SPANISH - Programming
+  {
+    language: "es",
+    mode: "programming",
+    difficulty: "medium",
+    content: "function calcular(a, b) { const suma = a + b; const producto = a * b; return { suma, producto }; } const resultado = calcular(5, 3); console.log(resultado);",
+    wordCount: 28,
+  },
+
+  // SPANISH - Quotes
+  {
+    language: "es",
+    mode: "quotes",
+    difficulty: "medium",
+    content: "La imaginación es más importante que el conocimiento. El conocimiento es limitado, mientras que la imaginación no tiene límites. - Albert Einstein",
+    wordCount: 24,
+  },
+
+  // FRENCH - Technical
+  {
+    language: "fr",
+    mode: "technical",
+    difficulty: "medium",
+    content: "L'informatique quantique promet de révolutionner le calcul. Les ordinateurs quantiques utilisent les principes de la mécanique quantique pour traiter l'information de manière radicalement différente. Cette technologie pourrait résoudre des problèmes actuellement impossibles.",
+    wordCount: 35,
+  },
+
+  // FRENCH - Entertainment
+  {
+    language: "fr",
+    mode: "entertainment",
+    difficulty: "medium",
+    content: "Le cinéma français a une longue tradition d'excellence artistique. Des réalisateurs innovants créent des films qui explorent la condition humaine avec profondeur et sensibilité. Les festivals de Cannes attirent l'attention mondiale.",
+    wordCount: 33,
+  },
+
+  // GERMAN - Technical
+  {
+    language: "de",
+    mode: "technical",
+    difficulty: "medium",
+    content: "Die Digitalisierung verändert alle Bereiche unseres Lebens. Künstliche Intelligenz und maschinelles Lernen ermöglichen neue Anwendungen. Cloud Computing bietet flexible und skalierbare Infrastruktur für moderne Unternehmen.",
+    wordCount: 28,
+  },
+
+  // GERMAN - Entertainment
+  {
+    language: "de",
+    mode: "entertainment",
+    difficulty: "medium",
+    content: "Die deutsche Filmindustrie produziert vielfältige Werke. Von historischen Dramen bis zu modernen Komödien bietet das deutsche Kino für jeden Geschmack etwas. Internationale Filmfestivals präsentieren diese Produktionen.",
+    wordCount: 29,
+  },
+
+  // ITALIAN - Technical
+  {
+    language: "it",
+    mode: "technical",
+    difficulty: "medium",
+    content: "La tecnologia blockchain sta rivoluzionando molti settori. Questa tecnologia distribuita garantisce trasparenza e sicurezza nelle transazioni digitali. Le criptovalute sono solo una delle tante applicazioni possibili di questa innovazione.",
+    wordCount: 31,
+  },
+
+  // ITALIAN - Entertainment
+  {
+    language: "it",
+    mode: "entertainment",
+    difficulty: "medium",
+    content: "Il cinema italiano è famoso in tutto il mondo per la sua creatività. Registi leggendari hanno creato capolavori che continuano a ispirare nuove generazioni. I festival cinematografici celebrano questa ricca tradizione artistica.",
+    wordCount: 33,
+  },
+
+  // PORTUGUESE - Technical
+  {
+    language: "pt",
+    mode: "technical",
+    difficulty: "medium",
+    content: "A computação em nuvem transformou a forma como armazenamos e processamos dados. Empresas podem escalar recursos conforme necessário sem investir em infraestrutura física. A segurança e a disponibilidade são prioridades neste modelo.",
+    wordCount: 32,
+  },
+
+  // PORTUGUESE - Entertainment
+  {
+    language: "pt",
+    mode: "entertainment",
+    difficulty: "medium",
+    content: "A música brasileira é conhecida mundialmente pela sua diversidade e ritmo. Do samba à bossa nova, cada estilo conta uma história única. Festivais de música celebram essa riqueza cultural com artistas de todo o país.",
+    wordCount: 37,
+  },
+
+  // JAPANESE - Technical
+  {
+    language: "ja",
+    mode: "technical",
+    difficulty: "medium",
+    content: "人工知能技術は急速に進化しています。機械学習アルゴリズムは大量のデータを分析し、パターンを識別します。この技術は医療、金融、製造業など多くの分野で活用されています。",
+    wordCount: 52,
+  },
+
+  // CHINESE - Technical
+  {
+    language: "zh",
+    mode: "technical",
+    difficulty: "medium",
+    content: "云计算技术改变了企业的运营方式。通过互联网访问计算资源，公司可以快速扩展业务。数据安全和隐私保护是云服务的重要考虑因素。",
+    wordCount: 42,
+  },
+
+  // More English modes coverage
+  {
+    language: "en",
+    mode: "quotes",
+    difficulty: "medium",
+    content: "Success is not final, failure is not fatal: it is the courage to continue that counts. We make a living by what we get, but we make a life by what we give. - Winston Churchill",
+    wordCount: 38,
+  },
 
   // FRENCH - General
   {

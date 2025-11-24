@@ -204,19 +204,42 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRandomParagraph(language: string, mode?: string): Promise<TypingParagraph | undefined> {
-    const conditions = mode 
-      ? and(eq(typingParagraphs.language, language), eq(typingParagraphs.mode, mode))
-      : eq(typingParagraphs.language, language);
+    // Try with both language and mode
+    if (mode) {
+      const specificParagraphs = await db
+        .select()
+        .from(typingParagraphs)
+        .where(and(eq(typingParagraphs.language, language), eq(typingParagraphs.mode, mode)));
+      
+      if (specificParagraphs.length > 0) {
+        const randomIndex = Math.floor(Math.random() * specificParagraphs.length);
+        return specificParagraphs[randomIndex];
+      }
+    }
     
-    const paragraphs = await db
+    // Fallback to any paragraph in the requested language
+    const languageParagraphs = await db
       .select()
       .from(typingParagraphs)
-      .where(conditions);
+      .where(eq(typingParagraphs.language, language));
     
-    if (paragraphs.length === 0) return undefined;
+    if (languageParagraphs.length > 0) {
+      const randomIndex = Math.floor(Math.random() * languageParagraphs.length);
+      return languageParagraphs[randomIndex];
+    }
     
-    const randomIndex = Math.floor(Math.random() * paragraphs.length);
-    return paragraphs[randomIndex];
+    // Final fallback to any English paragraph
+    const englishParagraphs = await db
+      .select()
+      .from(typingParagraphs)
+      .where(eq(typingParagraphs.language, 'en'));
+    
+    if (englishParagraphs.length > 0) {
+      const randomIndex = Math.floor(Math.random() * englishParagraphs.length);
+      return englishParagraphs[randomIndex];
+    }
+    
+    return undefined;
   }
 
   async getAvailableLanguages(): Promise<string[]> {
