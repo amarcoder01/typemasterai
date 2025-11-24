@@ -1,8 +1,10 @@
-# TypeFlow - Typing Test Application
+# TypeMasterAI - AI-Powered Typing Test Application
 
 ## Overview
 
-TypeFlow is a high-performance typing test web application built with a modern full-stack architecture. The application allows users to test their typing speed and accuracy, track their progress over time, and compete on a global leaderboard. It features real-time analytics, multiple test modes (15s, 30s, 60s, 120s), multi-language support (23 languages including English, Spanish, French, German, Italian, Portuguese, Japanese, Chinese, Hindi, Russian, Arabic, Korean, Marathi, Bengali, Tamil, Telugu, Vietnamese, Turkish, Polish, Dutch, Swedish, Thai, and Indonesian), diverse paragraph modes (8+ categories), user authentication with AI chat assistant, comprehensive progress tracking with visual charts, and AI-powered content generation with real-time loading states and user feedback.
+TypeMasterAI is a high-performance typing test web application built with a modern full-stack architecture. The application allows users to test their typing speed and accuracy, track their progress over time, and compete on a global leaderboard. It features real-time analytics, multiple test modes (15s, 30s, 60s, 120s), multi-language support (23 languages including English, Spanish, French, German, Italian, Portuguese, Japanese, Chinese, Hindi, Russian, Arabic, Korean, Marathi, Bengali, Tamil, Telugu, Vietnamese, Turkish, Polish, Dutch, Swedish, Thai, and Indonesian), diverse paragraph modes (8+ categories), user authentication with AI chat assistant, comprehensive progress tracking with visual charts, and AI-powered content generation with real-time loading states and user feedback.
+
+**Domain**: TypeMasterAI.com
 
 ## User Preferences
 

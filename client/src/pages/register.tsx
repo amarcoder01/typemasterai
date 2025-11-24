@@ -53,7 +53,7 @@ export default function Register() {
           </div>
           <div className="text-center">
             <h1 className="text-3xl font-bold tracking-tight">Create Account</h1>
-            <p className="text-muted-foreground mt-2">Join TypeFlow and start improving your typing</p>
+            <p className="text-muted-foreground mt-2">Join TypeMasterAI and master your typing skills</p>
           </div>
         </div>
 

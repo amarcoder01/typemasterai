@@ -38,7 +38,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground font-mono font-bold text-xl">
               T
             </div>
-            <h1 className="text-xl font-bold tracking-tight">TypeFlow</h1>
+            <h1 className="text-xl font-bold tracking-tight">TypeMasterAI</h1>
           </div>
 
           <nav className="flex items-center gap-1">
@@ -114,7 +114,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <span className="px-2 py-1 rounded bg-accent/50 font-mono">v1.0.0</span>
           <span className="px-2 py-1 rounded bg-accent/50 font-mono">git: main</span>
         </div>
-        <p>© 2025 TypeFlow. High Performance Typing.</p>
+        <p>© 2025 TypeMasterAI. Master Your Typing with AI.</p>
       </footer>
     </div>
   );
