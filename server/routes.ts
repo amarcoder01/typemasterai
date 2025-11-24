@@ -315,22 +315,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const language = (req.query.language as string) || "en";
       const mode = req.query.mode as string | undefined;
       const difficulty = req.query.difficulty as string | undefined;
+      const customPrompt = req.query.customPrompt as string | undefined;
       const generateIfMissing = req.query.generate === "true";
       
       let paragraph: any = undefined;
       let isGenerated = false;
       
+      // If custom prompt is provided, always generate with AI
+      if (customPrompt && customPrompt.trim()) {
+        console.log(`🤖 Generating custom AI paragraph: "${customPrompt}"`);
+        
+        try {
+          const content = await generateTypingParagraph(
+            language, 
+            mode || "general", 
+            (difficulty as "easy" | "medium" | "hard") || "medium",
+            customPrompt.trim()
+          );
+          const wordCount = content.split(/\s+/).length;
+          
+          // Save to database with custom mode name
+          paragraph = await storage.createTypingParagraph({
+            language,
+            mode: `custom_${Date.now()}`, // Unique mode for custom content
+            difficulty: (difficulty as "easy" | "medium" | "hard") || "medium",
+            content,
+            wordCount,
+          });
+          
+          isGenerated = true;
+          console.log(`✅ Generated custom paragraph: ${wordCount} words`);
+        } catch (aiError) {
+          console.error("❌ Custom AI generation failed:", aiError);
+          return res.status(500).json({ message: "Failed to generate custom content" });
+        }
+      } 
       // Check for exact match first (no fallbacks)
-      if (mode) {
+      else if (mode) {
         paragraph = await storage.getExactParagraph(language, mode, difficulty);
       }
       
       // If no exact match found and AI generation is requested
-      if (!paragraph && generateIfMissing && mode) {
+      if (!paragraph && generateIfMissing && mode && !customPrompt) {
         console.log(`🤖 Generating AI paragraph for ${language}/${mode}/${difficulty || 'medium'}`);
         
         try {
-          const content = await generateTypingParagraph(language, mode, (difficulty as "easy" | "medium" | "hard") || "medium");
+          const content = await generateTypingParagraph(
+            language, 
+            mode, 
+            (difficulty as "easy" | "medium" | "hard") || "medium"
+          );
           const wordCount = content.split(/\s+/).length;
           
           // Save to database

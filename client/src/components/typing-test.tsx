@@ -74,6 +74,8 @@ export default function TypingTest() {
   const [language, setLanguage] = useState("en");
   const [paragraphMode, setParagraphMode] = useState<string>("general");
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [showCustomPrompt, setShowCustomPrompt] = useState(false);
   const [text, setText] = useState("");
   const [originalText, setOriginalText] = useState(""); // Store original paragraph for repeating
   const [userInput, setUserInput] = useState("");
@@ -107,10 +109,16 @@ export default function TypingTest() {
     },
   });
 
-  const fetchParagraph = async () => {
+  const fetchParagraph = async (useCustomPrompt = false) => {
     try {
       // Try with AI generation enabled
-      const response = await fetch(`/api/typing/paragraph?language=${language}&mode=${paragraphMode}&difficulty=${difficulty}&generate=true`);
+      let url = `/api/typing/paragraph?language=${language}&mode=${paragraphMode}&difficulty=${difficulty}&generate=true`;
+      
+      if (useCustomPrompt && customPrompt.trim()) {
+        url += `&customPrompt=${encodeURIComponent(customPrompt.trim())}`;
+      }
+      
+      const response = await fetch(url);
       if (!response.ok) {
         throw new Error("Failed to fetch paragraph");
       }
@@ -471,6 +479,22 @@ export default function TypingTest() {
                 <p>Set your own test duration (5-600 seconds)</p>
               </TooltipContent>
             </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={resetTest}
+                  className="px-4 py-2 rounded-full text-sm font-medium transition-all bg-secondary text-muted-foreground hover:text-foreground flex items-center gap-2"
+                  data-testid="button-new-paragraph"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  New Paragraph
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Get a fresh paragraph without changing settings</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           
           {showCustomInput && (
@@ -507,6 +531,89 @@ export default function TypingTest() {
               >
                 Set
               </button>
+            </div>
+          )}
+          
+          {/* AI Custom Prompt */}
+          <div className="flex items-center justify-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setShowCustomPrompt(!showCustomPrompt)}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2",
+                    showCustomPrompt
+                      ? "bg-primary text-primary-foreground" 
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  )}
+                  data-testid="button-toggle-custom-prompt"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  AI Custom Content
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Tell AI what kind of paragraph you want (e.g., "about space exploration")</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          
+          {showCustomPrompt && (
+            <div className="flex flex-col items-center justify-center gap-2 max-w-2xl mx-auto">
+              <div className="flex items-center w-full gap-2">
+                <input
+                  type="text"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder="E.g., 'about artificial intelligence and future technology'"
+                  className="flex-1 px-4 py-2 rounded-lg bg-secondary text-foreground placeholder:text-muted-foreground border border-border focus:outline-none focus:ring-2 focus:ring-primary"
+                  data-testid="input-custom-prompt"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && customPrompt.trim()) {
+                      fetchParagraph(true);
+                      setUserInput("");
+                      setOriginalText("");
+                      setStartTime(null);
+                      setIsActive(false);
+                      setIsFinished(false);
+                      setWpm(0);
+                      setAccuracy(100);
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    if (customPrompt.trim()) {
+                      fetchParagraph(true);
+                      setUserInput("");
+                      setOriginalText("");
+                      setStartTime(null);
+                      setIsActive(false);
+                      setIsFinished(false);
+                      setWpm(0);
+                      setAccuracy(100);
+                      toast({
+                        title: "Generating custom content",
+                        description: "AI is creating a paragraph based on your request...",
+                      });
+                    } else {
+                      toast({
+                        title: "Empty prompt",
+                        description: "Please describe what you want the paragraph to be about",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  className="px-6 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 flex items-center gap-2"
+                  data-testid="button-generate-custom"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Generate
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                Describe the topic or theme for your typing test paragraph
+              </p>
             </div>
           )}
         </div>

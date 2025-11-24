@@ -9,7 +9,8 @@ const openai = new OpenAI({
 export async function generateTypingParagraph(
   language: string,
   mode: string,
-  difficulty: "easy" | "medium" | "hard" = "medium"
+  difficulty: "easy" | "medium" | "hard" = "medium",
+  customPrompt?: string
 ): Promise<string> {
   const languageNames: Record<string, string> = {
     en: "English",
@@ -40,7 +41,25 @@ export async function generateTypingParagraph(
   const languageName = languageNames[language] || language;
   const wordCount = difficulty === "easy" ? "25-35" : difficulty === "medium" ? "35-50" : "50-70";
 
-  const prompt = `Generate a ${difficulty}-level typing practice paragraph in ${languageName} language about the topic: "${mode}".
+  let prompt: string;
+  
+  if (customPrompt) {
+    // Custom user-specified content
+    prompt = `Generate a ${difficulty}-level typing practice paragraph in ${languageName} language about: "${customPrompt}".
+
+Requirements:
+1. Write ${wordCount} words
+2. Use proper grammar and natural sentence structure
+3. Make it engaging and educational about the topic: "${customPrompt}"
+4. Use only ${languageName} language - no English words
+5. Use appropriate script (Devanagari for Hindi/Marathi, Arabic script for Arabic, etc.)
+6. Make it suitable for typing practice (clear, well-structured sentences)
+7. Focus specifically on the user's requested topic: "${customPrompt}"
+
+Return ONLY the paragraph text, no explanations or meta-commentary.`;
+  } else {
+    // Standard mode-based content
+    prompt = `Generate a ${difficulty}-level typing practice paragraph in ${languageName} language about the topic: "${mode}".
 
 Requirements:
 1. Write ${wordCount} words
@@ -62,6 +81,7 @@ Topic context:
 - business: professional, commerce, workplace topics
 
 Return ONLY the paragraph text, no explanations or meta-commentary.`;
+  }
 
   try {
     console.log(`📝 Prompt for ${languageName}/${mode}:`, prompt.substring(0, 200) + "...");
