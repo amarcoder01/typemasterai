@@ -370,12 +370,12 @@ export default function RacePage() {
 
               <Button
                 onClick={startRace}
-                disabled={participants.length < 2}
+                disabled={participants.length < 1}
                 size="lg"
                 className="w-full"
                 data-testid="button-start-race"
               >
-                {participants.length < 2 ? "Waiting for more players..." : "Start Race"}
+                Start Race{participants.length === 1 ? " (Bots will join)" : ""}
               </Button>
             </CardContent>
           </Card>

@@ -146,13 +146,12 @@ class RaceWebSocketServer {
     const humanCount = participants.filter(p => p.isBot === 0).length;
     
     if (humanCount > 0 && participants.length < race.maxPlayers) {
-      const botsNeeded = Math.min(
-        race.maxPlayers - participants.length,
-        Math.max(1, race.maxPlayers - humanCount - 1)
-      );
+      const botsNeeded = race.maxPlayers - participants.length;
       
       if (botsNeeded > 0) {
+        console.log(`[Bot Auto-Fill] Adding ${botsNeeded} bots to race ${raceId} (${participants.length}/${race.maxPlayers} players)`);
         const bots = await botService.addBotsToRace(raceId, botsNeeded);
+        console.log(`[Bot Auto-Fill] Successfully added ${bots.length} bots:`, bots.map(b => b.username).join(', '));
         
         this.broadcastToRace(raceId, {
           type: "bots_added",
