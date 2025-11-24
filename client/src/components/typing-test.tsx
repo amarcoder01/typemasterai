@@ -111,14 +111,16 @@ export default function TypingTest() {
 
   const fetchParagraph = useCallback(async (useCustomPrompt = false) => {
     try {
-      // Try with AI generation enabled
-      let url = `/api/typing/paragraph?language=${language}&mode=${paragraphMode}&difficulty=${difficulty}&generate=true`;
+      // Try with AI generation enabled - add timestamp to prevent caching
+      let url = `/api/typing/paragraph?language=${language}&mode=${paragraphMode}&difficulty=${difficulty}&generate=true&t=${Date.now()}`;
       
       if (useCustomPrompt && customPrompt.trim()) {
         url += `&customPrompt=${encodeURIComponent(customPrompt.trim())}`;
       }
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        cache: 'no-store', // Prevent browser caching
+      });
       if (!response.ok) {
         throw new Error("Failed to fetch paragraph");
       }

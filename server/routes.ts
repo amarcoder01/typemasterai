@@ -394,6 +394,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "No paragraphs available in database" });
       }
       
+      // Prevent caching so each request gets a new paragraph
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
       res.json({ 
         paragraph,
         fallbackUsed: !isGenerated && (paragraph.language !== language || (mode && paragraph.mode !== mode)),
