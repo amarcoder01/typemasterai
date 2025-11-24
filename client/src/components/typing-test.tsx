@@ -1,20 +1,48 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { generateText, calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Zap, Target, Clock } from "lucide-react";
+import { RefreshCw, Zap, Target, Clock, Globe, BookOpen } from "lucide-react";
 import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import AuthPromptDialog from "@/components/auth-prompt-dialog";
 
 type TestMode = 15 | 30 | 60 | 120;
 
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  it: "Italian",
+  pt: "Portuguese",
+  ja: "Japanese",
+  zh: "Chinese",
+  hi: "Hindi",
+  ru: "Russian",
+  ar: "Arabic",
+  ko: "Korean",
+};
+
+const MODE_NAMES: Record<string, string> = {
+  general: "General",
+  entertainment: "Entertainment",
+  technical: "Technical",
+  quotes: "Quotes",
+  programming: "Programming",
+  news: "News",
+  stories: "Stories",
+  business: "Business",
+};
+
 export default function TypingTest() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [mode, setMode] = useState<TestMode>(30);
+  const [language, setLanguage] = useState("en");
+  const [paragraphMode, setParagraphMode] = useState<string>("general");
   const [text, setText] = useState("");
   const [userInput, setUserInput] = useState("");
   const [startTime, setStartTime] = useState<number | null>(null);
@@ -28,6 +56,43 @@ export default function TypingTest() {
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const { data: languagesData } = useQuery({
+    queryKey: ["languages"],
+    queryFn: async () => {
+      const response = await fetch("/api/typing/languages");
+      if (!response.ok) throw new Error("Failed to fetch languages");
+      return response.json();
+    },
+  });
+
+  const { data: modesData } = useQuery({
+    queryKey: ["modes"],
+    queryFn: async () => {
+      const response = await fetch("/api/typing/modes");
+      if (!response.ok) throw new Error("Failed to fetch modes");
+      return response.json();
+    },
+  });
+
+  const fetchParagraph = async () => {
+    try {
+      const response = await fetch(`/api/typing/paragraph?language=${language}&mode=${paragraphMode}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch paragraph");
+      }
+      const data = await response.json();
+      setText(data.paragraph.content);
+    } catch (error) {
+      console.error("Error fetching paragraph:", error);
+      setText(generateText(100));
+      toast({
+        title: "Using fallback text",
+        description: "Could not load paragraph from database.",
+        variant: "default",
+      });
+    }
+  };
 
   const saveResultMutation = useMutation({
     mutationFn: async (result: { wpm: number; accuracy: number; mode: number; characters: number; errors: number }) => {
@@ -60,7 +125,7 @@ export default function TypingTest() {
   });
 
   const resetTest = useCallback(() => {
-    setText(generateText(100));
+    fetchParagraph();
     setUserInput("");
     setStartTime(null);
     setTimeLeft(mode);
@@ -70,7 +135,7 @@ export default function TypingTest() {
     setAccuracy(100);
     setShowAuthPrompt(false);
     inputRef.current?.focus();
-  }, [mode]);
+  }, [mode, language, paragraphMode]);
 
   // Initial setup
   useEffect(() => {
@@ -159,24 +224,65 @@ export default function TypingTest() {
   // Render only the visible portion of text to optimize? 
   // For now, render all but maybe slice for extremely long texts if performance issues arise.
   
+  const availableLanguages = languagesData?.languages || ["en"];
+  const availableModes = modesData?.modes || ["general"];
+
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-12">
-      {/* Mode Selector */}
-      <div className="flex justify-center gap-4">
-        {[15, 30, 60, 120].map((m) => (
-          <button
-            key={m}
-            onClick={() => setMode(m as TestMode)}
-            className={cn(
-              "px-4 py-2 rounded-full text-sm font-medium transition-all",
-              mode === m 
-                ? "bg-primary text-primary-foreground" 
-                : "bg-secondary text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {m}s
-          </button>
-        ))}
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
+      {/* Language & Mode Selectors */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-center gap-6 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-muted-foreground" />
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-medium cursor-pointer border border-border hover:bg-secondary/80 transition-colors"
+              data-testid="select-language"
+            >
+              {availableLanguages.map((lang: string) => (
+                <option key={lang} value={lang}>
+                  {LANGUAGE_NAMES[lang] || lang}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-muted-foreground" />
+            <select
+              value={paragraphMode}
+              onChange={(e) => setParagraphMode(e.target.value)}
+              className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-medium cursor-pointer border border-border hover:bg-secondary/80 transition-colors"
+              data-testid="select-mode"
+            >
+              {availableModes.map((m: string) => (
+                <option key={m} value={m}>
+                  {MODE_NAMES[m] || m}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Time Mode Selector */}
+        <div className="flex justify-center gap-4">
+          {[15, 30, 60, 120].map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m as TestMode)}
+              className={cn(
+                "px-4 py-2 rounded-full text-sm font-medium transition-all",
+                mode === m 
+                  ? "bg-primary text-primary-foreground" 
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              )}
+              data-testid={`button-time-${m}`}
+            >
+              {m}s
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Stats Overview (Live) */}
