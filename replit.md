@@ -12,6 +12,24 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### November 24, 2025 - Professional Certificate & Footer Implementation
+- **Professional Certificate System**: Added downloadable achievement certificates for typing tests
+  - Canvas-based certificate generation with TypeMasterAI branding
+  - Includes username, WPM, accuracy, test duration, and completion date
+  - Professional design with gradient borders, TM logo seal, signature line, and decorative elements
+  - Download as high-quality PNG image
+  - Only available to authenticated users after completing a test
+- **Production-Ready Footer**: Created comprehensive, industry-standard website footer
+  - Multi-section layout: Brand, Product, Resources, Company/Legal
+  - Social media links (Twitter, GitHub, Email, Website) with hover effects
+  - Quick navigation to key features (Typing Tests, Leaderboard, AI Assistant, Analytics, Certificates)
+  - Resource links (Blog, Guides, Tips, API Documentation, Help Center)
+  - Legal/company links (About, Contact, Careers, Privacy Policy, Terms of Service)
+  - Stats bar displaying key metrics (23+ Languages, 10k+ Users, 1M+ Tests, AI Powered)
+  - Responsive grid layout for mobile, tablet, and desktop
+  - All links include proper data-testid attributes for automated testing
+  - Professional typography and hover states matching TypeMasterAI brand
+
 ### November 24, 2025 - Enhanced UX with Loading States
 - **Loading States for AI Generation**: Added comprehensive loading indicators for "New Paragraph" and "AI Custom Content" features
   - Buttons show "Generating..." text with spinning icon during AI generation
