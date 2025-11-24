@@ -91,6 +91,15 @@ export interface IStorage {
     };
     commonMistakes: Array<{ expectedKey: string; typedKey: string; count: number }>;
   }>;
+  
+  getUserBadgeData(userId: string): Promise<{
+    bestWpm: number;
+    bestAccuracy: number;
+    totalTests: number;
+    currentStreak: number;
+    bestStreak: number;
+  }>;
+  updateUserStreak(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -489,6 +498,77 @@ export class DatabaseStorage implements IStorage {
       consistency,
       commonMistakes,
     };
+  }
+
+  async getUserBadgeData(userId: string): Promise<{
+    bestWpm: number;
+    bestAccuracy: number;
+    totalTests: number;
+    currentStreak: number;
+    bestStreak: number;
+  }> {
+    // Get user stats for badges
+    const statsResult = await db
+      .select({
+        totalTests: sql<number>`count(*)::int`,
+        bestWpm: sql<number>`max(${testResults.wpm})::int`,
+        bestAccuracy: sql<number>`max(${testResults.accuracy})::float`,
+      })
+      .from(testResults)
+      .where(eq(testResults.userId, userId));
+
+    const stats = statsResult[0];
+
+    // Get streak data from user table
+    const user = await this.getUser(userId);
+
+    return {
+      bestWpm: stats?.bestWpm || 0,
+      bestAccuracy: stats?.bestAccuracy || 0,
+      totalTests: stats?.totalTests || 0,
+      currentStreak: user?.currentStreak || 0,
+      bestStreak: user?.bestStreak || 0,
+    };
+  }
+
+  async updateUserStreak(userId: string): Promise<void> {
+    const user = await this.getUser(userId);
+    if (!user) return;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    let newStreak = 1;
+    let newBestStreak = user.bestStreak;
+
+    if (user.lastTestDate) {
+      const lastTestDate = new Date(user.lastTestDate);
+      const lastTest = new Date(lastTestDate.getFullYear(), lastTestDate.getMonth(), lastTestDate.getDate());
+      const daysDiff = Math.floor((today.getTime() - lastTest.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (daysDiff === 0) {
+        // Same day, don't update streak
+        return;
+      } else if (daysDiff === 1) {
+        // Consecutive day, increment streak
+        newStreak = user.currentStreak + 1;
+      }
+      // If daysDiff > 1, streak is broken, reset to 1
+    }
+
+    // Update best streak if current is higher
+    if (newStreak > newBestStreak) {
+      newBestStreak = newStreak;
+    }
+
+    await db
+      .update(users)
+      .set({
+        currentStreak: newStreak,
+        bestStreak: newBestStreak,
+        lastTestDate: now,
+      })
+      .where(eq(users.id, userId));
   }
 }
 

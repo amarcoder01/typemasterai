@@ -13,11 +13,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit } from "lucide-react";
+import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BADGES, type UserBadgeProgress } from "@shared/badges";
+import { BadgeCard } from "@/components/badge-card";
 
 export default function Profile() {
   const { user } = useAuth();
@@ -46,6 +49,71 @@ export default function Profile() {
     },
     enabled: !!user,
   });
+
+  const { data: badgeData } = useQuery({
+    queryKey: ["badges"],
+    queryFn: async () => {
+      const response = await fetch("/api/badges", {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch badges");
+      return response.json();
+    },
+    enabled: !!user,
+  });
+
+  // Calculate badge progress
+  const badgeProgress: UserBadgeProgress[] = BADGES.map((badge) => {
+    if (!badgeData?.badgeData) {
+      return {
+        badge,
+        unlocked: false,
+        progress: 0,
+        currentValue: 0,
+        requiredValue: badge.requirement.value,
+      };
+    }
+
+    const data = badgeData.badgeData;
+    let currentValue = 0;
+    let unlocked = false;
+
+    switch (badge.requirement.type) {
+      case "wpm":
+        currentValue = data.bestWpm;
+        unlocked = currentValue >= badge.requirement.value;
+        break;
+      case "accuracy":
+        currentValue = data.bestAccuracy; // Use raw float for accurate comparison
+        unlocked = currentValue >= badge.requirement.value; // True accuracy must meet threshold
+        break;
+      case "testCount":
+        currentValue = data.totalTests;
+        unlocked = currentValue >= badge.requirement.value;
+        break;
+      case "streak":
+        currentValue = data.currentStreak;
+        unlocked = currentValue >= badge.requirement.value;
+        break;
+      case "bestStreak":
+        currentValue = data.bestStreak;
+        unlocked = currentValue >= badge.requirement.value;
+        break;
+    }
+
+    const progress = Math.min((currentValue / badge.requirement.value) * 100, 100);
+
+    return {
+      badge,
+      unlocked,
+      progress,
+      currentValue,
+      requiredValue: badge.requirement.value,
+    };
+  });
+
+  const unlockedCount = badgeProgress.filter((b) => b.unlocked).length;
+  const totalCount = BADGES.length;
 
   if (!user) {
     return (
@@ -239,6 +307,121 @@ export default function Profile() {
                 <p className="text-sm mt-2">Start typing to see your results here!</p>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Award className="w-6 h-6 text-primary" />
+                <div>
+                  <CardTitle>Achievements & Badges</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Unlock badges by reaching milestones
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {badgeData?.badgeData && (
+                  <>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20">
+                      <Flame className="w-5 h-5 text-orange-500" />
+                      <span className="text-sm font-semibold">
+                        {badgeData.badgeData.currentStreak} Day Streak
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="text-base px-4 py-2">
+                      {unlockedCount} / {totalCount} Unlocked
+                    </Badge>
+                  </>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="all" className="w-full">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="speed">Speed</TabsTrigger>
+                <TabsTrigger value="accuracy">Accuracy</TabsTrigger>
+                <TabsTrigger value="milestone">Milestones</TabsTrigger>
+                <TabsTrigger value="streak">Streaks</TabsTrigger>
+              </TabsList>
+              <TabsContent value="all" className="mt-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {badgeProgress.map((item) => (
+                    <BadgeCard
+                      key={item.badge.id}
+                      badge={item.badge}
+                      unlocked={item.unlocked}
+                      progress={item.progress}
+                      currentValue={item.currentValue}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
+              <TabsContent value="speed" className="mt-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {badgeProgress
+                    .filter((item) => item.badge.category === "speed")
+                    .map((item) => (
+                      <BadgeCard
+                        key={item.badge.id}
+                        badge={item.badge}
+                        unlocked={item.unlocked}
+                        progress={item.progress}
+                        currentValue={item.currentValue}
+                      />
+                    ))}
+                </div>
+              </TabsContent>
+              <TabsContent value="accuracy" className="mt-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {badgeProgress
+                    .filter((item) => item.badge.category === "accuracy")
+                    .map((item) => (
+                      <BadgeCard
+                        key={item.badge.id}
+                        badge={item.badge}
+                        unlocked={item.unlocked}
+                        progress={item.progress}
+                        currentValue={item.currentValue}
+                      />
+                    ))}
+                </div>
+              </TabsContent>
+              <TabsContent value="milestone" className="mt-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {badgeProgress
+                    .filter((item) => item.badge.category === "milestone")
+                    .map((item) => (
+                      <BadgeCard
+                        key={item.badge.id}
+                        badge={item.badge}
+                        unlocked={item.unlocked}
+                        progress={item.progress}
+                        currentValue={item.currentValue}
+                      />
+                    ))}
+                </div>
+              </TabsContent>
+              <TabsContent value="streak" className="mt-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {badgeProgress
+                    .filter((item) => item.badge.category === "streak")
+                    .map((item) => (
+                      <BadgeCard
+                        key={item.badge.id}
+                        badge={item.badge}
+                        unlocked={item.unlocked}
+                        progress={item.progress}
+                        currentValue={item.currentValue}
+                      />
+                    ))}
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>

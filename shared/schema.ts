@@ -12,6 +12,9 @@ export const users = pgTable("users", {
   bio: text("bio"),
   country: text("country"),
   keyboardLayout: text("keyboard_layout").default("QWERTY"),
+  currentStreak: integer("current_streak").default(0).notNull(),
+  bestStreak: integer("best_streak").default(0).notNull(),
+  lastTestDate: timestamp("last_test_date"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

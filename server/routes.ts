@@ -277,6 +277,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await storage.createTestResult(parsed.data);
+      
+      // Update user streak after completing a test
+      await storage.updateUserStreak(req.user!.id);
+      
       res.status(201).json({ message: "Test result saved", result });
     } catch (error: any) {
       console.error("Save test result error:", error);
@@ -302,6 +306,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Get stats error:", error);
       res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  app.get("/api/badges", isAuthenticated, async (req, res) => {
+    try {
+      const badgeData = await storage.getUserBadgeData(req.user!.id);
+      res.json({ badgeData });
+    } catch (error: any) {
+      console.error("Get badges error:", error);
+      res.status(500).json({ message: "Failed to fetch badges" });
     }
   });
 
