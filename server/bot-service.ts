@@ -37,14 +37,21 @@ class BotService {
         messages: [
           {
             role: "system",
-            content: "You are a creative username generator. Generate unique, believable usernames for typing test competitors. Mix casual gamers, professionals, and creative names. Make them feel authentic and diverse.",
+            content: "You are a creative username generator. Generate realistic usernames that real people would actually use online. Mix different styles: professional usernames, casual nicknames, gaming handles, and creative names. Make them sound like REAL HUMANS, not obviously bots.",
           },
           {
             role: "user",
-            content: `Generate ${count} unique, creative usernames for typing race competitors. Each should be 8-15 characters, memorable, and feel like real people. Include variety: some professional (like DevMaster, CodeNinja), some casual (like QuickFingers, TypeKing), some playful (like KeyboardWarrior, SwiftTyper). Return ONLY the usernames, one per line, no numbering or extra text.`,
+            content: `Generate ${count} unique, realistic usernames for online typing competitors. These should feel like REAL PEOPLE'S actual usernames. Include variety:
+- Professional: alex_codes, sarah_dev, mike_writes
+- Casual: jenny123, tomsmith, chris_j
+- Gaming style: NightRacer, ShadowKeys, StarTyper
+- Creative: pixel_master, code_wizard, fast_fingers_99
+- International: yuki_fast, maria_type, raj_speed
+
+Mix styles randomly. Keep them 6-16 characters. Make them feel authentic like real users from around the world. Return ONLY the usernames, one per line, no numbering or extra text.`,
           },
         ],
-        temperature: 1.2,
+        temperature: 1.3,
         max_tokens: 200,
       });
 
@@ -110,25 +117,37 @@ class BotService {
 
   private createBotProfile(username: string): BotProfile {
     const skillLevels = [
-      { targetWPM: 35, accuracy: 92 },
-      { targetWPM: 50, accuracy: 94 },
-      { targetWPM: 65, accuracy: 96 },
-      { targetWPM: 80, accuracy: 97 },
-      { targetWPM: 95, accuracy: 98 },
-      { targetWPM: 110, accuracy: 98.5 },
-      { targetWPM: 130, accuracy: 99 },
+      { targetWPM: 35, accuracy: 88, weight: 2 },
+      { targetWPM: 45, accuracy: 90, weight: 3 },
+      { targetWPM: 55, accuracy: 92, weight: 4 },
+      { targetWPM: 65, accuracy: 94, weight: 4 },
+      { targetWPM: 75, accuracy: 95, weight: 3 },
+      { targetWPM: 85, accuracy: 96, weight: 2 },
+      { targetWPM: 95, accuracy: 97, weight: 2 },
+      { targetWPM: 110, accuracy: 98, weight: 1 },
+      { targetWPM: 125, accuracy: 98.5, weight: 1 },
     ];
 
-    const skill = skillLevels[Math.floor(Math.random() * skillLevels.length)];
+    const totalWeight = skillLevels.reduce((sum, level) => sum + level.weight, 0);
+    let random = Math.random() * totalWeight;
+    let selectedSkill = skillLevels[0];
     
-    const wpmVariation = Math.random() * 15 - 7.5;
-    const accuracyVariation = Math.random() * 3 - 1.5;
+    for (const level of skillLevels) {
+      random -= level.weight;
+      if (random <= 0) {
+        selectedSkill = level;
+        break;
+      }
+    }
+    
+    const wpmVariation = Math.random() * 20 - 10;
+    const accuracyVariation = Math.random() * 4 - 2;
 
     return {
       username,
       avatarColor: avatarColors[Math.floor(Math.random() * avatarColors.length)],
-      targetWPM: Math.max(30, Math.round(skill.targetWPM + wpmVariation)),
-      accuracy: Math.max(88, Math.min(100, skill.accuracy + accuracyVariation)),
+      targetWPM: Math.max(25, Math.round(selectedSkill.targetWPM + wpmVariation)),
+      accuracy: Math.max(85, Math.min(99.5, selectedSkill.accuracy + accuracyVariation)),
     };
   }
 
