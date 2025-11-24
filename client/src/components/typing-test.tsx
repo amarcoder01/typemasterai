@@ -374,6 +374,14 @@ export default function TypingTest() {
     if (isFinished) return;
     
     const value = e.target.value;
+    const previousLength = userInput.length;
+    
+    // Play keyboard sound on keystroke (only when adding characters, not deleting)
+    if (value.length > previousLength) {
+      import('@/lib/keyboard-sounds').then((module) => {
+        module.keyboardSound.play();
+      });
+    }
     
     if (!isActive && value.length === 1) {
       setIsActive(true);

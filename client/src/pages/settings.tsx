@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Moon, Volume2, Keyboard, Shield, Trash2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { keyboardSound, type SoundType } from "@/lib/keyboard-sounds";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,37 @@ export default function Settings() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  
+  // Sound settings state
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundType, setSoundType] = useState<SoundType>('mechanical');
+
+  // Load sound settings on mount
+  useEffect(() => {
+    const settings = keyboardSound.getSettings();
+    setSoundEnabled(settings.enabled);
+    setSoundType(settings.soundType);
+  }, []);
+
+  const handleSoundEnabledChange = (enabled: boolean) => {
+    setSoundEnabled(enabled);
+    keyboardSound.setEnabled(enabled);
+    toast({
+      title: enabled ? "Keyboard Sounds Enabled" : "Keyboard Sounds Disabled",
+      description: enabled ? "You'll hear sound when typing" : "Sound is now muted",
+    });
+  };
+
+  const handleSoundTypeChange = (type: SoundType) => {
+    setSoundType(type);
+    keyboardSound.setSoundType(type);
+    // Play a preview
+    keyboardSound.play();
+    toast({
+      title: "Sound Type Changed",
+      description: `Switched to ${type} sound`,
+    });
+  };
 
   const changePasswordMutation = useMutation({
     mutationFn: async () => {
@@ -180,7 +212,12 @@ export default function Settings() {
                   <span>Keyboard Sounds</span>
                   <span className="font-normal text-xs text-muted-foreground">Play sound when typing</span>
                 </Label>
-                <Switch id="sound-enabled" defaultChecked />
+                <Switch
+                  id="sound-enabled"
+                  checked={soundEnabled}
+                  onCheckedChange={handleSoundEnabledChange}
+                  data-testid="switch-sound-enabled"
+                />
               </div>
               
                <div className="flex items-center justify-between">
@@ -188,8 +225,12 @@ export default function Settings() {
                   <span>Sound Type</span>
                   <span className="font-normal text-xs text-muted-foreground">Choose switch type</span>
                 </Label>
-                <Select defaultValue="mechanical">
-                  <SelectTrigger className="w-[180px]">
+                <Select
+                  value={soundType}
+                  onValueChange={(value) => handleSoundTypeChange(value as SoundType)}
+                  disabled={!soundEnabled}
+                >
+                  <SelectTrigger className="w-[180px]" data-testid="select-sound-type">
                     <SelectValue placeholder="Select sound" />
                   </SelectTrigger>
                   <SelectContent>
@@ -199,6 +240,23 @@ export default function Settings() {
                     <SelectItem value="cherry">Cherry MX Blue</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="flex flex-col gap-1">
+                  <span>Test Sound</span>
+                  <span className="font-normal text-xs text-muted-foreground">Preview the selected sound</span>
+                </Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => keyboardSound.play()}
+                  disabled={!soundEnabled}
+                  data-testid="button-test-sound"
+                >
+                  <Volume2 className="w-4 h-4 mr-2" />
+                  Play Sound
+                </Button>
               </div>
             </CardContent>
           </Card>
