@@ -3,7 +3,7 @@ export type SoundType = 'mechanical' | 'linear' | 'typewriter' | 'cherry';
 
 class KeyboardSoundSystem {
   private audioContext: AudioContext | null = null;
-  private enabled: boolean = true;
+  private enabled: boolean = false; // Disabled by default
   private soundType: SoundType = 'mechanical';
 
   constructor() {
@@ -22,7 +22,7 @@ class KeyboardSoundSystem {
     const enabled = localStorage.getItem('keyboardSoundsEnabled');
     const soundType = localStorage.getItem('keyboardSoundType');
     
-    this.enabled = enabled !== null ? enabled === 'true' : true;
+    this.enabled = enabled !== null ? enabled === 'true' : false; // Disabled by default
     this.soundType = (soundType as SoundType) || 'mechanical';
   }
 

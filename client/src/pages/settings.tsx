@@ -35,7 +35,7 @@ export default function Settings() {
   const [confirmPassword, setConfirmPassword] = useState("");
   
   // Sound settings state
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(false); // Disabled by default
   const [soundType, setSoundType] = useState<SoundType>('mechanical');
 
   // Load sound settings on mount
