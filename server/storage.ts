@@ -54,6 +54,9 @@ export interface IStorage {
     wpm: number;
     accuracy: number;
     createdAt: Date;
+    mode: number;
+    avatarColor: string | null;
+    totalTests: number;
   }>>;
   
   createConversation(conversation: InsertConversation): Promise<Conversation>;
@@ -156,19 +159,55 @@ export class DatabaseStorage implements IStorage {
     wpm: number;
     accuracy: number;
     createdAt: Date;
+    mode: number;
+    avatarColor: string | null;
+    totalTests: number;
   }>> {
-    return await db
-      .select({
-        userId: testResults.userId,
-        username: users.username,
-        wpm: testResults.wpm,
-        accuracy: testResults.accuracy,
-        createdAt: testResults.createdAt,
-      })
-      .from(testResults)
-      .innerJoin(users, eq(testResults.userId, users.id))
-      .orderBy(desc(testResults.wpm))
-      .limit(limit);
+    // Use a CTE (Common Table Expression) with window function to get best score per user efficiently
+    // This is a single query that:
+    // 1. Ranks each user's tests by WPM (descending) and date (descending for ties)
+    // 2. Selects only the best test per user (rank = 1)
+    // 3. Joins with test counts
+    // 4. Orders by WPM and limits results
+    const leaderboard = await db.execute(sql`
+      WITH ranked_results AS (
+        SELECT 
+          tr.user_id,
+          tr.wpm,
+          tr.accuracy,
+          tr.created_at,
+          tr.mode,
+          ROW_NUMBER() OVER (
+            PARTITION BY tr.user_id 
+            ORDER BY tr.wpm DESC, tr.created_at DESC
+          ) as rank
+        FROM test_results tr
+      ),
+      test_counts AS (
+        SELECT 
+          user_id,
+          COUNT(*)::int as total_tests
+        FROM test_results
+        GROUP BY user_id
+      )
+      SELECT 
+        rr.user_id as "userId",
+        u.username,
+        rr.wpm,
+        rr.accuracy,
+        rr.created_at as "createdAt",
+        rr.mode,
+        u.avatar_color as "avatarColor",
+        COALESCE(tc.total_tests, 1) as "totalTests"
+      FROM ranked_results rr
+      INNER JOIN users u ON rr.user_id = u.id
+      LEFT JOIN test_counts tc ON rr.user_id = tc.user_id
+      WHERE rr.rank = 1
+      ORDER BY rr.wpm DESC, rr.created_at DESC
+      LIMIT ${limit}
+    `);
+
+    return leaderboard.rows as any[];
   }
 
   async createConversation(conversation: InsertConversation): Promise<Conversation> {
