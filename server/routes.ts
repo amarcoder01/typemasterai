@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { streamChatCompletion, shouldPerformWebSearch, type ChatMessage } from "./chat-service";
+import { generateTypingParagraph } from "./ai-paragraph-generator";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
@@ -313,8 +314,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const language = (req.query.language as string) || "en";
       const mode = req.query.mode as string | undefined;
+      const generateIfMissing = req.query.generate === "true";
       
-      const paragraph = await storage.getRandomParagraph(language, mode);
+      let paragraph = await storage.getRandomParagraph(language, mode);
+      let isGenerated = false;
+      
+      // If no paragraph found and AI generation is requested
+      if (!paragraph && generateIfMissing && mode) {
+        console.log(`Generating AI paragraph for ${language}/${mode}`);
+        
+        try {
+          const content = await generateTypingParagraph(language, mode, "medium");
+          const wordCount = content.split(/\s+/).length;
+          
+          // Save to database
+          paragraph = await storage.createTypingParagraph({
+            language,
+            mode,
+            difficulty: "medium",
+            content,
+            wordCount,
+          });
+          
+          isGenerated = true;
+          console.log(`Successfully generated and saved paragraph for ${language}/${mode}`);
+        } catch (aiError) {
+          console.error("AI generation failed:", aiError);
+          // Fall back to existing logic if AI generation fails
+          paragraph = await storage.getRandomParagraph(language, mode);
+        }
+      }
       
       if (!paragraph) {
         return res.status(500).json({ message: "No paragraphs available in database" });
@@ -322,7 +351,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ 
         paragraph,
-        fallbackUsed: paragraph.language !== language || (mode && paragraph.mode !== mode)
+        fallbackUsed: paragraph.language !== language || (mode && paragraph.mode !== mode),
+        isGenerated,
       });
     } catch (error: any) {
       console.error("Get paragraph error:", error);

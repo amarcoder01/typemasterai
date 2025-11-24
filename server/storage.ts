@@ -16,6 +16,7 @@ import {
   type Message,
   type InsertMessage,
   type TypingParagraph,
+  type InsertTypingParagraph,
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -65,6 +66,7 @@ export interface IStorage {
   getRandomParagraph(language: string, mode?: string): Promise<TypingParagraph | undefined>;
   getAvailableLanguages(): Promise<string[]>;
   getAvailableModes(): Promise<string[]>;
+  createTypingParagraph(paragraph: InsertTypingParagraph): Promise<TypingParagraph>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -254,6 +256,11 @@ export class DatabaseStorage implements IStorage {
       .selectDistinct({ mode: typingParagraphs.mode })
       .from(typingParagraphs);
     return result.map(r => r.mode);
+  }
+
+  async createTypingParagraph(paragraph: InsertTypingParagraph): Promise<TypingParagraph> {
+    const result = await db.insert(typingParagraphs).values(paragraph).returning();
+    return result[0];
   }
 }
 

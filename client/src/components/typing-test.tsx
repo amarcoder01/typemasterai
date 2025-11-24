@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { generateText, calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Zap, Target, Clock, Globe, BookOpen } from "lucide-react";
+import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles } from "lucide-react";
 import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import AuthPromptDialog from "@/components/auth-prompt-dialog";
+import { SearchableSelect } from "@/components/searchable-select";
 
 type TestMode = 15 | 30 | 60 | 120;
 
@@ -88,15 +89,26 @@ export default function TypingTest() {
 
   const fetchParagraph = async () => {
     try {
-      const response = await fetch(`/api/typing/paragraph?language=${language}&mode=${paragraphMode}`);
+      // Try with AI generation enabled
+      const response = await fetch(`/api/typing/paragraph?language=${language}&mode=${paragraphMode}&generate=true`);
       if (!response.ok) {
         throw new Error("Failed to fetch paragraph");
       }
       const data = await response.json();
       setText(data.paragraph.content);
       
+      // Notify user if AI generated new content
+      if (data.isGenerated) {
+        const languageName = LANGUAGE_NAMES[language] || language;
+        const modeName = MODE_NAMES[paragraphMode] || paragraphMode;
+        
+        toast({
+          title: "✨ AI Generated Content",
+          description: `Created new ${languageName} ${modeName} paragraph just for you!`,
+        });
+      }
       // Notify user if fallback was used
-      if (data.fallbackUsed) {
+      else if (data.fallbackUsed) {
         const requestedLang = LANGUAGE_NAMES[language] || language;
         const deliveredLang = LANGUAGE_NAMES[data.paragraph.language] || data.paragraph.language;
         const deliveredMode = MODE_NAMES[data.paragraph.mode] || data.paragraph.mode;
@@ -291,37 +303,36 @@ export default function TypingTest() {
     <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
       {/* Language & Mode Selectors */}
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-center gap-6 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-muted-foreground" />
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-medium cursor-pointer border border-border hover:bg-secondary/80 transition-colors"
-              data-testid="select-language"
-            >
-              {availableLanguages.map((lang: string) => (
-                <option key={lang} value={lang}>
-                  {LANGUAGE_NAMES[lang] || lang}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex items-center justify-center gap-4 flex-wrap">
+          <SearchableSelect
+            value={language}
+            onValueChange={setLanguage}
+            options={availableLanguages.map((lang: string) => ({
+              value: lang,
+              label: LANGUAGE_NAMES[lang] || lang,
+            }))}
+            placeholder="Select language"
+            searchPlaceholder="Search languages..."
+            emptyText="No language found."
+            icon={<Globe className="w-4 h-4" />}
+          />
 
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-muted-foreground" />
-            <select
-              value={paragraphMode}
-              onChange={(e) => setParagraphMode(e.target.value)}
-              className="px-3 py-1.5 rounded-lg bg-secondary text-sm font-medium cursor-pointer border border-border hover:bg-secondary/80 transition-colors"
-              data-testid="select-mode"
-            >
-              {availableModes.map((m: string) => (
-                <option key={m} value={m}>
-                  {MODE_NAMES[m] || m}
-                </option>
-              ))}
-            </select>
+          <SearchableSelect
+            value={paragraphMode}
+            onValueChange={setParagraphMode}
+            options={availableModes.map((m: string) => ({
+              value: m,
+              label: MODE_NAMES[m] || m,
+            }))}
+            placeholder="Select mode"
+            searchPlaceholder="Search modes..."
+            emptyText="No mode found."
+            icon={<BookOpen className="w-4 h-4" />}
+          />
+          
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Sparkles className="w-3 h-3" />
+            <span>AI-powered</span>
           </div>
         </div>
 
