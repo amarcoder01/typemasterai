@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
-import { Trophy, Copy, Check, Loader2, Home, RotateCcw } from "lucide-react";
+import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 
@@ -285,6 +285,23 @@ export default function RacePage() {
     }));
   }
 
+  function leaveRace() {
+    if (ws && myParticipant && race) {
+      ws.send(JSON.stringify({
+        type: "leave",
+        raceId: race.id,
+        participantId: myParticipant.id,
+      }));
+    }
+    
+    if (race && myParticipant) {
+      localStorage.removeItem(`race_${race.id}_participant`);
+      localStorage.removeItem(`race_${race.roomCode}_participant`);
+    }
+    
+    setLocation("/multiplayer");
+  }
+
   if (!race) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -297,6 +314,17 @@ export default function RacePage() {
     return (
       <div className="min-h-screen bg-background">
         <div className="container max-w-4xl mx-auto px-4 py-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={leaveRace}
+              data-testid="button-leave-race"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Lobby
+            </Button>
+          </div>
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -376,6 +404,17 @@ export default function RacePage() {
     return (
       <div className="min-h-screen bg-background">
         <div className="container max-w-6xl mx-auto px-4 py-8">
+          <div className="flex items-center justify-between mb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={leaveRace}
+              data-testid="button-forfeit-race"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Forfeit Race
+            </Button>
+          </div>
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -449,6 +488,17 @@ export default function RacePage() {
     return (
       <div className="min-h-screen bg-background">
         <div className="container max-w-4xl mx-auto px-4 py-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setLocation("/multiplayer")}
+              data-testid="button-back-to-lobby"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Lobby
+            </Button>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

@@ -28,7 +28,7 @@ Preferred communication style: Simple, everyday language.
     - **Test Results**: Serial ID, foreign key to users, WPM, accuracy, mode (duration), character/error count, timestamp.
     - **Typing Paragraphs**: Serial ID, language code (23 supported), mode/category (8+ categories), difficulty, content, word count, timestamp.
     - **Races**: Serial ID, unique room code (6 chars), status (waiting/countdown/racing/finished), paragraph content, max players, privacy flag, **finish counter for atomic position assignment**, start/finish timestamps.
-    - **Race Participants**: Serial ID, foreign key to races, optional user ID (supports guests), username, avatar color, **isBot flag for AI ghost racers**, real-time progress (characters typed), live WPM, accuracy, error count, finish position (atomically assigned via race-level counter with SELECT FOR UPDATE locking), isFinished flag, timestamps.
+    - **Race Participants**: Serial ID, foreign key to races, optional user ID (supports guests), **guestName (stores guest ID)**, username, avatar color, **isBot flag for AI ghost racers**, **isActive flag for soft-delete**, real-time progress (characters typed), live WPM, accuracy, error count, finish position (atomically assigned via race-level counter with SELECT FOR UPDATE locking), isFinished flag, timestamps.
 - **Validation & Type Safety**: Zod for runtime validation, Drizzle-Zod for schema conversion, strict TypeScript configuration.
 
 ### Build & Deployment
@@ -57,3 +57,13 @@ Preferred communication style: Simple, everyday language.
 - **Race-Condition-Free Finish Handling**: Implemented atomic finish position assignment using race-level `finishCounter` with PostgreSQL SELECT FOR UPDATE row locking, transaction-based serialization, and `isNewFinish` flag to prevent duplicate broadcasts. This guarantees exactly one position per racer and exactly one finish event broadcast to clients, even under high concurrency.
 - **Database Schema Updates**: Added `isBot` flag to `race_participants` table for tracking AI racers, and `finishCounter` to `races` table for contention-safe position assignment.
 - **Production-Ready Implementation**: Comprehensive error handling, timer cleanup, profile management, and resource cleanup ensure stable performance under load.
+
+### Soft-Delete Participant System (November 24, 2025)
+- **Eliminated Duplicate Participants**: Implemented comprehensive soft-delete system with `isActive` flag (default 1) in race_participants table, preventing duplicate entries when users refresh pages or rejoin races.
+- **Stable Guest Identity**: Added persistent guest ID system using localStorage (`multiplayer_guest_id`) that survives page refreshes and prevents duplicate guest participants across sessions.
+- **Smart Reactivation Flow**: Implemented active→inactive→create sequence in all join endpoints (quick-match, create, join) that checks for existing active participants first, then searches for inactive participants to reactivate, and only creates new entries if neither exist.
+- **Proper Leave/Rejoin Handling**: Soft-delete sets `isActive = 0` when participants leave, preserving database records for analytics while allowing seamless reactivation with reset state (progress, WPM, accuracy, finish position) when they rejoin.
+- **WebSocket Synchronization**: Added `participant_left` broadcast after soft-delete to ensure all connected clients remove departed players from UI in real-time, eliminating ghost entries.
+- **Capacity Check Optimization**: Reordered capacity validation to occur only when creating new participants, not when reactivating returning players, preventing false "Race is full" errors for legitimate rejoins.
+- **Clean Guest Storage**: Guest participants store just the guest ID (e.g., "4lk0hz") in `guestName` column while displaying full username (e.g., "Guest_4lk0hz") in UI, enabling efficient database lookups.
+- **Database Migration**: Applied schema changes using direct SQL ALTER statements for `is_active` column and `races_room_code_unique` constraint without data loss.

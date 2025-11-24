@@ -118,6 +118,9 @@ export interface IStorage {
   getRaceParticipants(raceId: number): Promise<RaceParticipant[]>;
   updateParticipantProgress(id: number, progress: number, wpm: number, accuracy: number, errors: number): Promise<void>;
   finishParticipant(id: number): Promise<{ position: number; isNewFinish: boolean }>;
+  deleteRaceParticipant(id: number): Promise<void>;
+  reactivateRaceParticipant(id: number): Promise<RaceParticipant>;
+  findInactiveParticipant(raceId: number, userId?: string, guestName?: string): Promise<RaceParticipant | undefined>;
   getRaceWithParticipants(raceId: number): Promise<{ race: Race; participants: RaceParticipant[] } | undefined>;
 }
 
@@ -630,7 +633,10 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(raceParticipants)
-      .where(eq(raceParticipants.raceId, raceId))
+      .where(and(
+        eq(raceParticipants.raceId, raceId),
+        eq(raceParticipants.isActive, 1)
+      ))
       .orderBy(raceParticipants.joinedAt);
   }
 
@@ -679,6 +685,53 @@ export class DatabaseStorage implements IStorage {
 
       return { position, isNewFinish: true };
     });
+  }
+
+  async deleteRaceParticipant(id: number): Promise<void> {
+    await db
+      .update(raceParticipants)
+      .set({ isActive: 0 })
+      .where(eq(raceParticipants.id, id));
+  }
+
+  async reactivateRaceParticipant(id: number): Promise<RaceParticipant> {
+    const result = await db
+      .update(raceParticipants)
+      .set({ 
+        isActive: 1,
+        progress: 0,
+        wpm: 0,
+        accuracy: 0,
+        errors: 0,
+        isFinished: 0,
+        finishPosition: null,
+        finishedAt: null,
+        joinedAt: new Date()
+      })
+      .where(eq(raceParticipants.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async findInactiveParticipant(raceId: number, userId?: string, guestName?: string): Promise<RaceParticipant | undefined> {
+    const conditions = [
+      eq(raceParticipants.raceId, raceId),
+      eq(raceParticipants.isActive, 0)
+    ];
+    
+    if (userId) {
+      conditions.push(eq(raceParticipants.userId, userId));
+    } else if (guestName) {
+      conditions.push(eq(raceParticipants.guestName, guestName));
+    }
+    
+    const result = await db
+      .select()
+      .from(raceParticipants)
+      .where(and(...conditions))
+      .limit(1);
+    
+    return result[0];
   }
 
   async getRaceWithParticipants(raceId: number): Promise<{ race: Race; participants: RaceParticipant[] } | undefined> {

@@ -96,11 +96,18 @@ class RaceWebSocketServer {
     const client: RaceClient = { ws, raceId, participantId, username };
     raceRoom.clients.set(participantId, client);
 
-    const participants = await storage.getRaceParticipants(raceId);
+    let participants = await storage.getRaceParticipants(raceId);
+    let participant = participants.find(p => p.id === participantId);
+    
+    // If not found, refetch to handle reactivation timing issue
+    if (!participant) {
+      participants = await storage.getRaceParticipants(raceId);
+      participant = participants.find(p => p.id === participantId);
+    }
     
     this.broadcastToRace(raceId, {
       type: "participant_joined",
-      participant: participants.find(p => p.id === participantId),
+      participant,
       participants,
     });
 
@@ -261,8 +268,15 @@ class RaceWebSocketServer {
   private async handleLeave(ws: WebSocket, message: any) {
     const { raceId, participantId } = message;
     
+    await storage.deleteRaceParticipant(participantId);
+    
     const raceRoom = this.races.get(raceId);
     if (raceRoom) {
+      this.broadcastToRace(raceId, {
+        type: "participant_left",
+        participantId,
+      });
+
       raceRoom.clients.delete(participantId);
       
       if (raceRoom.clients.size === 0) {
@@ -270,11 +284,6 @@ class RaceWebSocketServer {
           clearInterval(raceRoom.countdownTimer);
         }
         this.races.delete(raceId);
-      } else {
-        this.broadcastToRace(raceId, {
-          type: "participant_left",
-          participantId,
-        });
       }
     }
   }

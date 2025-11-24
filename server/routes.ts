@@ -789,7 +789,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/races/quick-match", async (req, res) => {
     try {
       const user = req.user;
-      const username = user ? user.username : `Guest_${Math.random().toString(36).substring(2, 8)}`;
+      const { guestId } = req.body;
+      let username: string;
+      
+      if (user) {
+        username = user.username;
+      } else if (guestId) {
+        username = `Guest_${guestId}`;
+      } else {
+        username = `Guest_${Math.random().toString(36).substring(2, 8)}`;
+      }
+      
       const avatarColor = user?.avatarColor || "bg-primary";
 
       const activeRaces = await storage.getActiveRaces();
@@ -816,24 +826,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const participants = await storage.getRaceParticipants(race.id);
-      let participant = participants.find(p => 
-        user ? p.userId === user.id : p.guestName === username
-      );
+      let participant = participants.find(p => {
+        if (user) {
+          return p.userId === user.id;
+        } else {
+          return p.guestName === guestId;
+        }
+      });
 
       if (!participant) {
-        participant = await storage.createRaceParticipant({
-          raceId: race.id,
-          userId: user?.id,
-          guestName: user ? undefined : username,
-          username,
-          avatarColor,
-          progress: 0,
-          wpm: 0,
-          accuracy: 0,
-          errors: 0,
-          isFinished: 0,
-          isBot: 0,
-        });
+        const inactive = await storage.findInactiveParticipant(race.id, user?.id, guestId);
+        
+        if (inactive) {
+          participant = await storage.reactivateRaceParticipant(inactive.id);
+        } else {
+          if (participants.length >= race.maxPlayers) {
+            return res.status(400).json({ message: "Race is full" });
+          }
+
+          participant = await storage.createRaceParticipant({
+            raceId: race.id,
+            userId: user?.id,
+            guestName: user ? undefined : guestId,
+            username,
+            avatarColor,
+            progress: 0,
+            wpm: 0,
+            accuracy: 0,
+            errors: 0,
+            isFinished: 0,
+            isBot: 0,
+          });
+        }
       }
 
       res.json({ race, participant });
@@ -845,9 +869,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/races/create", async (req, res) => {
     try {
-      const { isPrivate, maxPlayers } = req.body;
+      const { isPrivate, maxPlayers, guestId } = req.body;
       const user = req.user;
-      const username = user ? user.username : `Guest_${Math.random().toString(36).substring(2, 8)}`;
+      let username: string;
+      
+      if (user) {
+        username = user.username;
+      } else if (guestId) {
+        username = `Guest_${guestId}`;
+      } else {
+        username = `Guest_${Math.random().toString(36).substring(2, 8)}`;
+      }
+      
       const avatarColor = user?.avatarColor || "bg-primary";
 
       const paragraph = await storage.getRandomParagraph("english", "quote");
@@ -868,7 +901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let participant = await storage.createRaceParticipant({
         raceId: race.id,
         userId: user?.id,
-        guestName: user ? undefined : username,
+        guestName: user ? undefined : guestId,
         username,
         avatarColor,
         progress: 0,
@@ -889,8 +922,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/races/join/:roomCode", async (req, res) => {
     try {
       const { roomCode } = req.params;
+      const { guestId } = req.body;
       const user = req.user;
-      const username = user ? user.username : `Guest_${Math.random().toString(36).substring(2, 8)}`;
+      let username: string;
+      
+      if (user) {
+        username = user.username;
+      } else if (guestId) {
+        username = `Guest_${guestId}`;
+      } else {
+        username = `Guest_${Math.random().toString(36).substring(2, 8)}`;
+      }
+      
       const avatarColor = user?.avatarColor || "bg-primary";
 
       const race = await storage.getRaceByCode(roomCode.toUpperCase());
@@ -904,28 +947,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const participants = await storage.getRaceParticipants(race.id);
       
-      let participant = participants.find(p => 
-        user ? p.userId === user.id : p.guestName === username
-      );
+      let participant = participants.find(p => {
+        if (user) {
+          return p.userId === user.id;
+        } else {
+          return p.guestName === guestId;
+        }
+      });
 
       if (!participant) {
-        if (participants.length >= race.maxPlayers) {
-          return res.status(400).json({ message: "Race is full" });
-        }
+        const inactive = await storage.findInactiveParticipant(race.id, user?.id, guestId);
+        
+        if (inactive) {
+          participant = await storage.reactivateRaceParticipant(inactive.id);
+        } else {
+          if (participants.length >= race.maxPlayers) {
+            return res.status(400).json({ message: "Race is full" });
+          }
 
-        participant = await storage.createRaceParticipant({
-          raceId: race.id,
-          userId: user?.id,
-          guestName: user ? undefined : username,
-          username,
-          avatarColor,
-          progress: 0,
-          wpm: 0,
-          accuracy: 0,
-          errors: 0,
-          isFinished: 0,
-          isBot: 0,
-        });
+          participant = await storage.createRaceParticipant({
+            raceId: race.id,
+            userId: user?.id,
+            guestName: user ? undefined : guestId,
+            username,
+            avatarColor,
+            progress: 0,
+            wpm: 0,
+            accuracy: 0,
+            errors: 0,
+            isFinished: 0,
+            isBot: 0,
+          });
+        }
       }
 
       res.json({ race, participant });

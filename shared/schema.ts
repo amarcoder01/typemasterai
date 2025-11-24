@@ -183,6 +183,7 @@ export const raceParticipants = pgTable("race_participants", {
   username: text("username").notNull(),
   avatarColor: text("avatar_color").default("bg-primary"),
   isBot: integer("is_bot").notNull().default(0),
+  isActive: integer("is_active").notNull().default(1),
   progress: integer("progress").notNull().default(0), // characters typed
   wpm: integer("wpm").notNull().default(0),
   accuracy: real("accuracy").notNull().default(0),

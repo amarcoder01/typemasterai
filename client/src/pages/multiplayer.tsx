@@ -28,6 +28,18 @@ interface Participant {
   isFinished: number;
 }
 
+function getOrCreateGuestId(): string {
+  const GUEST_ID_KEY = "multiplayer_guest_id";
+  let guestId = localStorage.getItem(GUEST_ID_KEY);
+  
+  if (!guestId) {
+    guestId = Math.random().toString(36).substring(2, 8);
+    localStorage.setItem(GUEST_ID_KEY, guestId);
+  }
+  
+  return guestId;
+}
+
 export default function MultiplayerPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
@@ -58,9 +70,11 @@ export default function MultiplayerPage() {
   async function quickMatch() {
     setLoading(true);
     try {
+      const guestId = user ? undefined : getOrCreateGuestId();
       const response = await fetch("/api/races/quick-match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guestId }),
       });
 
       if (response.ok) {
@@ -81,10 +95,11 @@ export default function MultiplayerPage() {
   async function createRoom() {
     setLoading(true);
     try {
+      const guestId = user ? undefined : getOrCreateGuestId();
       const response = await fetch("/api/races/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isPrivate, maxPlayers }),
+        body: JSON.stringify({ isPrivate, maxPlayers, guestId }),
       });
 
       if (response.ok) {
@@ -111,9 +126,11 @@ export default function MultiplayerPage() {
 
     setLoading(true);
     try {
+      const guestId = user ? undefined : getOrCreateGuestId();
       const response = await fetch(`/api/races/join/${codeToUse.trim().toUpperCase()}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guestId }),
       });
 
       if (response.ok) {
@@ -306,7 +323,7 @@ export default function MultiplayerPage() {
                 </div>
 
                 <Button
-                  onClick={joinRoom}
+                  onClick={() => { void joinRoom(); }}
                   disabled={loading || roomCode.length !== 6}
                   size="lg"
                   className="w-full text-lg h-14"
