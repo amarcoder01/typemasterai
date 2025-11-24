@@ -128,7 +128,7 @@ class RaceWebSocketServer {
     
     if (!race || race.status !== "waiting") return;
 
-    const requiredPlayers = Math.min(2, race.maxPlayers);
+    const requiredPlayers = 1;
     
     if (participants.length >= requiredPlayers) {
       await this.startCountdown(raceId);
