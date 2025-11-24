@@ -74,12 +74,21 @@ export default function Chat() {
   const conversations = conversationsData?.conversations || [];
 
   const loadConversation = async (id: number) => {
-    const response = await fetch(`/api/conversations/${id}/messages`, {
-      credentials: "include",
-    });
-    const data = await response.json();
-    setMessages(data.messages.map((m: any) => ({ role: m.role, content: m.content })));
-    setCurrentConversationId(id);
+    try {
+      const response = await fetch(`/api/conversations/${id}/messages`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        console.error("Failed to load conversation");
+        return;
+      }
+      const data = await response.json();
+      setMessages(data.messages?.map((m: any) => ({ role: m.role, content: m.content })) || []);
+      setCurrentConversationId(id);
+    } catch (error) {
+      console.error("Error loading conversation:", error);
+      setMessages([]);
+    }
   };
 
   const createConversationMutation = useMutation({
