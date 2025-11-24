@@ -114,31 +114,31 @@ export async function performWebSearch(query: string): Promise<string> {
     try {
       const domain = new URL(result.url).hostname.replace('www.', '');
       sources.push(
-        `**[${citation}] ${result.name}**\n` +
-        `🔗 ${domain}\n` +
-        `${result.snippet}\n` +
-        `[Read more →](${result.url})`
+        `> **[${citation}] ${result.name}**\n` +
+        `> 🔗 \`${domain}\`\n>\n` +
+        `> ${result.snippet}\n>\n` +
+        `> [View source →](${result.url})`
       );
     } catch {
       sources.push(
-        `**[${citation}] ${result.name}**\n` +
-        `${result.snippet}\n` +
-        `[Read more →](${result.url})`
+        `> **[${citation}] ${result.name}**\n>\n` +
+        `> ${result.snippet}\n>\n` +
+        `> [View source →](${result.url})`
       );
     }
 
     if (i < 2) {
       const scraped = await scrapeWebPage(result.url);
       if (scraped && scraped.content) {
-        searchContent += `\n**Content from source [${citation}]:**\n${scraped.content.substring(0, 600)}\n`;
+        searchContent += `\n**Content from [${citation}]:**\n${scraped.content.substring(0, 600)}\n`;
       }
     }
   }
 
   return (
-    `### 📚 Sources\n\n` +
-    sources.join('\n\n---\n\n') +
-    (searchContent ? `\n\n### 📄 Extracted Content\n${searchContent}` : '')
+    `## 📚 Sources\n\n` +
+    sources.join('\n\n') +
+    (searchContent ? `\n\n## 📄 Extracted Content\n${searchContent}` : '')
   );
 }
 
@@ -187,16 +187,16 @@ async function performWebScraping(query: string): Promise<string> {
       try {
         const domain = new URL(result.url).hostname.replace('www.', '');
         sources.push(
-          `**[${citation}] ${result.title}**\n` +
-          `🔗 ${domain}\n` +
-          `${result.snippet}\n` +
-          `[Read more →](${result.url})`
+          `> **[${citation}] ${result.title}**\n` +
+          `> 🔗 \`${domain}\`\n>\n` +
+          `> ${result.snippet}\n>\n` +
+          `> [View source →](${result.url})`
         );
       } catch {
         sources.push(
-          `**[${citation}] ${result.title}**\n` +
-          `${result.snippet}\n` +
-          `[Read more →](${result.url})`
+          `> **[${citation}] ${result.title}**\n>\n` +
+          `> ${result.snippet}\n>\n` +
+          `> [View source →](${result.url})`
         );
       }
     }
@@ -204,13 +204,13 @@ async function performWebScraping(query: string): Promise<string> {
     const firstUrl = results[0].url;
     const scraped = await scrapeWebPage(firstUrl);
     if (scraped && scraped.content) {
-      searchContent = `\n**Content from source [1]:**\n${scraped.content.substring(0, 600)}\n`;
+      searchContent = `\n**Content from [1]:**\n${scraped.content.substring(0, 600)}\n`;
     }
 
     return (
-      `### 📚 Sources\n\n` +
-      sources.join('\n\n---\n\n') +
-      (searchContent ? `\n\n### 📄 Extracted Content\n${searchContent}` : '')
+      `## 📚 Sources\n\n` +
+      sources.join('\n\n') +
+      (searchContent ? `\n\n## 📄 Extracted Content\n${searchContent}` : '')
     );
   } catch (error) {
     console.error("Web scraping error:", error);

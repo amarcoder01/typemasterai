@@ -459,8 +459,79 @@ export default function Chat() {
                     </Avatar>
                     <div className="flex-1 space-y-2 overflow-hidden pt-1">
                       {message.role === "assistant" ? (
-                        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-7 prose-pre:bg-muted prose-pre:border">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        <div className="prose prose-sm dark:prose-invert max-w-none">
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              h1: ({node, ...props}) => <h1 className="text-3xl font-bold mt-8 mb-4 bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent" {...props} />,
+                              h2: ({node, ...props}) => <h2 className="text-2xl font-semibold mt-6 mb-3 text-foreground border-l-4 border-primary pl-4" {...props} />,
+                              h3: ({node, ...props}) => <h3 className="text-xl font-semibold mt-5 mb-2 text-foreground" {...props} />,
+                              p: ({node, ...props}) => <p className="leading-7 my-3 text-foreground/90" {...props} />,
+                              ul: ({node, ...props}) => <ul className="my-4 space-y-2 pl-6" {...props} />,
+                              ol: ({node, ...props}) => <ol className="my-4 space-y-2 pl-6 list-decimal" {...props} />,
+                              li: ({node, ...props}) => (
+                                <li className="leading-7 text-foreground/90 pl-2" {...props} />
+                              ),
+                              a: ({node, href, ...props}) => (
+                                <a 
+                                  href={href} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:text-primary/80 underline decoration-primary/30 hover:decoration-primary/60 transition-colors inline-flex items-center gap-1 font-medium"
+                                  {...props}
+                                />
+                              ),
+                              code: ({node, inline, className, children, ...props}: any) => {
+                                if (inline) {
+                                  return (
+                                    <code 
+                                      className="bg-muted/60 text-foreground px-1.5 py-0.5 rounded text-sm font-mono border border-border/40"
+                                      {...props}
+                                    >
+                                      {children}
+                                    </code>
+                                  );
+                                }
+                                return (
+                                  <code 
+                                    className={`${className} block bg-muted/40 p-4 rounded-lg border border-border/40 overflow-x-auto text-sm font-mono`}
+                                    {...props}
+                                  >
+                                    {children}
+                                  </code>
+                                );
+                              },
+                              pre: ({node, ...props}) => (
+                                <pre className="my-4 bg-muted/40 rounded-lg border border-border/40 overflow-hidden" {...props} />
+                              ),
+                              blockquote: ({node, ...props}) => (
+                                <blockquote className="border-l-4 border-primary/50 pl-4 py-2 my-4 bg-primary/5 rounded-r-lg italic text-foreground/80" {...props} />
+                              ),
+                              strong: ({node, ...props}) => (
+                                <strong className="font-semibold text-foreground" {...props} />
+                              ),
+                              table: ({node, ...props}) => (
+                                <div className="my-4 overflow-x-auto">
+                                  <table className="min-w-full border-collapse border border-border/40 rounded-lg overflow-hidden" {...props} />
+                                </div>
+                              ),
+                              thead: ({node, ...props}) => (
+                                <thead className="bg-muted/40" {...props} />
+                              ),
+                              tbody: ({node, ...props}) => (
+                                <tbody className="divide-y divide-border/40" {...props} />
+                              ),
+                              tr: ({node, ...props}) => (
+                                <tr className="hover:bg-muted/20 transition-colors" {...props} />
+                              ),
+                              th: ({node, ...props}) => (
+                                <th className="px-4 py-2 text-left font-semibold text-foreground border-r border-border/40 last:border-r-0" {...props} />
+                              ),
+                              td: ({node, ...props}) => (
+                                <td className="px-4 py-2 text-foreground/90 border-r border-border/40 last:border-r-0" {...props} />
+                              ),
+                            }}
+                          >
                             {message.content || "..."}
                           </ReactMarkdown>
                         </div>
