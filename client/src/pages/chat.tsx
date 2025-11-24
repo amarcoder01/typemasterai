@@ -16,9 +16,7 @@ import {
   ChevronRight,
   Search,
   MoreVertical,
-  Pin,
   Trash2,
-  Edit2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -231,39 +229,40 @@ export default function Chat() {
 
   return (
     <div className="fixed inset-0 top-16 flex">
-      {/* Sidebar */}
+      {/* Sidebar - ChatGPT Dark Style */}
       <div
         className={cn(
-          "bg-background border-r border-border transition-all duration-300 flex flex-col",
-          sidebarOpen ? "w-80" : "w-0"
+          "bg-gradient-to-b from-zinc-950 to-zinc-900 border-r border-zinc-800 transition-all duration-300 flex flex-col",
+          sidebarOpen ? "w-64" : "w-0"
         )}
       >
         {sidebarOpen && (
           <>
-            <div className="p-3 border-b border-border">
+            <div className="p-2.5">
               <Button
                 onClick={() => createConversationMutation.mutate()}
-                className="w-full"
+                variant="outline"
+                className="w-full justify-start gap-3 bg-transparent border-zinc-700 hover:bg-zinc-800/50 text-zinc-100"
                 data-testid="button-new-chat"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                New Chat
+                <Plus className="w-4 h-4" />
+                New chat
               </Button>
             </div>
 
-            <div className="p-3">
+            <div className="px-2.5 pb-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <Input
-                  placeholder="Search conversations..."
+                  placeholder="Search..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
+                  className="pl-9 bg-zinc-800/50 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-zinc-600"
                 />
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
               {searchTerm ? (
                 <div className="p-2">
                   {filtered.map((conv: Conversation) => (
@@ -325,79 +324,76 @@ export default function Chat() {
       <Button
         variant="ghost"
         size="icon"
-        className="absolute left-0 top-0 z-10"
+        className="absolute left-0 top-0 z-10 hover:bg-zinc-800/50"
         onClick={() => setSidebarOpen(!sidebarOpen)}
+        data-testid="button-toggle-sidebar"
       >
         {sidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
       </Button>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col bg-background">
         {messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center p-8">
-            <div className="text-center space-y-6 max-w-2xl">
-              <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-purple-600/20 flex items-center justify-center">
-                <Bot className="w-10 h-10 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-3xl font-bold mb-2">How can I help you today?</h2>
-                <p className="text-muted-foreground">
-                  I'm powered by GPT-4 with web search. Ask me anything!
-                </p>
-              </div>
+            <div className="text-center space-y-4 max-w-2xl">
+              <h1 className="text-4xl font-semibold tracking-tight" data-testid="text-welcome-heading">
+                What can I help with?
+              </h1>
             </div>
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
-            <div className="max-w-3xl mx-auto py-8 px-4 space-y-6">
+            <div className="w-full">
               {messages.map((message, index) => (
                 <div
                   key={index}
-                  className={cn("flex gap-4", message.role === "user" ? "justify-end" : "")}
+                  className={cn(
+                    "w-full py-8 px-4",
+                    message.role === "assistant" ? "bg-muted/30" : "bg-background"
+                  )}
+                  data-testid={`message-${message.role}-${index}`}
                 >
-                  {message.role === "assistant" && (
+                  <div className="max-w-3xl mx-auto flex gap-6">
                     <Avatar className="w-8 h-8 flex-shrink-0">
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600">
-                        <Bot className="w-4 h-4 text-white" />
+                      <AvatarFallback className={cn(
+                        message.role === "assistant" 
+                          ? "bg-gradient-to-br from-primary to-purple-600" 
+                          : "bg-primary/10"
+                      )}>
+                        {message.role === "assistant" ? (
+                          <Bot className="w-5 h-5 text-white" />
+                        ) : (
+                          <User className="w-5 h-5 text-primary" />
+                        )}
                       </AvatarFallback>
                     </Avatar>
-                  )}
-                  <div
-                    className={cn(
-                      "rounded-2xl px-4 py-3 max-w-[80%]",
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted"
-                    )}
-                  >
-                    {message.role === "assistant" ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {message.content || "..."}
-                        </ReactMarkdown>
-                      </div>
-                    ) : (
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                    )}
+                    <div className="flex-1 space-y-2 overflow-hidden pt-1">
+                      {message.role === "assistant" ? (
+                        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-7 prose-pre:bg-muted prose-pre:border">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {message.content || "..."}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap leading-7 text-foreground">
+                          {message.content}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  {message.role === "user" && (
-                    <Avatar className="w-8 h-8 flex-shrink-0">
-                      <AvatarFallback className="bg-secondary">
-                        <User className="w-4 h-4" />
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
                 </div>
               ))}
               {isLoading && (
-                <div className="flex gap-4">
-                  <Avatar className="w-8 h-8">
-                    <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600">
-                      <Bot className="w-4 h-4 text-white" />
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="bg-muted rounded-2xl px-4 py-3">
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                <div className="w-full py-8 px-4 bg-muted/30">
+                  <div className="max-w-3xl mx-auto flex gap-6">
+                    <Avatar className="w-8 h-8 flex-shrink-0">
+                      <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600">
+                        <Bot className="w-5 h-5 text-white" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 pt-1">
+                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -406,32 +402,43 @@ export default function Chat() {
           </div>
         )}
 
-        {/* Input Area */}
-        <div className="border-t border-border p-4">
-          <div className="max-w-3xl mx-auto flex gap-3">
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Message AI Assistant..."
-              className="min-h-[56px] max-h-[200px] resize-none"
-              disabled={isLoading}
-              data-testid="input-chat-message"
-            />
-            <Button
-              onClick={sendMessage}
-              disabled={isLoading || !input.trim()}
-              size="icon"
-              className="h-[56px] w-[56px] flex-shrink-0"
-              data-testid="button-send-message"
-            >
-              {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-            </Button>
+        {/* Input Area - ChatGPT Style */}
+        <div className="border-t border-border bg-background">
+          <div className="max-w-3xl mx-auto px-4 py-6">
+            <div className="relative bg-background border border-border rounded-3xl shadow-sm hover:shadow-md transition-shadow">
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Message AI Assistant..."
+                className="min-h-[56px] max-h-[200px] resize-none border-0 bg-transparent px-5 py-4 pr-14 focus-visible:ring-0 focus-visible:ring-offset-0"
+                disabled={isLoading}
+                data-testid="input-chat-message"
+              />
+              <Button
+                onClick={sendMessage}
+                disabled={isLoading || !input.trim()}
+                size="icon"
+                className={cn(
+                  "absolute right-3 bottom-3 h-10 w-10 rounded-xl transition-all",
+                  input.trim() && !isLoading 
+                    ? "bg-primary hover:bg-primary/90" 
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                )}
+                data-testid="button-send-message"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground text-center mt-3">
+              AI can make mistakes. Verify important information.
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            AI can make mistakes. Verify important information.
-          </p>
         </div>
       </div>
     </div>
@@ -452,11 +459,11 @@ function ConversationGroup({
   onDelete: (id: number) => void;
 }) {
   return (
-    <div className="mb-4">
-      <h3 className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+    <div className="mb-3">
+      <h3 className="px-3 py-1.5 text-xs font-medium text-zinc-500 uppercase tracking-wide">
         {title}
       </h3>
-      <div className="space-y-1 px-2">
+      <div className="space-y-0.5 px-1">
         {conversations.map((conv) => (
           <ConversationItem
             key={conv.id}
@@ -487,29 +494,37 @@ function ConversationItem({
   return (
     <div
       className={cn(
-        "group relative px-3 py-2 rounded-lg cursor-pointer transition-colors",
-        isActive ? "bg-accent" : "hover:bg-accent/50"
+        "group relative px-3 py-2.5 rounded-lg cursor-pointer transition-all",
+        isActive 
+          ? "bg-zinc-800 text-zinc-100" 
+          : "text-zinc-300 hover:bg-zinc-800/50"
       )}
       onClick={onSelect}
       onMouseEnter={() => setShowMenu(true)}
       onMouseLeave={() => setShowMenu(false)}
+      data-testid={`conversation-${conversation.id}`}
     >
-      <div className="flex items-center gap-2">
-        <MessageSquare className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+      <div className="flex items-center gap-2.5">
+        <MessageSquare className="w-4 h-4 flex-shrink-0" />
         <span className="text-sm truncate flex-1">{conversation.title}</span>
         {showMenu && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button variant="ghost" size="icon" className="h-6 w-6 flex-shrink-0">
-                <MoreVertical className="w-4 h-4" />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 flex-shrink-0 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-100"
+              >
+                <MoreVertical className="w-3.5 h-3.5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="bg-zinc-800 border-zinc-700">
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation();
                   onDelete();
                 }}
+                className="text-zinc-300 hover:bg-zinc-700 focus:bg-zinc-700 focus:text-zinc-100"
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete
