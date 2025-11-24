@@ -11,7 +11,6 @@ import {
   Bot,
   User,
   Plus,
-  MessageSquare,
   ChevronLeft,
   ChevronRight,
   Search,
@@ -238,28 +237,24 @@ export default function Chat() {
       >
         {sidebarOpen && (
           <>
-            {/* Collapse Button - Inside Sidebar */}
-            <div className="absolute -right-4 top-2 z-50">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-full bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300"
-                onClick={() => setSidebarOpen(false)}
-                data-testid="button-close-sidebar"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </Button>
-            </div>
-
-            <div className="p-2">
+            <div className="flex items-center justify-between p-2">
               <Button
                 onClick={() => createConversationMutation.mutate()}
                 variant="outline"
-                className="w-full justify-start gap-2 h-9 rounded-lg bg-transparent border-zinc-700 hover:bg-zinc-800/50 text-zinc-100"
+                className="flex-1 justify-start gap-2 h-10 rounded-lg bg-transparent border-zinc-700 hover:bg-zinc-800/50 text-zinc-100"
                 data-testid="button-new-chat"
               >
                 <Plus className="w-4 h-4" />
-                <span className="text-sm">New chat</span>
+                <span className="text-sm font-medium">New chat</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 rounded-lg hover:bg-zinc-800/50 text-zinc-300 ml-1"
+                onClick={() => setSidebarOpen(false)}
+                data-testid="button-close-sidebar"
+              >
+                <ChevronLeft className="w-5 h-5" />
               </Button>
             </div>
 
@@ -474,11 +469,11 @@ function ConversationGroup({
   onDelete: (id: number) => void;
 }) {
   return (
-    <div className="mb-2">
-      <h3 className="px-2 py-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
+    <div className="mb-3">
+      <h3 className="px-3 py-2 text-xs font-medium text-zinc-500 uppercase tracking-wide">
         {title}
       </h3>
-      <div className="space-y-0.5">
+      <div className="space-y-1 px-2">
         {conversations.map((conv) => (
           <ConversationItem
             key={conv.id}
@@ -509,49 +504,46 @@ function ConversationItem({
   return (
     <div
       className={cn(
-        "group relative px-2 py-2 rounded-lg cursor-pointer transition-all",
+        "group relative px-3 py-2.5 rounded-lg cursor-pointer transition-all flex items-center gap-2",
         isActive 
-          ? "bg-zinc-800 text-zinc-100" 
-          : "text-zinc-300 hover:bg-zinc-800/50"
+          ? "bg-zinc-800/70 text-zinc-50" 
+          : "text-zinc-300 hover:bg-zinc-800/40"
       )}
       onClick={onSelect}
       data-testid={`conversation-${conversation.id}`}
     >
-      <div className="flex items-center gap-2">
-        <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
-        <span className="text-sm truncate flex-1">{conversation.title}</span>
-        <div className={cn("opacity-0 group-hover:opacity-100 transition-opacity", isOpen && "opacity-100")}>
-          <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-7 w-7 flex-shrink-0 rounded-md hover:bg-zinc-700 text-zinc-400 hover:text-zinc-100"
-                data-testid={`button-menu-${conversation.id}`}
-              >
-                <MoreVertical className="w-3.5 h-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="end" 
-              className="bg-zinc-800 border-zinc-700 min-w-[160px]"
-              onClick={(e) => e.stopPropagation()}
+      <span className="text-sm truncate flex-1 leading-tight">{conversation.title}</span>
+      <div className={cn("opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0", isOpen && "opacity-100")}>
+        <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-7 w-7 rounded-md hover:bg-zinc-700 text-zinc-400 hover:text-zinc-100"
+              data-testid={`button-menu-${conversation.id}`}
             >
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                  setIsOpen(false);
-                }}
-                className="text-zinc-300 hover:bg-zinc-700 focus:bg-zinc-700 focus:text-zinc-100 cursor-pointer"
-                data-testid={`button-delete-${conversation.id}`}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent 
+            align="end" 
+            className="bg-zinc-800 border-zinc-700 min-w-[160px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+                setIsOpen(false);
+              }}
+              className="text-zinc-300 hover:bg-zinc-700 focus:bg-zinc-700 focus:text-zinc-100 cursor-pointer"
+              data-testid={`button-delete-${conversation.id}`}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
