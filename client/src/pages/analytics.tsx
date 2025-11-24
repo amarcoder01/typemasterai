@@ -28,10 +28,28 @@ interface AIInsight {
   priority: "high" | "medium" | "low";
 }
 
+interface DailyExercise {
+  title: string;
+  description: string;
+  duration: string;
+}
+
+interface WeeklyGoal {
+  week: string;
+  title: string;
+  tasks: string[];
+  target: string;
+  status: "current" | "next" | "later";
+}
+
 export default function Analytics() {
   const [selectedDays, setSelectedDays] = useState(30);
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [dailyPlan, setDailyPlan] = useState<DailyExercise[]>([]);
+  const [loadingDailyPlan, setLoadingDailyPlan] = useState(false);
+  const [weeklyPlan, setWeeklyPlan] = useState<WeeklyGoal[]>([]);
+  const [loadingWeeklyPlan, setLoadingWeeklyPlan] = useState(false);
 
   const { data: analyticsData, isLoading, refetch } = useQuery<{ analytics: AnalyticsData }>({
     queryKey: [`/api/analytics?days=${selectedDays}`],
@@ -159,6 +177,232 @@ Format each insight as a single concise sentence. Focus on actionable advice.`,
       toast.error("Failed to generate AI insights");
     } finally {
       setLoadingInsights(false);
+    }
+  };
+
+  const generateDailyPlan = async () => {
+    if (!analytics) return;
+
+    setLoadingDailyPlan(true);
+    try {
+      const response = await fetch("/api/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          conversationId: null,
+          message: `Based on my typing analytics, create a personalized daily practice plan with exactly 3 exercises:
+
+Performance Data:
+- Average WPM: ${analytics.consistency.avgWpm.toFixed(1)}
+- Accuracy: ${analytics.wpmOverTime.length > 0 ? analytics.wpmOverTime[analytics.wpmOverTime.length - 1].accuracy.toFixed(1) : 95}%
+- Top Problem Keys: ${analytics.mistakesHeatmap.slice(0, 5).map(m => m.key).join(", ")}
+- Common Mistakes: ${analytics.commonMistakes.slice(0, 3).map(m => `${m.expectedKey}→${m.typedKey}`).join(", ")}
+
+Create 3 exercises in this exact format:
+Exercise 1: [Title] | [Description] | [Duration]
+Exercise 2: [Title] | [Description] | [Duration]
+Exercise 3: [Title] | [Description] | [Duration]
+
+Make them specific to my mistakes and skill level. Each should have a clear title, actionable description, and time duration (e.g., "10 min").`,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate daily plan");
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullResponse = "";
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+          
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6);
+              if (data === "[DONE]") break;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.content) {
+                  fullResponse += parsed.content;
+                }
+              } catch (e) {
+                // Ignore parse errors
+              }
+            }
+          }
+        }
+      }
+
+      // Parse exercises from response
+      const exercises: DailyExercise[] = [];
+      const exerciseLines = fullResponse.split("\n").filter(l => l.includes("Exercise") || l.match(/^\d+[.:)]/));
+      
+      for (const line of exerciseLines) {
+        const parts = line.split("|").map(p => p.trim());
+        if (parts.length >= 3) {
+          exercises.push({
+            title: parts[0].replace(/^Exercise \d+:\s*/, "").replace(/^\d+[.:)]\s*/, "").trim(),
+            description: parts[1].trim(),
+            duration: parts[2].trim(),
+          });
+        }
+      }
+
+      // Fallback if parsing fails
+      if (exercises.length === 0) {
+        exercises.push(
+          {
+            title: "Problem Keys Practice",
+            description: `Focus on keys with high error rates: ${analytics.mistakesHeatmap.slice(0, 5).map(m => m.key).join(", ")}`,
+            duration: "10 min",
+          },
+          {
+            title: "Speed Building",
+            description: "Take 3 short tests (30s each) to increase typing speed while maintaining accuracy",
+            duration: "5 min",
+          },
+          {
+            title: "Accuracy Drills",
+            description: "Type slowly with focus on 100% accuracy to build proper muscle memory",
+            duration: "5 min",
+          }
+        );
+      }
+
+      setDailyPlan(exercises.slice(0, 3));
+      toast.success("Daily practice plan generated!");
+    } catch (error) {
+      console.error("Daily plan error:", error);
+      toast.error("Failed to generate daily plan");
+    } finally {
+      setLoadingDailyPlan(false);
+    }
+  };
+
+  const generateWeeklyPlan = async () => {
+    if (!analytics) return;
+
+    setLoadingWeeklyPlan(true);
+    try {
+      const response = await fetch("/api/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          conversationId: null,
+          message: `Create a personalized 4-week improvement roadmap based on my typing data:
+
+Current Stats:
+- Average WPM: ${analytics.consistency.avgWpm.toFixed(1)}
+- WPM Range: ${analytics.consistency.minWpm} - ${analytics.consistency.maxWpm}
+- Consistency: ${analytics.consistency.stdDeviation.toFixed(1)} std dev
+- Main weaknesses: ${analytics.mistakesHeatmap.slice(0, 5).map(m => m.key).join(", ")}
+
+Create exactly 3 weekly goals in this format:
+Week 1: [Title] | [Task 1, Task 2, Task 3] | [Target WPM]
+Week 2: [Title] | [Task 1, Task 2, Task 3] | [Target WPM]
+Week 3-4: [Title] | [Task 1, Task 2, Task 3] | [Target WPM]
+
+Make them progressive, achievable, and specific to my current level. Use realistic WPM targets based on my average.`,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate weekly plan");
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullResponse = "";
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value);
+          const lines = chunk.split("\n");
+          
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6);
+              if (data === "[DONE]") break;
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.content) {
+                  fullResponse += parsed.content;
+                }
+              } catch (e) {
+                // Ignore parse errors
+              }
+            }
+          }
+        }
+      }
+
+      // Parse weekly goals from response
+      const goals: WeeklyGoal[] = [];
+      const goalLines = fullResponse.split("\n").filter(l => l.includes("Week"));
+      
+      for (let i = 0; i < goalLines.length && i < 3; i++) {
+        const line = goalLines[i];
+        const parts = line.split("|").map(p => p.trim());
+        if (parts.length >= 3) {
+          const weekPart = parts[0];
+          const week = weekPart.match(/Week\s+[\d-]+/)?.[0] || `Week ${i + 1}`;
+          const title = weekPart.replace(/Week\s+[\d-]+:\s*/, "").trim();
+          const tasks = parts[1].split(",").map(t => t.trim()).filter(t => t.length > 0);
+          const target = parts[2].trim();
+          
+          goals.push({
+            week,
+            title,
+            tasks: tasks.length > 0 ? tasks : ["Practice daily", "Focus on accuracy", "Build consistency"],
+            target,
+            status: i === 0 ? "current" : i === 1 ? "next" : "later",
+          });
+        }
+      }
+
+      // Fallback if parsing fails
+      if (goals.length === 0) {
+        const avgWpm = analytics.consistency.avgWpm;
+        goals.push(
+          {
+            week: "Week 1",
+            title: "Foundation",
+            tasks: ["Practice 15 min daily", "Focus on accuracy over speed", "Learn proper finger placement"],
+            target: `${Math.ceil(avgWpm + 5)} WPM`,
+            status: "current",
+          },
+          {
+            week: "Week 2",
+            title: "Speed Building",
+            tasks: ["Increase to 20 min sessions", "Add timed challenges", "Practice problem keys"],
+            target: `${Math.ceil(avgWpm + 10)} WPM`,
+            status: "next",
+          },
+          {
+            week: "Week 3-4",
+            title: "Mastery",
+            tasks: ["Combine speed and accuracy", "Test different modes", "Maintain consistency"],
+            target: `${Math.ceil(avgWpm + 15)} WPM`,
+            status: "later",
+          }
+        );
+      }
+
+      setWeeklyPlan(goals);
+      toast.success("Weekly improvement plan generated!");
+    } catch (error) {
+      console.error("Weekly plan error:", error);
+      toast.error("Failed to generate weekly plan");
+    } finally {
+      setLoadingWeeklyPlan(false);
     }
   };
 
@@ -527,104 +771,132 @@ Format each insight as a single concise sentence. Focus on actionable advice.`,
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5" />
-                  Daily Practice Plan
-                </CardTitle>
-                <CardDescription>Recommended exercises for today</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="w-5 h-5" />
+                      Daily Practice Plan
+                    </CardTitle>
+                    <CardDescription>AI-powered personalized exercises</CardDescription>
+                  </div>
+                  <Button
+                    onClick={generateDailyPlan}
+                    disabled={loadingDailyPlan}
+                    size="sm"
+                    variant="outline"
+                    data-testid="button-generate-daily"
+                  >
+                    {loadingDailyPlan ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Generate Plan
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-                      1
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold mb-1">Focus Keys Practice (10 min)</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Practice these problematic keys: {analytics.mistakesHeatmap.slice(0, 5).map(m => m.key).join(", ")}
-                      </p>
-                    </div>
+                {dailyPlan.length > 0 ? (
+                  <div className="space-y-3">
+                    {dailyPlan.map((exercise, idx) => (
+                      <div key={idx} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50" data-testid={`exercise-${idx}`}>
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className="font-semibold">{exercise.title}</h4>
+                            <Badge variant="outline" className="text-xs">{exercise.duration}</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {exercise.description}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-                      2
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold mb-1">Speed Test (5 min)</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Take 2-3 short tests (30s each) to maintain your current speed
-                      </p>
-                    </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>Click "Generate Plan" to get your personalized daily practice routine</p>
                   </div>
+                )}
 
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-                      3
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold mb-1">Accuracy Drills (5 min)</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Type slowly and focus on 100% accuracy to build muscle memory
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <Button className="w-full" onClick={() => (window.location.href = "/")} data-testid="button-start-practice">
-                  <Target className="w-4 h-4 mr-2" />
-                  Start Practice Session
-                </Button>
+                {dailyPlan.length > 0 && (
+                  <Button className="w-full" onClick={() => (window.location.href = "/")} data-testid="button-start-practice">
+                    <Target className="w-4 h-4 mr-2" />
+                    Start Practice Session
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5" />
-                  Weekly Improvement Plan
-                </CardTitle>
-                <CardDescription>Long-term goals and milestones</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5" />
+                      Weekly Improvement Plan
+                    </CardTitle>
+                    <CardDescription>AI-generated progressive roadmap</CardDescription>
+                  </div>
+                  <Button
+                    onClick={generateWeeklyPlan}
+                    disabled={loadingWeeklyPlan}
+                    size="sm"
+                    variant="outline"
+                    data-testid="button-generate-weekly"
+                  >
+                    {loadingWeeklyPlan ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Generate Plan
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="p-3 rounded-lg border border-border">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold">Week 1: Foundation</h4>
-                      <Badge variant="outline">Current</Badge>
-                    </div>
-                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                      <li>Practice 15 min daily</li>
-                      <li>Focus on accuracy over speed</li>
-                      <li>Target: {Math.ceil(analytics.consistency.avgWpm + 5)} WPM</li>
-                    </ul>
+                {weeklyPlan.length > 0 ? (
+                  <div className="space-y-3">
+                    {weeklyPlan.map((goal, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-lg border border-border ${goal.status !== "current" ? "opacity-60" : ""}`}
+                        data-testid={`weekly-goal-${idx}`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-semibold">{goal.week}: {goal.title}</h4>
+                          <Badge variant={goal.status === "current" ? "outline" : "secondary"}>
+                            {goal.status === "current" ? "Current" : goal.status === "next" ? "Next" : "Later"}
+                          </Badge>
+                        </div>
+                        <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                          {goal.tasks.map((task, taskIdx) => (
+                            <li key={taskIdx}>{task}</li>
+                          ))}
+                          <li className="font-semibold text-primary">Target: {goal.target}</li>
+                        </ul>
+                      </div>
+                    ))}
                   </div>
-
-                  <div className="p-3 rounded-lg border border-border opacity-60">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold">Week 2: Speed Building</h4>
-                      <Badge variant="secondary">Next</Badge>
-                    </div>
-                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                      <li>Increase session to 20 min</li>
-                      <li>Add timed challenges</li>
-                      <li>Target: {Math.ceil(analytics.consistency.avgWpm + 10)} WPM</li>
-                    </ul>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    <p>Click "Generate Plan" to get your 4-week improvement roadmap</p>
                   </div>
-
-                  <div className="p-3 rounded-lg border border-border opacity-60">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold">Week 3-4: Mastery</h4>
-                      <Badge variant="secondary">Later</Badge>
-                    </div>
-                    <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                      <li>Combine speed and accuracy</li>
-                      <li>Test different paragraph modes</li>
-                      <li>Target: {Math.ceil(analytics.consistency.avgWpm + 15)} WPM</li>
-                    </ul>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>
