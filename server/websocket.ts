@@ -189,6 +189,7 @@ class RaceWebSocketServer {
         bots.forEach(bot => {
           botService.startBotTyping(
             bot.id,
+            raceId,
             race.paragraphContent.length,
             (data) => this.broadcastToRace(raceId, data)
           );
@@ -218,11 +219,23 @@ class RaceWebSocketServer {
   private async handleFinish(message: any) {
     const { raceId, participantId } = message;
 
-    const participants = await storage.getRaceParticipants(raceId);
-    const finishedCount = participants.filter(p => p.isFinished === 1).length;
-    const position = finishedCount + 1;
+    const race = await storage.getRace(raceId);
+    if (!race || race.status === "finished") {
+      return;
+    }
 
-    await storage.finishParticipant(participantId, position);
+    const participants = await storage.getRaceParticipants(raceId);
+    const participant = participants.find(p => p.id === participantId);
+    
+    if (!participant) {
+      return;
+    }
+
+    const { position, isNewFinish } = await storage.finishParticipant(participantId);
+
+    if (!isNewFinish) {
+      return;
+    }
 
     this.broadcastToRace(raceId, {
       type: "participant_finished",

@@ -134,6 +134,7 @@ class BotService {
 
   startBotTyping(
     participantId: number,
+    raceId: number,
     paragraphLength: number,
     broadcastCallback: (data: any) => void
   ) {
@@ -147,9 +148,19 @@ class BotService {
     let startTime = Date.now();
 
     const simulate = async () => {
+      if (!this.botProfiles.has(participantId)) {
+        return;
+      }
+
       if (currentProgress >= paragraphLength) {
-        await storage.finishParticipant(participantId, 0);
+        this.stopBotTyping(participantId);
         
+        const { position, isNewFinish } = await storage.finishParticipant(participantId);
+        
+        if (!isNewFinish) {
+          return;
+        }
+
         broadcastCallback({
           type: "progress_update",
           participantId,
@@ -159,7 +170,12 @@ class BotService {
           errors: currentErrors,
         });
 
-        this.stopBotTyping(participantId);
+        broadcastCallback({
+          type: "participant_finished",
+          participantId,
+          position,
+        });
+        
         return;
       }
 

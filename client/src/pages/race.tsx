@@ -23,6 +23,7 @@ interface Participant {
   raceId: number;
   username: string;
   avatarColor: string | null;
+  isBot?: number;
   progress: number;
   wpm: number;
   accuracy: number;
@@ -151,7 +152,16 @@ export default function RacePage() {
         setParticipants(message.participants);
         toast.success(`${message.participant.username} joined the race!`);
         break;
+      case "bots_added":
+        fetchRaceData();
+        toast.info("AI racers joined to fill the lobby!", { duration: 2000 });
+        break;
       case "countdown_start":
+        setCountdown(message.countdown);
+        if (message.participants) {
+          setParticipants(message.participants);
+        }
+        break;
       case "countdown":
         setCountdown(message.countdown);
         break;

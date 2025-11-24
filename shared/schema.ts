@@ -165,6 +165,7 @@ export const races = pgTable("races", {
   paragraphContent: text("paragraph_content").notNull(),
   maxPlayers: integer("max_players").notNull().default(4),
   isPrivate: integer("is_private").notNull().default(0),
+  finishCounter: integer("finish_counter").notNull().default(0),
   startedAt: timestamp("started_at"),
   finishedAt: timestamp("finished_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

@@ -117,7 +117,7 @@ export interface IStorage {
   createRaceParticipant(participant: InsertRaceParticipant): Promise<RaceParticipant>;
   getRaceParticipants(raceId: number): Promise<RaceParticipant[]>;
   updateParticipantProgress(id: number, progress: number, wpm: number, accuracy: number, errors: number): Promise<void>;
-  finishParticipant(id: number, position: number): Promise<void>;
+  finishParticipant(id: number): Promise<{ position: number; isNewFinish: boolean }>;
   getRaceWithParticipants(raceId: number): Promise<{ race: Race; participants: RaceParticipant[] } | undefined>;
 }
 
@@ -641,15 +641,44 @@ export class DatabaseStorage implements IStorage {
       .where(eq(raceParticipants.id, id));
   }
 
-  async finishParticipant(id: number, position: number): Promise<void> {
-    await db
-      .update(raceParticipants)
-      .set({ 
-        isFinished: 1, 
-        finishPosition: position,
-        finishedAt: new Date()
-      })
-      .where(eq(raceParticipants.id, id));
+  async finishParticipant(id: number): Promise<{ position: number; isNewFinish: boolean }> {
+    return await db.transaction(async (tx) => {
+      const participant = await tx
+        .select()
+        .from(raceParticipants)
+        .where(eq(raceParticipants.id, id))
+        .for("update")
+        .limit(1);
+
+      if (!participant || participant.length === 0) {
+        throw new Error("Participant not found");
+      }
+
+      if (participant[0].isFinished === 1 && participant[0].finishPosition !== null) {
+        return { position: participant[0].finishPosition, isNewFinish: false };
+      }
+
+      const result = await tx.execute(sql`
+        UPDATE ${races}
+        SET ${races.finishCounter} = ${races.finishCounter} + 1
+        WHERE ${races.id} = ${participant[0].raceId}
+        RETURNING ${races.finishCounter} as position
+      `);
+
+      const rows = result.rows as Array<{ position: number }>;
+      const position = rows[0].position;
+
+      await tx
+        .update(raceParticipants)
+        .set({ 
+          isFinished: 1, 
+          finishPosition: position,
+          finishedAt: new Date()
+        })
+        .where(eq(raceParticipants.id, id));
+
+      return { position, isNewFinish: true };
+    });
   }
 
   async getRaceWithParticipants(raceId: number): Promise<{ race: Race; participants: RaceParticipant[] } | undefined> {
