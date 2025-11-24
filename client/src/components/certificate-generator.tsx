@@ -75,14 +75,14 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date }: Ce
 
     // Logo/Seal (top-left corner)
     ctx.beginPath();
-    ctx.arc(100, 100, 50, 0, Math.PI * 2);
+    ctx.arc(140, 140, 45, 0, Math.PI * 2);
     ctx.strokeStyle = "#00ffff";
     ctx.lineWidth = 3;
     ctx.stroke();
     ctx.fillStyle = "#00ffff";
-    ctx.font = "bold 32px 'DM Sans', sans-serif";
+    ctx.font = "bold 30px 'DM Sans', sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("TM", 100, 110);
+    ctx.fillText("TM", 140, 148);
 
     // Title
     ctx.fillStyle = "#00ffff";
