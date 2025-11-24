@@ -41,9 +41,9 @@ export async function analyzeImage(buffer: Buffer, mimeType: string): Promise<st
 
 export async function analyzePDF(buffer: Buffer): Promise<string> {
   try {
-    // Dynamic import for pdf-parse since it's a CommonJS module
-    const pdf = await import("pdf-parse");
-    const pdfParse = pdf.default || pdf;
+    // Use require for pdf-parse CommonJS module
+    // @ts-ignore
+    const pdfParse = require("pdf-parse");
     const data = await pdfParse(buffer);
     const text = data.text.trim();
 
