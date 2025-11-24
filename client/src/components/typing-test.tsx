@@ -67,6 +67,7 @@ export default function TypingTest() {
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [language, setLanguage] = useState("en");
   const [paragraphMode, setParagraphMode] = useState<string>("general");
+  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [text, setText] = useState("");
   const [originalText, setOriginalText] = useState(""); // Store original paragraph for repeating
   const [userInput, setUserInput] = useState("");
@@ -103,7 +104,7 @@ export default function TypingTest() {
   const fetchParagraph = async () => {
     try {
       // Try with AI generation enabled
-      const response = await fetch(`/api/typing/paragraph?language=${language}&mode=${paragraphMode}&generate=true`);
+      const response = await fetch(`/api/typing/paragraph?language=${language}&mode=${paragraphMode}&difficulty=${difficulty}&generate=true`);
       if (!response.ok) {
         throw new Error("Failed to fetch paragraph");
       }
@@ -206,7 +207,7 @@ export default function TypingTest() {
     setTimeout(() => inputRef.current?.focus(), 0);
   }, [mode]);
 
-  // Fetch new paragraph when language or paragraph mode changes
+  // Fetch new paragraph when language, paragraph mode, or difficulty changes
   useEffect(() => {
     if (text) {
       fetchParagraph();
@@ -218,7 +219,7 @@ export default function TypingTest() {
       setWpm(0);
       setAccuracy(100);
     }
-  }, [language, paragraphMode]);
+  }, [language, paragraphMode, difficulty]);
 
   // Timer logic
   useEffect(() => {
@@ -361,6 +362,20 @@ export default function TypingTest() {
             searchPlaceholder="Search modes..."
             emptyText="No mode found."
             icon={<BookOpen className="w-4 h-4" />}
+          />
+
+          <SearchableSelect
+            value={difficulty}
+            onValueChange={(val) => setDifficulty(val as "easy" | "medium" | "hard")}
+            options={[
+              { value: "easy", label: "Easy" },
+              { value: "medium", label: "Medium" },
+              { value: "hard", label: "Hard" },
+            ]}
+            placeholder="Select difficulty"
+            searchPlaceholder="Search difficulty..."
+            emptyText="No difficulty found."
+            icon={<Target className="w-4 h-4" />}
           />
           
           <div className="flex items-center gap-1 text-xs text-muted-foreground">

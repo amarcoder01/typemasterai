@@ -314,6 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const language = (req.query.language as string) || "en";
       const mode = req.query.mode as string | undefined;
+      const difficulty = req.query.difficulty as string | undefined;
       const generateIfMissing = req.query.generate === "true";
       
       let paragraph: any = undefined;
@@ -321,22 +322,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check for exact match first (no fallbacks)
       if (mode) {
-        paragraph = await storage.getExactParagraph(language, mode);
+        paragraph = await storage.getExactParagraph(language, mode, difficulty);
       }
       
       // If no exact match found and AI generation is requested
       if (!paragraph && generateIfMissing && mode) {
-        console.log(`🤖 Generating AI paragraph for ${language}/${mode}`);
+        console.log(`🤖 Generating AI paragraph for ${language}/${mode}/${difficulty || 'medium'}`);
         
         try {
-          const content = await generateTypingParagraph(language, mode, "medium");
+          const content = await generateTypingParagraph(language, mode, (difficulty as "easy" | "medium" | "hard") || "medium");
           const wordCount = content.split(/\s+/).length;
           
           // Save to database
           paragraph = await storage.createTypingParagraph({
             language,
             mode,
-            difficulty: "medium",
+            difficulty: (difficulty as "easy" | "medium" | "hard") || "medium",
             content,
             wordCount,
           });
@@ -346,13 +347,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } catch (aiError) {
           console.error("❌ AI generation failed:", aiError);
           // Fall back to existing logic if AI generation fails
-          paragraph = await storage.getRandomParagraph(language, mode);
+          paragraph = await storage.getRandomParagraph(language, mode, difficulty);
         }
       }
       
       // If still no paragraph, use fallback system
       if (!paragraph) {
-        paragraph = await storage.getRandomParagraph(language, mode);
+        paragraph = await storage.getRandomParagraph(language, mode, difficulty);
       }
       
       if (!paragraph) {

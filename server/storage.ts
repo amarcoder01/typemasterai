@@ -63,8 +63,8 @@ export interface IStorage {
   createMessage(message: InsertMessage): Promise<Message>;
   getConversationMessages(conversationId: number): Promise<Message[]>;
   
-  getRandomParagraph(language: string, mode?: string): Promise<TypingParagraph | undefined>;
-  getExactParagraph(language: string, mode: string): Promise<TypingParagraph | undefined>;
+  getRandomParagraph(language: string, mode?: string, difficulty?: string): Promise<TypingParagraph | undefined>;
+  getExactParagraph(language: string, mode: string, difficulty?: string): Promise<TypingParagraph | undefined>;
   getAvailableLanguages(): Promise<string[]>;
   getAvailableModes(): Promise<string[]>;
   createTypingParagraph(paragraph: InsertTypingParagraph): Promise<TypingParagraph>;
@@ -206,12 +206,21 @@ export class DatabaseStorage implements IStorage {
       .orderBy(messages.createdAt);
   }
 
-  async getExactParagraph(language: string, mode: string): Promise<TypingParagraph | undefined> {
-    // Get ONLY exact language + mode match, no fallbacks
+  async getExactParagraph(language: string, mode: string, difficulty?: string): Promise<TypingParagraph | undefined> {
+    // Get ONLY exact language + mode + difficulty match, no fallbacks
+    const conditions = [
+      eq(typingParagraphs.language, language),
+      eq(typingParagraphs.mode, mode)
+    ];
+    
+    if (difficulty) {
+      conditions.push(eq(typingParagraphs.difficulty, difficulty));
+    }
+    
     const specificParagraphs = await db
       .select()
       .from(typingParagraphs)
-      .where(and(eq(typingParagraphs.language, language), eq(typingParagraphs.mode, mode)));
+      .where(and(...conditions));
     
     if (specificParagraphs.length > 0) {
       const randomIndex = Math.floor(Math.random() * specificParagraphs.length);
@@ -221,13 +230,22 @@ export class DatabaseStorage implements IStorage {
     return undefined;
   }
 
-  async getRandomParagraph(language: string, mode?: string): Promise<TypingParagraph | undefined> {
-    // Try with both language and mode
+  async getRandomParagraph(language: string, mode?: string, difficulty?: string): Promise<TypingParagraph | undefined> {
+    // Try with language, mode, and difficulty
     if (mode) {
+      const conditions = [
+        eq(typingParagraphs.language, language),
+        eq(typingParagraphs.mode, mode)
+      ];
+      
+      if (difficulty) {
+        conditions.push(eq(typingParagraphs.difficulty, difficulty));
+      }
+      
       const specificParagraphs = await db
         .select()
         .from(typingParagraphs)
-        .where(and(eq(typingParagraphs.language, language), eq(typingParagraphs.mode, mode)));
+        .where(and(...conditions));
       
       if (specificParagraphs.length > 0) {
         const randomIndex = Math.floor(Math.random() * specificParagraphs.length);
