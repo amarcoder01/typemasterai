@@ -16,6 +16,8 @@ import {
   books,
   bookParagraphs,
   bookTypingTests,
+  dictationSentences,
+  dictationTests,
   type User,
   type InsertUser,
   type TestResult,
@@ -44,6 +46,10 @@ import {
   type InsertBookParagraph,
   type BookTypingTest,
   type InsertBookTypingTest,
+  type DictationSentence,
+  type InsertDictationSentence,
+  type DictationTest,
+  type InsertDictationTest,
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -183,6 +189,26 @@ export interface IStorage {
   getChapterParagraphs(bookId: number, chapter: number): Promise<BookParagraph[]>;
   createBookTestResult(result: InsertBookTypingTest): Promise<BookTypingTest>;
   getBookTestResults(userId: string, limit?: number): Promise<BookTypingTest[]>;
+  
+  getRandomDictationSentence(difficulty?: string, category?: string): Promise<DictationSentence | undefined>;
+  createDictationTest(test: InsertDictationTest): Promise<DictationTest>;
+  getUserDictationStats(userId: string): Promise<{
+    totalTests: number;
+    bestWpm: number;
+    avgWpm: number;
+    avgAccuracy: number;
+    totalReplays: number;
+  } | null>;
+  getDictationLeaderboard(limit?: number): Promise<Array<{
+    userId: string;
+    username: string;
+    wpm: number;
+    accuracy: number;
+    speedLevel: string;
+    createdAt: Date;
+    avatarColor: string | null;
+    totalTests: number;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1129,6 +1155,101 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bookTypingTests.userId, userId))
       .orderBy(desc(bookTypingTests.createdAt))
       .limit(limit);
+  }
+
+  async getRandomDictationSentence(difficulty?: string, category?: string): Promise<DictationSentence | undefined> {
+    const conditions = [];
+    
+    if (difficulty) {
+      conditions.push(eq(dictationSentences.difficulty, difficulty));
+    }
+    
+    if (category) {
+      conditions.push(eq(dictationSentences.category, category));
+    }
+    
+    let query = db.select().from(dictationSentences);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const result = await query.orderBy(sql`RANDOM()`).limit(1);
+    return result[0];
+  }
+
+  async createDictationTest(test: InsertDictationTest): Promise<DictationTest> {
+    const inserted = await db.insert(dictationTests).values(test).returning();
+    return inserted[0];
+  }
+
+  async getUserDictationStats(userId: string): Promise<{
+    totalTests: number;
+    bestWpm: number;
+    avgWpm: number;
+    avgAccuracy: number;
+    totalReplays: number;
+  } | null> {
+    const result = await db
+      .select({
+        totalTests: sql<number>`count(*)::int`,
+        bestWpm: sql<number>`max(${dictationTests.wpm})::int`,
+        avgWpm: sql<number>`round(avg(${dictationTests.wpm}))::int`,
+        avgAccuracy: sql<number>`round(avg(${dictationTests.accuracy}))`,
+        totalReplays: sql<number>`sum(${dictationTests.replayCount})::int`,
+      })
+      .from(dictationTests)
+      .where(eq(dictationTests.userId, userId));
+
+    if (!result[0] || result[0].totalTests === 0) {
+      return null;
+    }
+
+    return {
+      totalTests: result[0].totalTests,
+      bestWpm: result[0].bestWpm || 0,
+      avgWpm: result[0].avgWpm || 0,
+      avgAccuracy: result[0].avgAccuracy || 0,
+      totalReplays: result[0].totalReplays || 0,
+    };
+  }
+
+  async getDictationLeaderboard(limit: number = 10): Promise<Array<{
+    userId: string;
+    username: string;
+    wpm: number;
+    accuracy: number;
+    speedLevel: string;
+    createdAt: Date;
+    avatarColor: string | null;
+    totalTests: number;
+  }>> {
+    const topScores = await db
+      .select({
+        userId: dictationTests.userId,
+        username: users.username,
+        wpm: dictationTests.wpm,
+        accuracy: dictationTests.accuracy,
+        speedLevel: dictationTests.speedLevel,
+        createdAt: dictationTests.createdAt,
+        avatarColor: users.avatarColor,
+        totalTests: sql<number>`count(*) OVER (PARTITION BY ${dictationTests.userId})::int`,
+      })
+      .from(dictationTests)
+      .innerJoin(users, eq(dictationTests.userId, users.id))
+      .orderBy(desc(dictationTests.wpm), desc(dictationTests.accuracy))
+      .limit(limit);
+
+    return topScores.map(score => ({
+      userId: score.userId,
+      username: score.username,
+      wpm: score.wpm,
+      accuracy: score.accuracy,
+      speedLevel: score.speedLevel,
+      createdAt: score.createdAt,
+      avatarColor: score.avatarColor,
+      totalTests: score.totalTests,
+    }));
   }
 }
 
