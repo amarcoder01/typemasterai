@@ -19,6 +19,7 @@ import "prismjs/components/prism-css";
 import "prismjs/components/prism-json";
 import "prismjs/components/prism-bash";
 import "prismjs/components/prism-go";
+import "prismjs/components/prism-markup";
 import "prismjs/components/prism-rust";
 import "prismjs/components/prism-sql";
 import "prismjs/components/prism-csharp";
@@ -34,7 +35,6 @@ import "prismjs/components/prism-r";
 import "prismjs/components/prism-powershell";
 import "prismjs/components/prism-perl";
 import "prismjs/components/prism-lua";
-import "prismjs/components/prism-markup";
 import "prismjs/components/prism-scss";
 import "prismjs/components/prism-sass";
 import "prismjs/components/prism-less";
@@ -134,6 +134,28 @@ const DIFFICULTIES = [
   { value: "hard", label: "Hard" },
 ];
 
+const TEST_MODES = [
+  { value: "normal", label: "Normal", description: "Standard practice mode" },
+  { value: "expert", label: "Expert", description: "Fail on any error" },
+  { value: "master", label: "Master", description: "100% accuracy required" },
+];
+
+const FONTS = [
+  { value: "mono", label: "JetBrains Mono" },
+  { value: "fira", label: "Fira Code" },
+  { value: "source", label: "Source Code Pro" },
+  { value: "consolas", label: "Consolas" },
+  { value: "monaco", label: "Monaco" },
+];
+
+const FONT_SIZES = [
+  { value: "12", label: "12px" },
+  { value: "14", label: "14px" },
+  { value: "16", label: "16px" },
+  { value: "18", label: "18px" },
+  { value: "20", label: "20px" },
+];
+
 function calculateWPM(chars: number, seconds: number): number {
   if (seconds === 0) return 0;
   return Math.round((chars / 5) / (seconds / 60));
@@ -144,6 +166,17 @@ function calculateAccuracy(correct: number, total: number): number {
   return Math.round((correct / total) * 100);
 }
 
+function getFontClass(font: string): string {
+  const fonts: Record<string, string> = {
+    mono: 'font-["JetBrains_Mono"]',
+    fira: 'font-["Fira_Code"]',
+    source: 'font-["Source_Code_Pro"]',
+    consolas: 'font-["Consolas"]',
+    monaco: 'font-["Monaco"]',
+  };
+  return fonts[font] || fonts.mono;
+}
+
 export default function CodeMode() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -152,6 +185,9 @@ export default function CodeMode() {
   const [language, setLanguage] = useState("javascript");
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [mode, setMode] = useState<"ai" | "custom">("ai");
+  const [testMode, setTestMode] = useState<"normal" | "expert" | "master">("normal");
+  const [fontFamily, setFontFamily] = useState("mono");
+  const [fontSize, setFontSize] = useState("16");
   const [customCode, setCustomCode] = useState("");
   const [codeSnippet, setCodeSnippet] = useState("");
   const [snippetId, setSnippetId] = useState<number | null>(null);
@@ -159,6 +195,7 @@ export default function CodeMode() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
+  const [isFailed, setIsFailed] = useState(false);
   const [wpm, setWpm] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
   const [errors, setErrors] = useState(0);
@@ -320,13 +357,38 @@ export default function CodeMode() {
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if (isFinished) return;
+    if (isFinished || isFailed) return;
     
     const value = e.target.value;
     
     if (!isActive && value.length > 0) {
       setIsActive(true);
       setStartTime(Date.now());
+    }
+    
+    const lastChar = value[value.length - 1];
+    const expectedChar = codeSnippet[value.length - 1];
+    
+    if (testMode === "expert" && lastChar !== expectedChar && value.length > userInput.length) {
+      setIsFailed(true);
+      setIsActive(false);
+      toast({
+        title: "Expert Mode Failed!",
+        description: "You made an error. The test has been reset.",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        resetTest();
+        setIsFailed(false);
+      }, 1500);
+      return;
+    }
+    
+    if (testMode === "master") {
+      const currentErrors = value.split("").filter((char, i) => char !== codeSnippet[i]).length;
+      if (currentErrors > 0) {
+        return;
+      }
     }
     
     setUserInput(value);
@@ -337,6 +399,7 @@ export default function CodeMode() {
     setStartTime(null);
     setIsActive(false);
     setIsFinished(false);
+    setIsFailed(false);
     setWpm(0);
     setAccuracy(100);
     setErrors(0);
@@ -460,6 +523,55 @@ export default function CodeMode() {
           )}
         </div>
 
+        <div className="flex flex-wrap gap-4 items-center justify-center pb-4 border-b">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Test Mode:</label>
+            <Select value={testMode} onValueChange={(val) => setTestMode(val as any)} disabled={isActive}>
+              <SelectTrigger className="w-[140px]" data-testid="select-test-mode">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TEST_MODES.map(({ value, label, description }) => (
+                  <SelectItem key={value} value={value}>
+                    <div>
+                      <div>{label}</div>
+                      <div className="text-xs text-muted-foreground">{description}</div>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Font:</label>
+            <Select value={fontFamily} onValueChange={setFontFamily}>
+              <SelectTrigger className="w-[160px]" data-testid="select-font">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FONTS.map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Size:</label>
+            <Select value={fontSize} onValueChange={setFontSize}>
+              <SelectTrigger className="w-[100px]" data-testid="select-font-size">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FONT_SIZES.map(({ value, label }) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         {mode === "custom" && !codeSnippet && (
           <div className="mb-6">
             <label className="text-sm font-semibold mb-2 block">Paste Your Code:</label>
@@ -504,7 +616,7 @@ export default function CodeMode() {
             <div>
               <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Code to Type:</h3>
               <div className="bg-muted rounded-lg p-4 overflow-x-auto max-h-96 overflow-y-auto">
-                <pre className="text-sm font-mono whitespace-pre-wrap" data-testid="code-display">
+                <pre className={`whitespace-pre-wrap ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }} data-testid="code-display">
                   <code className={`language-${PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.prism || 'javascript'}`} ref={codeDisplayRef}>
                     {codeSnippet}
                   </code>
@@ -520,14 +632,15 @@ export default function CodeMode() {
                   value={userInput}
                   onChange={handleInput}
                   disabled={isFinished}
-                  className="w-full h-96 p-4 bg-background border rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary opacity-0 absolute inset-0 z-10"
+                  className={`w-full h-96 p-4 bg-background border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary opacity-0 absolute inset-0 z-10 ${getFontClass(fontFamily)}`}
+                  style={{ fontSize: `${fontSize}px` }}
                   spellCheck={false}
                   autoComplete="off"
                   autoCapitalize="off"
                   autoCorrect="off"
                   data-testid="input-code"
                 />
-                <pre className="w-full h-96 p-4 bg-background border rounded-lg font-mono text-sm overflow-auto whitespace-pre-wrap">
+                <pre className={`w-full h-96 p-4 bg-background border rounded-lg overflow-auto whitespace-pre-wrap ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }}>
                   {highlightedCode}
                 </pre>
               </div>
