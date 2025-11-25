@@ -13,6 +13,7 @@ import {
   codeSnippets,
   codeTypingTests,
   sharedCodeResults,
+  books,
   bookParagraphs,
   bookTypingTests,
   type User,
@@ -37,6 +38,8 @@ import {
   type InsertCodeTypingTest,
   type SharedCodeResult,
   type InsertSharedCodeResult,
+  type Book,
+  type InsertBook,
   type BookParagraph,
   type InsertBookParagraph,
   type BookTypingTest,
@@ -172,7 +175,12 @@ export interface IStorage {
   getBookTopics(): Promise<string[]>;
   getBookParagraphById(id: number): Promise<BookParagraph | null>;
   getNextBookParagraph(bookId: number, currentParagraphIndex: number): Promise<BookParagraph | null>;
+  insertBook(book: InsertBook): Promise<void>;
   insertBookParagraphs(paragraphs: InsertBookParagraph[]): Promise<void>;
+  getAllBooks(): Promise<Book[]>;
+  getBookBySlug(slug: string): Promise<Book | null>;
+  getBookChapters(bookId: number): Promise<Array<{ chapter: number; title: string | null; paragraphCount: number }>>;
+  getChapterParagraphs(bookId: number, chapter: number): Promise<BookParagraph[]>;
   createBookTestResult(result: InsertBookTypingTest): Promise<BookTypingTest>;
   getBookTestResults(userId: string, limit?: number): Promise<BookTypingTest[]>;
 }
@@ -1050,6 +1058,15 @@ export class DatabaseStorage implements IStorage {
     return result[0] || null;
   }
 
+  async insertBook(book: InsertBook): Promise<void> {
+    try {
+      await db.insert(books).values(book).onConflictDoNothing();
+    } catch (error) {
+      console.error("Error inserting book:", error);
+      throw new Error("Failed to insert book");
+    }
+  }
+
   async insertBookParagraphs(paragraphs: InsertBookParagraph[]): Promise<void> {
     if (paragraphs.length === 0) return;
     
@@ -1059,6 +1076,45 @@ export class DatabaseStorage implements IStorage {
       console.error("Error inserting book paragraphs:", error);
       throw new Error("Failed to insert book paragraphs");
     }
+  }
+
+  async getAllBooks(): Promise<Book[]> {
+    return await db.select().from(books).orderBy(books.title);
+  }
+
+  async getBookBySlug(slug: string): Promise<Book | null> {
+    const result = await db.select().from(books).where(eq(books.slug, slug)).limit(1);
+    return result[0] || null;
+  }
+
+  async getBookChapters(bookId: number): Promise<Array<{ chapter: number; title: string | null; paragraphCount: number }>> {
+    const result = await db
+      .select({
+        chapter: bookParagraphs.chapter,
+        title: bookParagraphs.chapterTitle,
+        paragraphCount: sql<number>`count(*)::int`,
+      })
+      .from(bookParagraphs)
+      .where(eq(bookParagraphs.bookId, bookId))
+      .groupBy(bookParagraphs.chapter, bookParagraphs.chapterTitle)
+      .orderBy(bookParagraphs.chapter);
+    
+    return result.map(r => ({
+      chapter: r.chapter || 1,
+      title: r.title,
+      paragraphCount: r.paragraphCount,
+    }));
+  }
+
+  async getChapterParagraphs(bookId: number, chapter: number): Promise<BookParagraph[]> {
+    return await db
+      .select()
+      .from(bookParagraphs)
+      .where(and(
+        eq(bookParagraphs.bookId, bookId),
+        eq(bookParagraphs.chapter, chapter)
+      ))
+      .orderBy(bookParagraphs.paragraphIndex);
   }
 
   async createBookTestResult(result: InsertBookTypingTest): Promise<BookTypingTest> {

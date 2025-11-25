@@ -1389,6 +1389,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Book Library endpoints
+  app.get("/api/books", async (req, res) => {
+    try {
+      const books = await storage.getAllBooks();
+      res.json(books);
+    } catch (error: any) {
+      console.error("Get all books error:", error);
+      res.status(500).json({ message: "Failed to fetch books" });
+    }
+  });
+
+  app.get("/api/books/:slug", async (req, res) => {
+    try {
+      const book = await storage.getBookBySlug(req.params.slug);
+      if (!book) {
+        return res.status(404).json({ message: "Book not found" });
+      }
+      res.json(book);
+    } catch (error: any) {
+      console.error("Get book by slug error:", error);
+      res.status(500).json({ message: "Failed to fetch book" });
+    }
+  });
+
+  app.get("/api/books/:bookId/chapters", async (req, res) => {
+    try {
+      const bookId = parseInt(req.params.bookId);
+      const chapters = await storage.getBookChapters(bookId);
+      res.json(chapters);
+    } catch (error: any) {
+      console.error("Get book chapters error:", error);
+      res.status(500).json({ message: "Failed to fetch chapters" });
+    }
+  });
+
+  app.get("/api/books/:bookId/chapters/:chapter", async (req, res) => {
+    try {
+      const bookId = parseInt(req.params.bookId);
+      const chapter = parseInt(req.params.chapter);
+      const paragraphs = await storage.getChapterParagraphs(bookId, chapter);
+      if (paragraphs.length === 0) {
+        return res.status(404).json({ message: "Chapter not found" });
+      }
+      res.json(paragraphs);
+    } catch (error: any) {
+      console.error("Get chapter paragraphs error:", error);
+      res.status(500).json({ message: "Failed to fetch chapter paragraphs" });
+    }
+  });
+
   app.post("/api/book-tests", isAuthenticated, async (req, res) => {
     try {
       const parsed = insertBookTypingTestSchema.safeParse({
