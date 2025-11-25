@@ -580,8 +580,8 @@ export type DictationTest = typeof dictationTests.$inferSelect;
 export const stressTests = pgTable("stress_tests", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  difficulty: text("difficulty").notNull(), // beginner, intermediate, expert, nightmare
-  enabledEffects: jsonb("enabled_effects").notNull(), // {screenShake, distractions, sounds, speedIncrease, limitedVisibility, etc}
+  difficulty: text("difficulty").notNull(), // beginner, intermediate, expert, nightmare, impossible
+  enabledEffects: jsonb("enabled_effects").notNull(), // {screenShake, distractions, sounds, speedIncrease, limitedVisibility, glitch, textFade, reverseText, randomJumps, etc}
   wpm: integer("wpm").notNull(),
   accuracy: real("accuracy").notNull(),
   errors: integer("errors").notNull(),
@@ -601,7 +601,7 @@ export const stressTests = pgTable("stress_tests", {
 }));
 
 export const insertStressTestSchema = createInsertSchema(stressTests, {
-  difficulty: z.enum(["beginner", "intermediate", "expert", "nightmare"]),
+  difficulty: z.enum(["beginner", "intermediate", "expert", "nightmare", "impossible"]),
   enabledEffects: z.object({
     screenShake: z.boolean(),
     distractions: z.boolean(),
@@ -611,6 +611,10 @@ export const insertStressTestSchema = createInsertSchema(stressTests, {
     colorShift: z.boolean(),
     gravity: z.boolean(),
     rotation: z.boolean(),
+    glitch: z.boolean(),
+    textFade: z.boolean(),
+    reverseText: z.boolean(),
+    randomJumps: z.boolean(),
   }),
   wpm: z.number().int().min(0).max(500),
   accuracy: z.number().min(0).max(100),
