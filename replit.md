@@ -14,6 +14,7 @@ Preferred communication style: Simple, everyday language.
 - **State Management & Data Fetching**: TanStack Query v5 for server state, Context API for authentication, React hooks for local state.
 - **Animation & Visual Feedback**: Canvas Confetti, custom Tailwind animations, real-time loading states, and toast notifications.
 - **Typing Input System**: Hidden auto-focused input field for seamless direct keyboard typing, full IME/composition event handling for multi-language support (23+ languages including CJK), robust error handling, backspace support, and real-time visual feedback (green for typed, highlighted for current, gray for remaining).
+- **Advanced Analytics Dashboard**: Comprehensive 5-tab analytics page featuring: (1) Performance - WPM/accuracy trends, consistency metrics; (2) **Keystroke Analysis** - industry-leading visualizations including interactive keyboard heatmap with color-coded key frequency, finger usage distribution bar charts, hand balance visualization (left/right split with visual progress bar), timing metrics (dwell/flight time), WPM consistency line chart showing speed throughout test, slowest words analysis, and fastest/slowest digraph comparison; (3) Mistakes - error heatmap and common typing errors; (4) AI Insights - personalized recommendations; (5) Practice Plan - daily exercises and weekly improvement roadmap. All visualizations use Recharts with custom styling, proper null/undefined handling, and responsive layouts.
 
 ### Backend Architecture
 - **Server Framework**: Express.js on Node.js with TypeScript.
