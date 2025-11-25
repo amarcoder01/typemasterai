@@ -128,12 +128,14 @@ export default function CodeMode() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  const [viewMode, setViewMode] = useState<"full" | "focus">("focus");
+  const [showSettings, setShowSettings] = useState(false);
   const [language, setLanguage] = useState("javascript");
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [mode, setMode] = useState<"ai" | "custom">("ai");
   const [testMode, setTestMode] = useState<"normal" | "expert" | "master">("normal");
   const [fontFamily, setFontFamily] = useState("mono");
-  const [fontSize, setFontSize] = useState("16");
+  const [fontSize, setFontSize] = useState("18");
   const [customCode, setCustomCode] = useState("");
   const [codeSnippet, setCodeSnippet] = useState("");
   const [snippetId, setSnippetId] = useState<number | null>(null);
@@ -355,9 +357,112 @@ export default function CodeMode() {
     );
   });
 
+  if (viewMode === "focus") {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center p-8">
+        <textarea
+          ref={textareaRef}
+          value={userInput}
+          onChange={handleInput}
+          disabled={isFinished || isFailed}
+          className="absolute inset-0 w-full h-full opacity-0 z-50"
+          style={{ cursor: isActive ? "default" : "text" }}
+          spellCheck={false}
+          autoComplete="off"
+          autoCapitalize="off"
+          autoCorrect="off"
+          data-testid="input-code-focus"
+        />
+        
+        {!isActive && !isFinished && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <p className="text-muted-foreground text-lg">Click or type to start</p>
+          </div>
+        )}
+
+        <div className="max-w-4xl w-full mx-auto relative">
+          <pre className={`whitespace-pre text-left ${getFontClass(fontFamily)} text-muted-foreground/30 select-none`} style={{ fontSize: `${fontSize}px`, lineHeight: "1.8" }}>
+            {codeSnippet}
+          </pre>
+          
+          <pre className={`whitespace-pre text-left ${getFontClass(fontFamily)} absolute inset-0 pointer-events-none`} style={{ fontSize: `${fontSize}px`, lineHeight: "1.8" }}>
+            {codeSnippet.split("").map((char, index) => {
+              if (index >= userInput.length) {
+                return <span key={index} className="opacity-0">{char}</span>;
+              }
+              const isCorrect = userInput[index] === char;
+              return (
+                <span key={index} className={isCorrect ? "text-green-500" : "text-red-500 bg-red-500/20"}>
+                  {char}
+                </span>
+              );
+            })}
+          </pre>
+        </div>
+
+        {(isActive || isFinished) && (
+          <div className="fixed bottom-8 right-8 flex gap-4 text-sm">
+            <div className="bg-background/80 backdrop-blur px-3 py-1 rounded-md border">
+              <span className="text-primary font-bold">{wpm}</span> <span className="text-muted-foreground">WPM</span>
+            </div>
+            <div className="bg-background/80 backdrop-blur px-3 py-1 rounded-md border">
+              <span className="text-primary font-bold">{accuracy}%</span> <span className="text-muted-foreground">ACC</span>
+            </div>
+          </div>
+        )}
+
+        {isFinished && (
+          <div className="fixed inset-0 bg-background/95 backdrop-blur flex items-center justify-center z-40">
+            <Card className="p-8 text-center max-w-md">
+              <h3 className="text-3xl font-bold mb-6">Test Complete! 🎉</h3>
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="text-center">
+                  <div className="text-muted-foreground text-sm mb-1">WPM</div>
+                  <div className="text-4xl font-bold text-primary">{wpm}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground text-sm mb-1">Accuracy</div>
+                  <div className="text-4xl font-bold">{accuracy}%</div>
+                </div>
+              </div>
+              <div className="flex gap-3 justify-center">
+                <Button onClick={resetTest} data-testid="button-restart-focus">
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+                <Button variant="outline" onClick={() => setViewMode("full")}>
+                  Full View
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="fixed top-4 right-4 z-30"
+          onClick={() => setViewMode("full")}
+          data-testid="button-full-view"
+        >
+          Settings
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl">
-      <div className="mb-8 text-center">
+      <div className="mb-8 text-center relative">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="absolute right-0 top-0"
+          onClick={() => setViewMode("focus")}
+          data-testid="button-focus-view"
+        >
+          Focus Mode
+        </Button>
         <div className="flex items-center justify-center gap-3 mb-4">
           <Code className="w-10 h-10 text-primary" />
           <h1 className="text-4xl font-bold">Code Typing Mode</h1>
