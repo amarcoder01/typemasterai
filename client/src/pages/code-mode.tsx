@@ -151,6 +151,8 @@ export default function CodeMode() {
   
   const [language, setLanguage] = useState("javascript");
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [mode, setMode] = useState<"ai" | "custom">("ai");
+  const [customCode, setCustomCode] = useState("");
   const [codeSnippet, setCodeSnippet] = useState("");
   const [snippetId, setSnippetId] = useState<number | null>(null);
   const [userInput, setUserInput] = useState("");
@@ -192,8 +194,59 @@ export default function CodeMode() {
   }, [language, difficulty, toast]);
 
   useEffect(() => {
-    fetchCodeSnippet();
-  }, [fetchCodeSnippet]);
+    if (mode === "ai") {
+      fetchCodeSnippet();
+    }
+  }, [fetchCodeSnippet, mode]);
+
+  const handleModeSwitch = (newMode: "ai" | "custom") => {
+    if (isActive) return;
+    setMode(newMode);
+    setUserInput("");
+    setStartTime(null);
+    setIsActive(false);
+    setIsFinished(false);
+    setWpm(0);
+    setAccuracy(100);
+    setErrors(0);
+    
+    if (newMode === "custom") {
+      if (customCode) {
+        setCodeSnippet(customCode);
+        setSnippetId(null);
+        setTimeout(() => {
+          if (codeDisplayRef.current) {
+            Prism.highlightElement(codeDisplayRef.current);
+          }
+        }, 100);
+      } else {
+        setCodeSnippet("");
+        setSnippetId(null);
+      }
+    }
+  };
+
+  const applyCustomCode = () => {
+    if (!customCode.trim()) {
+      toast({
+        title: "Empty Code",
+        description: "Please paste some code to practice with.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setCodeSnippet(customCode);
+    setSnippetId(null);
+    setTimeout(() => {
+      if (codeDisplayRef.current) {
+        Prism.highlightElement(codeDisplayRef.current);
+      }
+    }, 100);
+    toast({
+      title: "Custom Code Loaded!",
+      description: "Start typing to practice with your code.",
+    });
+  };
 
   const saveCodeTestMutation = useMutation({
     mutationFn: async (testData: any) => {
@@ -287,7 +340,19 @@ export default function CodeMode() {
     setWpm(0);
     setAccuracy(100);
     setErrors(0);
-    fetchCodeSnippet();
+    
+    if (mode === "ai") {
+      fetchCodeSnippet();
+    } else if (mode === "custom" && customCode) {
+      setCodeSnippet(customCode);
+      setSnippetId(null);
+      setTimeout(() => {
+        if (codeDisplayRef.current) {
+          Prism.highlightElement(codeDisplayRef.current);
+        }
+      }, 100);
+    }
+    
     setTimeout(() => textareaRef.current?.focus(), 0);
   };
 
@@ -318,8 +383,32 @@ export default function CodeMode() {
       <Card className="p-6 mb-6">
         <div className="flex flex-wrap gap-4 items-center justify-center mb-6">
           <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Mode:</label>
+            <div className="flex border rounded-md overflow-hidden">
+              <Button
+                variant={mode === "ai" ? "default" : "ghost"}
+                className="rounded-none"
+                onClick={() => handleModeSwitch("ai")}
+                disabled={isActive}
+                data-testid="button-mode-ai"
+              >
+                AI Generated
+              </Button>
+              <Button
+                variant={mode === "custom" ? "default" : "ghost"}
+                className="rounded-none"
+                onClick={() => handleModeSwitch("custom")}
+                disabled={isActive}
+                data-testid="button-mode-custom"
+              >
+                Custom Code
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Language:</label>
-            <Select value={language} onValueChange={setLanguage} disabled={isActive}>
+            <Select value={language} onValueChange={setLanguage} disabled={isActive || mode === "custom"}>
               <SelectTrigger className="w-[200px]" data-testid="select-language">
                 <SelectValue />
               </SelectTrigger>
@@ -346,7 +435,7 @@ export default function CodeMode() {
 
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Difficulty:</label>
-            <Select value={difficulty} onValueChange={(val) => setDifficulty(val as any)} disabled={isActive}>
+            <Select value={difficulty} onValueChange={(val) => setDifficulty(val as any)} disabled={isActive || mode === "custom"}>
               <SelectTrigger className="w-[140px]" data-testid="select-difficulty">
                 <SelectValue />
               </SelectTrigger>
@@ -358,16 +447,57 @@ export default function CodeMode() {
             </Select>
           </div>
 
-          <Button 
-            onClick={resetTest} 
-            variant="outline" 
-            data-testid="button-restart"
-            disabled={isLoading}
-          >
-            <RotateCcw className="w-4 h-4 mr-2" />
-            New Snippet
-          </Button>
+          {mode === "ai" && (
+            <Button 
+              onClick={resetTest} 
+              variant="outline" 
+              data-testid="button-restart"
+              disabled={isLoading}
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              New Snippet
+            </Button>
+          )}
         </div>
+
+        {mode === "custom" && !codeSnippet && (
+          <div className="mb-6">
+            <label className="text-sm font-semibold mb-2 block">Paste Your Code:</label>
+            <textarea
+              value={customCode}
+              onChange={(e) => setCustomCode(e.target.value)}
+              className="w-full h-64 p-4 bg-background border rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="Paste your code here to practice typing it..."
+              spellCheck={false}
+              autoComplete="off"
+              data-testid="textarea-custom-code"
+            />
+            <div className="mt-2 flex gap-2 justify-end">
+              <Button onClick={applyCustomCode} data-testid="button-apply-custom">
+                Load Code
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {mode === "custom" && codeSnippet && (
+          <div className="mb-4 flex justify-end">
+            <Button 
+              onClick={() => {
+                setCodeSnippet("");
+                setUserInput("");
+                setIsActive(false);
+                setIsFinished(false);
+              }} 
+              variant="outline" 
+              size="sm"
+              data-testid="button-change-custom"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Change Code
+            </Button>
+          </div>
+        )}
 
         {!isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
