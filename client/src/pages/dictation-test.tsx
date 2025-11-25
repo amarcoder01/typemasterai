@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, Volume2, RotateCcw, Eye, EyeOff, Check, ChevronRight, Mic } from 'lucide-react';
+import { ArrowLeft, Volume2, RotateCcw, Eye, EyeOff, Check, ChevronRight, Mic, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,6 +11,7 @@ import { calculateDictationAccuracy, calculateDictationWPM, getSpeedRate, getSpe
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { DictationSentence } from '@shared/schema';
+import { ShareModal } from '@/components/ShareModal';
 
 interface DictationTestState {
   sentence: DictationSentence | null;
@@ -65,6 +66,7 @@ export default function DictationTest() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   
   const [showKeyboardGuide, setShowKeyboardGuide] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   
   const currentRate = getSpeedRate(speedLevel);
   const { speak, cancel, isSpeaking, isSupported, error: speechError, voices, setVoice, currentVoice } = useSpeechSynthesis({
@@ -361,9 +363,18 @@ export default function DictationTest() {
               </div>
             </div>
 
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-3 justify-center flex-wrap">
               <Button onClick={resetSession} size="lg" data-testid="button-new-session">
                 Start New Session
+              </Button>
+              <Button 
+                onClick={() => setShowShareModal(true)} 
+                variant="secondary" 
+                size="lg"
+                data-testid="button-share-result"
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Share Result
               </Button>
               <Link href="/">
                 <Button variant="outline" size="lg" data-testid="button-home">
@@ -743,6 +754,21 @@ export default function DictationTest() {
           </Card>
         </div>
       )}
+
+      <ShareModal
+        open={showShareModal}
+        onOpenChange={setShowShareModal}
+        mode="dictation"
+        wpm={sessionStats.count > 0 ? Math.round(sessionStats.totalWpm / sessionStats.count) : 0}
+        accuracy={sessionStats.count > 0 ? Math.round(sessionStats.totalAccuracy / sessionStats.count) : 0}
+        errors={sessionStats.totalErrors}
+        characters={sessionStats.count * 100}
+        metadata={{
+          difficulty,
+          speedLevel,
+          sessionCount: sessionStats.count
+        }}
+      />
     </div>
   );
 }
