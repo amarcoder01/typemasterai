@@ -9,7 +9,7 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
-import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, insertCodeTypingTestSchema, insertSharedCodeResultSchema, insertBookTypingTestSchema, type User } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, insertCodeTypingTestSchema, insertSharedCodeResultSchema, insertBookTypingTestSchema, insertDictationTestSchema, type User } from "@shared/schema";
 import { fromError } from "zod-validation-error";
 import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "@neondatabase/serverless";
@@ -1469,6 +1469,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Get book test results error:", error);
       res.status(500).json({ message: "Failed to fetch book test results" });
+    }
+  });
+
+  app.get("/api/dictation/sentence", async (req, res) => {
+    try {
+      const difficulty = req.query.difficulty as string | undefined;
+      const category = req.query.category as string | undefined;
+      
+      const sentence = await storage.getRandomDictationSentence(difficulty, category);
+      
+      if (!sentence) {
+        return res.status(404).json({ message: "No sentences available" });
+      }
+      
+      res.json({ sentence });
+    } catch (error: any) {
+      console.error("Get dictation sentence error:", error);
+      res.status(500).json({ message: "Failed to fetch dictation sentence" });
+    }
+  });
+
+  app.post("/api/dictation/test", isAuthenticated, async (req, res) => {
+    try {
+      const parsed = insertDictationTestSchema.safeParse({
+        ...req.body,
+        userId: req.user!.id,
+      });
+
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: fromError(parsed.error).toString(),
+        });
+      }
+
+      const result = await storage.createDictationTest(parsed.data);
+      res.status(201).json({ message: "Dictation test saved", result });
+    } catch (error: any) {
+      console.error("Save dictation test error:", error);
+      res.status(500).json({ message: "Failed to save dictation test" });
+    }
+  });
+
+  app.get("/api/dictation/stats", isAuthenticated, async (req, res) => {
+    try {
+      const stats = await storage.getUserDictationStats(req.user!.id);
+      res.json({ stats });
+    } catch (error: any) {
+      console.error("Get dictation stats error:", error);
+      res.status(500).json({ message: "Failed to fetch dictation stats" });
+    }
+  });
+
+  app.get("/api/dictation/leaderboard", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const leaderboard = await storage.getDictationLeaderboard(limit);
+      res.json({ leaderboard });
+    } catch (error: any) {
+      console.error("Get dictation leaderboard error:", error);
+      res.status(500).json({ message: "Failed to fetch dictation leaderboard" });
     }
   });
 
