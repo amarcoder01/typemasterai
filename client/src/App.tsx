@@ -25,6 +25,7 @@ import BookMode from "@/pages/book-mode";
 import BookLibrary from "@/pages/book-library";
 import BookDetail from "@/pages/book-detail";
 import ChapterTyping from "@/pages/chapter-typing";
+import DictationTest from "@/pages/dictation-test";
 import SharedResult from "@/pages/shared-result";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import TermsOfService from "@/pages/terms-of-service";
@@ -51,6 +52,7 @@ function Router() {
             <Route path="/code-mode" component={CodeMode} />
             <Route path="/code-leaderboard" component={CodeLeaderboard} />
             <Route path="/book-mode" component={BookMode} />
+            <Route path="/dictation-mode" component={DictationTest} />
             <Route path="/books/:slug/chapter/:chapterNum" component={ChapterTyping} />
             <Route path="/books/:slug" component={BookDetail} />
             <Route path="/books" component={BookLibrary} />
