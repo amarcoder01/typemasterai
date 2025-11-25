@@ -20,6 +20,10 @@ import {
   dictationSentences,
   dictationTests,
   stressTests,
+  keystrokeEvents,
+  typingAnalytics,
+  typingInsights,
+  practiceRecommendations,
   type User,
   type InsertUser,
   type TestResult,
@@ -56,6 +60,14 @@ import {
   type InsertDictationTest,
   type StressTest,
   type InsertStressTest,
+  type KeystrokeEvent,
+  type InsertKeystrokeEvent,
+  type TypingAnalytics,
+  type InsertTypingAnalytics,
+  type TypingInsight,
+  type InsertTypingInsight,
+  type PracticeRecommendation,
+  type InsertPracticeRecommendation,
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -242,6 +254,17 @@ export interface IStorage {
   createSharedResult(result: InsertSharedResult): Promise<SharedResult>;
   getSharedResult(shareToken: string): Promise<SharedResult | undefined>;
   incrementShareViewCount(shareToken: string): Promise<void>;
+  
+  saveKeystrokeEvents(events: InsertKeystrokeEvent[]): Promise<void>;
+  saveTypingAnalytics(analytics: InsertTypingAnalytics): Promise<TypingAnalytics>;
+  getUserTypingAnalytics(userId: string, limit?: number): Promise<TypingAnalytics[]>;
+  getTypingAnalyticsById(id: number): Promise<TypingAnalytics | undefined>;
+  saveTypingInsight(insight: InsertTypingInsight): Promise<TypingInsight>;
+  getUserTypingInsights(userId: string): Promise<TypingInsight[]>;
+  dismissInsight(insightId: number): Promise<void>;
+  savePracticeRecommendation(recommendation: InsertPracticeRecommendation): Promise<PracticeRecommendation>;
+  getUserPracticeRecommendations(userId: string): Promise<PracticeRecommendation[]>;
+  completePracticeRecommendation(recommendationId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1423,6 +1446,83 @@ export class DatabaseStorage implements IStorage {
       .update(sharedResults)
       .set({ viewCount: sql`${sharedResults.viewCount} + 1` })
       .where(eq(sharedResults.shareToken, shareToken));
+  }
+
+  async saveKeystrokeEvents(events: InsertKeystrokeEvent[]): Promise<void> {
+    if (events.length === 0) return;
+    await db.insert(keystrokeEvents).values(events);
+  }
+
+  async saveTypingAnalytics(analytics: InsertTypingAnalytics): Promise<TypingAnalytics> {
+    const inserted = await db.insert(typingAnalytics).values(analytics).returning();
+    return inserted[0];
+  }
+
+  async getUserTypingAnalytics(userId: string, limit: number = 20): Promise<TypingAnalytics[]> {
+    const results = await db
+      .select()
+      .from(typingAnalytics)
+      .where(eq(typingAnalytics.userId, userId))
+      .orderBy(desc(typingAnalytics.createdAt))
+      .limit(limit);
+    return results;
+  }
+
+  async getTypingAnalyticsById(id: number): Promise<TypingAnalytics | undefined> {
+    const result = await db
+      .select()
+      .from(typingAnalytics)
+      .where(eq(typingAnalytics.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async saveTypingInsight(insight: InsertTypingInsight): Promise<TypingInsight> {
+    const inserted = await db.insert(typingInsights).values(insight).returning();
+    return inserted[0];
+  }
+
+  async getUserTypingInsights(userId: string): Promise<TypingInsight[]> {
+    const results = await db
+      .select()
+      .from(typingInsights)
+      .where(and(
+        eq(typingInsights.userId, userId),
+        eq(typingInsights.dismissed, false)
+      ))
+      .orderBy(desc(typingInsights.createdAt));
+    return results;
+  }
+
+  async dismissInsight(insightId: number): Promise<void> {
+    await db
+      .update(typingInsights)
+      .set({ dismissed: true, updatedAt: new Date() })
+      .where(eq(typingInsights.id, insightId));
+  }
+
+  async savePracticeRecommendation(recommendation: InsertPracticeRecommendation): Promise<PracticeRecommendation> {
+    const inserted = await db.insert(practiceRecommendations).values(recommendation).returning();
+    return inserted[0];
+  }
+
+  async getUserPracticeRecommendations(userId: string): Promise<PracticeRecommendation[]> {
+    const results = await db
+      .select()
+      .from(practiceRecommendations)
+      .where(and(
+        eq(practiceRecommendations.userId, userId),
+        eq(practiceRecommendations.completed, false)
+      ))
+      .orderBy(desc(practiceRecommendations.createdAt));
+    return results;
+  }
+
+  async completePracticeRecommendation(recommendationId: number): Promise<void> {
+    await db
+      .update(practiceRecommendations)
+      .set({ completed: true, completedAt: new Date() })
+      .where(eq(practiceRecommendations.id, recommendationId));
   }
 }
 
