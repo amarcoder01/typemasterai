@@ -13,6 +13,8 @@ import {
   codeSnippets,
   codeTypingTests,
   sharedCodeResults,
+  bookParagraphs,
+  bookTypingTests,
   type User,
   type InsertUser,
   type TestResult,
@@ -35,6 +37,10 @@ import {
   type InsertCodeTypingTest,
   type SharedCodeResult,
   type InsertSharedCodeResult,
+  type BookParagraph,
+  type InsertBookParagraph,
+  type BookTypingTest,
+  type InsertBookTypingTest,
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -160,6 +166,15 @@ export interface IStorage {
   }>>;
   createSharedCodeResult(result: InsertSharedCodeResult): Promise<SharedCodeResult>;
   getSharedCodeResult(shareId: string): Promise<SharedCodeResult | undefined>;
+  
+  getBookParagraphs(filters: { difficulty?: string; topic?: string; durationMode?: number; limit?: number }): Promise<BookParagraph[]>;
+  getRandomBookParagraph(filters?: { difficulty?: string; topic?: string; durationMode?: number }): Promise<BookParagraph | null>;
+  getBookTopics(): Promise<string[]>;
+  getBookParagraphById(id: number): Promise<BookParagraph | null>;
+  getNextBookParagraph(bookId: number, currentParagraphIndex: number): Promise<BookParagraph | null>;
+  insertBookParagraphs(paragraphs: InsertBookParagraph[]): Promise<void>;
+  createBookTestResult(result: InsertBookTypingTest): Promise<BookTypingTest>;
+  getBookTestResults(userId: string, limit?: number): Promise<BookTypingTest[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -952,6 +967,112 @@ export class DatabaseStorage implements IStorage {
       .where(eq(sharedCodeResults.shareId, shareId))
       .limit(1);
     return result[0];
+  }
+
+  async getBookParagraphs(filters: { difficulty?: string; topic?: string; durationMode?: number; limit?: number }): Promise<BookParagraph[]> {
+    const conditions = [];
+    
+    if (filters.difficulty) {
+      conditions.push(eq(bookParagraphs.difficulty, filters.difficulty));
+    }
+    
+    if (filters.topic) {
+      conditions.push(eq(bookParagraphs.topic, filters.topic));
+    }
+    
+    if (filters.durationMode) {
+      conditions.push(eq(bookParagraphs.durationMode, filters.durationMode));
+    }
+    
+    const limit = filters.limit || 10;
+    
+    let query = db.select().from(bookParagraphs);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const result = await query.orderBy(sql`RANDOM()`).limit(limit);
+    return result;
+  }
+
+  async getRandomBookParagraph(filters?: { difficulty?: string; topic?: string; durationMode?: number }): Promise<BookParagraph | null> {
+    const conditions = [];
+    
+    if (filters?.difficulty) {
+      conditions.push(eq(bookParagraphs.difficulty, filters.difficulty));
+    }
+    
+    if (filters?.topic) {
+      conditions.push(eq(bookParagraphs.topic, filters.topic));
+    }
+    
+    if (filters?.durationMode) {
+      conditions.push(eq(bookParagraphs.durationMode, filters.durationMode));
+    }
+    
+    let query = db.select().from(bookParagraphs);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as any;
+    }
+    
+    const result = await query.orderBy(sql`RANDOM()`).limit(1);
+    return result[0] || null;
+  }
+
+  async getBookTopics(): Promise<string[]> {
+    const result = await db
+      .selectDistinct({ topic: bookParagraphs.topic })
+      .from(bookParagraphs)
+      .orderBy(bookParagraphs.topic);
+    return result.map(r => r.topic);
+  }
+
+  async getBookParagraphById(id: number): Promise<BookParagraph | null> {
+    const result = await db
+      .select()
+      .from(bookParagraphs)
+      .where(eq(bookParagraphs.id, id))
+      .limit(1);
+    return result[0] || null;
+  }
+
+  async getNextBookParagraph(bookId: number, currentParagraphIndex: number): Promise<BookParagraph | null> {
+    const result = await db
+      .select()
+      .from(bookParagraphs)
+      .where(and(
+        eq(bookParagraphs.bookId, bookId),
+        eq(bookParagraphs.paragraphIndex, currentParagraphIndex + 1)
+      ))
+      .limit(1);
+    return result[0] || null;
+  }
+
+  async insertBookParagraphs(paragraphs: InsertBookParagraph[]): Promise<void> {
+    if (paragraphs.length === 0) return;
+    
+    try {
+      await db.insert(bookParagraphs).values(paragraphs);
+    } catch (error) {
+      console.error("Error inserting book paragraphs:", error);
+      throw new Error("Failed to insert book paragraphs");
+    }
+  }
+
+  async createBookTestResult(result: InsertBookTypingTest): Promise<BookTypingTest> {
+    const inserted = await db.insert(bookTypingTests).values(result).returning();
+    return inserted[0];
+  }
+
+  async getBookTestResults(userId: string, limit: number = 20): Promise<BookTypingTest[]> {
+    return await db
+      .select()
+      .from(bookTypingTests)
+      .where(eq(bookTypingTests.userId, userId))
+      .orderBy(desc(bookTypingTests.createdAt))
+      .limit(limit);
   }
 }
 

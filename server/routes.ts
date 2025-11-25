@@ -9,7 +9,7 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
-import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, insertCodeTypingTestSchema, insertSharedCodeResultSchema, type User } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, insertCodeTypingTestSchema, insertSharedCodeResultSchema, insertBookTypingTestSchema, type User } from "@shared/schema";
 import { fromError } from "zod-validation-error";
 import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "@neondatabase/serverless";
@@ -1289,6 +1289,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Get shared result error:", error);
       res.status(500).json({ message: "Failed to fetch shared result" });
+    }
+  });
+
+  app.get("/api/book-paragraphs", async (req, res) => {
+    try {
+      const difficulty = req.query.difficulty as string | undefined;
+      const topic = req.query.topic as string | undefined;
+      const durationMode = req.query.durationMode ? parseInt(req.query.durationMode as string) : undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      
+      const paragraphs = await storage.getBookParagraphs({
+        difficulty,
+        topic,
+        durationMode,
+        limit,
+      });
+      
+      res.json({ paragraphs });
+    } catch (error: any) {
+      console.error("Get book paragraphs error:", error);
+      res.status(500).json({ message: "Failed to fetch book paragraphs" });
+    }
+  });
+
+  app.get("/api/book-paragraphs/random", async (req, res) => {
+    try {
+      const difficulty = req.query.difficulty as string | undefined;
+      const topic = req.query.topic as string | undefined;
+      const durationMode = req.query.durationMode ? parseInt(req.query.durationMode as string) : undefined;
+      
+      const paragraph = await storage.getRandomBookParagraph({
+        difficulty,
+        topic,
+        durationMode,
+      });
+      
+      if (!paragraph) {
+        return res.status(404).json({ message: "No book paragraph found" });
+      }
+      
+      res.json({ paragraph });
+    } catch (error: any) {
+      console.error("Get random book paragraph error:", error);
+      res.status(500).json({ message: "Failed to fetch random book paragraph" });
+    }
+  });
+
+  app.get("/api/book-paragraphs/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid paragraph ID" });
+      }
+      
+      const paragraph = await storage.getBookParagraphById(id);
+      
+      if (!paragraph) {
+        return res.status(404).json({ message: "Book paragraph not found" });
+      }
+      
+      res.json({ paragraph });
+    } catch (error: any) {
+      console.error("Get book paragraph by ID error:", error);
+      res.status(500).json({ message: "Failed to fetch book paragraph" });
+    }
+  });
+
+  app.get("/api/book-paragraphs/next/:bookId/:paragraphIndex", async (req, res) => {
+    try {
+      const bookId = parseInt(req.params.bookId);
+      const paragraphIndex = parseInt(req.params.paragraphIndex);
+      
+      if (isNaN(bookId) || isNaN(paragraphIndex)) {
+        return res.status(400).json({ message: "Invalid bookId or paragraphIndex" });
+      }
+      
+      const nextParagraph = await storage.getNextBookParagraph(bookId, paragraphIndex);
+      
+      if (!nextParagraph) {
+        return res.status(404).json({ message: "Next paragraph not found" });
+      }
+      
+      res.json({ paragraph: nextParagraph });
+    } catch (error: any) {
+      console.error("Get next book paragraph error:", error);
+      res.status(500).json({ message: "Failed to fetch next book paragraph" });
+    }
+  });
+
+  app.get("/api/book-topics", async (req, res) => {
+    try {
+      const topics = await storage.getBookTopics();
+      res.json({ topics });
+    } catch (error: any) {
+      console.error("Get book topics error:", error);
+      res.status(500).json({ message: "Failed to fetch book topics" });
+    }
+  });
+
+  app.post("/api/book-tests", isAuthenticated, async (req, res) => {
+    try {
+      const parsed = insertBookTypingTestSchema.safeParse({
+        ...req.body,
+        userId: req.user!.id,
+      });
+
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: fromError(parsed.error).toString(),
+        });
+      }
+
+      const result = await storage.createBookTestResult(parsed.data);
+      res.status(201).json({ message: "Book test result saved", result });
+    } catch (error: any) {
+      console.error("Save book test result error:", error);
+      res.status(500).json({ message: "Failed to save book test result" });
+    }
+  });
+
+  app.get("/api/book-tests", isAuthenticated, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const results = await storage.getBookTestResults(req.user!.id, limit);
+      res.json({ results });
+    } catch (error: any) {
+      console.error("Get book test results error:", error);
+      res.status(500).json({ message: "Failed to fetch book test results" });
     }
   });
 
