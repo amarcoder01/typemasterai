@@ -18,6 +18,7 @@ export interface ProcessedParagraph {
   source: string;
   bookId: number;
   paragraphIndex: number;
+  language: string;
 }
 
 interface GutendexResponse {
@@ -520,6 +521,7 @@ export async function processBook(book: GutendexBook): Promise<ProcessedParagrap
         source,
         bookId: book.id,
         paragraphIndex: index,
+        language: 'en',
       };
     });
     
