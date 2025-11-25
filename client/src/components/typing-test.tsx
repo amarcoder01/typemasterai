@@ -17,6 +17,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { KeystrokeTracker } from "@/lib/keystroke-tracker";
 
 type TestMode = 15 | 30 | 45 | 60 | 90 | 120 | 180 | number;
 
@@ -100,6 +101,11 @@ export default function TypingTest() {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const charRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const keystrokeTrackerRef = useRef<KeystrokeTracker | null>(null);
+  const pendingFetchesRef = useRef(0);
+  const latestRequestIdRef = useRef(0);
+  const appliedRequestIdRef = useRef(0); // Tracks which request successfully updated state
+  const [trackingEnabled, setTrackingEnabled] = useState(true);
 
   const { data: languagesData } = useQuery({
     queryKey: ["languages"],
@@ -119,19 +125,35 @@ export default function TypingTest() {
     },
   });
 
-  const fetchParagraph = useCallback(async (useCustomPrompt = false) => {
+  const fetchParagraph = useCallback(async (useCustomPrompt = false, forceGenerate = false) => {
+    // Increment request ID and capture it for this fetch
+    latestRequestIdRef.current++;
+    const currentRequestId = latestRequestIdRef.current;
+    
+    // Increment pending fetches counter
+    pendingFetchesRef.current++;
+    setIsGenerating(true);
+    
     try {
-      // Set loading state when using custom prompt
+      // Show toast notification for custom prompts or force-generate
       if (useCustomPrompt) {
-        setIsGenerating(true);
         toast({
           title: "🤖 Generating Custom Content...",
           description: "AI is creating a paragraph based on your request",
+        });
+      } else if (forceGenerate) {
+        toast({
+          title: "🤖 Generating New Paragraph...",
+          description: "AI is creating fresh content for you",
         });
       }
       
       // Try with AI generation enabled - add timestamp to prevent caching
       let url = `/api/typing/paragraph?language=${language}&mode=${paragraphMode}&difficulty=${difficulty}&generate=true&t=${Date.now()}`;
+      
+      if (forceGenerate) {
+        url += `&forceGenerate=true`;
+      }
       
       if (useCustomPrompt && customPrompt.trim()) {
         url += `&customPrompt=${encodeURIComponent(customPrompt.trim())}`;
@@ -158,10 +180,21 @@ export default function TypingTest() {
         extendedText = Array(repetitionsNeeded).fill(paragraphText).join(" ");
       }
       
-      setText(extendedText);
-      setOriginalText(paragraphText);
+      // Only update state if this is still the latest request (ignore stale responses)
+      if (currentRequestId === latestRequestIdRef.current) {
+        setText(extendedText);
+        setOriginalText(paragraphText);
+        // Mark this request as successfully applied
+        appliedRequestIdRef.current = currentRequestId;
+        // Clear isGenerating immediately when latest request applies (don't wait for stale fetches)
+        setIsGenerating(false);
+        setUserInput(""); // Clean slate for new test
+      } else {
+        // Stale response - silently ignore
+        return;
+      }
       
-      // Notify user if fallback was used
+      // Notify user based on context (only for latest request)
       if (data.fallbackUsed) {
         const requestedLang = LANGUAGE_NAMES[language] || language;
         const deliveredLang = LANGUAGE_NAMES[data.paragraph.language] || data.paragraph.language;
@@ -173,24 +206,41 @@ export default function TypingTest() {
           variant: "default",
         });
       } else if (useCustomPrompt) {
-        // Show success message for custom content
         toast({
           title: "✨ Custom Content Ready!",
           description: "AI created your requested paragraph",
         });
+      } else if (forceGenerate) {
+        toast({
+          title: "✨ New Paragraph Ready!",
+          description: `Fresh ${difficulty} difficulty content generated`,
+        });
       }
     } catch (error) {
       console.error("Error fetching paragraph:", error);
-      setText(generateText(100));
-      toast({
-        title: "Using random text",
-        description: "Could not load paragraph from database.",
-        variant: "default",
-      });
-    } finally {
-      if (useCustomPrompt) {
+      
+      // Only update state if this is still the latest request
+      if (currentRequestId === latestRequestIdRef.current) {
+        const fallbackText = generateText(100);
+        setText(fallbackText);
+        setOriginalText(fallbackText); // Update originalText for paragraph extension
+        toast({
+          title: "Using random text",
+          description: "Could not load paragraph from database.",
+          variant: "default",
+        });
+        // Mark this request as successfully applied
+        appliedRequestIdRef.current = currentRequestId;
+        // Clear isGenerating immediately when latest request applies
         setIsGenerating(false);
+        setUserInput(""); // Clean slate for new test
       }
+    } finally {
+      // Always decrement counter (even for stale responses)
+      pendingFetchesRef.current = Math.max(0, pendingFetchesRef.current - 1);
+      
+      // Note: isGenerating is cleared immediately when the latest request applies (in try block)
+      // No need to wait for all fetches to complete
     }
   }, [language, paragraphMode, difficulty, customPrompt, mode, toast]);
 
@@ -234,67 +284,15 @@ export default function TypingTest() {
     setWpm(0);
     setAccuracy(100);
     setShowAuthPrompt(false);
-    setIsGenerating(true);
     
-    // Show loading toast
-    toast({
-      title: "🤖 Generating New Paragraph...",
-      description: "AI is creating fresh content for you",
-    });
+    // Clear keystroke tracker to start fresh
+    keystrokeTrackerRef.current = null;
     
-    // Fetch a fresh paragraph - always generate new content
-    try {
-      // Force AI generation for fresh content
-      const url = `/api/typing/paragraph?language=${language}&mode=${paragraphMode}&difficulty=${difficulty}&forceGenerate=true&t=${Date.now()}`;
-      
-      const response = await fetch(url, {
-        cache: 'no-store',
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const paragraphText = data.paragraph.content;
-        
-        // Calculate words needed and extend if necessary
-        const wordsNeeded = Math.ceil((mode / 60) * 50);
-        const currentWords = paragraphText.split(/\s+/).length;
-        
-        let extendedText = paragraphText;
-        if (currentWords < wordsNeeded) {
-          const repetitionsNeeded = Math.ceil(wordsNeeded / currentWords);
-          extendedText = Array(repetitionsNeeded).fill(paragraphText).join(" ");
-        }
-        
-        setText(extendedText);
-        setOriginalText(paragraphText);
-        
-        // Show success toast
-        toast({
-          title: "✨ New Paragraph Ready!",
-          description: `Fresh ${difficulty} difficulty content generated`,
-        });
-      } else {
-        // Fallback to regular fetch
-        await fetchParagraph();
-        toast({
-          title: "⚠️ Using Existing Content",
-          description: "Could not generate new content, using database paragraph",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error in resetTest:", error);
-      await fetchParagraph();
-      toast({
-        title: "❌ Generation Failed",
-        description: "Using existing content instead",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGenerating(false);
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [mode, language, paragraphMode, difficulty, fetchParagraph, toast]);
+    // Use fetchParagraph with forceGenerate to centralize counter logic
+    await fetchParagraph(false, true);
+    
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, [mode, fetchParagraph]);
 
   // Initial setup and when time mode changes
   useEffect(() => {
@@ -307,6 +305,8 @@ export default function TypingTest() {
     setIsFinished(false);
     setWpm(0);
     setAccuracy(100);
+    // Clear keystroke tracker for new test
+    keystrokeTrackerRef.current = null;
     setTimeout(() => inputRef.current?.focus(), 0);
   }, [mode]);
 
@@ -321,6 +321,8 @@ export default function TypingTest() {
       setIsFinished(false);
       setWpm(0);
       setAccuracy(100);
+      // Clear keystroke tracker for new test
+      keystrokeTrackerRef.current = null;
     }
   }, [language, paragraphMode, difficulty]);
 
@@ -363,20 +365,49 @@ export default function TypingTest() {
     });
 
     if (user) {
-      saveResultMutation.mutate({
+      const testData = {
         wpm,
         accuracy,
         mode,
         characters: userInput.length,
         errors,
-      });
+      };
+      
+      saveResultMutation.mutate(testData);
+      
+      // Save keystroke analytics if tracking is enabled
+      if (trackingEnabled && keystrokeTrackerRef.current) {
+        try {
+          const rawWpm = calculateWPM(userInput.length, (mode - timeLeft));
+          const analytics = keystrokeTrackerRef.current.computeAnalytics(
+            wpm,
+            rawWpm,
+            accuracy,
+            errors,
+            null
+          );
+          
+          // Save analytics to backend
+          fetch('/api/analytics/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              analytics,
+              keystrokeEvents: keystrokeTrackerRef.current.getEvents(),
+            }),
+          }).catch(err => console.error('Failed to save keystroke analytics:', err));
+        } catch (error) {
+          console.error('Error computing keystroke analytics:', error);
+        }
+      }
     } else {
       setShowAuthPrompt(true);
     }
   };
 
   const processInput = (value: string) => {
-    if (isFinished) return;
+    if (isFinished || isGenerating) return;
     
     const previousLength = userInput.length;
     
@@ -396,12 +427,17 @@ export default function TypingTest() {
 
     // If approaching end of text and time still remaining, extend the paragraph
     if (value.length >= text.length - 20 && timeLeft > 5 && originalText) {
-      setText(text + " " + originalText);
+      const newText = text + " " + originalText;
+      setText(newText);
+      // Update tracker's expected text when paragraph extends
+      if (keystrokeTrackerRef.current) {
+        keystrokeTrackerRef.current.expectedText = newText;
+      }
     }
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isComposing) return;
+    if (isComposing || isGenerating) return;
     processInput(e.target.value);
   };
 
@@ -482,6 +518,63 @@ export default function TypingTest() {
     resizeObserver.observe(containerRef.current);
     return () => resizeObserver.disconnect();
   }, [updateCursorPosition]);
+
+  // Initialize keystroke tracker when test is ready (before first keystroke)
+  useEffect(() => {
+    if (text && trackingEnabled && !isActive) {
+      // Create fresh tracker when text loads for new test (not during active test/extension)
+      keystrokeTrackerRef.current = new KeystrokeTracker(text);
+    }
+  }, [text, trackingEnabled, isActive]);
+
+  // Keystroke tracking event handlers
+  useEffect(() => {
+    if (!trackingEnabled || !keystrokeTrackerRef.current || !inputRef.current) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip special keys except space and backspace
+      if (e.key.length > 1 && e.key !== 'Backspace' && e.key !== ' ') return;
+      
+      const timestamp = Date.now();
+      const key = e.key === ' ' ? ' ' : e.key;
+      keystrokeTrackerRef.current?.onKeyDown(key, e.code, timestamp);
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (!keystrokeTrackerRef.current || !inputRef.current) return;
+      
+      // Skip special keys except space and backspace
+      if (e.key.length > 1 && e.key !== 'Backspace' && e.key !== ' ') return;
+      
+      const timestamp = Date.now();
+      const key = e.key === ' ' ? ' ' : e.key;
+      
+      // For backspace, decrement position and mark as deletion
+      if (e.key === 'Backspace') {
+        keystrokeTrackerRef.current.currentPosition = Math.max(0, keystrokeTrackerRef.current.currentPosition - 1);
+        keystrokeTrackerRef.current.onKeyUp(key, e.code, timestamp, true);
+        return;
+      }
+      
+      // Get the current tracker position (what we're about to type)
+      const currentPos = keystrokeTrackerRef.current.currentPosition;
+      const expectedKey = text[currentPos] || null;
+      const isCorrect = key === expectedKey;
+      
+      keystrokeTrackerRef.current.onKeyUp(key, e.code, timestamp, isCorrect);
+      
+      // Always increment position after tracking the keystroke
+      keystrokeTrackerRef.current.currentPosition++;
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [trackingEnabled, text]);
 
   // Quick restart with Tab key (only when typing input is focused)
   useEffect(() => {
@@ -787,6 +880,8 @@ export default function TypingTest() {
                       setIsFinished(false);
                       setWpm(0);
                       setAccuracy(100);
+                      // Clear keystroke tracker for new test
+                      keystrokeTrackerRef.current = null;
                     }
                   }}
                 />
@@ -801,6 +896,8 @@ export default function TypingTest() {
                       setIsFinished(false);
                       setWpm(0);
                       setAccuracy(100);
+                      // Clear keystroke tracker for new test
+                      keystrokeTrackerRef.current = null;
                     } else {
                       toast({
                         title: "Empty prompt",

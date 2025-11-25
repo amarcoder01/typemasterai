@@ -91,8 +91,8 @@ export class KeystrokeTracker {
   private events: KeystrokeEvent[] = [];
   private pressedKeys: Map<string, number> = new Map();
   private lastReleaseTime: number | null = null;
-  private expectedText: string = '';
-  private currentPosition: number = 0;
+  public expectedText: string = '';
+  public currentPosition: number = 0;
 
   constructor(expectedText: string) {
     this.expectedText = expectedText;
@@ -131,9 +131,8 @@ export class KeystrokeTracker {
     this.pressedKeys.delete(key);
     this.lastReleaseTime = timestamp;
     
-    if (isCorrect) {
-      this.currentPosition++;
-    }
+    // Don't auto-increment position - let the component manage it
+    // based on actual input state
   }
 
   computeAnalytics(wpm: number, rawWpm: number, accuracy: number, totalErrors: number, testResultId: number | null = null): TypingAnalytics {
