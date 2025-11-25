@@ -5,9 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
-import { Code, Trophy, Zap, Target, RotateCcw, Check, Settings as SettingsIcon, X } from "lucide-react";
+import { Code, Trophy, Zap, Target, RotateCcw, Check } from "lucide-react";
 import confetti from "canvas-confetti";
 
 const PROGRAMMING_LANGUAGES = {
@@ -361,289 +360,255 @@ export default function CodeMode() {
 
   if (viewMode === "focus") {
     return (
-      <div className="fixed inset-0 bg-background flex items-center justify-center p-8 z-[100]">
-        {isLoading ? (
-          <div className="text-muted-foreground text-lg">Loading code snippet...</div>
-        ) : !codeSnippet ? (
-          <div className="text-muted-foreground text-lg">No code available</div>
-        ) : (
-          <>
-            <textarea
-              ref={textareaRef}
-              value={userInput}
-              onChange={handleInput}
-              disabled={isFinished || isFailed}
-              className="absolute inset-0 w-full h-full opacity-0 z-50"
-              style={{ cursor: isActive ? "default" : "text" }}
-              spellCheck={false}
-              autoComplete="off"
-              autoCapitalize="off"
-              autoCorrect="off"
-              data-testid="input-code-focus"
-            />
-            
-            {!isActive && !isFinished && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                <p className="text-muted-foreground text-lg">Click or type to start</p>
+      <div className="fixed inset-0 bg-background flex flex-col p-4 z-[100] overflow-auto">
+        {/* Top Controls Bar */}
+        <div className="w-full max-w-6xl mx-auto mb-6">
+          <div className="flex flex-wrap gap-3 items-center justify-center bg-card/50 backdrop-blur p-4 rounded-lg border">
+            {/* Mode Selection */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium">Mode:</label>
+              <div className="flex border rounded-md overflow-hidden">
+                <Button
+                  variant={mode === "ai" ? "default" : "ghost"}
+                  size="sm"
+                  className="rounded-none h-8 text-xs"
+                  onClick={() => handleModeSwitch("ai")}
+                  disabled={isActive}
+                  data-testid="button-mode-ai-focus"
+                >
+                  AI
+                </Button>
+                <Button
+                  variant={mode === "custom" ? "default" : "ghost"}
+                  size="sm"
+                  className="rounded-none h-8 text-xs"
+                  onClick={() => handleModeSwitch("custom")}
+                  disabled={isActive}
+                  data-testid="button-mode-custom-focus"
+                >
+                  Custom
+                </Button>
               </div>
-            )}
-
-            <div className="max-w-4xl w-full mx-auto relative">
-              <pre className={`whitespace-pre text-left ${getFontClass(fontFamily)} text-muted-foreground/50 select-none`} style={{ fontSize: `${fontSize}px`, lineHeight: "1.8" }}>
-                {codeSnippet}
-              </pre>
-              
-              <pre className={`whitespace-pre text-left ${getFontClass(fontFamily)} absolute inset-0 pointer-events-none`} style={{ fontSize: `${fontSize}px`, lineHeight: "1.8" }}>
-                {codeSnippet.split("").map((char, index) => {
-                  if (index >= userInput.length) {
-                    return <span key={index} className="opacity-0">{char}</span>;
-                  }
-                  const isCorrect = userInput[index] === char;
-                  return (
-                    <span key={index} className={isCorrect ? "text-green-500" : "text-red-500 bg-red-500/20"}>
-                      {char}
-                    </span>
-                  );
-                })}
-              </pre>
             </div>
 
-            {(isActive || isFinished) && (
-              <div className="fixed bottom-8 right-8 flex gap-4 text-sm z-20">
-                <div className="bg-background/80 backdrop-blur px-3 py-1 rounded-md border">
-                  <span className="text-primary font-bold">{wpm}</span> <span className="text-muted-foreground">WPM</span>
-                </div>
-                <div className="bg-background/80 backdrop-blur px-3 py-1 rounded-md border">
-                  <span className="text-primary font-bold">{accuracy}%</span> <span className="text-muted-foreground">ACC</span>
-                </div>
+            {/* Language Selection (AI Mode) */}
+            {mode === "ai" && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium">Language:</label>
+                <Select value={language} onValueChange={setLanguage} disabled={isActive}>
+                  <SelectTrigger className="w-[150px] h-8 text-xs" data-testid="select-language-focus">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {Object.entries(
+                      Object.entries(PROGRAMMING_LANGUAGES).reduce((acc, [key, lang]) => {
+                        if (!acc[lang.category]) acc[lang.category] = [];
+                        acc[lang.category].push({ key, ...lang });
+                        return acc;
+                      }, {} as Record<string, Array<{ key: string; name: string; prism: string; category: string }>>)
+                    ).map(([category, languages]) => (
+                      <div key={category}>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                          {category}
+                        </div>
+                        {languages.map(({ key, name }) => (
+                          <SelectItem key={key} value={key}>{name}</SelectItem>
+                        ))}
+                      </div>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
-            {isFinished && (
-              <div className="fixed inset-0 bg-background/95 backdrop-blur flex items-center justify-center z-40">
-                <Card className="p-8 text-center max-w-md">
-                  <h3 className="text-3xl font-bold mb-6">Test Complete! 🎉</h3>
-                  <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="text-center">
-                      <div className="text-muted-foreground text-sm mb-1">WPM</div>
-                      <div className="text-4xl font-bold text-primary">{wpm}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-muted-foreground text-sm mb-1">Accuracy</div>
-                      <div className="text-4xl font-bold">{accuracy}%</div>
-                    </div>
-                  </div>
-                  <div className="flex gap-3 justify-center">
-                    <Button onClick={resetTest} data-testid="button-restart-focus">
-                      <RotateCcw className="w-4 h-4 mr-2" />
-                      Try Again
-                    </Button>
-                    <Button variant="outline" onClick={() => setViewMode("full")}>
-                      Full View
-                    </Button>
-                  </div>
-                </Card>
+            {/* Difficulty (AI Mode) */}
+            {mode === "ai" && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium">Difficulty:</label>
+                <Select value={difficulty} onValueChange={(val) => setDifficulty(val as any)} disabled={isActive}>
+                  <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-difficulty-focus">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="easy">Easy</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="hard">Hard</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
-            <Sheet open={showSettings} onOpenChange={setShowSettings}>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="fixed top-4 right-4"
-                onClick={() => setShowSettings(true)}
-                data-testid="button-settings-focus"
-              >
-                <SettingsIcon className="w-4 h-4 mr-2" />
-                Settings
-              </Button>
+            {/* Test Mode */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium">Test:</label>
+              <Select value={testMode} onValueChange={(val) => setTestMode(val as any)} disabled={isActive}>
+                <SelectTrigger className="w-[120px] h-8 text-xs" data-testid="select-test-mode-focus">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="expert">Expert</SelectItem>
+                  <SelectItem value="master">Master</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Font Family */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium">Font:</label>
+              <Select value={fontFamily} onValueChange={setFontFamily} disabled={isActive}>
+                <SelectTrigger className="w-[140px] h-8 text-xs" data-testid="select-font-family-focus">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mono">JetBrains Mono</SelectItem>
+                  <SelectItem value="fira">Fira Code</SelectItem>
+                  <SelectItem value="source">Source Code Pro</SelectItem>
+                  <SelectItem value="consolas">Consolas</SelectItem>
+                  <SelectItem value="monaco">Monaco</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Font Size */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium">Size:</label>
+              <Select value={fontSize} onValueChange={setFontSize} disabled={isActive}>
+                <SelectTrigger className="w-[70px] h-8 text-xs" data-testid="select-font-size-focus">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="12">12px</SelectItem>
+                  <SelectItem value="14">14px</SelectItem>
+                  <SelectItem value="16">16px</SelectItem>
+                  <SelectItem value="18">18px</SelectItem>
+                  <SelectItem value="20">20px</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setViewMode("full")}
+              data-testid="button-full-mode-focus"
+            >
+              Full Mode
+            </Button>
+          </div>
+        </div>
+
+        {/* Typing Area */}
+        <div className="flex-1 flex items-center justify-center relative">
+          {isLoading ? (
+            <div className="text-muted-foreground text-lg">Loading code snippet...</div>
+          ) : !codeSnippet ? (
+            <div className="text-muted-foreground text-lg">No code available</div>
+          ) : (
+            <>
+              <textarea
+                ref={textareaRef}
+                value={userInput}
+                onChange={handleInput}
+                disabled={isFinished || isFailed}
+                className="absolute inset-0 w-full h-full opacity-0 z-50"
+                style={{ cursor: isActive ? "default" : "text" }}
+                spellCheck={false}
+                autoComplete="off"
+                autoCapitalize="off"
+                autoCorrect="off"
+                data-testid="input-code-focus"
+              />
               
-              <SheetContent side="right" className="w-[400px] sm:w-[540px] overflow-y-auto">
-                <SheetHeader>
-                  <SheetTitle>Code Typing Settings</SheetTitle>
-                  <SheetDescription>
-                    Configure your code typing test preferences
-                  </SheetDescription>
-                </SheetHeader>
+              {!isActive && !isFinished && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                  <p className="text-muted-foreground text-lg">Click or type to start</p>
+                </div>
+              )}
+
+              <div className="max-w-4xl w-full mx-auto relative">
+                <pre className={`whitespace-pre text-left ${getFontClass(fontFamily)} text-muted-foreground/50 select-none`} style={{ fontSize: `${fontSize}px`, lineHeight: "1.8" }}>
+                  {codeSnippet}
+                </pre>
                 
-                <div className="space-y-6 mt-6">
-                  {/* Mode Selection */}
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Mode</label>
-                    <div className="flex border rounded-md overflow-hidden">
-                      <Button
-                        variant={mode === "ai" ? "default" : "ghost"}
-                        className="rounded-none flex-1"
-                        onClick={() => handleModeSwitch("ai")}
-                        disabled={isActive}
-                        data-testid="button-mode-ai-drawer"
-                      >
-                        AI Generated
-                      </Button>
-                      <Button
-                        variant={mode === "custom" ? "default" : "ghost"}
-                        className="rounded-none flex-1"
-                        onClick={() => handleModeSwitch("custom")}
-                        disabled={isActive}
-                        data-testid="button-mode-custom-drawer"
-                      >
-                        Custom Code
-                      </Button>
-                    </div>
+                <pre className={`whitespace-pre text-left ${getFontClass(fontFamily)} absolute inset-0 pointer-events-none`} style={{ fontSize: `${fontSize}px`, lineHeight: "1.8" }}>
+                  {codeSnippet.split("").map((char, index) => {
+                    if (index >= userInput.length) {
+                      return <span key={index} className="opacity-0">{char}</span>;
+                    }
+                    const isCorrect = userInput[index] === char;
+                    return (
+                      <span key={index} className={isCorrect ? "text-green-500" : "text-red-500 bg-red-500/20"}>
+                        {char}
+                      </span>
+                    );
+                  })}
+                </pre>
+              </div>
+
+              {(isActive || isFinished) && (
+                <div className="fixed bottom-8 right-8 flex gap-4 text-sm z-20">
+                  <div className="bg-background/80 backdrop-blur px-3 py-1 rounded-md border">
+                    <span className="text-primary font-bold">{wpm}</span> <span className="text-muted-foreground">WPM</span>
                   </div>
-
-                  {/* Language Selection (AI Mode) */}
-                  {mode === "ai" && (
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Programming Language</label>
-                      <Select value={language} onValueChange={setLanguage} disabled={isActive}>
-                        <SelectTrigger data-testid="select-language-drawer">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[300px]">
-                          {Object.entries(
-                            Object.entries(PROGRAMMING_LANGUAGES).reduce((acc, [key, lang]) => {
-                              if (!acc[lang.category]) acc[lang.category] = [];
-                              acc[lang.category].push({ key, ...lang });
-                              return acc;
-                            }, {} as Record<string, Array<{ key: string; name: string; prism: string; category: string }>>)
-                          ).map(([category, languages]) => (
-                            <div key={category}>
-                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                                {category}
-                              </div>
-                              {languages.map(({ key, name }) => (
-                                <SelectItem key={key} value={key}>{name}</SelectItem>
-                              ))}
-                            </div>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {/* Difficulty (AI Mode) */}
-                  {mode === "ai" && (
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Difficulty</label>
-                      <Select value={difficulty} onValueChange={(val) => setDifficulty(val as any)} disabled={isActive}>
-                        <SelectTrigger data-testid="select-difficulty-drawer">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="easy">Easy</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="hard">Hard</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {/* Custom Code Input */}
-                  {mode === "custom" && (
-                    <div>
-                      <label className="text-sm font-medium mb-2 block">Your Code</label>
-                      <Textarea
-                        placeholder="Paste your code here..."
-                        value={customCode}
-                        onChange={(e) => setCustomCode(e.target.value)}
-                        className="font-mono text-sm min-h-[200px]"
-                        disabled={isActive}
-                        data-testid="textarea-custom-code-drawer"
-                      />
-                      <Button 
-                        onClick={applyCustomCode} 
-                        className="mt-2 w-full"
-                        disabled={isActive}
-                        data-testid="button-apply-custom-drawer"
-                      >
-                        Apply Custom Code
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Test Mode */}
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Test Mode</label>
-                    <Select value={testMode} onValueChange={(val) => setTestMode(val as any)} disabled={isActive}>
-                      <SelectTrigger data-testid="select-test-mode-drawer">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="normal">
-                          <div className="flex items-center gap-2">
-                            <Zap className="w-4 h-4" />
-                            <span>Normal</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="expert">
-                          <div className="flex items-center gap-2">
-                            <Trophy className="w-4 h-4" />
-                            <span>Expert (Fail on Error)</span>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="master">
-                          <div className="flex items-center gap-2">
-                            <Target className="w-4 h-4" />
-                            <span>Master (100% Accuracy)</span>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Font Family */}
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Font Family</label>
-                    <Select value={fontFamily} onValueChange={setFontFamily} disabled={isActive}>
-                      <SelectTrigger data-testid="select-font-family-drawer">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="mono">JetBrains Mono</SelectItem>
-                        <SelectItem value="fira">Fira Code</SelectItem>
-                        <SelectItem value="source">Source Code Pro</SelectItem>
-                        <SelectItem value="consolas">Consolas</SelectItem>
-                        <SelectItem value="monaco">Monaco</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Font Size */}
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Font Size</label>
-                    <Select value={fontSize} onValueChange={setFontSize} disabled={isActive}>
-                      <SelectTrigger data-testid="select-font-size-drawer">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="12">12px</SelectItem>
-                        <SelectItem value="14">14px</SelectItem>
-                        <SelectItem value="16">16px</SelectItem>
-                        <SelectItem value="18">18px</SelectItem>
-                        <SelectItem value="20">20px</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* View Mode Switch */}
-                  <div className="pt-4 border-t">
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={() => {
-                        setViewMode("full");
-                        setShowSettings(false);
-                      }}
-                      data-testid="button-switch-full-mode"
-                    >
-                      Switch to Full Mode
-                    </Button>
+                  <div className="bg-background/80 backdrop-blur px-3 py-1 rounded-md border">
+                    <span className="text-primary font-bold">{accuracy}%</span> <span className="text-muted-foreground">ACC</span>
                   </div>
                 </div>
-              </SheetContent>
-            </Sheet>
-          </>
+              )}
+
+              {isFinished && (
+                <div className="fixed inset-0 bg-background/95 backdrop-blur flex items-center justify-center z-40">
+                  <Card className="p-8 text-center max-w-md">
+                    <h3 className="text-3xl font-bold mb-6">Test Complete! 🎉</h3>
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div className="text-center">
+                        <div className="text-muted-foreground text-sm mb-1">WPM</div>
+                        <div className="text-4xl font-bold text-primary">{wpm}</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-muted-foreground text-sm mb-1">Accuracy</div>
+                        <div className="text-4xl font-bold">{accuracy}%</div>
+                      </div>
+                    </div>
+                    <div className="flex gap-3 justify-center">
+                      <Button onClick={resetTest} data-testid="button-restart-focus">
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Try Again
+                      </Button>
+                      <Button variant="outline" onClick={() => setViewMode("full")}>
+                        Full View
+                      </Button>
+                    </div>
+                  </Card>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Custom Code Panel - Only in Custom Mode */}
+        {mode === "custom" && !isActive && (
+          <div className="w-full max-w-6xl mx-auto mt-4">
+            <Card className="p-4">
+              <label className="text-sm font-medium mb-2 block">Paste Your Code:</label>
+              <Textarea
+                placeholder="Paste your code here..."
+                value={customCode}
+                onChange={(e) => setCustomCode(e.target.value)}
+                className="font-mono text-sm min-h-[120px] mb-2"
+                data-testid="textarea-custom-code-focus"
+              />
+              <Button 
+                onClick={applyCustomCode} 
+                className="w-full"
+                data-testid="button-apply-custom-focus"
+              >
+                Apply Custom Code
+              </Button>
+            </Card>
+          </div>
         )}
       </div>
     );
