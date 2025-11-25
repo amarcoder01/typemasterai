@@ -325,3 +325,71 @@ export const insertSharedCodeResultSchema = createInsertSchema(sharedCodeResults
 
 export type InsertSharedCodeResult = z.infer<typeof insertSharedCodeResultSchema>;
 export type SharedCodeResult = typeof sharedCodeResults.$inferSelect;
+
+// Book Paragraphs for Book Typing Mode
+export const bookParagraphs = pgTable("book_paragraphs", {
+  id: serial("id").primaryKey(),
+  text: text("text").notNull(),
+  difficulty: text("difficulty").notNull(), // easy, medium, hard
+  topic: text("topic").notNull(), // fiction, classics, adventure, etc.
+  durationMode: integer("duration_mode").notNull(), // estimated seconds to type
+  lengthWords: integer("length_words").notNull(),
+  source: text("source").notNull(), // "Title by Author"
+  bookId: integer("book_id").notNull(), // Gutendex book ID
+  paragraphIndex: integer("paragraph_index").notNull(), // position in book
+  language: text("language").notNull().default("en"),
+  metadata: text("metadata"), // JSON string for additional info
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  topicDifficultyDurationIdx: index("book_topic_difficulty_duration_idx").on(table.topic, table.difficulty, table.durationMode),
+  bookIdParagraphIdx: index("book_id_paragraph_idx").on(table.bookId, table.paragraphIndex),
+  difficultyIdx: index("book_difficulty_idx").on(table.difficulty),
+  topicIdx: index("book_topic_idx").on(table.topic),
+  durationIdx: index("book_duration_idx").on(table.durationMode),
+}));
+
+export const insertBookParagraphSchema = createInsertSchema(bookParagraphs, {
+  text: z.string().min(50),
+  difficulty: z.enum(["easy", "medium", "hard"]),
+  topic: z.string().min(1),
+  durationMode: z.number().int().positive(),
+  lengthWords: z.number().int().positive(),
+  source: z.string().min(1),
+  bookId: z.number().int().positive(),
+  paragraphIndex: z.number().int().min(0),
+  language: z.string().length(2),
+  metadata: z.string().nullable().optional(),
+}).omit({ id: true, createdAt: true });
+
+export type InsertBookParagraph = z.infer<typeof insertBookParagraphSchema>;
+export type BookParagraph = typeof bookParagraphs.$inferSelect;
+
+// Book Typing Test Results
+export const bookTypingTests = pgTable("book_typing_tests", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  paragraphId: integer("paragraph_id").notNull().references(() => bookParagraphs.id),
+  wpm: integer("wpm").notNull(),
+  accuracy: real("accuracy").notNull(),
+  characters: integer("characters").notNull(),
+  errors: integer("errors").notNull(),
+  duration: integer("duration").notNull(), // actual time taken in seconds
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("book_test_user_id_idx").on(table.userId),
+  paragraphIdIdx: index("book_test_paragraph_id_idx").on(table.paragraphId),
+  wpmIdx: index("book_test_wpm_idx").on(table.wpm),
+  createdAtIdx: index("book_test_created_at_idx").on(table.createdAt),
+}));
+
+export const insertBookTypingTestSchema = createInsertSchema(bookTypingTests, {
+  paragraphId: z.number().int().positive(),
+  wpm: z.number().int().min(0).max(500),
+  accuracy: z.number().min(0).max(100),
+  characters: z.number().int().min(1),
+  errors: z.number().int().min(0),
+  duration: z.number().int().positive(),
+}).omit({ id: true, createdAt: true });
+
+export type InsertBookTypingTest = z.infer<typeof insertBookTypingTestSchema>;
+export type BookTypingTest = typeof bookTypingTests.$inferSelect;
