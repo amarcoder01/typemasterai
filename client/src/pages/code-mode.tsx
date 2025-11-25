@@ -165,6 +165,7 @@ export default function CodeMode() {
     codeContent: string;
   } | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [isComposing, setIsComposing] = useState(false);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -469,41 +470,92 @@ export default function CodeMode() {
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (isComposing) return;
+    processInput(e.target.value);
+  };
+
+  const handleCompositionStart = () => {
+    setIsComposing(true);
+  };
+
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
+    setIsComposing(false);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const value = textareaRef.current.value;
+        processInput(value);
+      }
+    }, 0);
+  };
+
+  const processInput = (value: string) => {
     if (isFinished || isFailed) return;
     
-    const value = e.target.value;
+    if (value.length > codeSnippet.length) {
+      if (textareaRef.current) textareaRef.current.value = userInput;
+      return;
+    }
     
     if (!isActive && value.length > 0) {
       setIsActive(true);
       setStartTime(Date.now());
     }
     
-    const lastChar = value[value.length - 1];
-    const expectedChar = codeSnippet[value.length - 1];
-    
-    if (testMode === "expert" && lastChar !== expectedChar && value.length > userInput.length) {
-      setIsFailed(true);
-      setIsActive(false);
-      toast({
-        title: "Expert Mode Failed!",
-        description: "You made an error. The test has been reset.",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        resetTest();
-        setIsFailed(false);
-      }, 1500);
-      return;
-    }
-    
     if (testMode === "master") {
-      const currentErrors = value.split("").filter((char, i) => char !== codeSnippet[i]).length;
-      if (currentErrors > 0) {
+      const hasErrors = value.split("").some((char, i) => char !== codeSnippet[i]);
+      if (hasErrors) {
+        if (textareaRef.current) textareaRef.current.value = userInput;
+        return;
+      }
+    } else if (testMode === "expert" && value.length > userInput.length) {
+      const lastChar = value[value.length - 1];
+      const expectedChar = codeSnippet[value.length - 1];
+      
+      if (lastChar !== expectedChar) {
+        setIsFailed(true);
+        setIsActive(false);
+        toast({
+          title: "Expert Mode Failed!",
+          description: "You made an error. The test has been reset.",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          resetTest();
+          setIsFailed(false);
+        }, 1500);
         return;
       }
     }
     
     setUserInput(value);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+    toast({
+      title: "Paste Disabled",
+      description: "Please type manually for accurate results.",
+      variant: "destructive",
+    });
+  };
+
+  const handleCut = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const tabChar = codeSnippet[userInput.length];
+      if (tabChar === "\t") {
+        const newValue = userInput + "\t";
+        setUserInput(newValue);
+        if (!isActive) {
+          setIsActive(true);
+          setStartTime(Date.now());
+        }
+      }
+    }
   };
 
   const resetTest = () => {
@@ -767,6 +819,11 @@ export default function CodeMode() {
                       ref={textareaRef}
                       value={userInput}
                       onChange={handleInput}
+                      onCompositionStart={handleCompositionStart}
+                      onCompositionEnd={handleCompositionEnd}
+                      onPaste={handlePaste}
+                      onCut={handleCut}
+                      onKeyDown={handleKeyDown}
                       disabled={isFinished}
                       className={`w-full min-h-full resize-none bg-transparent focus:outline-none opacity-0 absolute top-0 left-0 right-0 z-10 px-4 py-4 overflow-hidden ${getFontClass(fontFamily)}`}
                       style={{ fontSize: `${fontSize}px` }}
