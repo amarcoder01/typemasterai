@@ -95,6 +95,7 @@ export default function TypingTest() {
   const [smoothCaret, setSmoothCaret] = useState(true);
   const [quickRestart, setQuickRestart] = useState(true);
   const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
+  const [isComposing, setIsComposing] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -374,10 +375,9 @@ export default function TypingTest() {
     }
   };
 
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const processInput = (value: string) => {
     if (isFinished) return;
     
-    const value = e.target.value;
     const previousLength = userInput.length;
     
     // Play keyboard sound on keystroke (only when adding characters, not deleting)
@@ -398,6 +398,39 @@ export default function TypingTest() {
     if (value.length >= text.length - 20 && timeLeft > 5 && originalText) {
       setText(text + " " + originalText);
     }
+  };
+
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isComposing) return;
+    processInput(e.target.value);
+  };
+
+  const handleCompositionStart = () => {
+    setIsComposing(true);
+  };
+
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+    setIsComposing(false);
+    if (e.data && inputRef.current) {
+      const newValue = userInput + e.data;
+      inputRef.current.value = newValue;
+      setTimeout(() => {
+        processInput(newValue);
+      }, 0);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    toast({
+      title: "Paste Disabled",
+      description: "Please type manually for accurate results",
+      variant: "default",
+    });
+  };
+
+  const handleCut = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
   };
 
   // Load typing behavior settings on mount
@@ -855,6 +888,10 @@ export default function TypingTest() {
           type="text"
           value={userInput}
           onChange={handleInput}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
+          onPaste={handlePaste}
+          onCut={handleCut}
           className="absolute opacity-0 w-full h-full cursor-default z-0"
           autoFocus
         />

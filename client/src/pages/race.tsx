@@ -111,6 +111,15 @@ export default function RacePage() {
     }
   }
 
+  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
+    e.preventDefault();
+    toast.error("Paste disabled - Please type manually for accurate results");
+  }
+
+  function handleCut(e: React.ClipboardEvent<HTMLInputElement>) {
+    e.preventDefault();
+  }
+
   function handleTyping(e: React.FormEvent<HTMLInputElement>) {
     if (!isRacing || !race || isComposingRef.current) return;
 
@@ -529,6 +538,8 @@ export default function RacePage() {
                   onKeyDown={handleKeyDown}
                   onCompositionStart={handleCompositionStart}
                   onCompositionEnd={handleCompositionEnd}
+                  onPaste={handlePaste}
+                  onCut={handleCut}
                   className="absolute opacity-0 pointer-events-none"
                   autoComplete="off"
                   autoCorrect="off"
