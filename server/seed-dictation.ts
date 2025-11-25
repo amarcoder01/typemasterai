@@ -443,3 +443,11 @@ export async function seedDictationSentences() {
     throw error;
   }
 }
+
+seedDictationSentences().then(() => {
+  console.log("Dictation sentences seed completed!");
+  process.exit(0);
+}).catch(error => {
+  console.error("Dictation sentences seed failed:", error);
+  process.exit(1);
+});
