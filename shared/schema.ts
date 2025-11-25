@@ -575,3 +575,53 @@ export const insertDictationTestSchema = createInsertSchema(dictationTests, {
 
 export type InsertDictationTest = z.infer<typeof insertDictationTestSchema>;
 export type DictationTest = typeof dictationTests.$inferSelect;
+
+// Stress Test Mode - For Advanced Users
+export const stressTests = pgTable("stress_tests", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  difficulty: text("difficulty").notNull(), // beginner, intermediate, expert, nightmare
+  enabledEffects: jsonb("enabled_effects").notNull(), // {screenShake, distractions, sounds, speedIncrease, limitedVisibility, etc}
+  wpm: integer("wpm").notNull(),
+  accuracy: real("accuracy").notNull(),
+  errors: integer("errors").notNull(),
+  maxCombo: integer("max_combo").notNull().default(0),
+  totalCharacters: integer("total_characters").notNull(),
+  duration: integer("duration").notNull(), // seconds
+  survivalTime: integer("survival_time").notNull(), // how long they lasted before failing
+  completionRate: real("completion_rate").notNull(), // percentage of test completed
+  stressScore: integer("stress_score").notNull(), // calculated score based on difficulty + performance
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("stress_test_user_id_idx").on(table.userId),
+  difficultyIdx: index("stress_test_difficulty_idx").on(table.difficulty),
+  stressScoreIdx: index("stress_test_score_idx").on(table.stressScore),
+  wpmIdx: index("stress_test_wpm_idx").on(table.wpm),
+  createdAtIdx: index("stress_test_created_at_idx").on(table.createdAt),
+}));
+
+export const insertStressTestSchema = createInsertSchema(stressTests, {
+  difficulty: z.enum(["beginner", "intermediate", "expert", "nightmare"]),
+  enabledEffects: z.object({
+    screenShake: z.boolean(),
+    distractions: z.boolean(),
+    sounds: z.boolean(),
+    speedIncrease: z.boolean(),
+    limitedVisibility: z.boolean(),
+    colorShift: z.boolean(),
+    gravity: z.boolean(),
+    rotation: z.boolean(),
+  }),
+  wpm: z.number().int().min(0).max(500),
+  accuracy: z.number().min(0).max(100),
+  errors: z.number().int().min(0),
+  maxCombo: z.number().int().min(0),
+  totalCharacters: z.number().int().min(0),
+  duration: z.number().int().positive(),
+  survivalTime: z.number().int().min(0),
+  completionRate: z.number().min(0).max(100),
+  stressScore: z.number().int().min(0),
+}).omit({ id: true, createdAt: true });
+
+export type InsertStressTest = z.infer<typeof insertStressTestSchema>;
+export type StressTest = typeof stressTests.$inferSelect;

@@ -1533,6 +1533,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Stress Test Routes
+  app.post("/api/stress-test", isAuthenticated, async (req, res) => {
+    try {
+      const { insertStressTestSchema } = await import("@shared/schema");
+      
+      const parsed = insertStressTestSchema.safeParse({
+        ...req.body,
+        userId: req.user!.id,
+      });
+
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: fromError(parsed.error).toString(),
+        });
+      }
+
+      const result = await storage.createStressTest(parsed.data);
+      res.status(201).json({ message: "Stress test result saved", result });
+    } catch (error: any) {
+      console.error("Save stress test error:", error);
+      res.status(500).json({ message: "Failed to save stress test result" });
+    }
+  });
+
   // Social Sharing Routes
   app.post("/api/share", async (req, res) => {
     try {

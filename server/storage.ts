@@ -19,6 +19,7 @@ import {
   bookTypingTests,
   dictationSentences,
   dictationTests,
+  stressTests,
   type User,
   type InsertUser,
   type TestResult,
@@ -53,6 +54,8 @@ import {
   type InsertDictationSentence,
   type DictationTest,
   type InsertDictationTest,
+  type StressTest,
+  type InsertStressTest,
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -214,7 +217,10 @@ export interface IStorage {
     avatarColor: string | null;
     totalTests: number;
   }>>;
-
+  
+  createStressTest(test: InsertStressTest): Promise<StressTest>;
+  getUserStressTests(userId: string, limit?: number): Promise<StressTest[]>;
+  
   createSharedResult(result: InsertSharedResult): Promise<SharedResult>;
   getSharedResult(shareToken: string): Promise<SharedResult | undefined>;
   incrementShareViewCount(shareToken: string): Promise<void>;
