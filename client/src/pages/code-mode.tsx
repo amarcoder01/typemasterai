@@ -7,60 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Code, Trophy, Zap, Target, RotateCcw, Check } from "lucide-react";
 import confetti from "canvas-confetti";
-import Prism from "prismjs";
-import "prismjs/themes/prism-tomorrow.css";
-import "prismjs/components/prism-javascript";
-import "prismjs/components/prism-typescript";
-import "prismjs/components/prism-python";
-import "prismjs/components/prism-java";
-import "prismjs/components/prism-jsx";
-import "prismjs/components/prism-tsx";
-import "prismjs/components/prism-css";
-import "prismjs/components/prism-json";
-import "prismjs/components/prism-bash";
-import "prismjs/components/prism-go";
-import "prismjs/components/prism-markup";
-import "prismjs/components/prism-rust";
-import "prismjs/components/prism-sql";
-import "prismjs/components/prism-csharp";
-import "prismjs/components/prism-c";
-import "prismjs/components/prism-cpp";
-import "prismjs/components/prism-swift";
-import "prismjs/components/prism-ruby";
-import "prismjs/components/prism-php";
-import "prismjs/components/prism-kotlin";
-import "prismjs/components/prism-dart";
-import "prismjs/components/prism-scala";
-import "prismjs/components/prism-r";
-import "prismjs/components/prism-powershell";
-import "prismjs/components/prism-perl";
-import "prismjs/components/prism-lua";
-import "prismjs/components/prism-scss";
-import "prismjs/components/prism-sass";
-import "prismjs/components/prism-less";
-import "prismjs/components/prism-yaml";
-import "prismjs/components/prism-toml";
-import "prismjs/components/prism-markdown";
-import "prismjs/components/prism-elixir";
-import "prismjs/components/prism-haskell";
-import "prismjs/components/prism-clojure";
-import "prismjs/components/prism-fsharp";
-import "prismjs/components/prism-ocaml";
-import "prismjs/components/prism-erlang";
-import "prismjs/components/prism-objectivec";
-import "prismjs/components/prism-groovy";
-import "prismjs/components/prism-julia";
-import "prismjs/components/prism-nim";
-import "prismjs/components/prism-crystal";
-import "prismjs/components/prism-d";
-import "prismjs/components/prism-scheme";
-import "prismjs/components/prism-fortran";
-import "prismjs/components/prism-matlab";
-import "prismjs/components/prism-solidity";
-import "prismjs/components/prism-racket";
-import "prismjs/components/prism-lisp";
-import "prismjs/components/prism-pascal";
-import "prismjs/components/prism-vhdl";
 
 const PROGRAMMING_LANGUAGES = {
   javascript: { name: "JavaScript", prism: "javascript", category: "Popular" },
@@ -202,7 +148,6 @@ export default function CodeMode() {
   const [isLoading, setIsLoading] = useState(false);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const codeDisplayRef = useRef<HTMLPreElement>(null);
 
   const fetchCodeSnippet = useCallback(async () => {
     setIsLoading(true);
@@ -212,12 +157,6 @@ export default function CodeMode() {
       const data = await response.json();
       setCodeSnippet(data.snippet.content);
       setSnippetId(data.snippet.id);
-      
-      setTimeout(() => {
-        if (codeDisplayRef.current) {
-          Prism.highlightElement(codeDisplayRef.current);
-        }
-      }, 100);
     } catch (error) {
       console.error("Error fetching code snippet:", error);
       toast({
@@ -251,11 +190,6 @@ export default function CodeMode() {
       if (customCode) {
         setCodeSnippet(customCode);
         setSnippetId(null);
-        setTimeout(() => {
-          if (codeDisplayRef.current) {
-            Prism.highlightElement(codeDisplayRef.current);
-          }
-        }, 100);
       } else {
         setCodeSnippet("");
         setSnippetId(null);
@@ -274,11 +208,6 @@ export default function CodeMode() {
     }
     setCodeSnippet(customCode);
     setSnippetId(null);
-    setTimeout(() => {
-      if (codeDisplayRef.current) {
-        Prism.highlightElement(codeDisplayRef.current);
-      }
-    }, 100);
     toast({
       title: "Custom Code Loaded!",
       description: "Start typing to practice with your code.",
@@ -409,11 +338,6 @@ export default function CodeMode() {
     } else if (mode === "custom" && customCode) {
       setCodeSnippet(customCode);
       setSnippetId(null);
-      setTimeout(() => {
-        if (codeDisplayRef.current) {
-          Prism.highlightElement(codeDisplayRef.current);
-        }
-      }, 100);
     }
     
     setTimeout(() => textareaRef.current?.focus(), 0);
@@ -616,10 +540,8 @@ export default function CodeMode() {
             <div>
               <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Code to Type:</h3>
               <div className="bg-muted rounded-lg p-4 overflow-x-auto max-h-96 overflow-y-auto">
-                <pre className={`whitespace-pre-wrap ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }} data-testid="code-display">
-                  <code className={`language-${PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.prism || 'javascript'}`} ref={codeDisplayRef}>
-                    {codeSnippet}
-                  </code>
+                <pre className={`whitespace-pre-wrap text-foreground ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }} data-testid="code-display">
+                  {codeSnippet}
                 </pre>
               </div>
             </div>
