@@ -125,6 +125,12 @@ function getFontClass(font: string): string {
   return fonts[font] || fonts.mono;
 }
 
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 export default function CodeMode() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -158,22 +164,31 @@ export default function CodeMode() {
     errors: number;
     codeContent: string;
   } | null>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const fetchCodeSnippet = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await fetch(`/api/code/snippet?language=${language}&difficulty=${difficulty}&generate=true`);
-      if (!response.ok) throw new Error("Failed to fetch code snippet");
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `Server error: ${response.status}`);
+      }
       const data = await response.json();
       setCodeSnippet(data.snippet.content);
       setSnippetId(data.snippet.id);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching code snippet:", error);
       toast({
-        title: "Error",
-        description: "Failed to load code snippet. Please try again.",
+        title: "Failed to Load Code Snippet",
+        description: error.message?.includes("500") 
+          ? "AI service is currently unavailable. Try changing the language or difficulty." 
+          : error.message?.includes("Network") 
+          ? "Network error. Please check your connection and try again."
+          : "Unable to generate code snippet. Press Ctrl+Enter to retry or try a different language.",
         variant: "destructive",
       });
     } finally {
@@ -234,21 +249,28 @@ export default function CodeMode() {
         body: JSON.stringify(testData),
         credentials: "include",
       });
-      if (!response.ok) throw new Error("Failed to save test result");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}`);
+      }
       return response.json();
     },
     onSuccess: () => {
       toast({
         title: "Test Saved!",
-        description: "Your code typing test result has been saved.",
+        description: "Your code typing test result has been saved to your profile.",
       });
       queryClient.invalidateQueries({ queryKey: ["codeStats"] });
       queryClient.invalidateQueries({ queryKey: ["codeLeaderboard"] });
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
-        title: "Save Failed",
-        description: "Could not save your test result.",
+        title: "Failed to Save Test",
+        description: error.message?.includes("401") 
+          ? "Please log in to save your test results."
+          : error.message?.includes("Network")
+          ? "Network error. Your result wasn't saved. Please check your connection."
+          : "Could not save your test result. Your stats are still visible above.",
         variant: "destructive",
       });
     },
@@ -304,11 +326,17 @@ export default function CodeMode() {
         title: "Share Created!",
         description: "Your result is ready to share.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Share error:", error);
       toast({
         title: "Share Failed",
-        description: "Could not create share link.",
+        description: error.message?.includes("401")
+          ? "Please log in to share your results."
+          : error.message?.includes("Network")
+          ? "Network error. Please check your connection and try again."
+          : error.message?.includes("Validation")
+          ? "Invalid test data. Please complete another test and try again."
+          : "Could not create share link. Please try again in a moment.",
         variant: "destructive",
       });
     } finally {
@@ -355,6 +383,55 @@ export default function CodeMode() {
       }
     }
   }, [userInput, isActive, startTime, codeSnippet]);
+
+  useEffect(() => {
+    const handleKeyboard = (e: KeyboardEvent) => {
+      if (shareDialogOpen) return;
+      
+      if (e.key === "Escape" && !isActive && !isFinished) {
+        resetTest();
+        toast({
+          title: "Test Reset",
+          description: "Press any key to start typing.",
+        });
+      }
+      
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !isActive && mode === "ai") {
+        e.preventDefault();
+        fetchCodeSnippet();
+        toast({
+          title: "New Snippet",
+          description: "Loading a new code snippet...",
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyboard);
+    return () => window.removeEventListener("keydown", handleKeyboard);
+  }, [isActive, isFinished, mode, shareDialogOpen, fetchCodeSnippet, toast]);
+
+  useEffect(() => {
+    if (codeSnippet && !isActive && !isFinished && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [codeSnippet, isActive, isFinished]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (isActive && startTime) {
+      interval = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      }, 100);
+    } else if (!isActive) {
+      setElapsedTime(0);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isActive, startTime]);
+
 
   const finishTest = () => {
     setIsActive(false);
@@ -450,6 +527,9 @@ export default function CodeMode() {
     setTimeout(() => textareaRef.current?.focus(), 0);
   };
 
+  const lines = codeSnippet.split("\n");
+  const lineCount = lines.length;
+  
   const highlightedCode = codeSnippet.split("").map((char, index) => {
     let className = "";
     if (index < userInput.length) {
@@ -643,42 +723,94 @@ export default function CodeMode() {
         )}
 
         {!isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Code to Type:</h3>
-              <div className="bg-muted rounded-lg p-4 overflow-x-auto max-h-96 overflow-y-auto">
-                <pre className={`whitespace-pre-wrap text-foreground ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }} data-testid="code-display">
-                  {codeSnippet}
-                </pre>
+          <>
+            {isActive && (
+              <div className="mb-6 text-center">
+                <div className="inline-flex items-center gap-2 bg-primary/10 px-6 py-3 rounded-full border border-primary/20">
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                  <span className="text-3xl font-bold font-mono text-primary">{formatTime(elapsedTime)}</span>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Code to Type:</h3>
+              <div className="bg-muted rounded-lg overflow-x-auto max-h-96 overflow-y-auto">
+                <div className="flex">
+                  <div className="bg-muted/50 px-3 py-4 select-none border-r border-border/50">
+                    {Array.from({ length: lineCount }, (_, i) => (
+                      <div key={i} className="text-muted-foreground/40 text-right font-mono" style={{ fontSize: `${fontSize}px`, lineHeight: '1.5' }}>
+                        {i + 1}
+                      </div>
+                    ))}
+                  </div>
+                  <pre className={`flex-1 whitespace-pre-wrap text-foreground px-4 py-4 ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }} data-testid="code-display">
+                    {codeSnippet}
+                  </pre>
+                </div>
               </div>
             </div>
 
             <div>
               <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Your Typing:</h3>
-              <div className="relative">
-                <textarea
-                  ref={textareaRef}
-                  value={userInput}
-                  onChange={handleInput}
-                  disabled={isFinished}
-                  className={`w-full h-96 p-4 bg-background border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary opacity-0 absolute inset-0 z-10 ${getFontClass(fontFamily)}`}
-                  style={{ fontSize: `${fontSize}px` }}
-                  spellCheck={false}
-                  autoComplete="off"
-                  autoCapitalize="off"
-                  autoCorrect="off"
-                  data-testid="input-code"
-                />
-                <pre className={`w-full h-96 p-4 bg-background border rounded-lg overflow-auto whitespace-pre-wrap ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }}>
-                  {highlightedCode}
-                </pre>
+              <div ref={scrollContainerRef} className="w-full h-96 bg-background border rounded-lg overflow-auto relative">
+                <div className="flex min-h-full">
+                  <div className="bg-background/50 px-3 py-4 select-none border-r border-border/50 sticky left-0 z-0">
+                    {Array.from({ length: lineCount }, (_, i) => (
+                      <div key={i} className="text-muted-foreground/40 text-right font-mono" style={{ fontSize: `${fontSize}px`, lineHeight: '1.5' }}>
+                        {i + 1}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex-1 relative">
+                    <textarea
+                      ref={textareaRef}
+                      value={userInput}
+                      onChange={handleInput}
+                      disabled={isFinished}
+                      className={`w-full min-h-full resize-none bg-transparent focus:outline-none opacity-0 absolute top-0 left-0 right-0 z-10 px-4 py-4 overflow-hidden ${getFontClass(fontFamily)}`}
+                      style={{ fontSize: `${fontSize}px` }}
+                      spellCheck={false}
+                      autoComplete="off"
+                      autoCapitalize="off"
+                      autoCorrect="off"
+                      data-testid="input-code"
+                    />
+                    <pre className={`whitespace-pre-wrap px-4 py-4 pointer-events-none ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }}>
+                      {highlightedCode}
+                    </pre>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+            </div>
+          </>
         ) : (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-            <p className="text-muted-foreground mt-4">Loading code snippet...</p>
+          <div className="animate-pulse">
+            <div className="mb-6 text-center">
+              <div className="h-8 bg-muted rounded w-64 mx-auto mb-2"></div>
+              <div className="h-4 bg-muted rounded w-48 mx-auto"></div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <div className="h-5 bg-muted rounded w-32 mb-2"></div>
+                <div className="bg-muted/50 rounded-lg p-4 h-96 space-y-3">
+                  {Array.from({ length: 15 }, (_, i) => (
+                    <div key={i} className="h-4 bg-muted rounded" style={{ width: `${Math.random() * 40 + 60}%` }}></div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="h-5 bg-muted rounded w-32 mb-2"></div>
+                <div className="bg-muted/50 rounded-lg p-4 h-96"></div>
+              </div>
+            </div>
+            <div className="mt-4 text-center">
+              <p className="text-muted-foreground text-sm flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                Generating code snippet with AI...
+              </p>
+            </div>
           </div>
         )}
       </Card>
