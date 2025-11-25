@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Trophy, Zap, Target, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
@@ -55,8 +54,12 @@ export default function ChapterTyping() {
     errors: number;
   } | null>(null);
   const [paragraphs, setParagraphs] = useState<BookParagraph[]>([]);
+  const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
   
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const correctSpanRef = useRef<HTMLSpanElement>(null);
+  const incorrectSpanRef = useRef<HTMLSpanElement>(null);
 
   // Fetch book by slug to get bookId
   const { data: book, isLoading: bookLoading } = useQuery({
@@ -141,12 +144,62 @@ export default function ChapterTyping() {
     }
   }, [userInput, isActive, startTime, chapterText]);
 
-  // Auto-focus textarea
+  // Auto-focus input
   useEffect(() => {
-    if (chapterText && !isActive && !isFinished && textareaRef.current) {
-      textareaRef.current.focus();
+    if (chapterText && !isActive && !isFinished && inputRef.current) {
+      inputRef.current.focus();
     }
   }, [chapterText, isActive, isFinished]);
+
+  // Update cursor position using document.createRange() for performance
+  const updateCursorPosition = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (!containerRef.current) return;
+      
+      try {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        let targetSpan: HTMLSpanElement | null = null;
+        let offsetInSpan = 0;
+        
+        // Determine which span contains the cursor
+        if (correctSpanRef.current && userInput.length <= (correctSpanRef.current.textContent?.length || 0)) {
+          targetSpan = correctSpanRef.current;
+          offsetInSpan = userInput.length;
+        } else if (incorrectSpanRef.current) {
+          targetSpan = incorrectSpanRef.current;
+          const correctLength = correctSpanRef.current?.textContent?.length || 0;
+          offsetInSpan = userInput.length - correctLength;
+        }
+        
+        if (targetSpan && targetSpan.firstChild) {
+          const range = document.createRange();
+          const textNode = targetSpan.firstChild;
+          const maxOffset = textNode.textContent?.length || 0;
+          const safeOffset = Math.min(offsetInSpan, maxOffset);
+          
+          range.setStart(textNode, safeOffset);
+          range.setEnd(textNode, safeOffset);
+          
+          const rect = range.getBoundingClientRect();
+          const relativeLeft = rect.left - containerRect.left;
+          const relativeTop = rect.top - containerRect.top;
+          const height = rect.height || 40;
+          
+          setCursorPosition({ left: relativeLeft, top: relativeTop, height });
+        } else {
+          // Fallback to start position
+          setCursorPosition({ left: 0, top: 0, height: 40 });
+        }
+      } catch (error) {
+        // Fallback on error
+        setCursorPosition({ left: 0, top: 0, height: 40 });
+      }
+    });
+  }, [userInput.length]);
+
+  useEffect(() => {
+    updateCursorPosition();
+  }, [updateCursorPosition]);
 
   // Timer
   useEffect(() => {
@@ -200,7 +253,7 @@ export default function ChapterTyping() {
     }
   };
 
-  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isComposing) return;
     processInput(e.target.value);
   };
@@ -209,11 +262,11 @@ export default function ChapterTyping() {
     setIsComposing(true);
   };
 
-  const handleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
     setIsComposing(false);
     setTimeout(() => {
-      if (textareaRef.current) {
-        const value = textareaRef.current.value;
+      if (inputRef.current) {
+        const value = inputRef.current.value;
         processInput(value);
       }
     }, 0);
@@ -223,7 +276,7 @@ export default function ChapterTyping() {
     if (!chapterText || isFinished) return;
     
     if (value.length > chapterText.length) {
-      if (textareaRef.current) textareaRef.current.value = userInput;
+      if (inputRef.current) inputRef.current.value = userInput;
       return;
     }
     
@@ -235,7 +288,7 @@ export default function ChapterTyping() {
     setUserInput(value);
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
     toast({
       title: "Paste Disabled",
@@ -244,8 +297,12 @@ export default function ChapterTyping() {
     });
   };
 
-  const handleCut = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  const handleCut = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
+  };
+
+  const handleContainerClick = () => {
+    inputRef.current?.focus();
   };
 
   const resetTestState = () => {
@@ -258,7 +315,7 @@ export default function ChapterTyping() {
     setErrors(0);
     setCompletedTestData(null);
     setElapsedTime(0);
-    setTimeout(() => textareaRef.current?.focus(), 0);
+    setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const goToNextChapter = () => {
@@ -309,33 +366,42 @@ export default function ChapterTyping() {
     );
   }
 
-  // Performance-optimized rendering: split text into 3 parts instead of per-character spans
-  const typedText = chapterText.slice(0, userInput.length);
-  const remainingText = chapterText.slice(userInput.length);
-  
-  // Calculate correct/incorrect characters
-  let correctPart = "";
-  let incorrectPart = "";
-  for (let i = 0; i < userInput.length; i++) {
-    if (userInput[i] === chapterText[i]) {
-      if (incorrectPart) {
-        break; // Stop at first error for visual consistency
-      }
-      correctPart += chapterText[i];
-    } else {
-      if (!incorrectPart) {
-        incorrectPart = chapterText.slice(correctPart.length, userInput.length);
+  // 3-segment rendering for optimal performance with range-based cursor
+  const renderText = () => {
+    // Find where correct typing ends and incorrect begins
+    let correctUpTo = 0;
+    for (let i = 0; i < userInput.length && i < chapterText.length; i++) {
+      if (userInput[i] === chapterText[i]) {
+        correctUpTo = i + 1;
+      } else {
+        break;
       }
     }
-  }
-  
-  const highlightedText = (
-    <>
-      {correctPart && <span className="text-green-500">{correctPart}</span>}
-      {incorrectPart && <span className="text-red-500 bg-red-500/20">{incorrectPart}</span>}
-      {remainingText && <span className="text-muted-foreground">{remainingText}</span>}
-    </>
-  );
+    
+    const correctText = chapterText.slice(0, correctUpTo);
+    const incorrectText = chapterText.slice(correctUpTo, userInput.length);
+    const remainingText = chapterText.slice(userInput.length);
+    
+    return (
+      <>
+        {correctText && (
+          <span ref={correctSpanRef} className="text-foreground">
+            {correctText}
+          </span>
+        )}
+        {incorrectText && (
+          <span ref={incorrectSpanRef} className="text-red-500 bg-red-500/20">
+            {incorrectText}
+          </span>
+        )}
+        {remainingText && (
+          <span className="text-muted-foreground/60">
+            {remainingText}
+          </span>
+        )}
+      </>
+    );
+  };
 
   const chapterTitle = paragraphs[0]?.chapterTitle || `Chapter ${chapterNum}`;
 
@@ -428,27 +494,50 @@ export default function ChapterTyping() {
         </Card>
       </div>
 
-      {/* Typing Interface */}
+      {/* Typing Interface - typelit.io style */}
       <Card className="p-6 mb-6 relative">
-        <div className="mb-4">
-          <pre className="font-serif text-lg leading-relaxed whitespace-pre-wrap">
-            {highlightedText}
-          </pre>
+        <div 
+          ref={containerRef}
+          onClick={handleContainerClick}
+          className="relative min-h-[200px] font-serif text-lg leading-relaxed cursor-text"
+          data-testid="typing-container"
+        >
+          {/* Hidden Input */}
+          <input
+            ref={inputRef}
+            type="text"
+            value={userInput}
+            onChange={handleInput}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
+            onPaste={handlePaste}
+            onCut={handleCut}
+            className="absolute opacity-0 w-full h-full cursor-default z-0"
+            autoFocus
+            disabled={isFinished}
+            data-testid="hidden-input"
+          />
+          
+          {/* Text Display */}
+          <div className="relative z-10 whitespace-pre-wrap pointer-events-none select-none">
+            {renderText()}
+          </div>
+          
+          {/* Visual Cursor */}
+          {!isFinished && (
+            <div
+              className="absolute pointer-events-none z-20 bg-primary/60 animate-pulse"
+              style={{
+                left: `${cursorPosition.left}px`,
+                top: `${cursorPosition.top}px`,
+                width: '3px',
+                height: `${cursorPosition.height}px`,
+                transition: 'left 50ms ease-out, top 50ms ease-out',
+              }}
+              data-testid="typing-cursor"
+            />
+          )}
         </div>
-
-        <Textarea
-          ref={textareaRef}
-          value={userInput}
-          onChange={handleInput}
-          onCompositionStart={handleCompositionStart}
-          onCompositionEnd={handleCompositionEnd}
-          onPaste={handlePaste}
-          onCut={handleCut}
-          placeholder="Start typing here..."
-          className="min-h-[150px] font-serif text-lg resize-none"
-          disabled={isFinished}
-          data-testid="textarea-typing"
-        />
 
         {isFinished && (
           <div className="mt-4 flex gap-3 justify-center">
