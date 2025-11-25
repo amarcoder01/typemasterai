@@ -506,7 +506,7 @@ export async function processBook(book: GutendexBook): Promise<ProcessedParagrap
         durationMode = 30;
       } else if (lengthWords <= 300) {
         durationMode = 60;
-      } else if (lengthWords <= 450) {
+      } else if (lengthWords <= 400) {
         durationMode = 90;
       } else {
         durationMode = 120;
