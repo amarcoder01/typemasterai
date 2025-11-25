@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, integer, timestamp, real, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, real, index, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -326,6 +326,28 @@ export const insertSharedCodeResultSchema = createInsertSchema(sharedCodeResults
 export type InsertSharedCodeResult = z.infer<typeof insertSharedCodeResultSchema>;
 export type SharedCodeResult = typeof sharedCodeResults.$inferSelect;
 
+// Books metadata for Book Library
+export const books = pgTable("books", {
+  id: integer("id").primaryKey(), // Gutendex book ID
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  author: text("author").notNull(),
+  language: text("language").notNull().default("en"),
+  topic: text("topic").notNull(),
+  difficulty: text("difficulty").notNull(), // easy, medium, hard (dominant difficulty)
+  totalParagraphs: integer("total_paragraphs").notNull(),
+  totalChapters: integer("total_chapters").notNull().default(1),
+  coverImageUrl: text("cover_image_url"),
+  description: text("description"),
+  estimatedDurationMap: jsonb("estimated_duration_map"), // JSON object: {30: count, 60: count, 90: count, 120: count}
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  slugIdx: index("book_slug_idx").on(table.slug),
+  topicIdx: index("book_meta_topic_idx").on(table.topic),
+  difficultyIdx: index("book_meta_difficulty_idx").on(table.difficulty),
+  languageIdx: index("book_meta_language_idx").on(table.language),
+}));
+
 // Book Paragraphs for Book Typing Mode
 export const bookParagraphs = pgTable("book_paragraphs", {
   id: serial("id").primaryKey(),
@@ -335,18 +357,60 @@ export const bookParagraphs = pgTable("book_paragraphs", {
   durationMode: integer("duration_mode").notNull(), // estimated seconds to type
   lengthWords: integer("length_words").notNull(),
   source: text("source").notNull(), // "Title by Author"
-  bookId: integer("book_id").notNull(), // Gutendex book ID
-  paragraphIndex: integer("paragraph_index").notNull(), // position in book
+  bookId: integer("book_id").notNull().references(() => books.id, { onDelete: "cascade" }), // FK to books table
+  paragraphIndex: integer("paragraph_index").notNull(), // position in book (0-indexed)
+  chapter: integer("chapter"), // chapter number (1-indexed, null for unchapterized books)
+  sectionIndex: integer("section_index"), // section within chapter (0-indexed)
+  chapterTitle: text("chapter_title"), // optional chapter heading text
   language: text("language").notNull().default("en"),
   metadata: text("metadata"), // JSON string for additional info
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   topicDifficultyDurationIdx: index("book_topic_difficulty_duration_idx").on(table.topic, table.difficulty, table.durationMode),
   bookIdParagraphIdx: index("book_id_paragraph_idx").on(table.bookId, table.paragraphIndex),
+  bookIdChapterIdx: index("book_id_chapter_idx").on(table.bookId, table.chapter),
   difficultyIdx: index("book_difficulty_idx").on(table.difficulty),
   topicIdx: index("book_topic_idx").on(table.topic),
   durationIdx: index("book_duration_idx").on(table.durationMode),
 }));
+
+// User book progress tracking
+export const userBookProgress = pgTable("user_book_progress", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  bookId: integer("book_id").notNull().references(() => books.id, { onDelete: "cascade" }),
+  lastParagraphIndex: integer("last_paragraph_index").notNull().default(0),
+  completedParagraphs: jsonb("completed_paragraphs").default([]), // array of paragraph indices
+  wordsTyped: integer("words_typed").notNull().default(0),
+  totalTests: integer("total_tests").notNull().default(0),
+  averageWpm: real("average_wpm").default(0),
+  averageAccuracy: real("average_accuracy").default(100),
+  isCompleted: boolean("is_completed").notNull().default(false),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("user_book_progress_user_id_idx").on(table.userId),
+  bookIdIdx: index("user_book_progress_book_id_idx").on(table.bookId),
+  userBookIdx: index("user_book_progress_user_book_idx").on(table.userId, table.bookId),
+}));
+
+export const insertBookSchema = createInsertSchema(books, {
+  id: z.number().int().positive(),
+  slug: z.string().min(1),
+  title: z.string().min(1),
+  author: z.string().min(1),
+  language: z.string().length(2),
+  topic: z.string().min(1),
+  difficulty: z.enum(["easy", "medium", "hard"]),
+  totalParagraphs: z.number().int().positive(),
+  totalChapters: z.number().int().positive(),
+  coverImageUrl: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  estimatedDurationMap: z.any().nullable().optional(),
+}).omit({ createdAt: true });
+
+export type InsertBook = z.infer<typeof insertBookSchema>;
+export type Book = typeof books.$inferSelect;
 
 export const insertBookParagraphSchema = createInsertSchema(bookParagraphs, {
   text: z.string().min(50),
@@ -357,12 +421,29 @@ export const insertBookParagraphSchema = createInsertSchema(bookParagraphs, {
   source: z.string().min(1),
   bookId: z.number().int().positive(),
   paragraphIndex: z.number().int().min(0),
+  chapter: z.number().int().positive().nullable().optional(),
+  sectionIndex: z.number().int().min(0).nullable().optional(),
+  chapterTitle: z.string().nullable().optional(),
   language: z.string().length(2),
   metadata: z.string().nullable().optional(),
 }).omit({ id: true, createdAt: true });
 
 export type InsertBookParagraph = z.infer<typeof insertBookParagraphSchema>;
 export type BookParagraph = typeof bookParagraphs.$inferSelect;
+
+export const insertUserBookProgressSchema = createInsertSchema(userBookProgress, {
+  bookId: z.number().int().positive(),
+  lastParagraphIndex: z.number().int().min(0),
+  completedParagraphs: z.any().nullable().optional(),
+  wordsTyped: z.number().int().min(0),
+  totalTests: z.number().int().min(0),
+  averageWpm: z.number().min(0).max(500),
+  averageAccuracy: z.number().min(0).max(100),
+  isCompleted: z.boolean(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export type InsertUserBookProgress = z.infer<typeof insertUserBookProgressSchema>;
+export type UserBookProgress = typeof userBookProgress.$inferSelect;
 
 // Book Typing Test Results
 export const bookTypingTests = pgTable("book_typing_tests", {
