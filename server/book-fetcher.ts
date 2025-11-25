@@ -1,4 +1,5 @@
 // Book Fetcher Service for downloading and processing public-domain books from Gutendex API
+import type { InsertBook } from '@shared/schema';
 
 export interface GutendexBook {
   id: number;
@@ -7,6 +8,12 @@ export interface GutendexBook {
   subjects: string[];
   bookshelves: string[];
   formats: Record<string, string>;
+}
+
+export interface ChapterInfo {
+  chapterNumber: number;
+  startIndex: number;
+  title?: string;
 }
 
 export interface ProcessedParagraph {
@@ -19,6 +26,9 @@ export interface ProcessedParagraph {
   bookId: number;
   paragraphIndex: number;
   language: string;
+  chapter?: number;
+  sectionIndex?: number;
+  chapterTitle?: string;
 }
 
 interface GutendexResponse {
@@ -458,6 +468,310 @@ export function extractTopic(subjects: string[], bookshelves: string[]): string 
 }
 
 /**
+ * Generate URL-safe slug from title
+ * @param title The book title
+ * @returns URL-safe slug
+ */
+export function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/['']/g, '') // Remove apostrophes
+    .replace(/[&]/g, 'and') // Replace ampersands with 'and'
+    .replace(/[:;,]/g, '') // Remove colons, semicolons, commas
+    .replace(/[^a-z0-9\s-]/g, '') // Remove other special characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+}
+
+/**
+ * Detect chapters in book text
+ * Scans for common chapter markers and extracts chapter information
+ * @param text The cleaned book text
+ * @returns Array of ChapterInfo objects
+ */
+export function detectChapters(text: string): ChapterInfo[] {
+  const chapters: ChapterInfo[] = [];
+  const lines = text.split('\n');
+  
+  // Roman numeral mapping for chapter detection
+  const romanNumerals = [
+    'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
+    'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX',
+    'XXI', 'XXII', 'XXIII', 'XXIV', 'XXV', 'XXVI', 'XXVII', 'XXVIII', 'XXIX', 'XXX',
+    'XXXI', 'XXXII', 'XXXIII', 'XXXIV', 'XXXV', 'XXXVI', 'XXXVII', 'XXXVIII', 'XXXIX', 'XL',
+    'XLI', 'XLII', 'XLIII', 'XLIV', 'XLV', 'XLVI', 'XLVII', 'XLVIII', 'XLIX', 'L'
+  ];
+  
+  const wordNumbers = [
+    'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN',
+    'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 
+    'EIGHTEEN', 'NINETEEN', 'TWENTY'
+  ];
+  
+  // Ordinal word numbers (for "CHAPTER THE FIRST" style)
+  const ordinalNumbers = [
+    'FIRST', 'SECOND', 'THIRD', 'FOURTH', 'FIFTH', 'SIXTH', 'SEVENTH', 'EIGHTH', 'NINTH', 'TENTH',
+    'ELEVENTH', 'TWELFTH', 'THIRTEENTH', 'FOURTEENTH', 'FIFTEENTH', 'SIXTEENTH', 'SEVENTEENTH',
+    'EIGHTEENTH', 'NINETEENTH', 'TWENTIETH'
+  ];
+  
+  // Special section types that should be treated as chapters
+  const specialSections = ['PROLOGUE', 'EPILOGUE', 'PREFACE', 'INTRODUCTION', 'FOREWORD', 'AFTERWORD'];
+  
+  // Division types (BOOK, PART, VOLUME, etc.)
+  const divisionTypes = ['BOOK', 'PART', 'VOLUME', 'SECTION'];
+  
+  // Chapter keyword variants
+  const chapterKeywords = ['CHAPTER', 'CHAP', 'CHAP.', 'ADVENTURE', 'CANTO'];
+  
+  let currentPosition = 0;
+  let specialSectionCounter = 0; // Counter for special sections like PROLOGUE
+  
+  for (let i = 0; i < lines.length; i++) {
+    const originalLine = lines[i]; // Keep original line with whitespace
+    const line = originalLine.trim();
+    const upperLine = line.toUpperCase();
+    
+    // Skip empty lines - use original line length for position tracking
+    if (line.length === 0) {
+      currentPosition += originalLine.length + 1; // +1 for newline
+      continue;
+    }
+    
+    let chapterNumber: number | null = null;
+    let title: string | undefined = undefined;
+    
+    // Pattern 1: Check for special sections (PROLOGUE, EPILOGUE, etc.)
+    for (const section of specialSections) {
+      if (upperLine === section || upperLine.startsWith(section + ' ') || 
+          upperLine.startsWith(section + ':') || upperLine.startsWith(section + '.')) {
+        const prevLineEmpty = i === 0 || lines[i - 1].trim().length === 0;
+        const nextLineEmpty = i === lines.length - 1 || lines[i + 1].trim().length === 0;
+        
+        if (prevLineEmpty || nextLineEmpty) {
+          specialSectionCounter++;
+          chapterNumber = specialSectionCounter;
+          title = section;
+          // Extract additional title if present
+          const match = line.match(new RegExp(`^${section}[\\s.:—-]+(.+)`, 'i'));
+          if (match && match[1].trim()) {
+            title = `${section}: ${match[1].trim()}`;
+          }
+          break;
+        }
+      }
+    }
+    
+    // Pattern 2: Division types (BOOK, PART, VOLUME)
+    if (chapterNumber === null) {
+      for (const division of divisionTypes) {
+        if (upperLine.startsWith(division)) {
+          const afterDivision = line.substring(division.length).trim();
+          
+          // Try to match "THE FIRST/SECOND/etc" pattern
+          const ordinalThePattern = new RegExp(`^THE\\s+(${ordinalNumbers.join('|')})`, 'i');
+          const ordinalTheMatch = afterDivision.toUpperCase().match(ordinalThePattern);
+          if (ordinalTheMatch) {
+            const ordinalIndex = ordinalNumbers.indexOf(ordinalTheMatch[1]);
+            if (ordinalIndex >= 0) {
+              chapterNumber = ordinalIndex + 1;
+              // Extract title after ordinal
+              const titleMatch = afterDivision.match(new RegExp(`^THE\\s+${ordinalNumbers[ordinalIndex]}[\\s.:—-]+(.+)`, 'i'));
+              if (titleMatch && titleMatch[1].trim()) {
+                title = titleMatch[1].trim();
+              } else {
+                title = `${division} THE ${ordinalNumbers[ordinalIndex]}`;
+              }
+              break;
+            }
+          }
+          
+          // Try to match Roman numeral
+          for (let j = 0; j < romanNumerals.length; j++) {
+            const roman = romanNumerals[j];
+            const romanPattern = new RegExp(`^${roman}[\\s.:—-]`, 'i');
+            if (romanPattern.test(afterDivision.toUpperCase())) {
+              chapterNumber = j + 1;
+              const titleMatch = afterDivision.match(new RegExp(`^${roman}[\\s.:—-]+(.+)`, 'i'));
+              if (titleMatch && titleMatch[1].trim()) {
+                title = titleMatch[1].trim();
+              }
+              break;
+            }
+          }
+          
+          if (chapterNumber !== null) break;
+          
+          // Try to match Arabic numeral
+          const arabicMatch = afterDivision.match(/^(\d+)[.\s:—-]*(.*)/);
+          if (arabicMatch) {
+            chapterNumber = parseInt(arabicMatch[1], 10);
+            if (arabicMatch[2].trim()) {
+              title = arabicMatch[2].trim();
+            }
+            break;
+          }
+          
+          // Try to match word number
+          for (let j = 0; j < wordNumbers.length; j++) {
+            const wordNum = wordNumbers[j];
+            const wordPattern = new RegExp(`^${wordNum}[\\s.:—-]`, 'i');
+            if (wordPattern.test(afterDivision.toUpperCase())) {
+              chapterNumber = j + 1;
+              const titleMatch = afterDivision.match(new RegExp(`^${wordNum}[\\s.:—-]+(.+)`, 'i'));
+              if (titleMatch && titleMatch[1].trim()) {
+                title = titleMatch[1].trim();
+              }
+              break;
+            }
+          }
+          
+          if (chapterNumber !== null) break;
+        }
+      }
+    }
+    
+    // Pattern 3: Chapter keywords (CHAPTER, CHAP., ADVENTURE, CANTO)
+    if (chapterNumber === null) {
+      for (const keyword of chapterKeywords) {
+        if (upperLine.startsWith(keyword)) {
+          const afterKeyword = line.substring(keyword.length).trim();
+          
+          // Try to match "THE FIRST/SECOND/etc" pattern
+          const ordinalThePattern = new RegExp(`^THE\\s+(${ordinalNumbers.join('|')})`, 'i');
+          const ordinalTheMatch = afterKeyword.toUpperCase().match(ordinalThePattern);
+          if (ordinalTheMatch) {
+            const ordinalIndex = ordinalNumbers.indexOf(ordinalTheMatch[1]);
+            if (ordinalIndex >= 0) {
+              chapterNumber = ordinalIndex + 1;
+              // Extract title after ordinal
+              const titleMatch = afterKeyword.match(new RegExp(`^THE\\s+${ordinalNumbers[ordinalIndex]}[\\s.:—-]+(.+)`, 'i'));
+              if (titleMatch && titleMatch[1].trim()) {
+                title = titleMatch[1].trim();
+              }
+              break;
+            }
+          }
+          
+          // Try to match Roman numeral
+          for (let j = 0; j < romanNumerals.length; j++) {
+            const roman = romanNumerals[j];
+            const romanPattern = new RegExp(`^${roman}[\\s.:—-]`, 'i');
+            if (romanPattern.test(afterKeyword.toUpperCase())) {
+              chapterNumber = j + 1;
+              const titleMatch = afterKeyword.match(new RegExp(`^${roman}[\\s.:—-]+(.+)`, 'i'));
+              if (titleMatch && titleMatch[1].trim()) {
+                title = titleMatch[1].trim();
+              }
+              break;
+            }
+          }
+          
+          if (chapterNumber !== null) break;
+          
+          // Try to match Arabic numeral
+          const arabicMatch = afterKeyword.match(/^(\d+)[.\s:—-]*(.*)/);
+          if (arabicMatch) {
+            chapterNumber = parseInt(arabicMatch[1], 10);
+            if (arabicMatch[2].trim()) {
+              title = arabicMatch[2].trim();
+            }
+            break;
+          }
+          
+          // Try to match word number
+          for (let j = 0; j < wordNumbers.length; j++) {
+            const wordNum = wordNumbers[j];
+            const wordPattern = new RegExp(`^${wordNum}[\\s.:—-]`, 'i');
+            if (wordPattern.test(afterKeyword.toUpperCase())) {
+              chapterNumber = j + 1;
+              const titleMatch = afterKeyword.match(new RegExp(`^${wordNum}[\\s.:—-]+(.+)`, 'i'));
+              if (titleMatch && titleMatch[1].trim()) {
+                title = titleMatch[1].trim();
+              }
+              break;
+            }
+          }
+          
+          if (chapterNumber !== null) break;
+        }
+      }
+    }
+    
+    // Pattern 4: Roman numeral at start of line (with optional period/separator)
+    // Examples: "I.", "II. The Journey", "III - The Adventure"
+    if (chapterNumber === null && line.length <= 50) {
+      for (let j = 0; j < romanNumerals.length; j++) {
+        const roman = romanNumerals[j];
+        const romanPattern = new RegExp(`^${roman}[\\s.:—-]`, 'i');
+        if (romanPattern.test(upperLine)) {
+          const prevLineEmpty = i === 0 || lines[i - 1].trim().length === 0;
+          const nextLineEmpty = i === lines.length - 1 || lines[i + 1].trim().length === 0;
+          
+          if (prevLineEmpty || nextLineEmpty) {
+            chapterNumber = j + 1;
+            const titleMatch = line.match(new RegExp(`^${roman}[\\s.:—-]+(.+)`, 'i'));
+            if (titleMatch && titleMatch[1].trim()) {
+              title = titleMatch[1].trim();
+            }
+            break;
+          }
+        }
+      }
+    }
+    
+    // Pattern 5: Arabic numeral at start of line
+    // Examples: "1.", "2. The Beginning", "3 - Adventure"
+    if (chapterNumber === null && line.length <= 50) {
+      const arabicPattern = /^(\d+)[.\s:—-]/;
+      const arabicMatch = line.match(arabicPattern);
+      if (arabicMatch) {
+        const num = parseInt(arabicMatch[1], 10);
+        if (num >= 1 && num <= 100) {
+          const prevLineEmpty = i === 0 || lines[i - 1].trim().length === 0;
+          const nextLineEmpty = i === lines.length - 1 || lines[i + 1].trim().length === 0;
+          
+          if (prevLineEmpty || nextLineEmpty) {
+            chapterNumber = num;
+            const titleMatch = line.match(/^\d+[.\s:—-]+(.+)/);
+            if (titleMatch && titleMatch[1].trim()) {
+              title = titleMatch[1].trim();
+            }
+          }
+        }
+      }
+    }
+    
+    // If we found a chapter, add it to the list
+    if (chapterNumber !== null) {
+      chapters.push({
+        chapterNumber,
+        startIndex: currentPosition,
+        title
+      });
+    }
+    
+    // Use original line length for accurate position tracking
+    currentPosition += originalLine.length + 1; // +1 for newline
+  }
+  
+  // If no chapters detected, return single chapter for entire book
+  if (chapters.length === 0) {
+    return [{
+      chapterNumber: 1,
+      startIndex: 0,
+      title: undefined
+    }];
+  }
+  
+  // Sort chapters by position (in case we detected them out of order)
+  chapters.sort((a, b) => a.startIndex - b.startIndex);
+  
+  return chapters;
+}
+
+/**
  * Process a book into paragraphs with metadata
  * @param book The GutendexBook to process
  * @returns Array of ProcessedParagraph objects
@@ -486,6 +800,11 @@ export async function processBook(book: GutendexBook): Promise<ProcessedParagrap
       return [];
     }
     
+    // Detect chapters in the cleaned text
+    const chapters = detectChapters(cleanedText);
+    
+    console.log(`Book "${book.title}": detected ${chapters.length} chapter(s)`);
+    
     // Split into paragraphs
     const paragraphs = splitIntoParagraphs(cleanedText);
     
@@ -497,6 +816,24 @@ export async function processBook(book: GutendexBook): Promise<ProcessedParagrap
     // Format source
     const authorNames = book.authors.map(a => a.name).join(', ');
     const source = `${book.title} by ${authorNames || 'Unknown'}`;
+    
+    // Helper function to find which chapter a paragraph belongs to
+    const findChapterForPosition = (position: number): ChapterInfo => {
+      // Find the last chapter that starts before or at this position
+      for (let i = chapters.length - 1; i >= 0; i--) {
+        if (chapters[i].startIndex <= position) {
+          return chapters[i];
+        }
+      }
+      // Fallback to first chapter
+      return chapters[0];
+    };
+    
+    // Helper function to count paragraphs in a chapter
+    const chapterParagraphCounts = new Map<number, number>();
+    
+    // Track current position in the text
+    let currentTextPosition = 0;
     
     // Process each paragraph
     const processedParagraphs: ProcessedParagraph[] = paragraphs.map((text, index) => {
@@ -518,6 +855,18 @@ export async function processBook(book: GutendexBook): Promise<ProcessedParagrap
         durationMode = 120;
       }
       
+      // Find the position of this paragraph in the original text
+      const paragraphPosition = cleanedText.indexOf(text, currentTextPosition);
+      currentTextPosition = paragraphPosition >= 0 ? paragraphPosition + text.length : currentTextPosition;
+      
+      // Determine which chapter this paragraph belongs to
+      const chapter = findChapterForPosition(paragraphPosition >= 0 ? paragraphPosition : currentTextPosition);
+      
+      // Calculate section index within the chapter
+      const currentCount = chapterParagraphCounts.get(chapter.chapterNumber) || 0;
+      chapterParagraphCounts.set(chapter.chapterNumber, currentCount + 1);
+      const sectionIndex = currentCount;
+      
       return {
         text,
         difficulty,
@@ -528,6 +877,9 @@ export async function processBook(book: GutendexBook): Promise<ProcessedParagrap
         bookId: book.id,
         paragraphIndex: index,
         language: 'en',
+        chapter: chapter.chapterNumber,
+        sectionIndex,
+        chapterTitle: chapter.title
       };
     });
     
@@ -536,4 +888,94 @@ export async function processBook(book: GutendexBook): Promise<ProcessedParagrap
     console.error(`Error processing book "${book.title}":`, error);
     return [];
   }
+}
+
+/**
+ * Extract book metadata from GutendexBook and processed paragraphs
+ * @param book The GutendexBook object
+ * @param paragraphs Array of ProcessedParagraph objects
+ * @returns InsertBook object ready for database insertion
+ * @throws Error if paragraphs array is empty
+ */
+export function getBookMetadata(book: GutendexBook, paragraphs: ProcessedParagraph[]): InsertBook {
+  // Validate that paragraphs array is not empty
+  if (!paragraphs || paragraphs.length === 0) {
+    throw new Error(`Cannot generate metadata for book "${book.title}": No paragraphs were extracted from the book text`);
+  }
+  
+  // Generate slug from title
+  const slug = generateSlug(book.title);
+  
+  // Format author names
+  const authorNames = book.authors.map(a => a.name).join(', ');
+  const author = authorNames || 'Unknown';
+  
+  // Extract topic (use first paragraph's topic, they should all be the same)
+  const topic = paragraphs[0].topic;
+  
+  // Calculate difficulty distribution
+  const difficultyCount = {
+    easy: 0,
+    medium: 0,
+    hard: 0
+  };
+  
+  paragraphs.forEach(p => {
+    difficultyCount[p.difficulty]++;
+  });
+  
+  // Find dominant difficulty (most common)
+  let dominantDifficulty: 'easy' | 'medium' | 'hard' = 'medium';
+  let maxCount = 0;
+  
+  for (const [diff, count] of Object.entries(difficultyCount)) {
+    if (count > maxCount) {
+      maxCount = count;
+      dominantDifficulty = diff as 'easy' | 'medium' | 'hard';
+    }
+  }
+  
+  // Calculate estimated duration map
+  const durationMap: Record<number, number> = {
+    30: 0,
+    60: 0,
+    90: 0,
+    120: 0
+  };
+  
+  paragraphs.forEach(p => {
+    if (p.durationMode in durationMap) {
+      durationMap[p.durationMode]++;
+    }
+  });
+  
+  // Count unique chapters
+  const uniqueChapters = new Set<number>();
+  paragraphs.forEach(p => {
+    if (p.chapter !== undefined) {
+      uniqueChapters.add(p.chapter);
+    }
+  });
+  const totalChapters = uniqueChapters.size > 0 ? uniqueChapters.size : 1;
+  
+  // Get cover image URL (try image/jpeg format)
+  const coverImageUrl = book.formats['image/jpeg'] || null;
+  
+  // Create description from subjects (take first 3)
+  const description = book.subjects.slice(0, 3).join(', ') || null;
+  
+  return {
+    id: book.id,
+    slug,
+    title: book.title,
+    author,
+    language: 'en',
+    topic,
+    difficulty: dominantDifficulty,
+    totalParagraphs: paragraphs.length,
+    totalChapters,
+    coverImageUrl,
+    description,
+    estimatedDurationMap: durationMap
+  };
 }
