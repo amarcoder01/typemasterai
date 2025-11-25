@@ -345,6 +345,8 @@ export default function StressTest() {
         if (newCombo > maxCombo) setMaxCombo(newCombo);
         if (newCombo % 10 === 0 && newCombo > 0) {
           playSound('combo');
+          setComboExplosion(true);
+          setTimeout(() => setComboExplosion(false), 500);
         }
         return newCombo;
       });
@@ -537,6 +539,25 @@ export default function StressTest() {
         setTimeout(() => setTextPosition({ x: 0, y: 0 }), 300);
       }
       
+      // Screen invert (Intermediate+)
+      if (config.effects.screenInvert && Math.random() > 0.7) {
+        setScreenInverted((prev) => !prev);
+        setTimeout(() => setScreenInverted(false), 800 + Math.random() * 1200);
+      }
+      
+      // Zoom chaos (Intermediate+)
+      if (config.effects.zoomChaos && Math.random() > 0.75) {
+        const zoomRange = 0.5 + (stressLevel / 100);
+        setZoomScale(0.6 + Math.random() * zoomRange);
+        setTimeout(() => setZoomScale(1), 600 + Math.random() * 800);
+      }
+      
+      // Screen flip upside down (Expert+)
+      if (config.effects.screenFlip && Math.random() > 0.85) {
+        setScreenFlipped(true);
+        setTimeout(() => setScreenFlipped(false), 1000 + Math.random() * 2000);
+      }
+      
     }, 200); // Effects update faster for more chaos
     
     return () => clearInterval(effectsInterval);
@@ -555,6 +576,25 @@ export default function StressTest() {
     return () => clearInterval(shakeInterval);
   }, [isStarted, config, stressLevel]);
 
+  // ESC key to quit test early
+  useEffect(() => {
+    if (!isStarted || isFinished) return;
+    
+    const handleEscapeKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        finishTest(false);
+        toast({
+          title: "Test Aborted",
+          description: "You quit the test early. No score saved.",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    window.addEventListener('keydown', handleEscapeKey);
+    return () => window.removeEventListener('keydown', handleEscapeKey);
+  }, [isStarted, isFinished]);
+
   const handleReset = () => {
     setSelectedDifficulty(null);
     setIsStarted(false);
@@ -572,6 +612,10 @@ export default function StressTest() {
     setTextOpacity(1);
     setTextReversed(false);
     setTextPosition({ x: 0, y: 0 });
+    setScreenInverted(false);
+    setZoomScale(1);
+    setScreenFlipped(false);
+    setComboExplosion(false);
     setStressLevel(0);
   };
 
@@ -579,11 +623,17 @@ export default function StressTest() {
   if (!selectedDifficulty || (!isStarted && !isFinished)) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
+        <div className="mb-8 flex items-center justify-between">
           <Link href="/">
             <Button variant="ghost" size="sm" className="gap-2" data-testid="button-back">
               <ArrowLeft className="w-4 h-4" />
               Back
+            </Button>
+          </Link>
+          <Link href="/stress-leaderboard">
+            <Button variant="outline" size="sm" className="gap-2" data-testid="button-leaderboard">
+              <Trophy className="w-4 h-4" />
+              Leaderboard
             </Button>
           </Link>
         </div>
@@ -765,8 +815,8 @@ export default function StressTest() {
         backgroundFlash ? 'bg-red-500/30' : 'bg-background'
       }`}
       style={{
-        transform: `translate(${Math.sin(Date.now() / 100) * shakeIntensity}px, ${Math.cos(Date.now() / 80) * shakeIntensity}px) rotate(${rotation}deg)`,
-        filter: glitchActive ? 'hue-rotate(180deg) saturate(3)' : 'none',
+        transform: `translate(${Math.sin(Date.now() / 100) * shakeIntensity}px, ${Math.cos(Date.now() / 80) * shakeIntensity}px) rotate(${rotation}deg) scale(${zoomScale}) ${screenFlipped ? 'rotateX(180deg)' : ''}`,
+        filter: `${glitchActive ? 'hue-rotate(180deg) saturate(3)' : ''} ${screenInverted ? 'invert(1) hue-rotate(180deg)' : ''}`,
       }}
     >
       {/* Floating particles */}
@@ -791,8 +841,11 @@ export default function StressTest() {
             <div className="text-2xl font-mono font-bold" style={{ color: currentColor }}>
               {timeLeft}s
             </div>
-            <div className="text-sm text-muted-foreground">
+            <div className={`text-sm text-muted-foreground transition-all ${
+              comboExplosion ? 'scale-150 text-yellow-500' : ''
+            }`}>
               Combo: <span className="text-primary font-bold">{combo}</span>
+              {comboExplosion && <span className="ml-1 animate-ping">🔥</span>}
             </div>
             <div className="text-sm text-muted-foreground">
               Errors: <span className="text-destructive font-bold">{errors}</span>
