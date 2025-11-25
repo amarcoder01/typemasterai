@@ -309,17 +309,33 @@ export default function ChapterTyping() {
     );
   }
 
-  const highlightedText = chapterText.split("").map((char, index) => {
-    let className = "text-muted-foreground";
-    if (index < userInput.length) {
-      className = userInput[index] === char ? "text-green-500" : "text-red-500 bg-red-500/20";
+  // Performance-optimized rendering: split text into 3 parts instead of per-character spans
+  const typedText = chapterText.slice(0, userInput.length);
+  const remainingText = chapterText.slice(userInput.length);
+  
+  // Calculate correct/incorrect characters
+  let correctPart = "";
+  let incorrectPart = "";
+  for (let i = 0; i < userInput.length; i++) {
+    if (userInput[i] === chapterText[i]) {
+      if (incorrectPart) {
+        break; // Stop at first error for visual consistency
+      }
+      correctPart += chapterText[i];
+    } else {
+      if (!incorrectPart) {
+        incorrectPart = chapterText.slice(correctPart.length, userInput.length);
+      }
     }
-    return (
-      <span key={index} className={className}>
-        {char}
-      </span>
-    );
-  });
+  }
+  
+  const highlightedText = (
+    <>
+      {correctPart && <span className="text-green-500">{correctPart}</span>}
+      {incorrectPart && <span className="text-red-500 bg-red-500/20">{incorrectPart}</span>}
+      {remainingText && <span className="text-muted-foreground">{remainingText}</span>}
+    </>
+  );
 
   const chapterTitle = paragraphs[0]?.chapterTitle || `Chapter ${chapterNum}`;
 
