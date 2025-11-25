@@ -1328,6 +1328,18 @@ export class DatabaseStorage implements IStorage {
     avatarColor: string | null;
     createdAt: Date;
   }>> {
+    // Get best score and most recent date per user per difficulty to handle ties
+    const bestScoresSubquery = db
+      .select({
+        userId: stressTests.userId,
+        difficulty: stressTests.difficulty,
+        maxScore: sql<number>`MAX(${stressTests.stressScore})`.as('max_score'),
+        latestDate: sql<Date>`MAX(${stressTests.createdAt})`.as('latest_date'),
+      })
+      .from(stressTests)
+      .groupBy(stressTests.userId, stressTests.difficulty)
+      .as('best_scores');
+
     let query = db
       .select({
         userId: stressTests.userId,
@@ -1341,7 +1353,16 @@ export class DatabaseStorage implements IStorage {
         createdAt: stressTests.createdAt,
       })
       .from(stressTests)
-      .innerJoin(users, eq(stressTests.userId, users.id));
+      .innerJoin(users, eq(stressTests.userId, users.id))
+      .innerJoin(
+        bestScoresSubquery,
+        and(
+          eq(stressTests.userId, bestScoresSubquery.userId),
+          eq(stressTests.difficulty, bestScoresSubquery.difficulty),
+          eq(stressTests.stressScore, bestScoresSubquery.maxScore),
+          eq(stressTests.createdAt, bestScoresSubquery.latestDate)
+        )
+      );
 
     if (difficulty) {
       query = query.where(eq(stressTests.difficulty, difficulty)) as any;
@@ -1369,9 +1390,10 @@ export class DatabaseStorage implements IStorage {
     if (tests.length === 0) return null;
 
     const completedTests = tests.filter(t => t.completionRate >= 100).length;
-    const difficultiesCompleted = [...new Set(
+    const difficultiesSet = new Set(
       tests.filter(t => t.completionRate >= 100).map(t => t.difficulty)
-    )];
+    );
+    const difficultiesCompleted = Array.from(difficultiesSet);
 
     return {
       totalTests: tests.length,

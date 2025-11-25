@@ -183,7 +183,7 @@ export default function StressTest() {
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
   const [isStarted, setIsStarted] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
-  const [countdown, setCountdown] = useState(3);
+  const [countdown, setCountdown] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [typedText, setTypedText] = useState('');
   const [currentText, setCurrentText] = useState('');
