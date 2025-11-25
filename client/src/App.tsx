@@ -21,6 +21,7 @@ import Multiplayer from "@/pages/multiplayer";
 import Race from "@/pages/race";
 import CodeMode from "@/pages/code-mode";
 import CodeLeaderboard from "@/pages/code-leaderboard";
+import SharedResult from "@/pages/shared-result";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import TermsOfService from "@/pages/terms-of-service";
 import CookiePolicy from "@/pages/cookie-policy";
@@ -32,6 +33,7 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/share/:shareId" component={SharedResult} />
       <Route>
         <Layout>
           <Switch>

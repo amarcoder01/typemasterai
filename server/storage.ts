@@ -12,6 +12,7 @@ import {
   raceParticipants,
   codeSnippets,
   codeTypingTests,
+  sharedCodeResults,
   type User,
   type InsertUser,
   type TestResult,
@@ -32,6 +33,8 @@ import {
   type InsertCodeSnippet,
   type CodeTypingTest,
   type InsertCodeTypingTest,
+  type SharedCodeResult,
+  type InsertSharedCodeResult,
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -155,6 +158,8 @@ export interface IStorage {
     avatarColor: string | null;
     totalTests: number;
   }>>;
+  createSharedCodeResult(result: InsertSharedCodeResult): Promise<SharedCodeResult>;
+  getSharedCodeResult(shareId: string): Promise<SharedCodeResult | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -933,6 +938,20 @@ export class DatabaseStorage implements IStorage {
     `);
 
     return leaderboard.rows as any[];
+  }
+
+  async createSharedCodeResult(result: InsertSharedCodeResult): Promise<SharedCodeResult> {
+    const inserted = await db.insert(sharedCodeResults).values(result).returning();
+    return inserted[0];
+  }
+
+  async getSharedCodeResult(shareId: string): Promise<SharedCodeResult | undefined> {
+    const result = await db
+      .select()
+      .from(sharedCodeResults)
+      .where(eq(sharedCodeResults.shareId, shareId))
+      .limit(1);
+    return result[0];
   }
 }
 

@@ -285,3 +285,43 @@ export const insertCodeTypingTestSchema = createInsertSchema(codeTypingTests, {
 
 export type InsertCodeTypingTest = z.infer<typeof insertCodeTypingTestSchema>;
 export type CodeTypingTest = typeof codeTypingTests.$inferSelect;
+
+// Shared Code Typing Results
+export const sharedCodeResults = pgTable("shared_code_results", {
+  id: serial("id").primaryKey(),
+  shareId: varchar("share_id", { length: 10 }).notNull().unique(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  username: text("username").notNull(),
+  programmingLanguage: text("programming_language").notNull(),
+  framework: text("framework"),
+  difficulty: text("difficulty").notNull(),
+  testMode: text("test_mode").notNull(), // normal, expert, master
+  wpm: integer("wpm").notNull(),
+  accuracy: real("accuracy").notNull(),
+  errors: integer("errors").notNull(),
+  syntaxErrors: integer("syntax_errors").notNull().default(0),
+  duration: integer("duration").notNull(), // in seconds
+  codeContent: text("code_content").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  shareIdIdx: index("shared_code_share_id_idx").on(table.shareId),
+  createdAtIdx: index("shared_code_created_at_idx").on(table.createdAt),
+}));
+
+export const insertSharedCodeResultSchema = createInsertSchema(sharedCodeResults, {
+  shareId: z.string().length(10),
+  username: z.string().min(1).max(30),
+  programmingLanguage: z.string().min(1),
+  framework: z.string().nullable(),
+  difficulty: z.enum(["easy", "medium", "hard"]),
+  testMode: z.enum(["normal", "expert", "master"]),
+  wpm: z.number().int().min(0).max(500),
+  accuracy: z.number().min(0).max(100),
+  errors: z.number().int().min(0),
+  syntaxErrors: z.number().int().min(0),
+  duration: z.number().int().positive(),
+  codeContent: z.string().min(10),
+}).omit({ id: true, createdAt: true });
+
+export type InsertSharedCodeResult = z.infer<typeof insertSharedCodeResultSchema>;
+export type SharedCodeResult = typeof sharedCodeResults.$inferSelect;

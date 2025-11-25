@@ -9,7 +9,7 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
-import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, insertCodeTypingTestSchema, type User } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, insertCodeTypingTestSchema, insertSharedCodeResultSchema, type User } from "@shared/schema";
 import { fromError } from "zod-validation-error";
 import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "@neondatabase/serverless";
@@ -1208,6 +1208,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Get code leaderboard error:", error);
       res.status(500).json({ message: "Failed to fetch code leaderboard" });
+    }
+  });
+
+  app.post("/api/code/share", isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as any;
+      
+      const sanitizedCodeContent = DOMPurify.sanitize(req.body.codeContent, {
+        ALLOWED_TAGS: [],
+        ALLOWED_ATTR: [],
+      });
+
+      let sharedResult;
+      let attempts = 0;
+      const maxAttempts = 5;
+
+      while (attempts < maxAttempts) {
+        try {
+          const shareId = Math.random().toString(36).substring(2, 12).toUpperCase();
+          
+          const dataToValidate = {
+            shareId,
+            userId: user.id,
+            username: user.username,
+            programmingLanguage: req.body.programmingLanguage,
+            framework: req.body.framework,
+            difficulty: req.body.difficulty,
+            testMode: req.body.testMode,
+            wpm: req.body.wpm,
+            accuracy: req.body.accuracy,
+            errors: req.body.errors,
+            syntaxErrors: req.body.syntaxErrors,
+            duration: req.body.duration,
+            codeContent: sanitizedCodeContent,
+          };
+
+          const validationResult = insertSharedCodeResultSchema.safeParse(dataToValidate);
+
+          if (!validationResult.success) {
+            const validationError = fromError(validationResult.error);
+            return res.status(400).json({ 
+              message: "Validation error", 
+              error: validationError.toString() 
+            });
+          }
+          
+          sharedResult = await storage.createSharedCodeResult(validationResult.data);
+          
+          break;
+        } catch (err: any) {
+          if (err.code === '23505' && err.constraint === 'shared_code_results_share_id_unique') {
+            attempts++;
+            if (attempts >= maxAttempts) {
+              throw new Error("Failed to generate unique share ID");
+            }
+            continue;
+          }
+          throw err;
+        }
+      }
+      
+      res.json(sharedResult);
+    } catch (error: any) {
+      console.error("Share code result error:", error);
+      res.status(500).json({ message: error.message || "Failed to share result" });
+    }
+  });
+
+  app.get("/api/code/share/:shareId", async (req, res) => {
+    try {
+      const { shareId } = req.params;
+      const sharedResult = await storage.getSharedCodeResult(shareId);
+      
+      if (!sharedResult) {
+        return res.status(404).json({ message: "Shared result not found" });
+      }
+      
+      res.json(sharedResult);
+    } catch (error: any) {
+      console.error("Get shared result error:", error);
+      res.status(500).json({ message: "Failed to fetch shared result" });
     }
   });
 

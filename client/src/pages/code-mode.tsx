@@ -6,7 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Code, Trophy, Zap, Target, RotateCcw, Check } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Code, Trophy, Zap, Target, RotateCcw, Check, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle } from "lucide-react";
 import confetti from "canvas-confetti";
 
 const PROGRAMMING_LANGUAGES = {
@@ -147,6 +148,16 @@ export default function CodeMode() {
   const [accuracy, setAccuracy] = useState(100);
   const [errors, setErrors] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [isSharing, setIsSharing] = useState(false);
+  const [completedTestData, setCompletedTestData] = useState<{
+    duration: number;
+    wpm: number;
+    accuracy: number;
+    errors: number;
+    codeContent: string;
+  } | null>(null);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -243,6 +254,91 @@ export default function CodeMode() {
     },
   });
 
+  const handleShare = async () => {
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "Please login to share your results.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!completedTestData) {
+      toast({
+        title: "No Test Data",
+        description: "Complete a test first to share your results.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSharing(true);
+    try {
+      const response = await fetch("/api/code/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          programmingLanguage: language,
+          framework: null,
+          difficulty,
+          testMode,
+          wpm: completedTestData.wpm,
+          accuracy: completedTestData.accuracy,
+          errors: completedTestData.errors,
+          syntaxErrors: 0,
+          duration: completedTestData.duration,
+          codeContent: completedTestData.codeContent,
+        }),
+        credentials: "include",
+      });
+
+      if (!response.ok) throw new Error("Failed to create share");
+      const data = await response.json();
+      
+      const url = `${window.location.origin}/share/${data.shareId}`;
+      setShareUrl(url);
+      setShareDialogOpen(true);
+      
+      toast({
+        title: "Share Created!",
+        description: "Your result is ready to share.",
+      });
+    } catch (error) {
+      console.error("Share error:", error);
+      toast({
+        title: "Share Failed",
+        description: "Could not create share link.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const copyShareLink = () => {
+    navigator.clipboard.writeText(shareUrl);
+    toast({
+      title: "Copied!",
+      description: "Share link copied to clipboard.",
+    });
+  };
+
+  const shareToSocial = (platform: string) => {
+    const text = `I just typed ${wpm} WPM with ${accuracy}% accuracy in ${PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}! Can you beat my score?`;
+    const encodedText = encodeURIComponent(text);
+    const encodedUrl = encodeURIComponent(shareUrl);
+    
+    const urls: Record<string, string> = {
+      twitter: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+      whatsapp: `https://wa.me/?text=${encodedText}%20${encodedUrl}`,
+    };
+    
+    window.open(urls[platform], '_blank', 'width=600,height=400');
+  };
+
   useEffect(() => {
     if (isActive && startTime) {
       const chars = userInput.length;
@@ -264,6 +360,16 @@ export default function CodeMode() {
     setIsActive(false);
     setIsFinished(true);
     
+    const duration = startTime ? Math.round((Date.now() - startTime) / 1000) : 0;
+    
+    setCompletedTestData({
+      duration,
+      wpm,
+      accuracy,
+      errors,
+      codeContent: codeSnippet,
+    });
+    
     confetti({
       particleCount: 100,
       spread: 70,
@@ -272,7 +378,6 @@ export default function CodeMode() {
     });
 
     if (user && startTime) {
-      const duration = Math.round((Date.now() - startTime) / 1000);
       saveCodeTestMutation.mutate({
         codeSnippetId: snippetId,
         programmingLanguage: language,
@@ -333,6 +438,7 @@ export default function CodeMode() {
     setWpm(0);
     setAccuracy(100);
     setErrors(0);
+    setCompletedTestData(null);
     
     if (mode === "ai") {
       fetchCodeSnippet();
@@ -606,7 +712,7 @@ export default function CodeMode() {
         {isFinished && (
           <div className="mt-6 text-center">
             <h3 className="text-2xl font-bold mb-4">Test Complete! 🎉</h3>
-            <div className="flex gap-4 justify-center">
+            <div className="flex gap-4 justify-center flex-wrap">
               <Button onClick={resetTest} data-testid="button-restart-finished">
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Try Again
@@ -615,6 +721,12 @@ export default function CodeMode() {
                 <Trophy className="w-4 h-4 mr-2" />
                 View Leaderboard
               </Button>
+              {user && (
+                <Button variant="outline" onClick={handleShare} disabled={isSharing} data-testid="button-share">
+                  <Share2 className="w-4 h-4 mr-2" />
+                  {isSharing ? "Creating..." : "Share Result"}
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -630,6 +742,66 @@ export default function CodeMode() {
           </p>
         </Card>
       )}
+
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share Your Result 🎉</DialogTitle>
+            <DialogDescription>
+              Share your amazing typing speed with friends!
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="bg-muted p-4 rounded-lg">
+              <div className="text-center mb-3">
+                <div className="text-4xl font-bold text-primary mb-1">{wpm} WPM</div>
+                <div className="text-sm text-muted-foreground">
+                  {accuracy}% accuracy • {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Share Link</label>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={shareUrl} 
+                  readOnly 
+                  className="flex-1 px-3 py-2 bg-background border rounded-md text-sm"
+                  data-testid="input-share-url"
+                />
+                <Button onClick={copyShareLink} variant="outline" data-testid="button-copy-link">
+                  <Copy className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Share on Social Media</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button onClick={() => shareToSocial('twitter')} variant="outline" className="w-full" data-testid="button-share-twitter">
+                  <Twitter className="w-4 h-4 mr-2" />
+                  Twitter
+                </Button>
+                <Button onClick={() => shareToSocial('facebook')} variant="outline" className="w-full" data-testid="button-share-facebook">
+                  <Facebook className="w-4 h-4 mr-2" />
+                  Facebook
+                </Button>
+                <Button onClick={() => shareToSocial('linkedin')} variant="outline" className="w-full" data-testid="button-share-linkedin">
+                  <Linkedin className="w-4 h-4 mr-2" />
+                  LinkedIn
+                </Button>
+                <Button onClick={() => shareToSocial('whatsapp')} variant="outline" className="w-full" data-testid="button-share-whatsapp">
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  WhatsApp
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
