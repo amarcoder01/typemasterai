@@ -22,6 +22,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { href: "/code-mode", icon: Code, label: "Code Mode" },
     { href: "/books", icon: Book, label: "Books" },
     { href: "/dictation-mode", icon: Headphones, label: "Dictation" },
+    { href: "/stress-test", icon: Zap, label: "Stress Test" },
     { href: "/multiplayer", icon: Users, label: "Multiplayer" },
     { href: "/leaderboard", icon: Trophy, label: "Leaderboard" },
     { href: "/analytics", icon: BarChart2, label: "Analytics" },
