@@ -23,6 +23,9 @@ interface StressEffects {
   textFade: boolean;
   reverseText: boolean;
   randomJumps: boolean;
+  screenInvert: boolean;
+  zoomChaos: boolean;
+  screenFlip: boolean;
 }
 
 const DIFFICULTY_CONFIGS: Record<Difficulty, {
@@ -51,6 +54,9 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
       textFade: false,
       reverseText: false,
       randomJumps: false,
+      screenInvert: false,
+      zoomChaos: false,
+      screenFlip: false,
     },
     duration: 30,
     icon: '🔥',
@@ -60,7 +66,7 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   },
   intermediate: {
     name: 'Mind Scrambler',
-    description: 'Intense shake, color shifts, and gravity effects',
+    description: 'Screen inverts, zoom chaos, sensory assault',
     effects: {
       screenShake: true,
       distractions: true,
@@ -74,6 +80,9 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
       textFade: false,
       reverseText: false,
       randomJumps: false,
+      screenInvert: true,
+      zoomChaos: true,
+      screenFlip: false,
     },
     duration: 45,
     icon: '⚡',
@@ -83,7 +92,7 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   },
   expert: {
     name: 'Absolute Mayhem',
-    description: 'Glitches, fading text, and sensory overload',
+    description: 'Screen flips upside down, glitches, complete chaos',
     effects: {
       screenShake: true,
       distractions: true,
@@ -97,6 +106,9 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
       textFade: true,
       reverseText: false,
       randomJumps: false,
+      screenInvert: true,
+      zoomChaos: true,
+      screenFlip: true,
     },
     duration: 60,
     icon: '💀',
@@ -106,7 +118,7 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   },
   nightmare: {
     name: 'Nightmare Realm',
-    description: 'You WILL fail. Text reverses, jumps randomly, complete chaos.',
+    description: 'Text reverses, screen inverts/flips, reality collapses.',
     effects: {
       screenShake: true,
       distractions: true,
@@ -120,6 +132,9 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
       textFade: true,
       reverseText: true,
       randomJumps: false,
+      screenInvert: true,
+      zoomChaos: true,
+      screenFlip: true,
     },
     duration: 90,
     icon: '☠️',
@@ -129,7 +144,7 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   },
   impossible: {
     name: 'IMPOSSIBLE',
-    description: 'No one has ever completed this. Text teleports. Reality breaks.',
+    description: 'Text teleports, ALL effects active, reality ceases to exist.',
     effects: {
       screenShake: true,
       distractions: true,
@@ -143,6 +158,9 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
       textFade: true,
       reverseText: true,
       randomJumps: true,
+      screenInvert: true,
+      zoomChaos: true,
+      screenFlip: true,
     },
     duration: 120,
     icon: '🌀',
@@ -188,6 +206,10 @@ export default function StressTest() {
   const [textPosition, setTextPosition] = useState({ x: 0, y: 0 });
   const [backgroundFlash, setBackgroundFlash] = useState(false);
   const [stressLevel, setStressLevel] = useState(0);
+  const [screenInverted, setScreenInverted] = useState(false);
+  const [zoomScale, setZoomScale] = useState(1);
+  const [screenFlipped, setScreenFlipped] = useState(false);
+  const [comboExplosion, setComboExplosion] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

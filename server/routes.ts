@@ -1558,6 +1558,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/stress-test/leaderboard", async (req, res) => {
+    try {
+      const difficulty = req.query.difficulty as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const leaderboard = await storage.getStressTestLeaderboard(difficulty, limit);
+      res.json({ leaderboard });
+    } catch (error: any) {
+      console.error("Get stress test leaderboard error:", error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  app.get("/api/stress-test/stats", isAuthenticated, async (req, res) => {
+    try {
+      const stats = await storage.getUserStressStats(req.user!.id);
+      res.json({ stats });
+    } catch (error: any) {
+      console.error("Get stress test stats error:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
   // Social Sharing Routes
   app.post("/api/share", async (req, res) => {
     try {

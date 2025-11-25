@@ -220,6 +220,24 @@ export interface IStorage {
   
   createStressTest(test: InsertStressTest): Promise<StressTest>;
   getUserStressTests(userId: string, limit?: number): Promise<StressTest[]>;
+  getStressTestLeaderboard(difficulty?: string, limit?: number): Promise<Array<{
+    userId: string;
+    username: string;
+    difficulty: string;
+    stressScore: number;
+    wpm: number;
+    accuracy: number;
+    completionRate: number;
+    avatarColor: string | null;
+    createdAt: Date;
+  }>>;
+  getUserStressStats(userId: string): Promise<{
+    totalTests: number;
+    bestScore: number;
+    avgScore: number;
+    completedTests: number;
+    difficultiesCompleted: string[];
+  } | null>;
   
   createSharedResult(result: InsertSharedResult): Promise<SharedResult>;
   getSharedResult(shareToken: string): Promise<SharedResult | undefined>;
@@ -1297,6 +1315,71 @@ export class DatabaseStorage implements IStorage {
       .where(eq(stressTests.userId, userId))
       .orderBy(desc(stressTests.createdAt))
       .limit(limit);
+  }
+
+  async getStressTestLeaderboard(difficulty?: string, limit: number = 50): Promise<Array<{
+    userId: string;
+    username: string;
+    difficulty: string;
+    stressScore: number;
+    wpm: number;
+    accuracy: number;
+    completionRate: number;
+    avatarColor: string | null;
+    createdAt: Date;
+  }>> {
+    let query = db
+      .select({
+        userId: stressTests.userId,
+        username: users.username,
+        difficulty: stressTests.difficulty,
+        stressScore: stressTests.stressScore,
+        wpm: stressTests.wpm,
+        accuracy: stressTests.accuracy,
+        completionRate: stressTests.completionRate,
+        avatarColor: users.avatarColor,
+        createdAt: stressTests.createdAt,
+      })
+      .from(stressTests)
+      .innerJoin(users, eq(stressTests.userId, users.id));
+
+    if (difficulty) {
+      query = query.where(eq(stressTests.difficulty, difficulty)) as any;
+    }
+
+    const topScores = await query
+      .orderBy(desc(stressTests.stressScore), desc(stressTests.wpm))
+      .limit(limit);
+
+    return topScores;
+  }
+
+  async getUserStressStats(userId: string): Promise<{
+    totalTests: number;
+    bestScore: number;
+    avgScore: number;
+    completedTests: number;
+    difficultiesCompleted: string[];
+  } | null> {
+    const tests = await db
+      .select()
+      .from(stressTests)
+      .where(eq(stressTests.userId, userId));
+
+    if (tests.length === 0) return null;
+
+    const completedTests = tests.filter(t => t.completionRate >= 100).length;
+    const difficultiesCompleted = [...new Set(
+      tests.filter(t => t.completionRate >= 100).map(t => t.difficulty)
+    )];
+
+    return {
+      totalTests: tests.length,
+      bestScore: Math.max(...tests.map(t => t.stressScore)),
+      avgScore: Math.round(tests.reduce((sum, t) => sum + t.stressScore, 0) / tests.length),
+      completedTests,
+      difficultiesCompleted,
+    };
   }
 
   async createSharedResult(result: InsertSharedResult): Promise<SharedResult> {
