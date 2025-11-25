@@ -1285,6 +1285,20 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async createStressTest(test: InsertStressTest): Promise<StressTest> {
+    const inserted = await db.insert(stressTests).values(test).returning();
+    return inserted[0];
+  }
+
+  async getUserStressTests(userId: string, limit: number = 10): Promise<StressTest[]> {
+    return await db
+      .select()
+      .from(stressTests)
+      .where(eq(stressTests.userId, userId))
+      .orderBy(desc(stressTests.createdAt))
+      .limit(limit);
+  }
+
   async createSharedResult(result: InsertSharedResult): Promise<SharedResult> {
     const inserted = await db.insert(sharedResults).values(result).returning();
     return inserted[0];
