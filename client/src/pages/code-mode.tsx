@@ -359,7 +359,7 @@ export default function CodeMode() {
 
   if (viewMode === "focus") {
     return (
-      <div className="fixed inset-0 bg-background flex items-center justify-center p-8">
+      <div className="fixed inset-0 bg-background flex items-center justify-center p-8 z-[100]">
         {isLoading ? (
           <div className="text-muted-foreground text-lg">Loading code snippet...</div>
         ) : !codeSnippet ? (
