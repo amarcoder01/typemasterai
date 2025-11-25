@@ -1533,6 +1533,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Social Sharing Routes
+  app.post("/api/share", async (req, res) => {
+    try {
+      const { insertSharedResultSchema } = await import("@shared/schema");
+      
+      // Generate unique share token (12 chars)
+      const shareToken = Math.random().toString(36).substring(2, 14);
+      
+      const shareData = {
+        ...req.body,
+        shareToken,
+        userId: req.user?.id || null,
+        username: req.body.isAnonymous ? null : (req.user?.username || req.body.username),
+      };
+
+      const parsed = insertSharedResultSchema.safeParse(shareData);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: fromError(parsed.error).toString(),
+        });
+      }
+
+      const sharedResult = await storage.createSharedResult(parsed.data);
+      res.status(201).json({ 
+        message: "Result shared successfully",
+        shareToken: sharedResult.shareToken,
+        shareUrl: `${req.protocol}://${req.get('host')}/share/${sharedResult.shareToken}`
+      });
+    } catch (error: any) {
+      console.error("Create shared result error:", error);
+      res.status(500).json({ message: "Failed to create shared result" });
+    }
+  });
+
+  app.get("/api/share/:shareToken", async (req, res) => {
+    try {
+      const { shareToken } = req.params;
+      
+      const sharedResult = await storage.getSharedResult(shareToken);
+      if (!sharedResult) {
+        return res.status(404).json({ message: "Shared result not found" });
+      }
+
+      // Increment view count
+      await storage.incrementShareViewCount(shareToken);
+
+      res.json({ result: sharedResult });
+    } catch (error: any) {
+      console.error("Get shared result error:", error);
+      res.status(500).json({ message: "Failed to fetch shared result" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   raceWebSocket.initialize(httpServer);
