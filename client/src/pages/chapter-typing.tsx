@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, Trophy, Zap, Target, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
@@ -56,7 +57,7 @@ export default function ChapterTyping() {
   const [paragraphs, setParagraphs] = useState<BookParagraph[]>([]);
   const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
   
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const correctSpanRef = useRef<HTMLSpanElement>(null);
   const incorrectSpanRef = useRef<HTMLSpanElement>(null);
@@ -253,7 +254,7 @@ export default function ChapterTyping() {
     }
   };
 
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (isComposing) return;
     processInput(e.target.value);
   };
@@ -262,7 +263,7 @@ export default function ChapterTyping() {
     setIsComposing(true);
   };
 
-  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
     setIsComposing(false);
     setTimeout(() => {
       if (inputRef.current) {
@@ -288,7 +289,7 @@ export default function ChapterTyping() {
     setUserInput(value);
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
     toast({
       title: "Paste Disabled",
@@ -297,7 +298,7 @@ export default function ChapterTyping() {
     });
   };
 
-  const handleCut = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handleCut = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
   };
 
@@ -502,17 +503,16 @@ export default function ChapterTyping() {
           className="relative min-h-[200px] font-serif text-lg leading-relaxed cursor-text"
           data-testid="typing-container"
         >
-          {/* Hidden Input */}
-          <input
+          {/* Hidden Textarea for multi-line support */}
+          <Textarea
             ref={inputRef}
-            type="text"
             value={userInput}
             onChange={handleInput}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
             onPaste={handlePaste}
             onCut={handleCut}
-            className="absolute opacity-0 w-full h-full cursor-default z-0"
+            className="absolute opacity-0 w-full h-full cursor-default z-0 resize-none"
             autoFocus
             disabled={isFinished}
             data-testid="hidden-input"
