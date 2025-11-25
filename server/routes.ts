@@ -1739,6 +1739,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Keystroke Analytics Routes
+  app.post("/api/analytics/save", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Must be logged in to save analytics" });
+    }
+
+    try {
+      const { keystrokeEvents, analytics } = req.body;
+
+      // Save keystroke events if provided
+      if (keystrokeEvents && Array.isArray(keystrokeEvents)) {
+        await storage.saveKeystrokeEvents(keystrokeEvents);
+      }
+
+      // Save analytics summary
+      if (analytics) {
+        const analyticsData = {
+          ...analytics,
+          userId: req.user.id,
+        };
+        const savedAnalytics = await storage.saveTypingAnalytics(analyticsData);
+        return res.json({ 
+          message: "Analytics saved successfully",
+          analyticsId: savedAnalytics.id
+        });
+      }
+
+      res.json({ message: "Data saved successfully" });
+    } catch (error: any) {
+      console.error("Save analytics error:", error);
+      res.status(500).json({ message: "Failed to save analytics" });
+    }
+  });
+
+  app.get("/api/analytics/user", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Must be logged in" });
+    }
+
+    try {
+      const limit = parseInt(req.query.limit as string) || 20;
+      const analytics = await storage.getUserTypingAnalytics(req.user.id, limit);
+      res.json({ analytics });
+    } catch (error: any) {
+      console.error("Get analytics error:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  app.get("/api/analytics/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const analytics = await storage.getTypingAnalyticsById(id);
+      
+      if (!analytics) {
+        return res.status(404).json({ message: "Analytics not found" });
+      }
+
+      res.json({ analytics });
+    } catch (error: any) {
+      console.error("Get analytics by ID error:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  app.get("/api/insights/user", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Must be logged in" });
+    }
+
+    try {
+      const insights = await storage.getUserTypingInsights(req.user.id);
+      res.json({ insights });
+    } catch (error: any) {
+      console.error("Get insights error:", error);
+      res.status(500).json({ message: "Failed to fetch insights" });
+    }
+  });
+
+  app.post("/api/insights/:id/dismiss", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Must be logged in" });
+    }
+
+    try {
+      const id = parseInt(req.params.id);
+      await storage.dismissInsight(id);
+      res.json({ message: "Insight dismissed" });
+    } catch (error: any) {
+      console.error("Dismiss insight error:", error);
+      res.status(500).json({ message: "Failed to dismiss insight" });
+    }
+  });
+
+  app.get("/api/practice/recommendations", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Must be logged in" });
+    }
+
+    try {
+      const recommendations = await storage.getUserPracticeRecommendations(req.user.id);
+      res.json({ recommendations });
+    } catch (error: any) {
+      console.error("Get recommendations error:", error);
+      res.status(500).json({ message: "Failed to fetch recommendations" });
+    }
+  });
+
+  app.post("/api/practice/:id/complete", async (req, res) => {
+    if (!req.user) {
+      return res.status(401).json({ message: "Must be logged in" });
+    }
+
+    try {
+      const id = parseInt(req.params.id);
+      await storage.completePracticeRecommendation(id);
+      res.json({ message: "Practice recommendation completed" });
+    } catch (error: any) {
+      console.error("Complete recommendation error:", error);
+      res.status(500).json({ message: "Failed to complete recommendation" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   raceWebSocket.initialize(httpServer);
