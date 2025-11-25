@@ -474,3 +474,71 @@ export const insertBookTypingTestSchema = createInsertSchema(bookTypingTests, {
 
 export type InsertBookTypingTest = z.infer<typeof insertBookTypingTestSchema>;
 export type BookTypingTest = typeof bookTypingTests.$inferSelect;
+
+// Dictation Mode - Sentence Bank
+export const dictationSentences = pgTable("dictation_sentences", {
+  id: serial("id").primaryKey(),
+  sentence: text("sentence").notNull(),
+  difficulty: text("difficulty").notNull(), // easy, medium, hard
+  category: text("category").default("general"),
+  wordCount: integer("word_count").notNull(),
+  characterCount: integer("character_count").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  difficultyIdx: index("dictation_sentence_difficulty_idx").on(table.difficulty),
+  categoryIdx: index("dictation_sentence_category_idx").on(table.category),
+  difficultyCategoryIdx: index("dictation_sentence_difficulty_category_idx").on(table.difficulty, table.category),
+}));
+
+export const insertDictationSentenceSchema = createInsertSchema(dictationSentences, {
+  sentence: z.string().min(10).max(500),
+  difficulty: z.enum(["easy", "medium", "hard"]),
+  category: z.string().min(1),
+  wordCount: z.number().int().positive(),
+  characterCount: z.number().int().positive(),
+}).omit({ id: true, createdAt: true });
+
+export type InsertDictationSentence = z.infer<typeof insertDictationSentenceSchema>;
+export type DictationSentence = typeof dictationSentences.$inferSelect;
+
+// Dictation Mode - Test Results
+export const dictationTests = pgTable("dictation_tests", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  sentenceId: integer("sentence_id").notNull().references(() => dictationSentences.id),
+  speedLevel: text("speed_level").notNull(), // slow, medium, fast, random
+  actualSpeed: real("actual_speed").notNull(), // actual rate value used (0.7-1.5)
+  actualSentence: text("actual_sentence").notNull(),
+  typedText: text("typed_text").notNull(),
+  wpm: integer("wpm").notNull(),
+  accuracy: real("accuracy").notNull(),
+  errors: integer("errors").notNull(),
+  replayCount: integer("replay_count").notNull().default(0),
+  hintUsed: integer("hint_used").notNull().default(0),
+  duration: integer("duration").notNull(), // seconds
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("dictation_test_user_id_idx").on(table.userId),
+  sentenceIdIdx: index("dictation_test_sentence_id_idx").on(table.sentenceId),
+  wpmIdx: index("dictation_test_wpm_idx").on(table.wpm),
+  accuracyIdx: index("dictation_test_accuracy_idx").on(table.accuracy),
+  speedLevelIdx: index("dictation_test_speed_level_idx").on(table.speedLevel),
+  createdAtIdx: index("dictation_test_created_at_idx").on(table.createdAt),
+}));
+
+export const insertDictationTestSchema = createInsertSchema(dictationTests, {
+  sentenceId: z.number().int().positive(),
+  speedLevel: z.enum(["slow", "medium", "fast", "random"]),
+  actualSpeed: z.number().min(0.5).max(2.0),
+  actualSentence: z.string().min(1),
+  typedText: z.string(),
+  wpm: z.number().int().min(0).max(500),
+  accuracy: z.number().min(0).max(100),
+  errors: z.number().int().min(0),
+  replayCount: z.number().int().min(0),
+  hintUsed: z.number().int().min(0).max(1),
+  duration: z.number().int().positive(),
+}).omit({ id: true, createdAt: true });
+
+export type InsertDictationTest = z.infer<typeof insertDictationTestSchema>;
+export type DictationTest = typeof dictationTests.$inferSelect;
