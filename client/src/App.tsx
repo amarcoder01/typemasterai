@@ -34,6 +34,7 @@ import TermsOfService from "@/pages/terms-of-service";
 import CookiePolicy from "@/pages/cookie-policy";
 import About from "@/pages/about";
 import Contact from "@/pages/contact";
+import NotificationSettings from "@/pages/NotificationSettings";
 
 function Router() {
   return (
@@ -62,6 +63,7 @@ function Router() {
             <Route path="/books" component={BookLibrary} />
             <Route path="/chat" component={Chat} />
             <Route path="/settings" component={Settings} />
+            <Route path="/notifications" component={NotificationSettings} />
             <Route path="/privacy-policy" component={PrivacyPolicy} />
             <Route path="/terms-of-service" component={TermsOfService} />
             <Route path="/cookie-policy" component={CookiePolicy} />
