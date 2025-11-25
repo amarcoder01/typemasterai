@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRoute, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
@@ -90,9 +90,67 @@ export default function ChapterTyping() {
       const text = chapterParagraphs.map(p => p.text).join('\n\n');
       setChapterText(text);
       setParagraphs(chapterParagraphs);
-      resetTestState();
+      
+      // Try to restore progress from localStorage
+      const progressKey = `chapter-progress-${slug}-${chapterNum}`;
+      let progressRestored = false;
+      
+      try {
+        const savedProgress = localStorage.getItem(progressKey);
+        if (savedProgress) {
+          const { userInput: savedInput, timestamp } = JSON.parse(savedProgress);
+          // Only restore if saved within last 24 hours
+          const age = Date.now() - timestamp;
+          if (age < 24 * 60 * 60 * 1000 && savedInput.length > 0 && savedInput.length < text.length) {
+            setUserInput(savedInput);
+            setIsActive(true);
+            setStartTime(Date.now() - 1000); // Add 1s buffer
+            progressRestored = true;
+            toast({
+              title: "Progress Restored",
+              description: "Your previous typing progress has been restored.",
+            });
+          } else {
+            localStorage.removeItem(progressKey);
+          }
+        }
+      } catch (e) {
+        // Ignore localStorage errors
+      }
+      
+      // Only reset if no progress was restored
+      if (!progressRestored) {
+        resetTestState();
+      }
     }
   }, [chapterParagraphs]);
+
+  // Save progress to localStorage
+  useEffect(() => {
+    if (userInput && chapterText && !isFinished && slug && chapterNum) {
+      const progressKey = `chapter-progress-${slug}-${chapterNum}`;
+      try {
+        localStorage.setItem(progressKey, JSON.stringify({
+          userInput,
+          timestamp: Date.now(),
+        }));
+      } catch (e) {
+        // Ignore localStorage errors (quota exceeded, etc.)
+      }
+    }
+  }, [userInput, chapterText, isFinished, slug, chapterNum]);
+
+  // Clear progress on test completion
+  useEffect(() => {
+    if (isFinished && slug && chapterNum) {
+      const progressKey = `chapter-progress-${slug}-${chapterNum}`;
+      try {
+        localStorage.removeItem(progressKey);
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+  }, [isFinished, slug, chapterNum]);
 
   // Save test result
   const saveTestMutation = useMutation({
@@ -127,23 +185,43 @@ export default function ChapterTyping() {
     },
   });
 
-  // Calculate stats in real-time
-  useEffect(() => {
-    if (isActive && startTime && chapterText) {
-      const chars = userInput.length;
-      const errorCount = userInput.split("").filter((char, i) => char !== chapterText[i]).length;
-      const correctChars = chars - errorCount;
-      const timeElapsed = (Date.now() - startTime) / 1000;
-      
-      setWpm(calculateWPM(correctChars, timeElapsed));
-      setAccuracy(calculateAccuracy(correctChars, chars));
-      setErrors(errorCount);
-      
-      if (userInput === chapterText) {
-        finishTest();
-      }
+  // Memoize stats calculation for performance
+  const stats = useMemo(() => {
+    if (!isActive || !startTime || !chapterText) {
+      return { wpm: 0, accuracy: 100, errors: 0 };
     }
+    
+    const chars = userInput.length;
+    const errorCount = userInput.split("").filter((char, i) => char !== chapterText[i]).length;
+    const correctChars = chars - errorCount;
+    const timeElapsed = (Date.now() - startTime) / 1000;
+    
+    return {
+      wpm: calculateWPM(correctChars, timeElapsed),
+      accuracy: calculateAccuracy(correctChars, chars),
+      errors: errorCount,
+    };
   }, [userInput, isActive, startTime, chapterText]);
+
+  // Update stats with debouncing (only while active and not finished)
+  useEffect(() => {
+    if (!isActive || isFinished) return;
+    
+    const timer = setTimeout(() => {
+      setWpm(stats.wpm);
+      setAccuracy(stats.accuracy);
+      setErrors(stats.errors);
+    }, 50); // 50ms debounce for smooth updates
+    
+    return () => clearTimeout(timer);
+  }, [stats, isActive, isFinished]);
+
+  // Check for test completion
+  useEffect(() => {
+    if (isActive && userInput === chapterText && chapterText) {
+      finishTest();
+    }
+  }, [userInput, chapterText, isActive, finishTest]);
 
   // Auto-focus input
   useEffect(() => {
@@ -202,6 +280,48 @@ export default function ChapterTyping() {
     updateCursorPosition();
   }, [updateCursorPosition]);
 
+  // Recalculate cursor on window resize and font load
+  useEffect(() => {
+    const handleResize = () => updateCursorPosition();
+    window.addEventListener('resize', handleResize);
+    
+    // Recalculate after fonts load
+    if (document.fonts) {
+      document.fonts.ready.then(() => updateCursorPosition());
+    }
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, [updateCursorPosition]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape to reset test
+      if (e.key === 'Escape' && isActive && !isFinished) {
+        e.preventDefault();
+        resetTestState();
+        toast({
+          title: "Test Reset",
+          description: "Your progress has been cleared. Start typing to begin again.",
+        });
+      }
+      
+      // Arrow keys for chapter navigation (when not typing)
+      if (!isActive && !isFinished) {
+        if (e.key === 'ArrowLeft' && chapterNum > 1) {
+          e.preventDefault();
+          goToPreviousChapter();
+        } else if (e.key === 'ArrowRight' && book && chapterNum < book.totalChapters) {
+          e.preventDefault();
+          goToNextChapter();
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isActive, isFinished, chapterNum, book]);
+
   // Timer
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -219,19 +339,32 @@ export default function ChapterTyping() {
     };
   }, [isActive, startTime]);
 
-  const finishTest = () => {
+  const finishTest = useCallback(() => {
     if (!chapterText || !startTime || paragraphs.length === 0) return;
+
+    // Calculate final stats synchronously for accuracy
+    const chars = userInput.length;
+    const errorCount = userInput.split("").filter((char, i) => char !== chapterText[i]).length;
+    const correctChars = chars - errorCount;
+    const duration = Math.round((Date.now() - startTime) / 1000);
+    
+    const finalWpm = calculateWPM(correctChars, duration);
+    const finalAccuracy = calculateAccuracy(correctChars, chars);
+    const finalErrors = errorCount;
 
     setIsActive(false);
     setIsFinished(true);
     
-    const duration = Math.round((Date.now() - startTime) / 1000);
+    // Set final stats immediately (bypass debounce)
+    setWpm(finalWpm);
+    setAccuracy(finalAccuracy);
+    setErrors(finalErrors);
     
     setCompletedTestData({
       duration,
-      wpm,
-      accuracy,
-      errors,
+      wpm: finalWpm,
+      accuracy: finalAccuracy,
+      errors: finalErrors,
     });
     
     confetti({
@@ -245,14 +378,14 @@ export default function ChapterTyping() {
     if (user) {
       saveTestMutation.mutate({
         paragraphId: paragraphs[0].id,
-        wpm,
-        accuracy,
-        characters: userInput.length,
-        errors,
+        wpm: finalWpm,
+        accuracy: finalAccuracy,
+        characters: chars,
+        errors: finalErrors,
         duration,
       });
     }
-  };
+  }, [chapterText, startTime, paragraphs, userInput, user, saveTestMutation]);
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (isComposing) return;
@@ -458,22 +591,34 @@ export default function ChapterTyping() {
       </div>
 
       {/* Stats Display */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-4 gap-4 mb-6" role="region" aria-label="Typing statistics">
         <Card className="p-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-1">
-            <Zap className="w-4 h-4 text-yellow-500" />
+            <Zap className="w-4 h-4 text-yellow-500" aria-hidden="true" />
             <span className="text-sm text-muted-foreground">WPM</span>
           </div>
-          <div className="text-3xl font-bold text-yellow-500" data-testid="text-wpm">
+          <div 
+            className="text-3xl font-bold text-yellow-500" 
+            data-testid="text-wpm"
+            role="status"
+            aria-live="polite"
+            aria-label={`Words per minute: ${wpm}`}
+          >
             {wpm}
           </div>
         </Card>
         <Card className="p-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-1">
-            <Target className="w-4 h-4 text-green-500" />
+            <Target className="w-4 h-4 text-green-500" aria-hidden="true" />
             <span className="text-sm text-muted-foreground">Accuracy</span>
           </div>
-          <div className="text-3xl font-bold text-green-500" data-testid="text-accuracy">
+          <div 
+            className="text-3xl font-bold text-green-500" 
+            data-testid="text-accuracy"
+            role="status"
+            aria-live="polite"
+            aria-label={`Accuracy: ${accuracy} percent`}
+          >
             {accuracy}%
           </div>
         </Card>
@@ -481,7 +626,13 @@ export default function ChapterTyping() {
           <div className="flex items-center justify-center gap-2 mb-1">
             <span className="text-sm text-muted-foreground">Errors</span>
           </div>
-          <div className="text-3xl font-bold text-red-500" data-testid="text-errors">
+          <div 
+            className="text-3xl font-bold text-red-500" 
+            data-testid="text-errors"
+            role="status"
+            aria-live="polite"
+            aria-label={`Errors: ${errors}`}
+          >
             {errors}
           </div>
         </Card>
@@ -489,7 +640,13 @@ export default function ChapterTyping() {
           <div className="flex items-center justify-center gap-2 mb-1">
             <span className="text-sm text-muted-foreground">Time</span>
           </div>
-          <div className="text-3xl font-bold" data-testid="text-timer">
+          <div 
+            className="text-3xl font-bold" 
+            data-testid="text-timer"
+            role="timer"
+            aria-live="off"
+            aria-label={`Elapsed time: ${formatTime(elapsedTime)}`}
+          >
             {formatTime(elapsedTime)}
           </div>
         </Card>
@@ -502,6 +659,8 @@ export default function ChapterTyping() {
           onClick={handleContainerClick}
           className="relative min-h-[200px] font-serif text-lg leading-relaxed cursor-text"
           data-testid="typing-container"
+          role="application"
+          aria-label="Chapter typing practice area"
         >
           {/* Hidden Textarea for multi-line support */}
           <Textarea
@@ -566,10 +725,23 @@ export default function ChapterTyping() {
       </Card>
 
       {/* Keyboard Shortcuts */}
-      <Card className="p-4 bg-muted/50">
-        <div className="text-sm text-muted-foreground text-center">
-          <span className="font-semibold">Navigation:</span>{" "}
-          Use the buttons above to move between chapters
+      <Card className="p-4 bg-muted/50" role="complementary" aria-label="Keyboard shortcuts">
+        <div className="text-sm text-muted-foreground">
+          <div className="font-semibold mb-2 text-center">Keyboard Shortcuts</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-center">
+            <div>
+              <kbd className="px-2 py-1 bg-background rounded border text-xs">Esc</kbd>
+              <span className="ml-2">Reset test</span>
+            </div>
+            <div>
+              <kbd className="px-2 py-1 bg-background rounded border text-xs">←</kbd>
+              <span className="ml-2">Previous chapter</span>
+            </div>
+            <div>
+              <kbd className="px-2 py-1 bg-background rounded border text-xs">→</kbd>
+              <span className="ml-2">Next chapter</span>
+            </div>
+          </div>
         </div>
       </Card>
 

@@ -96,7 +96,7 @@ export default function BookDetail() {
         <div className="space-y-3">
           {chapters.map((chapter) => (
             <Card
-              key={chapter.chapter}
+              key={`chapter-${book.id}-${chapter.chapter}`}
               className="group cursor-pointer hover:shadow-md transition-all hover:scale-[1.02]"
               onClick={() => setLocation(`/books/${slug}/chapter/${chapter.chapter}`)}
               data-testid={`chapter-card-${chapter.chapter}`}
