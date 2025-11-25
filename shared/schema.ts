@@ -632,3 +632,120 @@ export const insertStressTestSchema = createInsertSchema(stressTests, {
 
 export type InsertStressTest = z.infer<typeof insertStressTestSchema>;
 export type StressTest = typeof stressTests.$inferSelect;
+
+// Keystroke Analytics - Advanced Typing Performance Tracking
+export const keystrokeEvents = pgTable("keystroke_events", {
+  id: serial("id").primaryKey(),
+  testResultId: integer("test_result_id").references(() => testResults.id, { onDelete: "cascade" }),
+  key: varchar("key", { length: 10 }).notNull(),
+  keyCode: varchar("key_code", { length: 50 }).notNull(),
+  pressTime: integer("press_time").notNull(), // ms timestamp
+  releaseTime: integer("release_time"), // ms timestamp (null if still pressed)
+  dwellTime: integer("dwell_time"), // time key was held down (ms)
+  flightTime: integer("flight_time"), // time since previous key release (ms)
+  isCorrect: boolean("is_correct").notNull(),
+  expectedKey: varchar("expected_key", { length: 10 }),
+  position: integer("position").notNull(), // position in text
+  finger: varchar("finger", { length: 20 }), // which finger used
+  hand: varchar("hand", { length: 10 }), // left/right
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const typingAnalytics = pgTable("typing_analytics", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  testResultId: integer("test_result_id").references(() => testResults.id, { onDelete: "cascade" }),
+  
+  // Core Metrics
+  wpm: integer("wpm").notNull(),
+  rawWpm: integer("raw_wpm").notNull(), // includes errors
+  accuracy: real("accuracy").notNull(),
+  consistency: real("consistency"), // coefficient of variation (0-100)
+  
+  // Advanced Timing Metrics
+  avgDwellTime: real("avg_dwell_time"), // average key hold time
+  avgFlightTime: real("avg_flight_time"), // average inter-key latency
+  stdDevFlightTime: real("std_dev_flight_time"), // rhythm variance
+  fastestDigraph: varchar("fastest_digraph", { length: 10 }),
+  slowestDigraph: varchar("slowest_digraph", { length: 10 }),
+  
+  // Finger Usage Distribution (JSON)
+  fingerUsage: jsonb("finger_usage"), // {L_Pinky: 50, L_Ring: 30, ...}
+  handBalance: real("hand_balance"), // % left vs right hand usage
+  
+  // Error Analysis
+  totalErrors: integer("total_errors").notNull(),
+  errorsByType: jsonb("errors_by_type"), // {substitution: 5, adjacent: 3, doublet: 2}
+  errorKeys: jsonb("error_keys"), // array of problematic keys
+  
+  // Speed Variation
+  wpmByPosition: jsonb("wpm_by_position"), // speed across text chunks
+  slowestWords: jsonb("slowest_words"), // words typed slower than average
+  
+  // Keyboard Heatmap Data
+  keyHeatmap: jsonb("key_heatmap"), // {A: 50, B: 12, ...} frequency counts
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const typingInsights = pgTable("typing_insights", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // AI-Generated Insights
+  insightType: varchar("insight_type", { length: 50 }).notNull(), // "weakness", "strength", "recommendation"
+  category: varchar("category", { length: 50 }).notNull(), // "speed", "accuracy", "rhythm", "ergonomics"
+  title: varchar("title", { length: 200 }).notNull(),
+  description: text("description").notNull(),
+  actionable: text("actionable"), // specific action to take
+  
+  // Supporting Data
+  confidence: real("confidence"), // AI confidence score
+  affectedKeys: jsonb("affected_keys"), // keys related to this insight
+  metric: varchar("metric", { length: 50 }), // which metric triggered this
+  metricValue: real("metric_value"),
+  
+  // Status
+  dismissed: boolean("dismissed").default(false),
+  resolved: boolean("resolved").default(false),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const practiceRecommendations = pgTable("practice_recommendations", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Recommendation Details
+  title: varchar("title", { length: 200 }).notNull(),
+  description: text("description").notNull(),
+  difficulty: varchar("difficulty", { length: 20 }).notNull(), // easy, medium, hard
+  
+  // Practice Content
+  practiceText: text("practice_text"), // custom generated text
+  focusKeys: jsonb("focus_keys"), // keys to practice
+  focusDigraphs: jsonb("focus_digraphs"), // letter combinations
+  
+  // Metrics
+  estimatedDuration: integer("estimated_duration"), // minutes
+  targetWpm: integer("target_wpm"),
+  completed: boolean("completed").default(false),
+  completedAt: timestamp("completed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertKeystrokeEventSchema = createInsertSchema(keystrokeEvents).omit({ id: true, createdAt: true });
+export const insertTypingAnalyticsSchema = createInsertSchema(typingAnalytics).omit({ id: true, createdAt: true });
+export const insertTypingInsightSchema = createInsertSchema(typingInsights).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPracticeRecommendationSchema = createInsertSchema(practiceRecommendations).omit({ id: true, createdAt: true });
+
+export type InsertKeystrokeEvent = z.infer<typeof insertKeystrokeEventSchema>;
+export type KeystrokeEvent = typeof keystrokeEvents.$inferSelect;
+export type InsertTypingAnalytics = z.infer<typeof insertTypingAnalyticsSchema>;
+export type TypingAnalytics = typeof typingAnalytics.$inferSelect;
+export type InsertTypingInsight = z.infer<typeof insertTypingInsightSchema>;
+export type TypingInsight = typeof typingInsights.$inferSelect;
+export type InsertPracticeRecommendation = z.infer<typeof insertPracticeRecommendationSchema>;
+export type PracticeRecommendation = typeof practiceRecommendations.$inferSelect;

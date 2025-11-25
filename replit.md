@@ -1,7 +1,7 @@
 # TypeMasterAI - AI-Powered Typing Test Application
 
 ## Overview
-TypeMasterAI is a high-performance, full-stack typing test web application designed to enhance typing skills through engaging features. It offers real-time analytics, diverse test durations and languages, user authentication, and an AI chat assistant. Key capabilities include visual progress tracking, AI-powered content generation, real-time multiplayer racing with instant matchmaking and private rooms, AI Ghost Racers that populate rooms with realistic bot opponents, and **Code Typing Mode** - a production-ready developer feature with AI-generated code snippets across 10+ programming languages, syntax highlighting, dedicated code leaderboards, and deep analytics. The project aims to provide an effective platform for typing mastery, leveraging advanced AI and a competitive environment to expand market reach and user engagement.
+TypeMasterAI is a high-performance, full-stack typing test web application designed to enhance typing skills through engaging features. It offers real-time analytics, diverse test durations and languages, user authentication, and an AI chat assistant. Key capabilities include visual progress tracking, AI-powered content generation, real-time multiplayer racing with instant matchmaking and private rooms, AI Ghost Racers that populate rooms with realistic bot opponents, **Code Typing Mode** - a production-ready developer feature with AI-generated code snippets across 10+ programming languages, syntax highlighting, dedicated code leaderboards, and deep analytics, and **Advanced Keystroke Analytics System** - industry-leading performance tracking with keystroke dynamics, keyboard heatmaps, finger usage analytics, AI-powered insights, and personalized practice recommendations that surpasses competitors like Monkeytype. The project aims to provide an effective platform for typing mastery, leveraging advanced AI and a competitive environment to expand market reach and user engagement.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -34,6 +34,10 @@ Preferred communication style: Simple, everyday language.
     - **Code Typing Tests**: User, snippet reference, language, framework, WPM, accuracy, errors, syntax errors, duration.
     - **Races**: Unique room code, status, paragraph content, max players, privacy, atomic `finishCounter`.
     - **Race Participants**: Foreign keys to races, user ID/guestName, username, avatar color, `isBot` flag, `isActive` (soft-delete), real-time progress, live WPM/accuracy, finish position (atomically assigned).
+    - **Keystroke Events**: Individual keystroke tracking with press/release times, dwell time, flight time, finger/hand mapping, correctness.
+    - **Typing Analytics**: Comprehensive metrics per test including WPM, raw WPM, accuracy, consistency score, dwell/flight time averages, finger usage distribution, hand balance, error categorization, keyboard heatmap, WPM by position, slowest words, fastest/slowest digraphs.
+    - **Typing Insights**: AI-generated personalized insights with type (weakness/strength/recommendation), category, confidence score, affected keys, actionable steps.
+    - **Practice Recommendations**: AI-generated custom practice sessions targeting user weaknesses with focus keys/digraphs, estimated duration, target WPM.
 - **Validation & Type Safety**: Zod for runtime validation, Drizzle-Zod for schema conversion, strict TypeScript.
 - **Soft-Delete Participant System**: Implemented `isActive` flag in `race_participants` to prevent duplicate entries and manage guest identity across refreshes, ensuring seamless rejoining.
 
