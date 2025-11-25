@@ -1537,15 +1537,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/share", async (req, res) => {
     try {
       const { insertSharedResultSchema } = await import("@shared/schema");
-      
+      const { mode, resultId, isAnonymous } = req.body;
+
+      // Validate input
+      if (!mode || !resultId) {
+        return res.status(400).json({ message: "Mode and resultId are required" });
+      }
+
+      let statsData;
+      let username = req.user?.username || null;
+
+      // Fetch verified stats from database based on mode
+      switch (mode) {
+        case 'dictation':
+          const dictationTest = await storage.getDictationTestById(resultId);
+          if (!dictationTest) {
+            return res.status(404).json({ message: "Test result not found" });
+          }
+          if (!req.user || dictationTest.userId !== req.user.id) {
+            return res.status(403).json({ message: "Unauthorized" });
+          }
+          
+          // Fetch sentence to get difficulty
+          const { dictationSentences } = await import("@shared/schema");
+          const sentenceResult = await db
+            .select()
+            .from(dictationSentences)
+            .where(eq(dictationSentences.id, dictationTest.sentenceId))
+            .limit(1);
+          
+          if (sentenceResult.length === 0) {
+            return res.status(404).json({ message: "Dictation sentence not found" });
+          }
+          
+          statsData = {
+            wpm: dictationTest.wpm,
+            accuracy: dictationTest.accuracy,
+            errors: dictationTest.errors,
+            duration: dictationTest.duration,
+            characters: dictationTest.actualSentence.length,
+            metadata: {
+              speedLevel: dictationTest.speedLevel,
+              difficulty: sentenceResult[0].difficulty,
+              replayCount: dictationTest.replayCount,
+              hintUsed: dictationTest.hintUsed,
+            }
+          };
+          break;
+
+        case 'normal':
+        case 'timed':
+        case 'practice':
+        case 'challenge':
+        case 'typing':
+          const testResult = await storage.getTestResultById(resultId);
+          if (!testResult) {
+            return res.status(404).json({ message: "Test result not found" });
+          }
+          if (!req.user || testResult.userId !== req.user.id) {
+            return res.status(403).json({ message: "Unauthorized" });
+          }
+          
+          // Map integer mode to string (best-effort)
+          const modeMap: Record<number, string> = {
+            0: 'normal',
+            1: 'timed',
+            2: 'practice',
+            3: 'challenge',
+          };
+          
+          const storedMode = modeMap[testResult.mode] || 'typing';
+          
+          statsData = {
+            wpm: testResult.wpm,
+            accuracy: testResult.accuracy,
+            errors: testResult.errors,
+            duration: testResult.duration || 0,
+            characters: testResult.characters,
+            metadata: {
+              mode: storedMode,
+              testType: 'typing'
+            }
+          };
+          break;
+
+        // TODO: Add support for code, book, and multiplayer modes
+        case 'code':
+        case 'book':
+        case 'multiplayer':
+          return res.status(501).json({ 
+            message: `Sharing for ${mode} mode is not yet implemented. Currently supported: dictation, normal, timed, practice, challenge` 
+          });
+
+        default:
+          return res.status(400).json({ message: `Unsupported mode: ${mode}` });
+      }
+
+      // Validate stats are plausible
+      if (statsData.wpm < 0 || statsData.wpm > 300 ||
+          statsData.accuracy < 0 || statsData.accuracy > 100 ||
+          statsData.errors < 0 ||
+          (statsData.duration && statsData.duration < 0)) {
+        return res.status(400).json({ message: "Invalid stats detected" });
+      }
+
       // Generate unique share token (12 chars)
       const shareToken = Math.random().toString(36).substring(2, 14);
       
       const shareData = {
-        ...req.body,
         shareToken,
         userId: req.user?.id || null,
-        username: req.body.isAnonymous ? null : (req.user?.username || req.body.username),
+        username: isAnonymous ? null : username,
+        mode,
+        ...statsData,
+        isAnonymous: isAnonymous || false,
       };
 
       const parsed = insertSharedResultSchema.safeParse(shareData);
@@ -1560,7 +1665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({ 
         message: "Result shared successfully",
         shareToken: sharedResult.shareToken,
-        shareUrl: `${req.protocol}://${req.get('host')}/share/${sharedResult.shareToken}`
+        shareUrl: `${req.protocol}://${req.get('host')}/result/${sharedResult.shareToken}`
       });
     } catch (error: any) {
       console.error("Create shared result error:", error);

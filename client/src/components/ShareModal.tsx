@@ -9,26 +9,23 @@ interface ShareModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   mode: string;
-  wpm: number;
-  accuracy: number;
-  errors: number;
-  duration?: number;
-  characters?: number;
-  metadata?: Record<string, any>;
+  resultId: number | null;
   isAnonymous?: boolean;
+  // Display stats (for preview only, not sent to server)
+  stats?: {
+    wpm: number;
+    accuracy: number;
+    errors: number;
+  };
 }
 
 export function ShareModal({ 
   open, 
   onOpenChange, 
   mode,
-  wpm,
-  accuracy,
-  errors,
-  duration,
-  characters,
-  metadata,
-  isAnonymous = false
+  resultId,
+  isAnonymous = false,
+  stats
 }: ShareModalProps) {
   const [shareUrl, setShareUrl] = useState<string>('');
   const [isCreating, setIsCreating] = useState(false);
@@ -36,6 +33,15 @@ export function ShareModal({
   const { toast } = useToast();
 
   const createShare = async () => {
+    if (!resultId) {
+      toast({
+        title: 'Error',
+        description: 'No result to share',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setIsCreating(true);
       
@@ -45,17 +51,15 @@ export function ShareModal({
         credentials: 'include',
         body: JSON.stringify({
           mode,
-          wpm,
-          accuracy,
-          errors,
-          duration,
-          characters,
-          metadata,
+          resultId,
           isAnonymous
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to create share');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create share');
+      }
 
       const data = await response.json();
       setShareUrl(data.shareUrl);
@@ -64,11 +68,11 @@ export function ShareModal({
         title: 'Share link created!',
         description: 'Your result is ready to share',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Create share error:', error);
       toast({
         title: 'Error',
-        description: 'Failed to create share link',
+        description: error.message || 'Failed to create share link',
         variant: 'destructive',
       });
     } finally {
@@ -99,9 +103,9 @@ export function ShareModal({
   };
 
   const shareToTwitter = () => {
-    if (!shareUrl) return;
+    if (!shareUrl || !stats) return;
     
-    const text = `I just scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! Can you beat me? 🚀`;
+    const text = `I just scored ${stats.wpm} WPM with ${stats.accuracy}% accuracy on TypeMasterAI! Can you beat me? 🚀`;
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
     window.open(url, '_blank', 'width=550,height=420');
   };
@@ -114,21 +118,21 @@ export function ShareModal({
   };
 
   const shareToWhatsApp = () => {
-    if (!shareUrl) return;
+    if (!shareUrl || !stats) return;
     
-    const text = `I just scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! Can you beat me? ${shareUrl}`;
+    const text = `I just scored ${stats.wpm} WPM with ${stats.accuracy}% accuracy on TypeMasterAI! Can you beat me? ${shareUrl}`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
 
   const handleNativeShare = async () => {
-    if (!shareUrl) return;
+    if (!shareUrl || !stats) return;
     
     if (navigator.share) {
       try {
         await navigator.share({
           title: 'TypeMasterAI - My Typing Result',
-          text: `I just scored ${wpm} WPM with ${accuracy}% accuracy!`,
+          text: `I just scored ${stats.wpm} WPM with ${stats.accuracy}% accuracy!`,
           url: shareUrl,
         });
       } catch (error) {
@@ -153,19 +157,21 @@ export function ShareModal({
         <div className="space-y-4">
           {!shareUrl ? (
             <div className="text-center py-6">
-              <div className="mb-4">
-                <div className="text-4xl font-bold text-primary mb-2">{wpm} WPM</div>
-                <div className="text-sm text-muted-foreground">
-                  {accuracy}% accuracy • {errors} errors
+              {stats && (
+                <div className="mb-4">
+                  <div className="text-4xl font-bold text-primary mb-2">{stats.wpm} WPM</div>
+                  <div className="text-sm text-muted-foreground">
+                    {stats.accuracy}% accuracy • {stats.errors} errors
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Mode: {mode}
+                  </div>
                 </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  Mode: {mode}
-                </div>
-              </div>
+              )}
               
               <Button 
                 onClick={createShare} 
-                disabled={isCreating}
+                disabled={isCreating || !resultId}
                 size="lg"
                 className="w-full"
                 data-testid="button-create-share"
@@ -233,10 +239,6 @@ export function ShareModal({
                   Share via...
                 </Button>
               )}
-
-              <p className="text-xs text-center text-muted-foreground">
-                This link has been viewed {0} times
-              </p>
             </div>
           )}
         </div>

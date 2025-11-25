@@ -78,6 +78,7 @@ export interface IStorage {
   
   createTestResult(result: InsertTestResult): Promise<TestResult>;
   getUserTestResults(userId: string, limit?: number): Promise<TestResult[]>;
+  getTestResultById(testResultId: number): Promise<TestResult | undefined>;
   verifyTestResultOwnership(testResultId: number, userId: string): Promise<boolean>;
   getUserStats(userId: string): Promise<{
     totalTests: number;
@@ -195,6 +196,7 @@ export interface IStorage {
   
   getRandomDictationSentence(difficulty?: string, category?: string): Promise<DictationSentence | undefined>;
   createDictationTest(test: InsertDictationTest): Promise<DictationTest>;
+  getDictationTestById(testId: number): Promise<DictationTest | undefined>;
   getUserDictationStats(userId: string): Promise<{
     totalTests: number;
     bestWpm: number;
@@ -271,6 +273,15 @@ export class DatabaseStorage implements IStorage {
       .where(eq(testResults.userId, userId))
       .orderBy(desc(testResults.createdAt))
       .limit(limit);
+  }
+
+  async getTestResultById(testResultId: number): Promise<TestResult | undefined> {
+    const result = await db
+      .select()
+      .from(testResults)
+      .where(eq(testResults.id, testResultId))
+      .limit(1);
+    return result[0];
   }
 
   async verifyTestResultOwnership(testResultId: number, userId: string): Promise<boolean> {
@@ -1188,6 +1199,15 @@ export class DatabaseStorage implements IStorage {
   async createDictationTest(test: InsertDictationTest): Promise<DictationTest> {
     const inserted = await db.insert(dictationTests).values(test).returning();
     return inserted[0];
+  }
+
+  async getDictationTestById(testId: number): Promise<DictationTest | undefined> {
+    const result = await db
+      .select()
+      .from(dictationTests)
+      .where(eq(dictationTests.id, testId))
+      .limit(1);
+    return result[0];
   }
 
   async getUserDictationStats(userId: string): Promise<{

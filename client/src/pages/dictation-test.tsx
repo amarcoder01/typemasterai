@@ -67,6 +67,7 @@ export default function DictationTest() {
   
   const [showKeyboardGuide, setShowKeyboardGuide] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [lastTestResultId, setLastTestResultId] = useState<number | null>(null);
   
   const currentRate = getSpeedRate(speedLevel);
   const { speak, cancel, isSpeaking, isSupported, error: speechError, voices, setVoice, currentVoice } = useSpeechSynthesis({
@@ -263,7 +264,7 @@ export default function DictationTest() {
     setSessionProgress(prev => prev + 1);
 
     try {
-      await saveTestMutation.mutateAsync({
+      const saveResult = await saveTestMutation.mutateAsync({
         sentenceId: currentSentence.id,
         speedLevel,
         actualSpeed: currentRate,
@@ -276,6 +277,11 @@ export default function DictationTest() {
         hintUsed: currentHintShown ? 1 : 0,
         duration: result.duration,
       });
+      
+      // Store the test result ID for sharing
+      if (saveResult && saveResult.result && saveResult.result.id) {
+        setLastTestResultId(saveResult.result.id);
+      }
     } catch (error) {
       console.error('Failed to save test:', error);
       toast({
@@ -759,14 +765,11 @@ export default function DictationTest() {
         open={showShareModal}
         onOpenChange={setShowShareModal}
         mode="dictation"
-        wpm={sessionStats.count > 0 ? Math.round(sessionStats.totalWpm / sessionStats.count) : 0}
-        accuracy={sessionStats.count > 0 ? Math.round(sessionStats.totalAccuracy / sessionStats.count) : 0}
-        errors={sessionStats.totalErrors}
-        characters={sessionStats.count * 100}
-        metadata={{
-          difficulty,
-          speedLevel,
-          sessionCount: sessionStats.count
+        resultId={lastTestResultId}
+        stats={{
+          wpm: sessionStats.count > 0 ? Math.round(sessionStats.totalWpm / sessionStats.count) : 0,
+          accuracy: sessionStats.count > 0 ? Math.round(sessionStats.totalAccuracy / sessionStats.count) : 0,
+          errors: sessionStats.totalErrors,
         }}
       />
     </div>
