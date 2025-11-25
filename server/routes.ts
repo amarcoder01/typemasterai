@@ -18,6 +18,9 @@ import DOMPurify from "isomorphic-dompurify";
 import { raceWebSocket } from "./websocket";
 import { botNamePool } from "./bot-name-pool";
 import multer from "multer";
+import { createNotificationRoutes } from "./notification-routes";
+import { NotificationScheduler } from "./notification-scheduler";
+import { AchievementService } from "./achievement-service";
 
 const PgSession = ConnectPgSimple(session);
 
@@ -49,6 +52,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   botNamePool.initialize().catch(error => {
     console.error("Failed to initialize bot name pool:", error);
   });
+
+  // Initialize notification system
+  const notificationScheduler = new NotificationScheduler(storage);
+  const achievementService = new AchievementService(storage, notificationScheduler);
+  
+  // Initialize achievements in database
+  achievementService.initializeAchievements().catch(error => {
+    console.error("Failed to initialize achievements:", error);
+  });
+  
+  // Start notification scheduler
+  notificationScheduler.start();
   
   if (sessionSecret === "typemasterai-secret-key-change-in-production" && process.env.NODE_ENV === "production") {
     console.error("🚨 SECURITY ALERT: Production is using the default SESSION_SECRET. This is highly insecure!");
@@ -289,6 +304,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Update user streak after completing a test
       await storage.updateUserStreak(req.user!.id);
+      
+      // Check for achievement unlocks (async, don't block response)
+      achievementService.checkAchievements(req.user!.id, result).catch(error => {
+        console.error("Achievement check error:", error);
+      });
       
       res.status(201).json({ message: "Test result saved", result });
     } catch (error: any) {
@@ -1850,9 +1870,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Mount notification routes
+  app.use(createNotificationRoutes(storage));
+
   const httpServer = createServer(app);
   
   raceWebSocket.initialize(httpServer);
+
+  // Cleanup on server shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, stopping notification scheduler...');
+    notificationScheduler.stop();
+  });
 
   return httpServer;
 }

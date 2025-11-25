@@ -817,6 +817,118 @@ export const notificationHistory = pgTable("notification_history", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Achievements & Badges System
+export const achievements = pgTable("achievements", {
+  id: serial("id").primaryKey(),
+  
+  // Achievement Details
+  key: varchar("key", { length: 50 }).notNull().unique(), // speedster_100, streak_master_30, etc.
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description").notNull(),
+  category: varchar("category", { length: 50 }).notNull(), // speed, accuracy, consistency, streak, social
+  
+  // Requirements
+  tier: varchar("tier", { length: 20 }).default("bronze").notNull(), // bronze, silver, gold, platinum, diamond
+  requirement: jsonb("requirement").notNull(), // { type: "wpm", value: 100 } or { type: "streak", value: 30 }
+  points: integer("points").default(10).notNull(), // gamification points
+  
+  // Visual
+  icon: varchar("icon", { length: 50 }).notNull(), // lucide icon name
+  color: varchar("color", { length: 50 }).notNull(), // tailwind color class
+  
+  // Metadata
+  isSecret: boolean("is_secret").default(false).notNull(), // hidden until unlocked
+  isActive: boolean("is_active").default(true).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// User Achievements (unlocked badges)
+export const userAchievements = pgTable("user_achievements", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  achievementId: integer("achievement_id").references(() => achievements.id, { onDelete: "cascade" }).notNull(),
+  
+  // Unlock Details
+  unlockedAt: timestamp("unlocked_at").defaultNow().notNull(),
+  testResultId: integer("test_result_id").references(() => testResults.id, { onDelete: "set null" }),
+  
+  // Notification
+  notified: boolean("notified").default(false).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Daily/Weekly Challenges
+export const challenges = pgTable("challenges", {
+  id: serial("id").primaryKey(),
+  
+  // Challenge Details
+  type: varchar("type", { length: 20 }).notNull(), // daily, weekly, special
+  title: varchar("title", { length: 200 }).notNull(),
+  description: text("description").notNull(),
+  
+  // Requirements
+  goal: jsonb("goal").notNull(), // { type: "tests_completed", target: 5 } or { type: "wpm_reached", target: 80 }
+  difficulty: varchar("difficulty", { length: 20 }).default("medium").notNull(), // easy, medium, hard, expert
+  
+  // Rewards
+  pointsReward: integer("points_reward").default(50).notNull(),
+  badgeReward: varchar("badge_reward", { length: 50 }), // optional achievement unlock
+  
+  // Timing
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  
+  // Metadata
+  isActive: boolean("is_active").default(true).notNull(),
+  category: varchar("category", { length: 50 }).notNull(), // speed, accuracy, consistency, endurance
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// User Challenge Progress
+export const userChallenges = pgTable("user_challenges", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  challengeId: integer("challenge_id").references(() => challenges.id, { onDelete: "cascade" }).notNull(),
+  
+  // Progress
+  progress: integer("progress").default(0).notNull(), // current count toward goal
+  isCompleted: boolean("is_completed").default(false).notNull(),
+  completedAt: timestamp("completed_at"),
+  
+  // Notifications
+  startNotified: boolean("start_notified").default(false).notNull(),
+  completionNotified: boolean("completion_notified").default(false).notNull(),
+  
+  // Metadata
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// User Gamification Profile
+export const userGamification = pgTable("user_gamification", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull().unique(),
+  
+  // Points & Level
+  totalPoints: integer("total_points").default(0).notNull(),
+  level: integer("level").default(1).notNull(),
+  experiencePoints: integer("experience_points").default(0).notNull(), // XP toward next level
+  
+  // Statistics
+  totalAchievements: integer("total_achievements").default(0).notNull(),
+  totalChallengesCompleted: integer("total_challenges_completed").default(0).notNull(),
+  
+  // Titles & Badges
+  currentTitle: varchar("current_title", { length: 100 }), // "Speed Demon", "Accuracy Master", etc.
+  featuredBadges: jsonb("featured_badges"), // array of achievement IDs to display on profile
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const insertKeystrokeEventSchema = createInsertSchema(keystrokeEvents).omit({ id: true, createdAt: true });
 export const insertTypingAnalyticsSchema = createInsertSchema(typingAnalytics).omit({ id: true, createdAt: true });
 export const insertTypingInsightSchema = createInsertSchema(typingInsights).omit({ id: true, createdAt: true, updatedAt: true });
@@ -824,6 +936,11 @@ export const insertPracticeRecommendationSchema = createInsertSchema(practiceRec
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true, updatedAt: true, expirationTime: true });
 export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertNotificationHistorySchema = createInsertSchema(notificationHistory).omit({ id: true, createdAt: true });
+export const insertAchievementSchema = createInsertSchema(achievements).omit({ id: true, createdAt: true });
+export const insertUserAchievementSchema = createInsertSchema(userAchievements).omit({ id: true, createdAt: true, unlockedAt: true });
+export const insertChallengeSchema = createInsertSchema(challenges).omit({ id: true, createdAt: true });
+export const insertUserChallengeSchema = createInsertSchema(userChallenges).omit({ id: true, startedAt: true, updatedAt: true });
+export const insertUserGamificationSchema = createInsertSchema(userGamification).omit({ id: true, createdAt: true, updatedAt: true });
 
 export type InsertKeystrokeEvent = z.infer<typeof insertKeystrokeEventSchema>;
 export type KeystrokeEvent = typeof keystrokeEvents.$inferSelect;
@@ -839,3 +956,13 @@ export type InsertNotificationPreferences = z.infer<typeof insertNotificationPre
 export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
 export type InsertNotificationHistory = z.infer<typeof insertNotificationHistorySchema>;
 export type NotificationHistory = typeof notificationHistory.$inferSelect;
+export type InsertAchievement = z.infer<typeof insertAchievementSchema>;
+export type Achievement = typeof achievements.$inferSelect;
+export type InsertUserAchievement = z.infer<typeof insertUserAchievementSchema>;
+export type UserAchievement = typeof userAchievements.$inferSelect;
+export type InsertChallenge = z.infer<typeof insertChallengeSchema>;
+export type Challenge = typeof challenges.$inferSelect;
+export type InsertUserChallenge = z.infer<typeof insertUserChallengeSchema>;
+export type UserChallenge = typeof userChallenges.$inferSelect;
+export type InsertUserGamification = z.infer<typeof insertUserGamificationSchema>;
+export type UserGamification = typeof userGamification.$inferSelect;

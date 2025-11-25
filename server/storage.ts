@@ -68,6 +68,30 @@ import {
   type InsertTypingInsight,
   type PracticeRecommendation,
   type InsertPracticeRecommendation,
+  pushSubscriptions,
+  notificationPreferences,
+  notificationHistory,
+  achievements,
+  userAchievements,
+  challenges,
+  userChallenges,
+  userGamification,
+  type PushSubscription,
+  type InsertPushSubscription,
+  type NotificationPreferences,
+  type InsertNotificationPreferences,
+  type NotificationHistory,
+  type InsertNotificationHistory,
+  type Achievement,
+  type InsertAchievement,
+  type UserAchievement,
+  type InsertUserAchievement,
+  type Challenge,
+  type InsertChallenge,
+  type UserChallenge,
+  type InsertUserChallenge,
+  type UserGamification,
+  type InsertUserGamification,
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -265,6 +289,36 @@ export interface IStorage {
   savePracticeRecommendation(recommendation: InsertPracticeRecommendation): Promise<PracticeRecommendation>;
   getUserPracticeRecommendations(userId: string): Promise<PracticeRecommendation[]>;
   completePracticeRecommendation(recommendationId: number): Promise<void>;
+  
+  createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription>;
+  getUserPushSubscriptions(userId: string): Promise<PushSubscription[]>;
+  deletePushSubscription(id: number): Promise<void>;
+  findExistingSubscription(userId: string, endpoint: string): Promise<PushSubscription | undefined>;
+  
+  getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined>;
+  createNotificationPreferences(prefs: InsertNotificationPreferences): Promise<NotificationPreferences>;
+  updateNotificationPreferences(userId: string, prefs: Partial<NotificationPreferences>): Promise<NotificationPreferences>;
+  
+  createNotificationHistory(history: InsertNotificationHistory): Promise<NotificationHistory>;
+  getUserNotificationHistory(userId: string, limit?: number): Promise<NotificationHistory[]>;
+  markNotificationDelivered(id: number): Promise<void>;
+  markNotificationClicked(id: number): Promise<void>;
+  
+  createAchievement(achievement: InsertAchievement): Promise<Achievement>;
+  getAllAchievements(): Promise<Achievement[]>;
+  getAchievementByKey(key: string): Promise<Achievement | undefined>;
+  unlockAchievement(userId: string, achievementId: number, testResultId?: number): Promise<UserAchievement>;
+  getUserAchievements(userId: string): Promise<Array<UserAchievement & { achievement: Achievement }>>;
+  
+  createChallenge(challenge: InsertChallenge): Promise<Challenge>;
+  getActiveChallenge(type: 'daily' | 'weekly'): Promise<Challenge | undefined>;
+  getUserChallengeProgress(userId: string, challengeId: number): Promise<UserChallenge | undefined>;
+  updateChallengeProgress(userId: string, challengeId: number, progress: number): Promise<UserChallenge>;
+  completeChallenge(userId: string, challengeId: number): Promise<UserChallenge>;
+  
+  getUserGamification(userId: string): Promise<UserGamification | undefined>;
+  createUserGamification(gamification: InsertUserGamification): Promise<UserGamification>;
+  updateUserGamification(userId: string, updates: Partial<UserGamification>): Promise<UserGamification>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1523,6 +1577,236 @@ export class DatabaseStorage implements IStorage {
       .update(practiceRecommendations)
       .set({ completed: true, completedAt: new Date() })
       .where(eq(practiceRecommendations.id, recommendationId));
+  }
+
+  async createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription> {
+    const inserted = await db.insert(pushSubscriptions).values(subscription).returning();
+    return inserted[0];
+  }
+
+  async getUserPushSubscriptions(userId: string): Promise<PushSubscription[]> {
+    const results = await db
+      .select()
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.userId, userId));
+    return results;
+  }
+
+  async deletePushSubscription(id: number): Promise<void> {
+    await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, id));
+  }
+
+  async findExistingSubscription(userId: string, endpoint: string): Promise<PushSubscription | undefined> {
+    const result = await db
+      .select()
+      .from(pushSubscriptions)
+      .where(and(
+        eq(pushSubscriptions.userId, userId),
+        eq(pushSubscriptions.endpoint, endpoint)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async getNotificationPreferences(userId: string): Promise<NotificationPreferences | undefined> {
+    const result = await db
+      .select()
+      .from(notificationPreferences)
+      .where(eq(notificationPreferences.userId, userId))
+      .limit(1);
+    return result[0];
+  }
+
+  async createNotificationPreferences(prefs: InsertNotificationPreferences): Promise<NotificationPreferences> {
+    const inserted = await db.insert(notificationPreferences).values(prefs).returning();
+    return inserted[0];
+  }
+
+  async updateNotificationPreferences(userId: string, prefs: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
+    const updated = await db
+      .update(notificationPreferences)
+      .set({ ...prefs, updatedAt: new Date() })
+      .where(eq(notificationPreferences.userId, userId))
+      .returning();
+    return updated[0];
+  }
+
+  async createNotificationHistory(history: InsertNotificationHistory): Promise<NotificationHistory> {
+    const inserted = await db.insert(notificationHistory).values(history).returning();
+    return inserted[0];
+  }
+
+  async getUserNotificationHistory(userId: string, limit: number = 50): Promise<NotificationHistory[]> {
+    const results = await db
+      .select()
+      .from(notificationHistory)
+      .where(eq(notificationHistory.userId, userId))
+      .orderBy(desc(notificationHistory.createdAt))
+      .limit(limit);
+    return results;
+  }
+
+  async markNotificationDelivered(id: number): Promise<void> {
+    await db
+      .update(notificationHistory)
+      .set({ status: 'delivered', deliveredAt: new Date() })
+      .where(eq(notificationHistory.id, id));
+  }
+
+  async markNotificationClicked(id: number): Promise<void> {
+    await db
+      .update(notificationHistory)
+      .set({ status: 'clicked', clickedAt: new Date() })
+      .where(eq(notificationHistory.id, id));
+  }
+
+  async createAchievement(achievement: InsertAchievement): Promise<Achievement> {
+    const inserted = await db.insert(achievements).values(achievement).returning();
+    return inserted[0];
+  }
+
+  async getAllAchievements(): Promise<Achievement[]> {
+    const results = await db
+      .select()
+      .from(achievements)
+      .where(eq(achievements.isActive, true))
+      .orderBy(achievements.tier, achievements.points);
+    return results;
+  }
+
+  async getAchievementByKey(key: string): Promise<Achievement | undefined> {
+    const result = await db
+      .select()
+      .from(achievements)
+      .where(eq(achievements.key, key))
+      .limit(1);
+    return result[0];
+  }
+
+  async unlockAchievement(userId: string, achievementId: number, testResultId?: number): Promise<UserAchievement> {
+    const inserted = await db
+      .insert(userAchievements)
+      .values({
+        userId,
+        achievementId,
+        testResultId: testResultId || null,
+        notified: false,
+      })
+      .returning();
+    return inserted[0];
+  }
+
+  async getUserAchievements(userId: string): Promise<Array<UserAchievement & { achievement: Achievement }>> {
+    const results = await db
+      .select()
+      .from(userAchievements)
+      .leftJoin(achievements, eq(userAchievements.achievementId, achievements.id))
+      .where(eq(userAchievements.userId, userId))
+      .orderBy(desc(userAchievements.unlockedAt));
+    
+    return results.map(row => ({
+      ...row.user_achievements,
+      achievement: row.achievements!,
+    }));
+  }
+
+  async createChallenge(challenge: InsertChallenge): Promise<Challenge> {
+    const inserted = await db.insert(challenges).values(challenge).returning();
+    return inserted[0];
+  }
+
+  async getActiveChallenge(type: 'daily' | 'weekly'): Promise<Challenge | undefined> {
+    const now = new Date();
+    const result = await db
+      .select()
+      .from(challenges)
+      .where(and(
+        eq(challenges.type, type),
+        eq(challenges.isActive, true),
+        sql`${challenges.startDate} <= ${now}`,
+        sql`${challenges.endDate} >= ${now}`
+      ))
+      .orderBy(desc(challenges.startDate))
+      .limit(1);
+    return result[0];
+  }
+
+  async getUserChallengeProgress(userId: string, challengeId: number): Promise<UserChallenge | undefined> {
+    const result = await db
+      .select()
+      .from(userChallenges)
+      .where(and(
+        eq(userChallenges.userId, userId),
+        eq(userChallenges.challengeId, challengeId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async updateChallengeProgress(userId: string, challengeId: number, progress: number): Promise<UserChallenge> {
+    const existing = await this.getUserChallengeProgress(userId, challengeId);
+    
+    if (existing) {
+      const updated = await db
+        .update(userChallenges)
+        .set({ progress, updatedAt: new Date() })
+        .where(and(
+          eq(userChallenges.userId, userId),
+          eq(userChallenges.challengeId, challengeId)
+        ))
+        .returning();
+      return updated[0];
+    } else {
+      const inserted = await db
+        .insert(userChallenges)
+        .values({
+          userId,
+          challengeId,
+          progress,
+          isCompleted: false,
+        })
+        .returning();
+      return inserted[0];
+    }
+  }
+
+  async completeChallenge(userId: string, challengeId: number): Promise<UserChallenge> {
+    const updated = await db
+      .update(userChallenges)
+      .set({
+        isCompleted: true,
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(userChallenges.userId, userId),
+        eq(userChallenges.challengeId, challengeId)
+      ))
+      .returning();
+    return updated[0];
+  }
+
+  async getUserGamification(userId: string): Promise<UserGamification | undefined> {
+    const result = await db
+      .select()
+      .from(userGamification)
+      .where(eq(userGamification.userId, userId))
+      .limit(1);
+    return result[0];
+  }
+
+  async createUserGamification(gamification: InsertUserGamification): Promise<UserGamification> {
+    const inserted = await db.insert(userGamification).values(gamification).returning();
+    return inserted[0];
+  }
+
+  async updateUserGamification(userId: string, updates: Partial<UserGamification>): Promise<UserGamification> {
+    const updated = await db
+      .update(userGamification)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(userGamification.userId, userId))
+      .returning();
+    return updated[0];
   }
 }
 
