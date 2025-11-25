@@ -220,3 +220,68 @@ export type InsertRace = z.infer<typeof insertRaceSchema>;
 export type Race = typeof races.$inferSelect;
 export type InsertRaceParticipant = z.infer<typeof insertRaceParticipantSchema>;
 export type RaceParticipant = typeof raceParticipants.$inferSelect;
+
+export const codeSnippets = pgTable("code_snippets", {
+  id: serial("id").primaryKey(),
+  programmingLanguage: text("programming_language").notNull(),
+  framework: text("framework"),
+  difficulty: text("difficulty").notNull().default("medium"),
+  content: text("content").notNull(),
+  lineCount: integer("line_count").notNull(),
+  characterCount: integer("character_count").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  langIdx: index("code_language_idx").on(table.programmingLanguage),
+  difficultyIdx: index("code_difficulty_idx").on(table.difficulty),
+  langDiffIdx: index("code_language_difficulty_idx").on(table.programmingLanguage, table.difficulty),
+}));
+
+export const insertCodeSnippetSchema = createInsertSchema(codeSnippets, {
+  programmingLanguage: z.string().min(1),
+  framework: z.string().optional(),
+  difficulty: z.enum(["easy", "medium", "hard"]),
+  content: z.string().min(10),
+  lineCount: z.number().int().positive(),
+  characterCount: z.number().int().positive(),
+  description: z.string().optional(),
+}).omit({ id: true, createdAt: true });
+
+export type InsertCodeSnippet = z.infer<typeof insertCodeSnippetSchema>;
+export type CodeSnippet = typeof codeSnippets.$inferSelect;
+
+export const codeTypingTests = pgTable("code_typing_tests", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  codeSnippetId: integer("code_snippet_id").references(() => codeSnippets.id, { onDelete: "set null" }),
+  programmingLanguage: text("programming_language").notNull(),
+  framework: text("framework"),
+  wpm: integer("wpm").notNull(),
+  accuracy: real("accuracy").notNull(),
+  characters: integer("characters").notNull(),
+  errors: integer("errors").notNull(),
+  syntaxErrors: integer("syntax_errors").notNull().default(0),
+  duration: integer("duration").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("code_test_user_id_idx").on(table.userId),
+  langIdx: index("code_test_language_idx").on(table.programmingLanguage),
+  wpmIdx: index("code_test_wpm_idx").on(table.wpm),
+  userLangIdx: index("code_test_user_language_idx").on(table.userId, table.programmingLanguage),
+  createdAtIdx: index("code_test_created_at_idx").on(table.createdAt),
+}));
+
+export const insertCodeTypingTestSchema = createInsertSchema(codeTypingTests, {
+  codeSnippetId: z.number().int().positive().nullable().optional(),
+  programmingLanguage: z.string().min(1).max(50),
+  framework: z.string().max(50).nullable().optional(),
+  wpm: z.number().int().min(0).max(500),
+  accuracy: z.number().min(0).max(100),
+  characters: z.number().int().min(1),
+  errors: z.number().int().min(0),
+  syntaxErrors: z.number().int().min(0),
+  duration: z.number().int().min(1).max(3600),
+}).omit({ id: true, createdAt: true });
+
+export type InsertCodeTypingTest = z.infer<typeof insertCodeTypingTestSchema>;
+export type CodeTypingTest = typeof codeTypingTests.$inferSelect;

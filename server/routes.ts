@@ -3,12 +3,13 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { streamChatCompletion, shouldPerformWebSearch, type ChatMessage } from "./chat-service";
 import { generateTypingParagraph } from "./ai-paragraph-generator";
+import { generateCodeSnippet } from "./ai-code-generator";
 import { analyzeFile } from "./file-analyzer";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
-import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, type User } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, insertCodeTypingTestSchema, type User } from "@shared/schema";
 import { fromError } from "zod-validation-error";
 import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "@neondatabase/serverless";
@@ -1076,6 +1077,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Get active races error:", error);
       res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/code/snippet", aiGenerationLimiter, async (req, res) => {
+    try {
+      const language = req.query.language as string;
+      const difficulty = req.query.difficulty as string | undefined;
+      const framework = req.query.framework as string | undefined;
+      const generate = req.query.generate === "true";
+
+      if (!language) {
+        return res.status(400).json({ message: "Programming language is required" });
+      }
+
+      let snippet = await storage.getRandomCodeSnippet(language, difficulty, framework);
+
+      if (!snippet && generate) {
+        console.log(`🤖 Generating code snippet for ${language}/${difficulty || 'medium'}`);
+        
+        try {
+          const { content, description } = await generateCodeSnippet(
+            language,
+            (difficulty as "easy" | "medium" | "hard") || "medium",
+            framework
+          );
+          
+          const lineCount = content.split('\n').length;
+          const characterCount = content.length;
+          
+          snippet = await storage.createCodeSnippet({
+            programmingLanguage: language,
+            framework,
+            difficulty: (difficulty as "easy" | "medium" | "hard") || "medium",
+            content,
+            lineCount,
+            characterCount,
+            description,
+          });
+          
+          console.log(`✅ Generated and saved ${lineCount}-line ${language} code snippet`);
+        } catch (error) {
+          console.error("❌ Code generation failed:", error);
+        }
+      }
+
+      if (!snippet) {
+        return res.status(404).json({ message: "No code snippets available for these criteria" });
+      }
+
+      res.json({ snippet });
+    } catch (error: any) {
+      console.error("Get code snippet error:", error);
+      res.status(500).json({ message: "Failed to fetch code snippet" });
+    }
+  });
+
+  app.get("/api/code/languages", async (req, res) => {
+    try {
+      const languages = await storage.getAvailableProgrammingLanguages();
+      res.json({ languages });
+    } catch (error: any) {
+      console.error("Get programming languages error:", error);
+      res.status(500).json({ message: "Failed to fetch programming languages" });
+    }
+  });
+
+  app.get("/api/code/frameworks", async (req, res) => {
+    try {
+      const language = req.query.language as string | undefined;
+      const frameworks = await storage.getAvailableFrameworks(language);
+      res.json({ frameworks });
+    } catch (error: any) {
+      console.error("Get frameworks error:", error);
+      res.status(500).json({ message: "Failed to fetch frameworks" });
+    }
+  });
+
+  app.post("/api/code/test-results", isAuthenticated, async (req, res) => {
+    try {
+      const parsed = insertCodeTypingTestSchema.safeParse({
+        ...req.body,
+        userId: req.user!.id,
+      });
+
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: fromError(parsed.error).toString(),
+        });
+      }
+
+      const test = await storage.createCodeTypingTest(parsed.data);
+
+      res.status(201).json({ message: "Code typing test saved", test });
+    } catch (error: any) {
+      console.error("Save code test error:", error);
+      res.status(500).json({ message: "Failed to save code typing test" });
+    }
+  });
+
+  app.get("/api/code/test-results", isAuthenticated, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const tests = await storage.getUserCodeTypingTests(req.user!.id, limit);
+      res.json({ tests });
+    } catch (error: any) {
+      console.error("Get code test results error:", error);
+      res.status(500).json({ message: "Failed to fetch code test results" });
+    }
+  });
+
+  app.get("/api/code/stats", isAuthenticated, async (req, res) => {
+    try {
+      const language = req.query.language as string | undefined;
+      const stats = await storage.getUserCodeStats(req.user!.id, language);
+      res.json({ stats });
+    } catch (error: any) {
+      console.error("Get code stats error:", error);
+      res.status(500).json({ message: "Failed to fetch code stats" });
+    }
+  });
+
+  app.get("/api/code/leaderboard", async (req, res) => {
+    try {
+      const language = req.query.language as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const leaderboard = await storage.getCodeLeaderboard(language, limit);
+      res.json({ leaderboard });
+    } catch (error: any) {
+      console.error("Get code leaderboard error:", error);
+      res.status(500).json({ message: "Failed to fetch code leaderboard" });
     }
   });
 

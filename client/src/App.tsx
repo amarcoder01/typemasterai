@@ -19,6 +19,8 @@ import Register from "@/pages/register";
 import Analytics from "@/pages/analytics";
 import Multiplayer from "@/pages/multiplayer";
 import Race from "@/pages/race";
+import CodeMode from "@/pages/code-mode";
+import CodeLeaderboard from "@/pages/code-leaderboard";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import TermsOfService from "@/pages/terms-of-service";
 import CookiePolicy from "@/pages/cookie-policy";
@@ -40,6 +42,8 @@ function Router() {
             <Route path="/analytics" component={Analytics} />
             <Route path="/multiplayer" component={Multiplayer} />
             <Route path="/race/:id" component={Race} />
+            <Route path="/code-mode" component={CodeMode} />
+            <Route path="/code-leaderboard" component={CodeLeaderboard} />
             <Route path="/chat" component={Chat} />
             <Route path="/settings" component={Settings} />
             <Route path="/privacy-policy" component={PrivacyPolicy} />

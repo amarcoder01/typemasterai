@@ -10,6 +10,8 @@ import {
   keystrokeAnalytics,
   races,
   raceParticipants,
+  codeSnippets,
+  codeTypingTests,
   type User,
   type InsertUser,
   type TestResult,
@@ -26,6 +28,10 @@ import {
   type InsertRace,
   type RaceParticipant,
   type InsertRaceParticipant,
+  type CodeSnippet,
+  type InsertCodeSnippet,
+  type CodeTypingTest,
+  type InsertCodeTypingTest,
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -122,6 +128,33 @@ export interface IStorage {
   reactivateRaceParticipant(id: number): Promise<RaceParticipant>;
   findInactiveParticipant(raceId: number, userId?: string, guestName?: string): Promise<RaceParticipant | undefined>;
   getRaceWithParticipants(raceId: number): Promise<{ race: Race; participants: RaceParticipant[] } | undefined>;
+  
+  createCodeSnippet(snippet: InsertCodeSnippet): Promise<CodeSnippet>;
+  getCodeSnippet(id: number): Promise<CodeSnippet | undefined>;
+  getRandomCodeSnippet(language: string, difficulty?: string, framework?: string): Promise<CodeSnippet | undefined>;
+  getAvailableProgrammingLanguages(): Promise<string[]>;
+  getAvailableFrameworks(language?: string): Promise<string[]>;
+  
+  createCodeTypingTest(test: InsertCodeTypingTest): Promise<CodeTypingTest>;
+  getUserCodeTypingTests(userId: string, limit?: number): Promise<CodeTypingTest[]>;
+  getUserCodeStats(userId: string, language?: string): Promise<{
+    totalTests: number;
+    bestWpm: number;
+    avgWpm: number;
+    avgAccuracy: number;
+    totalSyntaxErrors: number;
+  } | null>;
+  getCodeLeaderboard(language?: string, limit?: number): Promise<Array<{
+    userId: string;
+    username: string;
+    wpm: number;
+    accuracy: number;
+    programmingLanguage: string;
+    framework: string | null;
+    createdAt: Date;
+    avatarColor: string | null;
+    totalTests: number;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -740,6 +773,166 @@ export class DatabaseStorage implements IStorage {
 
     const participants = await this.getRaceParticipants(raceId);
     return { race, participants };
+  }
+
+  async createCodeSnippet(snippet: InsertCodeSnippet): Promise<CodeSnippet> {
+    const result = await db.insert(codeSnippets).values(snippet).returning();
+    return result[0];
+  }
+
+  async getCodeSnippet(id: number): Promise<CodeSnippet | undefined> {
+    const result = await db.select().from(codeSnippets).where(eq(codeSnippets.id, id)).limit(1);
+    return result[0];
+  }
+
+  async getRandomCodeSnippet(language: string, difficulty?: string, framework?: string): Promise<CodeSnippet | undefined> {
+    const conditions = [eq(codeSnippets.programmingLanguage, language)];
+    
+    if (difficulty) {
+      conditions.push(eq(codeSnippets.difficulty, difficulty));
+    }
+    
+    if (framework) {
+      conditions.push(eq(codeSnippets.framework, framework));
+    }
+    
+    const snippets = await db
+      .select()
+      .from(codeSnippets)
+      .where(and(...conditions));
+    
+    if (snippets.length > 0) {
+      const randomIndex = Math.floor(Math.random() * snippets.length);
+      return snippets[randomIndex];
+    }
+    
+    return undefined;
+  }
+
+  async getAvailableProgrammingLanguages(): Promise<string[]> {
+    const result = await db
+      .selectDistinct({ language: codeSnippets.programmingLanguage })
+      .from(codeSnippets);
+    return result.map(r => r.language);
+  }
+
+  async getAvailableFrameworks(language?: string): Promise<string[]> {
+    let query = db.selectDistinct({ framework: codeSnippets.framework }).from(codeSnippets);
+    
+    if (language) {
+      query = query.where(and(
+        eq(codeSnippets.programmingLanguage, language),
+        sql`${codeSnippets.framework} IS NOT NULL`
+      )) as any;
+    } else {
+      query = query.where(sql`${codeSnippets.framework} IS NOT NULL`) as any;
+    }
+    
+    const result = await query;
+    return result.map(r => r.framework).filter(f => f !== null) as string[];
+  }
+
+  async createCodeTypingTest(test: InsertCodeTypingTest): Promise<CodeTypingTest> {
+    const result = await db.insert(codeTypingTests).values(test).returning();
+    return result[0];
+  }
+
+  async getUserCodeTypingTests(userId: string, limit: number = 10): Promise<CodeTypingTest[]> {
+    return await db
+      .select()
+      .from(codeTypingTests)
+      .where(eq(codeTypingTests.userId, userId))
+      .orderBy(desc(codeTypingTests.createdAt))
+      .limit(limit);
+  }
+
+  async getUserCodeStats(userId: string, language?: string): Promise<{
+    totalTests: number;
+    bestWpm: number;
+    avgWpm: number;
+    avgAccuracy: number;
+    totalSyntaxErrors: number;
+  } | null> {
+    const conditions = [eq(codeTypingTests.userId, userId)];
+    if (language) {
+      conditions.push(eq(codeTypingTests.programmingLanguage, language));
+    }
+
+    const result = await db
+      .select({
+        totalTests: sql<number>`count(*)::int`,
+        bestWpm: sql<number>`COALESCE(max(${codeTypingTests.wpm}), 0)::int`,
+        avgWpm: sql<number>`COALESCE(avg(${codeTypingTests.wpm}), 0)::int`,
+        avgAccuracy: sql<number>`COALESCE(avg(${codeTypingTests.accuracy}), 0)::float`,
+        totalSyntaxErrors: sql<number>`COALESCE(sum(${codeTypingTests.syntaxErrors}), 0)::int`,
+      })
+      .from(codeTypingTests)
+      .where(and(...conditions));
+
+    if (!result[0] || result[0].totalTests === 0) {
+      return null;
+    }
+
+    return result[0];
+  }
+
+  async getCodeLeaderboard(language?: string, limit: number = 20): Promise<Array<{
+    userId: string;
+    username: string;
+    wpm: number;
+    accuracy: number;
+    programmingLanguage: string;
+    framework: string | null;
+    createdAt: Date;
+    avatarColor: string | null;
+    totalTests: number;
+  }>> {
+    const languageFilter = language ? sql`AND ct.programming_language = ${language}` : sql``;
+
+    const leaderboard = await db.execute(sql`
+      WITH ranked_results AS (
+        SELECT 
+          ct.user_id,
+          ct.wpm,
+          ct.accuracy,
+          ct.programming_language,
+          ct.framework,
+          ct.created_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY ct.user_id ${language ? sql`, ct.programming_language` : sql``}
+            ORDER BY ct.wpm DESC, ct.created_at DESC
+          ) as rank
+        FROM code_typing_tests ct
+        WHERE 1=1 ${languageFilter}
+      ),
+      test_counts AS (
+        SELECT 
+          user_id,
+          ${language ? sql`programming_language,` : sql``}
+          COUNT(*)::int as total_tests
+        FROM code_typing_tests
+        WHERE 1=1 ${languageFilter}
+        GROUP BY user_id ${language ? sql`, programming_language` : sql``}
+      )
+      SELECT 
+        rr.user_id as "userId",
+        u.username,
+        rr.wpm,
+        rr.accuracy,
+        rr.programming_language as "programmingLanguage",
+        rr.framework,
+        rr.created_at as "createdAt",
+        u.avatar_color as "avatarColor",
+        COALESCE(tc.total_tests, 1) as "totalTests"
+      FROM ranked_results rr
+      INNER JOIN users u ON rr.user_id = u.id
+      LEFT JOIN test_counts tc ON rr.user_id = tc.user_id ${language ? sql`AND rr.programming_language = tc.programming_language` : sql``}
+      WHERE rr.rank = 1
+      ORDER BY rr.wpm DESC, rr.created_at DESC
+      LIMIT ${limit}
+    `);
+
+    return leaderboard.rows as any[];
   }
 }
 
