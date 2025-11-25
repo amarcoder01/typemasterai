@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
-import { calculateDictationAccuracy, calculateDictationWPM, getSpeedRate, getSpeedLevelName } from '@shared/dictation-utils';
+import { calculateDictationAccuracy, calculateDictationWPM, getSpeedRate, getSpeedLevelName, getAccuracyGrade, type CharacterDiff } from '@shared/dictation-utils';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { DictationSentence } from '@shared/schema';
@@ -26,6 +26,9 @@ interface DictationTestState {
     wpm: number;
     errors: number;
     duration: number;
+    characterDiff: CharacterDiff[];
+    correctChars: number;
+    totalChars: number;
   } | null;
 }
 
@@ -61,11 +64,22 @@ export default function DictationTest() {
   });
   const inputRef = useRef<HTMLTextAreaElement>(null);
   
+  const [showKeyboardGuide, setShowKeyboardGuide] = useState(false);
+  
   const currentRate = getSpeedRate(speedLevel);
-  const { speak, cancel, isSpeaking, isSupported, error: speechError } = useSpeechSynthesis({
+  const { speak, cancel, isSpeaking, isSupported, error: speechError, voices, setVoice, currentVoice } = useSpeechSynthesis({
     rate: currentRate,
     lang: 'en-US',
   });
+
+  const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+
+  const handleVoiceChange = (voiceUri: string) => {
+    const selectedVoice = voices.find(v => v.voiceURI === voiceUri);
+    if (selectedVoice) {
+      setVoice(selectedVoice);
+    }
+  };
 
   const { refetch: fetchNewSentence, isLoading } = useQuery({
     queryKey: ['dictation-sentence', difficulty],
@@ -225,6 +239,9 @@ export default function DictationTest() {
       wpm,
       errors: accuracyResult.errors,
       duration,
+      characterDiff: accuracyResult.characterDiff,
+      correctChars: accuracyResult.correctChars,
+      totalChars: accuracyResult.totalChars,
     };
 
     setTestState(prev => ({
@@ -387,7 +404,7 @@ export default function DictationTest() {
 
       {!testState.isComplete ? (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold" data-testid="text-replay-count">{testState.replayCount}</div>
@@ -423,6 +440,27 @@ export default function DictationTest() {
                   </SelectContent>
                 </Select>
                 <div className="text-xs text-muted-foreground mt-1">Speed</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <Select 
+                  value={currentVoice?.voiceURI || ''} 
+                  onValueChange={handleVoiceChange}
+                  disabled={isLoading || isSpeaking || englishVoices.length === 0}
+                >
+                  <SelectTrigger data-testid="select-voice">
+                    <SelectValue placeholder="Voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {englishVoices.map((voice) => (
+                      <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
+                        {voice.name.split(' ').slice(0, 2).join(' ')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="text-xs text-muted-foreground mt-1">Voice</div>
               </CardContent>
             </Card>
             <Card>
@@ -532,7 +570,33 @@ export default function DictationTest() {
               <Check className="w-4 h-4 mr-2" />
               Submit Answer
             </Button>
+            <Button
+              onClick={() => setShowKeyboardGuide(!showKeyboardGuide)}
+              variant="ghost"
+              size="sm"
+              data-testid="button-keyboard-guide"
+            >
+              ⌨️ Shortcuts
+            </Button>
           </div>
+
+          {showKeyboardGuide && (
+            <Card className="mt-4">
+              <CardContent className="pt-6">
+                <h3 className="font-semibold mb-3">Keyboard Shortcuts</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                    <span>Submit Answer</span>
+                    <kbd className="px-2 py-1 bg-background border rounded text-xs">Ctrl + Enter</kbd>
+                  </div>
+                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                    <span>Focus Text Box</span>
+                    <kbd className="px-2 py-1 bg-background border rounded text-xs">Tab</kbd>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {speechError && (
             <Card className="mt-4 border-destructive">
@@ -581,22 +645,89 @@ export default function DictationTest() {
               </div>
 
               <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-medium mb-2">Correct sentence:</p>
-                  <div className="p-4 bg-green-500/10 rounded-md">
-                    <p className="font-mono text-sm" data-testid="text-correct-sentence">
-                      {testState.sentence?.sentence}
-                    </p>
+                {testState.result && testState.result.characterDiff && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Character-by-Character Analysis:</p>
+                    <div className="p-4 bg-muted/30 rounded-md">
+                      <div className="font-mono text-base leading-relaxed flex flex-wrap gap-0.5">
+                        {testState.result.characterDiff.map((diff, idx) => (
+                          <span
+                            key={idx}
+                            className={`${
+                              diff.status === 'correct' 
+                                ? 'bg-green-500/20 text-green-700 dark:text-green-400' 
+                                : diff.status === 'incorrect'
+                                ? 'bg-red-500/20 text-red-700 dark:text-red-400 underline decoration-wavy'
+                                : diff.status === 'missing'
+                                ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
+                                : 'bg-orange-500/20 text-orange-700 dark:text-orange-400 line-through'
+                            } px-0.5 rounded`}
+                            title={
+                              diff.status === 'correct' ? 'Correct' :
+                              diff.status === 'incorrect' ? 'Wrong character' :
+                              diff.status === 'missing' ? 'You missed this' :
+                              'Extra character you added'
+                            }
+                          >
+                            {diff.char === ' ' ? '·' : diff.char}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="mt-4 flex gap-4 text-xs">
+                        <div className="flex items-center gap-1">
+                          <span className="w-3 h-3 bg-green-500/20 rounded"></span>
+                          <span className="text-muted-foreground">Correct</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="w-3 h-3 bg-red-500/20 rounded"></span>
+                          <span className="text-muted-foreground">Wrong</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="w-3 h-3 bg-yellow-500/20 rounded"></span>
+                          <span className="text-muted-foreground">Missing</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="w-3 h-3 bg-orange-500/20 rounded"></span>
+                          <span className="text-muted-foreground">Extra</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium mb-2">Original sentence:</p>
+                    <div className="p-4 bg-green-500/10 rounded-md">
+                      <p className="font-mono text-sm" data-testid="text-correct-sentence">
+                        {testState.sentence?.sentence}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium mb-2">Your typing:</p>
+                    <div className="p-4 bg-blue-500/10 rounded-md">
+                      <p className="font-mono text-sm" data-testid="text-your-typing">
+                        {testState.typedText}
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium mb-2">Your typing:</p>
-                  <div className="p-4 bg-blue-500/10 rounded-md">
-                    <p className="font-mono text-sm" data-testid="text-your-typing">
-                      {testState.typedText}
+
+                {testState.result && (
+                  <div className="text-center p-4 bg-primary/5 rounded-lg">
+                    <p className="text-sm text-muted-foreground mb-1">Accuracy Grade</p>
+                    <p className={`text-4xl font-bold ${getAccuracyGrade(testState.result.accuracy).color}`}>
+                      {getAccuracyGrade(testState.result.accuracy).grade}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {getAccuracyGrade(testState.result.accuracy).message}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {testState.result.correctChars} / {testState.result.totalChars} characters correct
                     </p>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="mt-6 text-center">
