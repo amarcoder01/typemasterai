@@ -73,7 +73,7 @@ export default function BookMode() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Fetch topics for filter dropdown
-  const { data: topics = [] } = useQuery({
+  const { data: topicsData } = useQuery({
     queryKey: ['bookTopics'],
     queryFn: async () => {
       const res = await fetch('/api/book-topics');
@@ -82,6 +82,7 @@ export default function BookMode() {
     },
   });
 
+  const topics = topicsData?.topics || [];
   const topicOptions = [
     { value: '', label: 'All Topics' },
     ...topics.map((topic: string) => ({ value: topic, label: topic.charAt(0).toUpperCase() + topic.slice(1) }))

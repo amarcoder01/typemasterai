@@ -6,7 +6,7 @@ export interface GutendexBook {
   authors: Array<{ name: string }>;
   subjects: string[];
   bookshelves: string[];
-  formats: { 'text/plain'?: string };
+  formats: Record<string, string>;
 }
 
 export interface ProcessedParagraph {
@@ -102,8 +102,12 @@ export async function fetchBooksFromGutendex(limit: number = 96): Promise<Gutend
       
       const data: GutendexResponse = await response.json();
       
-      // Filter books that have text/plain format
-      const validBooks = data.results.filter(book => book.formats['text/plain']);
+      // Filter books that have text/plain format (check all variants)
+      const validBooks = data.results.filter(book => {
+        return book.formats['text/plain; charset=utf-8'] || 
+               book.formats['text/plain; charset=us-ascii'] || 
+               book.formats['text/plain'];
+      });
       books.push(...validBooks);
       
       console.log(`Fetched ${validBooks.length} valid books (total: ${books.length}/${limit})`);
@@ -461,8 +465,10 @@ export function extractTopic(subjects: string[], bookshelves: string[]): string 
 export async function processBook(book: GutendexBook): Promise<ProcessedParagraph[]> {
   console.log(`Processing book: "${book.title}" (ID: ${book.id})`);
   
-  // Check if book has text/plain format
-  const textUrl = book.formats['text/plain'];
+  // Check if book has text/plain format (try all variants)
+  const textUrl = book.formats['text/plain; charset=utf-8'] || 
+                  book.formats['text/plain; charset=us-ascii'] || 
+                  book.formats['text/plain'];
   if (!textUrl) {
     console.warn(`Book "${book.title}" does not have text/plain format`);
     return [];
