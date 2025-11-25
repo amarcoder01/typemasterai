@@ -67,6 +67,39 @@ export const insertTestResultSchema = createInsertSchema(testResults, {
 export type InsertTestResult = z.infer<typeof insertTestResultSchema>;
 export type TestResult = typeof testResults.$inferSelect;
 
+export const sharedResults = pgTable("shared_results", {
+  id: serial("id").primaryKey(),
+  shareToken: varchar("share_token", { length: 12 }).notNull().unique(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  username: text("username"),
+  mode: text("mode").notNull(),
+  wpm: integer("wpm").notNull(),
+  accuracy: real("accuracy").notNull(),
+  errors: integer("errors").notNull(),
+  duration: integer("duration"),
+  characters: integer("characters"),
+  metadata: jsonb("metadata"),
+  isAnonymous: boolean("is_anonymous").default(false).notNull(),
+  viewCount: integer("view_count").default(0).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  shareTokenIdx: index("share_token_idx").on(table.shareToken),
+  modeIdx: index("shared_mode_idx").on(table.mode),
+  createdAtIdx: index("shared_created_at_idx").on(table.createdAt),
+}));
+
+export const insertSharedResultSchema = createInsertSchema(sharedResults, {
+  shareToken: z.string().length(12),
+  mode: z.string().min(1),
+  wpm: z.number().int().min(0).max(500),
+  accuracy: z.number().min(0).max(100),
+  errors: z.number().int().min(0),
+  isAnonymous: z.boolean().optional(),
+}).omit({ id: true, createdAt: true, viewCount: true });
+
+export type InsertSharedResult = z.infer<typeof insertSharedResultSchema>;
+export type SharedResult = typeof sharedResults.$inferSelect;
+
 export const conversations = pgTable("conversations", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),

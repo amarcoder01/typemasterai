@@ -13,6 +13,7 @@ import {
   codeSnippets,
   codeTypingTests,
   sharedCodeResults,
+  sharedResults,
   books,
   bookParagraphs,
   bookTypingTests,
@@ -40,6 +41,8 @@ import {
   type InsertCodeTypingTest,
   type SharedCodeResult,
   type InsertSharedCodeResult,
+  type SharedResult,
+  type InsertSharedResult,
   type Book,
   type InsertBook,
   type BookParagraph,
@@ -209,6 +212,10 @@ export interface IStorage {
     avatarColor: string | null;
     totalTests: number;
   }>>;
+
+  createSharedResult(result: InsertSharedResult): Promise<SharedResult>;
+  getSharedResult(shareToken: string): Promise<SharedResult | undefined>;
+  incrementShareViewCount(shareToken: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1250,6 +1257,27 @@ export class DatabaseStorage implements IStorage {
       avatarColor: score.avatarColor,
       totalTests: score.totalTests,
     }));
+  }
+
+  async createSharedResult(result: InsertSharedResult): Promise<SharedResult> {
+    const inserted = await db.insert(sharedResults).values(result).returning();
+    return inserted[0];
+  }
+
+  async getSharedResult(shareToken: string): Promise<SharedResult | undefined> {
+    const result = await db
+      .select()
+      .from(sharedResults)
+      .where(eq(sharedResults.shareToken, shareToken))
+      .limit(1);
+    return result[0];
+  }
+
+  async incrementShareViewCount(shareToken: string): Promise<void> {
+    await db
+      .update(sharedResults)
+      .set({ viewCount: sql`${sharedResults.viewCount} + 1` })
+      .where(eq(sharedResults.shareToken, shareToken));
   }
 }
 
