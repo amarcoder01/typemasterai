@@ -22,15 +22,110 @@ import "prismjs/components/prism-go";
 import "prismjs/components/prism-rust";
 import "prismjs/components/prism-sql";
 import "prismjs/components/prism-csharp";
+import "prismjs/components/prism-c";
+import "prismjs/components/prism-cpp";
+import "prismjs/components/prism-swift";
+import "prismjs/components/prism-ruby";
+import "prismjs/components/prism-php";
+import "prismjs/components/prism-kotlin";
+import "prismjs/components/prism-dart";
+import "prismjs/components/prism-scala";
+import "prismjs/components/prism-r";
+import "prismjs/components/prism-powershell";
+import "prismjs/components/prism-perl";
+import "prismjs/components/prism-lua";
+import "prismjs/components/prism-markup";
+import "prismjs/components/prism-scss";
+import "prismjs/components/prism-sass";
+import "prismjs/components/prism-less";
+import "prismjs/components/prism-yaml";
+import "prismjs/components/prism-toml";
+import "prismjs/components/prism-markdown";
+import "prismjs/components/prism-elixir";
+import "prismjs/components/prism-haskell";
+import "prismjs/components/prism-clojure";
+import "prismjs/components/prism-fsharp";
+import "prismjs/components/prism-ocaml";
+import "prismjs/components/prism-erlang";
+import "prismjs/components/prism-objectivec";
+import "prismjs/components/prism-groovy";
+import "prismjs/components/prism-julia";
+import "prismjs/components/prism-nim";
+import "prismjs/components/prism-crystal";
+import "prismjs/components/prism-d";
+import "prismjs/components/prism-scheme";
+import "prismjs/components/prism-fortran";
+import "prismjs/components/prism-matlab";
+import "prismjs/components/prism-solidity";
+import "prismjs/components/prism-racket";
+import "prismjs/components/prism-lisp";
+import "prismjs/components/prism-pascal";
+import "prismjs/components/prism-vhdl";
 
 const PROGRAMMING_LANGUAGES = {
-  javascript: { name: "JavaScript", prism: "javascript" },
-  typescript: { name: "TypeScript", prism: "typescript" },
-  python: { name: "Python", prism: "python" },
-  java: { name: "Java", prism: "java" },
-  go: { name: "Go", prism: "go" },
-  rust: { name: "Rust", prism: "rust" },
-  csharp: { name: "C#", prism: "csharp" },
+  javascript: { name: "JavaScript", prism: "javascript", category: "Popular" },
+  typescript: { name: "TypeScript", prism: "typescript", category: "Popular" },
+  python: { name: "Python", prism: "python", category: "Popular" },
+  java: { name: "Java", prism: "java", category: "Popular" },
+  cpp: { name: "C++", prism: "cpp", category: "Popular" },
+  csharp: { name: "C#", prism: "csharp", category: "Popular" },
+  go: { name: "Go", prism: "go", category: "Popular" },
+  rust: { name: "Rust", prism: "rust", category: "Popular" },
+  swift: { name: "Swift", prism: "swift", category: "Popular" },
+  ruby: { name: "Ruby", prism: "ruby", category: "Popular" },
+  
+  php: { name: "PHP", prism: "php", category: "Web Development" },
+  html: { name: "HTML", prism: "markup", category: "Web Development" },
+  css: { name: "CSS", prism: "css", category: "Web Development" },
+  scss: { name: "SCSS", prism: "scss", category: "Web Development" },
+  sass: { name: "Sass", prism: "sass", category: "Web Development" },
+  less: { name: "Less", prism: "less", category: "Web Development" },
+  jsx: { name: "JSX", prism: "jsx", category: "Web Development" },
+  tsx: { name: "TSX", prism: "tsx", category: "Web Development" },
+  
+  kotlin: { name: "Kotlin", prism: "kotlin", category: "Mobile & JVM" },
+  dart: { name: "Dart", prism: "dart", category: "Mobile & JVM" },
+  scala: { name: "Scala", prism: "scala", category: "Mobile & JVM" },
+  groovy: { name: "Groovy", prism: "groovy", category: "Mobile & JVM" },
+  objectivec: { name: "Objective-C", prism: "objectivec", category: "Mobile & JVM" },
+  
+  c: { name: "C", prism: "c", category: "Systems Programming" },
+  zig: { name: "Zig", prism: "c", category: "Systems Programming" },
+  vhdl: { name: "VHDL", prism: "vhdl", category: "Systems Programming" },
+  
+  r: { name: "R", prism: "r", category: "Data Science" },
+  julia: { name: "Julia", prism: "julia", category: "Data Science" },
+  matlab: { name: "MATLAB", prism: "matlab", category: "Data Science" },
+  
+  bash: { name: "Bash/Shell", prism: "bash", category: "Scripting" },
+  powershell: { name: "PowerShell", prism: "powershell", category: "Scripting" },
+  perl: { name: "Perl", prism: "perl", category: "Scripting" },
+  lua: { name: "Lua", prism: "lua", category: "Scripting" },
+  
+  elixir: { name: "Elixir", prism: "elixir", category: "Functional" },
+  haskell: { name: "Haskell", prism: "haskell", category: "Functional" },
+  clojure: { name: "Clojure", prism: "clojure", category: "Functional" },
+  fsharp: { name: "F#", prism: "fsharp", category: "Functional" },
+  ocaml: { name: "OCaml", prism: "ocaml", category: "Functional" },
+  erlang: { name: "Erlang", prism: "erlang", category: "Functional" },
+  scheme: { name: "Scheme", prism: "scheme", category: "Functional" },
+  racket: { name: "Racket", prism: "racket", category: "Functional" },
+  lisp: { name: "Lisp", prism: "lisp", category: "Functional" },
+  
+  sql: { name: "SQL", prism: "sql", category: "Database" },
+  
+  json: { name: "JSON", prism: "json", category: "Data Formats" },
+  yaml: { name: "YAML", prism: "yaml", category: "Data Formats" },
+  toml: { name: "TOML", prism: "toml", category: "Data Formats" },
+  xml: { name: "XML", prism: "markup", category: "Data Formats" },
+  markdown: { name: "Markdown", prism: "markdown", category: "Data Formats" },
+  
+  fortran: { name: "Fortran", prism: "fortran", category: "Other" },
+  nim: { name: "Nim", prism: "nim", category: "Other" },
+  crystal: { name: "Crystal", prism: "crystal", category: "Other" },
+  d: { name: "D", prism: "d", category: "Other" },
+  solidity: { name: "Solidity", prism: "solidity", category: "Other" },
+  pascal: { name: "Pascal", prism: "pascal", category: "Other" },
 };
 
 const DIFFICULTIES = [
@@ -225,12 +320,25 @@ export default function CodeMode() {
           <div className="flex items-center gap-2">
             <label className="text-sm font-medium">Language:</label>
             <Select value={language} onValueChange={setLanguage} disabled={isActive}>
-              <SelectTrigger className="w-[180px]" data-testid="select-language">
+              <SelectTrigger className="w-[200px]" data-testid="select-language">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                {Object.entries(PROGRAMMING_LANGUAGES).map(([key, { name }]) => (
-                  <SelectItem key={key} value={key}>{name}</SelectItem>
+              <SelectContent className="max-h-[400px]">
+                {Object.entries(
+                  Object.entries(PROGRAMMING_LANGUAGES).reduce((acc, [key, lang]) => {
+                    if (!acc[lang.category]) acc[lang.category] = [];
+                    acc[lang.category].push({ key, ...lang });
+                    return acc;
+                  }, {} as Record<string, Array<{ key: string; name: string; prism: string; category: string }>>)
+                ).map(([category, languages]) => (
+                  <div key={category}>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                      {category}
+                    </div>
+                    {languages.map(({ key, name }) => (
+                      <SelectItem key={key} value={key}>{name}</SelectItem>
+                    ))}
+                  </div>
                 ))}
               </SelectContent>
             </Select>

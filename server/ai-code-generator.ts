@@ -20,6 +20,38 @@ export async function generateCodeSnippet(
     hard: "Advanced patterns, complex logic, best practices, and optimization"
   }[difficulty];
 
+  const markupLanguages = ["HTML", "XML", "Markdown", "markup"];
+  const dataFormats = ["JSON", "YAML", "TOML", "json", "yaml", "toml"];
+  const styleLanguages = ["CSS", "SCSS", "Sass", "Less", "css", "scss", "sass", "less"];
+  
+  const isMarkup = markupLanguages.some(l => programmingLanguage.toLowerCase().includes(l.toLowerCase()));
+  const isDataFormat = dataFormats.some(l => programmingLanguage.toLowerCase().includes(l.toLowerCase()));
+  const isStyle = styleLanguages.some(l => programmingLanguage.toLowerCase().includes(l.toLowerCase()));
+
+  let languageSpecificGuidance = "";
+  if (isMarkup) {
+    languageSpecificGuidance = `
+Special guidance for ${programmingLanguage}:
+- Focus on proper document structure with well-formed tags/elements
+- Include semantic elements and proper nesting
+- Use appropriate attributes and values
+- Create realistic content structure (forms, lists, sections, etc.)`;
+  } else if (isDataFormat) {
+    languageSpecificGuidance = `
+Special guidance for ${programmingLanguage}:
+- Create realistic data structures (configuration, API response, data model)
+- Use proper syntax and formatting
+- Include nested structures, arrays, and various data types
+- Make the data meaningful and realistic`;
+  } else if (isStyle) {
+    languageSpecificGuidance = `
+Special guidance for ${programmingLanguage}:
+- Focus on realistic styling rules for common UI components
+- Include selectors, properties, and values
+- Use modern ${programmingLanguage} features (variables, nesting, mixins as appropriate)
+- Create cohesive styling for a realistic component`;
+  }
+
   const prompt = `Generate a realistic ${difficulty}-level ${programmingLanguage} code snippet${frameworkNote} for typing practice.
 
 Requirements:
@@ -30,6 +62,7 @@ Requirements:
 5. Include a mix of keywords, operators, function calls, and typical constructs
 6. Use meaningful variable names and follow ${programmingLanguage} naming conventions
 7. Include comments where appropriate (1-2 brief comments)
+${languageSpecificGuidance}
 
 ${framework ? `Framework-specific requirements:
 - Use ${framework}-specific syntax and patterns
