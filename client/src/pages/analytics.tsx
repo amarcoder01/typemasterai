@@ -57,6 +57,20 @@ export default function Analytics() {
 
   const analytics = analyticsData?.analytics;
 
+  // Fetch latest keystroke analytics for detailed analysis
+  const { data: keystrokeData } = useQuery({
+    queryKey: ["/api/analytics/user?limit=1"],
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/user?limit=1", {
+        credentials: "include",
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      // Return the first analytics record if available
+      return data.analytics && data.analytics.length > 0 ? { analytics: data.analytics[0] } : null;
+    },
+  });
+
   const generateAIInsights = async () => {
     if (!analytics) return;
 
@@ -538,8 +552,9 @@ Make them progressive, achievable, and specific to my current level. Use realist
       </div>
 
       <Tabs defaultValue="performance" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="performance" data-testid="tab-performance">Performance</TabsTrigger>
+          <TabsTrigger value="keystroke" data-testid="tab-keystroke">Keystroke Analysis</TabsTrigger>
           <TabsTrigger value="mistakes" data-testid="tab-mistakes">Mistakes</TabsTrigger>
           <TabsTrigger value="insights" data-testid="tab-insights">AI Insights</TabsTrigger>
           <TabsTrigger value="practice" data-testid="tab-practice">Practice Plan</TabsTrigger>
@@ -624,6 +639,348 @@ Make them progressive, achievable, and specific to my current level. Use realist
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="keystroke" className="space-y-4">
+          {!keystrokeData?.analytics ? (
+            <Card>
+              <CardContent className="py-12">
+                <div className="text-center">
+                  <Keyboard className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-xl font-semibold mb-2">No Keystroke Data Available</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Complete a typing test with keystroke tracking enabled to see detailed analytics
+                  </p>
+                  <Button onClick={() => (window.location.href = "/")} data-testid="button-start-test-keystroke">
+                    Start a Test
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Timing Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Average Dwell Time</CardDescription>
+                    <CardTitle className="text-3xl" data-testid="stat-avg-dwell">
+                      {keystrokeData.analytics.avgDwellTime?.toFixed(0) || 'N/A'} ms
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Time keys are held down
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Average Flight Time</CardDescription>
+                    <CardTitle className="text-3xl" data-testid="stat-avg-flight">
+                      {keystrokeData.analytics.avgFlightTime?.toFixed(0) || 'N/A'} ms
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Time between keystrokes
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Consistency Score</CardDescription>
+                    <CardTitle className="text-3xl" data-testid="stat-consistency-score">
+                      {keystrokeData.analytics.consistency?.toFixed(1) || 'N/A'}%
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Typing rhythm stability
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Finger Usage and Hand Balance */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Finger Usage Distribution</CardTitle>
+                    <CardDescription>Keystrokes per finger</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {keystrokeData.analytics.fingerUsage ? (
+                      <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={Object.entries(keystrokeData.analytics.fingerUsage).map(([finger, count]) => ({
+                          finger: finger.replace('Left ', 'L ').replace('Right ', 'R '),
+                          count: count
+                        }))}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                          <XAxis dataKey="finger" stroke="#888" angle={-45} textAnchor="end" height={80} />
+                          <YAxis stroke="#888" />
+                          <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
+                          <Bar dataKey="count" fill="#00ffff" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <p className="text-center py-12 text-muted-foreground">No finger usage data available</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Hand Balance</CardTitle>
+                    <CardDescription>Left vs Right hand usage</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {keystrokeData.analytics.handBalance !== null && keystrokeData.analytics.handBalance !== undefined ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Left Hand</span>
+                          <Badge variant="outline" className="text-lg">{keystrokeData.analytics.handBalance.toFixed(1)}%</Badge>
+                        </div>
+                        <div className="w-full h-8 bg-secondary rounded-full overflow-hidden flex">
+                          <div 
+                            className="bg-blue-500 transition-all duration-500"
+                            style={{ width: `${keystrokeData.analytics.handBalance}%` }}
+                          />
+                          <div 
+                            className="bg-purple-500 transition-all duration-500"
+                            style={{ width: `${100 - keystrokeData.analytics.handBalance}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Right Hand</span>
+                          <Badge variant="outline" className="text-lg">{(100 - keystrokeData.analytics.handBalance).toFixed(1)}%</Badge>
+                        </div>
+                        <Separator />
+                        <p className="text-sm text-muted-foreground text-center">
+                          {Math.abs(keystrokeData.analytics.handBalance - 50) < 10 
+                            ? "🎯 Well balanced hand usage" 
+                            : "⚡ Consider practicing with your weaker hand"}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-center py-12 text-muted-foreground">No hand balance data available</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Keyboard Heatmap */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Keyboard Heatmap</CardTitle>
+                  <CardDescription>Visual representation of key usage frequency</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {keystrokeData.analytics.keyHeatmap ? (
+                    <div className="overflow-x-auto">
+                      <div className="min-w-[600px] space-y-1">
+                        {/* Number row */}
+                        <div className="flex gap-1 justify-center">
+                          {['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].map(key => {
+                            const count = keystrokeData.analytics.keyHeatmap?.[key] || 0;
+                            const maxCount = Math.max(...(Object.values(keystrokeData.analytics.keyHeatmap || {}) as number[]));
+                            const intensity = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                            return (
+                              <div
+                                key={key}
+                                className="w-12 h-12 rounded border border-border flex items-center justify-center font-mono text-sm transition-all hover:scale-110"
+                                style={{
+                                  backgroundColor: `rgba(0, 255, 255, ${intensity / 100 * 0.5})`,
+                                  boxShadow: intensity > 50 ? '0 0 10px rgba(0, 255, 255, 0.3)' : 'none'
+                                }}
+                                title={`${key}: ${count} times`}
+                              >
+                                {key}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* QWERTY row */}
+                        <div className="flex gap-1 justify-center">
+                          {['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'].map(key => {
+                            const count = keystrokeData.analytics.keyHeatmap?.[key.toLowerCase()] || keystrokeData.analytics.keyHeatmap?.[key] || 0;
+                            const maxCount = Math.max(...(Object.values(keystrokeData.analytics.keyHeatmap || {}) as number[]));
+                            const intensity = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                            return (
+                              <div
+                                key={key}
+                                className="w-12 h-12 rounded border border-border flex items-center justify-center font-mono text-sm transition-all hover:scale-110"
+                                style={{
+                                  backgroundColor: `rgba(0, 255, 255, ${intensity / 100 * 0.5})`,
+                                  boxShadow: intensity > 50 ? '0 0 10px rgba(0, 255, 255, 0.3)' : 'none'
+                                }}
+                                title={`${key}: ${count} times`}
+                              >
+                                {key}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* ASDF row */}
+                        <div className="flex gap-1 justify-center ml-6">
+                          {['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'].map(key => {
+                            const count = keystrokeData.analytics.keyHeatmap?.[key.toLowerCase()] || keystrokeData.analytics.keyHeatmap?.[key] || 0;
+                            const maxCount = Math.max(...(Object.values(keystrokeData.analytics.keyHeatmap || {}) as number[]));
+                            const intensity = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                            return (
+                              <div
+                                key={key}
+                                className="w-12 h-12 rounded border border-border flex items-center justify-center font-mono text-sm transition-all hover:scale-110"
+                                style={{
+                                  backgroundColor: `rgba(0, 255, 255, ${intensity / 100 * 0.5})`,
+                                  boxShadow: intensity > 50 ? '0 0 10px rgba(0, 255, 255, 0.3)' : 'none'
+                                }}
+                                title={`${key}: ${count} times`}
+                              >
+                                {key}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* ZXCV row */}
+                        <div className="flex gap-1 justify-center ml-12">
+                          {['Z', 'X', 'C', 'V', 'B', 'N', 'M'].map(key => {
+                            const count = keystrokeData.analytics.keyHeatmap?.[key.toLowerCase()] || keystrokeData.analytics.keyHeatmap?.[key] || 0;
+                            const maxCount = Math.max(...(Object.values(keystrokeData.analytics.keyHeatmap || {}) as number[]));
+                            const intensity = maxCount > 0 ? (count / maxCount) * 100 : 0;
+                            return (
+                              <div
+                                key={key}
+                                className="w-12 h-12 rounded border border-border flex items-center justify-center font-mono text-sm transition-all hover:scale-110"
+                                style={{
+                                  backgroundColor: `rgba(0, 255, 255, ${intensity / 100 * 0.5})`,
+                                  boxShadow: intensity > 50 ? '0 0 10px rgba(0, 255, 255, 0.3)' : 'none'
+                                }}
+                                title={`${key}: ${count} times`}
+                              >
+                                {key}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Spacebar */}
+                        <div className="flex gap-1 justify-center mt-1">
+                          <div className="w-64 h-12 rounded border border-border flex items-center justify-center font-mono text-sm transition-all hover:scale-105"
+                            style={{
+                              backgroundColor: `rgba(0, 255, 255, ${((keystrokeData.analytics.keyHeatmap?.[' '] || 0) / Math.max(...(Object.values(keystrokeData.analytics.keyHeatmap || {}) as number[]))) * 0.5})`,
+                            }}
+                            title={`SPACE: ${keystrokeData.analytics.keyHeatmap?.[' '] || 0} times`}
+                          >
+                            SPACE
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-center gap-4 mt-4 text-sm text-muted-foreground">
+                          <span>Less Used</span>
+                          <div className="flex gap-1">
+                            <div className="w-8 h-4 rounded" style={{ backgroundColor: 'rgba(0, 255, 255, 0.1)' }} />
+                            <div className="w-8 h-4 rounded" style={{ backgroundColor: 'rgba(0, 255, 255, 0.25)' }} />
+                            <div className="w-8 h-4 rounded" style={{ backgroundColor: 'rgba(0, 255, 255, 0.5)' }} />
+                          </div>
+                          <span>Most Used</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-center py-12 text-muted-foreground">No keyboard heatmap data available</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* WPM by Position & Slowest Words */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {keystrokeData.analytics.wpmByPosition && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>WPM Throughout Test</CardTitle>
+                      <CardDescription>Speed consistency over text position</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={250}>
+                        <LineChart data={keystrokeData.analytics.wpmByPosition.map((wpm: number, idx: number) => ({
+                          position: `${idx * 10}%`,
+                          wpm
+                        }))}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                          <XAxis dataKey="position" stroke="#888" />
+                          <YAxis stroke="#888" />
+                          <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
+                          <Line type="monotone" dataKey="wpm" stroke="#a855f7" strokeWidth={2} dot={{ r: 3 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {keystrokeData.analytics.slowestWords && keystrokeData.analytics.slowestWords.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Slowest Words</CardTitle>
+                      <CardDescription>Words that slow you down</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ScrollArea className="h-[250px]">
+                        <div className="space-y-2">
+                          {keystrokeData.analytics.slowestWords.slice(0, 10).map((item: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
+                              data-testid={`slow-word-${idx}`}
+                            >
+                              <span className="font-mono font-medium">{item.word}</span>
+                              <Badge variant="outline">{item.avgTime?.toFixed(0)} ms</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Digraph Analysis */}
+              {keystrokeData.analytics.fastestDigraph && keystrokeData.analytics.slowestDigraph && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Digraph Analysis</CardTitle>
+                    <CardDescription>Fastest and slowest two-key combinations</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h4 className="text-sm font-semibold mb-3 text-green-500">Fastest Digraphs</h4>
+                        <div className="space-y-2">
+                          {keystrokeData.analytics.fastestDigraph.slice(0, 5).map((item: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-2 rounded bg-green-500/10 border border-green-500/20">
+                              <span className="font-mono">{item.digraph}</span>
+                              <Badge variant="outline" className="bg-green-500/20">{item.avgTime?.toFixed(0)} ms</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold mb-3 text-red-500">Slowest Digraphs</h4>
+                        <div className="space-y-2">
+                          {keystrokeData.analytics.slowestDigraph.slice(0, 5).map((item: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-2 rounded bg-red-500/10 border border-red-500/20">
+                              <span className="font-mono">{item.digraph}</span>
+                              <Badge variant="outline" className="bg-red-500/20">{item.avgTime?.toFixed(0)} ms</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="mistakes" className="space-y-4">
