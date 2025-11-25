@@ -22,6 +22,9 @@ import Race from "@/pages/race";
 import CodeMode from "@/pages/code-mode";
 import CodeLeaderboard from "@/pages/code-leaderboard";
 import BookMode from "@/pages/book-mode";
+import BookLibrary from "@/pages/book-library";
+import BookDetail from "@/pages/book-detail";
+import ChapterTyping from "@/pages/chapter-typing";
 import SharedResult from "@/pages/shared-result";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import TermsOfService from "@/pages/terms-of-service";
@@ -47,7 +50,10 @@ function Router() {
             <Route path="/race/:id" component={Race} />
             <Route path="/code-mode" component={CodeMode} />
             <Route path="/code-leaderboard" component={CodeLeaderboard} />
-            <Route path="/books" component={BookMode} />
+            <Route path="/book-mode" component={BookMode} />
+            <Route path="/books/:slug/chapter/:chapterNum" component={ChapterTyping} />
+            <Route path="/books/:slug" component={BookDetail} />
+            <Route path="/books" component={BookLibrary} />
             <Route path="/chat" component={Chat} />
             <Route path="/settings" component={Settings} />
             <Route path="/privacy-policy" component={PrivacyPolicy} />

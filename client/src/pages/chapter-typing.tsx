@@ -1,0 +1,538 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useRoute, useLocation } from "wouter";
+import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { BookOpen, Trophy, Zap, Target, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import confetti from "canvas-confetti";
+import type { BookParagraph, InsertBookTypingTest } from "@shared/schema";
+
+function calculateWPM(chars: number, seconds: number): number {
+  if (seconds === 0) return 0;
+  return Math.round((chars / 5) / (seconds / 60));
+}
+
+function calculateAccuracy(correct: number, total: number): number {
+  if (total === 0) return 100;
+  return Math.round((correct / total) * 100);
+}
+
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+export default function ChapterTyping() {
+  const [match, params] = useRoute("/books/:slug/chapter/:chapterNum");
+  const [, setLocation] = useLocation();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const slug = params?.slug || '';
+  const chapterNum = params?.chapterNum ? parseInt(params.chapterNum) : 0;
+
+  const [chapterText, setChapterText] = useState("");
+  const [userInput, setUserInput] = useState("");
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [isActive, setIsActive] = useState(false);
+  const [isFinished, setIsFinished] = useState(false);
+  const [wpm, setWpm] = useState(0);
+  const [accuracy, setAccuracy] = useState(100);
+  const [errors, setErrors] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [isComposing, setIsComposing] = useState(false);
+  const [completedTestData, setCompletedTestData] = useState<{
+    duration: number;
+    wpm: number;
+    accuracy: number;
+    errors: number;
+  } | null>(null);
+  const [paragraphs, setParagraphs] = useState<BookParagraph[]>([]);
+  
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Fetch book by slug to get bookId
+  const { data: book, isLoading: bookLoading } = useQuery({
+    queryKey: ['book', slug],
+    queryFn: async () => {
+      const res = await fetch(`/api/books/${slug}`);
+      if (!res.ok) throw new Error('Failed to fetch book');
+      return res.json();
+    },
+    enabled: !!slug,
+  });
+
+  // Fetch chapter paragraphs
+  const { data: chapterParagraphs = [], isLoading: chaptersLoading } = useQuery({
+    queryKey: ['chapter', book?.id, chapterNum],
+    queryFn: async () => {
+      const res = await fetch(`/api/books/${book!.id}/chapters/${chapterNum}`);
+      if (!res.ok) throw new Error('Failed to fetch chapter');
+      return res.json() as Promise<BookParagraph[]>;
+    },
+    enabled: !!book && chapterNum > 0,
+  });
+
+  // Set chapter text when paragraphs load
+  useEffect(() => {
+    if (chapterParagraphs.length > 0) {
+      const text = chapterParagraphs.map(p => p.text).join('\n\n');
+      setChapterText(text);
+      setParagraphs(chapterParagraphs);
+      resetTestState();
+    }
+  }, [chapterParagraphs]);
+
+  // Save test result
+  const saveTestMutation = useMutation({
+    mutationFn: async (result: Omit<InsertBookTypingTest, 'userId'>) => {
+      const res = await fetch('/api/book-tests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(result),
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${res.status}`);
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Chapter Complete!",
+        description: "Your progress has been saved.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["bookStats"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Save Progress",
+        description: error.message?.includes("401")
+          ? "Please log in to save your progress."
+          : "Could not save your progress. Your stats are still visible above.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Calculate stats in real-time
+  useEffect(() => {
+    if (isActive && startTime && chapterText) {
+      const chars = userInput.length;
+      const errorCount = userInput.split("").filter((char, i) => char !== chapterText[i]).length;
+      const correctChars = chars - errorCount;
+      const timeElapsed = (Date.now() - startTime) / 1000;
+      
+      setWpm(calculateWPM(correctChars, timeElapsed));
+      setAccuracy(calculateAccuracy(correctChars, chars));
+      setErrors(errorCount);
+      
+      if (userInput === chapterText) {
+        finishTest();
+      }
+    }
+  }, [userInput, isActive, startTime, chapterText]);
+
+  // Auto-focus textarea
+  useEffect(() => {
+    if (chapterText && !isActive && !isFinished && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [chapterText, isActive, isFinished]);
+
+  // Timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (isActive && startTime) {
+      interval = setInterval(() => {
+        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      }, 100);
+    } else if (!isActive) {
+      setElapsedTime(0);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isActive, startTime]);
+
+  const finishTest = () => {
+    if (!chapterText || !startTime || paragraphs.length === 0) return;
+
+    setIsActive(false);
+    setIsFinished(true);
+    
+    const duration = Math.round((Date.now() - startTime) / 1000);
+    
+    setCompletedTestData({
+      duration,
+      wpm,
+      accuracy,
+      errors,
+    });
+    
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#FFD700', '#00FFFF', '#FF00FF']
+    });
+
+    // Save result for the first paragraph (representing the chapter)
+    if (user) {
+      saveTestMutation.mutate({
+        paragraphId: paragraphs[0].id,
+        wpm,
+        accuracy,
+        characters: userInput.length,
+        errors,
+        duration,
+      });
+    }
+  };
+
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (isComposing) return;
+    processInput(e.target.value);
+  };
+
+  const handleCompositionStart = () => {
+    setIsComposing(true);
+  };
+
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
+    setIsComposing(false);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const value = textareaRef.current.value;
+        processInput(value);
+      }
+    }, 0);
+  };
+
+  const processInput = (value: string) => {
+    if (!chapterText || isFinished) return;
+    
+    if (value.length > chapterText.length) {
+      if (textareaRef.current) textareaRef.current.value = userInput;
+      return;
+    }
+    
+    if (!isActive && value.length > 0) {
+      setIsActive(true);
+      setStartTime(Date.now());
+    }
+    
+    setUserInput(value);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+    toast({
+      title: "Paste Disabled",
+      description: "Please type manually for accurate results.",
+      variant: "destructive",
+    });
+  };
+
+  const handleCut = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    e.preventDefault();
+  };
+
+  const resetTestState = () => {
+    setUserInput("");
+    setStartTime(null);
+    setIsActive(false);
+    setIsFinished(false);
+    setWpm(0);
+    setAccuracy(100);
+    setErrors(0);
+    setCompletedTestData(null);
+    setElapsedTime(0);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
+
+  const goToNextChapter = () => {
+    if (!book) return;
+    const nextChapter = chapterNum + 1;
+    if (nextChapter <= book.totalChapters) {
+      setLocation(`/books/${slug}/chapter/${nextChapter}`);
+    } else {
+      toast({
+        title: "Last Chapter",
+        description: "You've completed the book!",
+      });
+      setLocation(`/books/${slug}`);
+    }
+  };
+
+  const goToPreviousChapter = () => {
+    const prevChapter = chapterNum - 1;
+    if (prevChapter > 0) {
+      setLocation(`/books/${slug}/chapter/${prevChapter}`);
+    } else {
+      setLocation(`/books/${slug}`);
+    }
+  };
+
+  if (bookLoading || chaptersLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!book || chapterParagraphs.length === 0) {
+    return (
+      <div className="container mx-auto py-8 px-4 max-w-6xl">
+        <div className="text-center">
+          <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Chapter Not Found</h2>
+          <p className="text-muted-foreground mb-4">
+            This chapter doesn't exist or hasn't been loaded yet.
+          </p>
+          <Button onClick={() => setLocation(`/books/${slug}`)} data-testid="button-back">
+            Back to Book
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const highlightedText = chapterText.split("").map((char, index) => {
+    let className = "text-muted-foreground";
+    if (index < userInput.length) {
+      className = userInput[index] === char ? "text-green-500" : "text-red-500 bg-red-500/20";
+    }
+    return (
+      <span key={index} className={className}>
+        {char}
+      </span>
+    );
+  });
+
+  const chapterTitle = paragraphs[0]?.chapterTitle || `Chapter ${chapterNum}`;
+
+  return (
+    <div className="container mx-auto py-8 px-4 max-w-6xl">
+      <div className="mb-6">
+        <Button
+          variant="ghost"
+          onClick={() => setLocation(`/books/${slug}`)}
+          className="mb-4"
+          data-testid="button-back-to-book"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to {book.title}
+        </Button>
+
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <BookOpen className="w-8 h-8 text-primary" />
+              <h1 className="text-3xl font-bold" data-testid="text-chapter-title">{chapterTitle}</h1>
+            </div>
+            <p className="text-muted-foreground">
+              {book.title} by {book.author}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToPreviousChapter}
+              disabled={chapterNum <= 1}
+              data-testid="button-previous-chapter"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Previous
+            </Button>
+            <Badge variant="outline" className="text-sm">
+              Chapter {chapterNum} of {book.totalChapters}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToNextChapter}
+              disabled={chapterNum >= book.totalChapters}
+              data-testid="button-next-chapter"
+            >
+              Next
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Display */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <Card className="p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Zap className="w-4 h-4 text-yellow-500" />
+            <span className="text-sm text-muted-foreground">WPM</span>
+          </div>
+          <div className="text-3xl font-bold text-yellow-500" data-testid="text-wpm">
+            {wpm}
+          </div>
+        </Card>
+        <Card className="p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Target className="w-4 h-4 text-green-500" />
+            <span className="text-sm text-muted-foreground">Accuracy</span>
+          </div>
+          <div className="text-3xl font-bold text-green-500" data-testid="text-accuracy">
+            {accuracy}%
+          </div>
+        </Card>
+        <Card className="p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <span className="text-sm text-muted-foreground">Errors</span>
+          </div>
+          <div className="text-3xl font-bold text-red-500" data-testid="text-errors">
+            {errors}
+          </div>
+        </Card>
+        <Card className="p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <span className="text-sm text-muted-foreground">Time</span>
+          </div>
+          <div className="text-3xl font-bold" data-testid="text-timer">
+            {formatTime(elapsedTime)}
+          </div>
+        </Card>
+      </div>
+
+      {/* Typing Interface */}
+      <Card className="p-6 mb-6 relative">
+        <div className="mb-4">
+          <pre className="font-serif text-lg leading-relaxed whitespace-pre-wrap">
+            {highlightedText}
+          </pre>
+        </div>
+
+        <Textarea
+          ref={textareaRef}
+          value={userInput}
+          onChange={handleInput}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
+          onPaste={handlePaste}
+          onCut={handleCut}
+          placeholder="Start typing here..."
+          className="min-h-[150px] font-serif text-lg resize-none"
+          disabled={isFinished}
+          data-testid="textarea-typing"
+        />
+
+        {isFinished && (
+          <div className="mt-4 flex gap-3 justify-center">
+            {chapterNum < book.totalChapters && (
+              <Button
+                onClick={goToNextChapter}
+                size="lg"
+                className="gap-2"
+                data-testid="button-next-chapter-complete"
+              >
+                Next Chapter
+                <ArrowRight className="w-5 h-5" />
+              </Button>
+            )}
+            <Button
+              onClick={resetTestState}
+              variant="outline"
+              size="lg"
+              className="gap-2"
+              data-testid="button-retry"
+            >
+              Retry Chapter
+            </Button>
+          </div>
+        )}
+      </Card>
+
+      {/* Keyboard Shortcuts */}
+      <Card className="p-4 bg-muted/50">
+        <div className="text-sm text-muted-foreground text-center">
+          <span className="font-semibold">Navigation:</span>{" "}
+          Use the buttons above to move between chapters
+        </div>
+      </Card>
+
+      {/* Results Dialog */}
+      <Dialog open={isFinished} onOpenChange={(open) => !open && resetTestState()}>
+        <DialogContent data-testid="dialog-results">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <Trophy className="w-6 h-6 text-yellow-500" />
+              Chapter Complete!
+            </DialogTitle>
+            <DialogDescription>
+              Great job! Here are your results for {chapterTitle}:
+            </DialogDescription>
+          </DialogHeader>
+          {completedTestData && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-muted rounded-lg text-center">
+                  <div className="text-sm text-muted-foreground mb-1">WPM</div>
+                  <div className="text-3xl font-bold text-yellow-500">{completedTestData.wpm}</div>
+                </div>
+                <div className="p-4 bg-muted rounded-lg text-center">
+                  <div className="text-sm text-muted-foreground mb-1">Accuracy</div>
+                  <div className="text-3xl font-bold text-green-500">{completedTestData.accuracy}%</div>
+                </div>
+                <div className="p-4 bg-muted rounded-lg text-center">
+                  <div className="text-sm text-muted-foreground mb-1">Errors</div>
+                  <div className="text-3xl font-bold text-red-500">{completedTestData.errors}</div>
+                </div>
+                <div className="p-4 bg-muted rounded-lg text-center">
+                  <div className="text-sm text-muted-foreground mb-1">Time</div>
+                  <div className="text-3xl font-bold">{formatTime(completedTestData.duration)}</div>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                {chapterNum < book.totalChapters && (
+                  <Button
+                    onClick={goToNextChapter}
+                    className="flex-1 gap-2"
+                    data-testid="button-dialog-next"
+                  >
+                    Next Chapter
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                )}
+                <Button
+                  onClick={resetTestState}
+                  variant="outline"
+                  className="flex-1 gap-2"
+                  data-testid="button-dialog-retry"
+                >
+                  Retry Chapter
+                </Button>
+                <Button
+                  onClick={() => setLocation(`/books/${slug}`)}
+                  variant="outline"
+                  className="flex-1 gap-2"
+                  data-testid="button-dialog-back"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Book Details
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
