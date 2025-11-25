@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, integer, timestamp, real, index, jsonb, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, integer, timestamp, real, index, jsonb, boolean, bigint } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -736,10 +736,94 @@ export const practiceRecommendations = pgTable("practice_recommendations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Push Notification Subscriptions
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Web Push subscription data (JSON)
+  endpoint: text("endpoint").notNull(),
+  expirationTime: bigint("expiration_time", { mode: "number" }),
+  keys: jsonb("keys").notNull(), // { p256dh, auth }
+  
+  // Metadata
+  userAgent: text("user_agent"),
+  isActive: boolean("is_active").default(true).notNull(),
+  lastUsed: timestamp("last_used"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// User Notification Preferences
+export const notificationPreferences = pgTable("notification_preferences", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull().unique(),
+  
+  // Daily Reminders
+  dailyReminder: boolean("daily_reminder").default(true).notNull(),
+  dailyReminderTime: varchar("daily_reminder_time", { length: 5 }).default("09:00"), // HH:MM format
+  
+  // Streak Notifications
+  streakWarning: boolean("streak_warning").default(true).notNull(),
+  streakMilestone: boolean("streak_milestone").default(true).notNull(),
+  
+  // Weekly Summaries
+  weeklySummary: boolean("weekly_summary").default(true).notNull(),
+  weeklySummaryDay: varchar("weekly_summary_day", { length: 10 }).default("sunday"), // day of week
+  
+  // Achievements & Challenges
+  achievementUnlocked: boolean("achievement_unlocked").default(true).notNull(),
+  challengeInvite: boolean("challenge_invite").default(true).notNull(),
+  challengeComplete: boolean("challenge_complete").default(true).notNull(),
+  
+  // Leaderboard & Social
+  leaderboardChange: boolean("leaderboard_change").default(false).notNull(),
+  newPersonalRecord: boolean("new_personal_record").default(true).notNull(),
+  
+  // Multiplayer
+  raceInvite: boolean("race_invite").default(true).notNull(),
+  raceStarting: boolean("race_starting").default(true).notNull(),
+  
+  // User Preferences
+  timezone: varchar("timezone", { length: 50 }).default("UTC"),
+  quietHoursStart: varchar("quiet_hours_start", { length: 5 }), // HH:MM format
+  quietHoursEnd: varchar("quiet_hours_end", { length: 5 }), // HH:MM format
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Notification History (for tracking and preventing duplicates)
+export const notificationHistory = pgTable("notification_history", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Notification Details
+  type: varchar("type", { length: 50 }).notNull(), // daily_reminder, streak_warning, weekly_summary, etc.
+  title: varchar("title", { length: 200 }).notNull(),
+  body: text("body").notNull(),
+  data: jsonb("data"), // Additional context data
+  
+  // Delivery Status
+  status: varchar("status", { length: 20 }).default("sent").notNull(), // sent, delivered, failed, clicked
+  errorMessage: text("error_message"),
+  
+  // Engagement Tracking
+  sentAt: timestamp("sent_at").defaultNow().notNull(),
+  deliveredAt: timestamp("delivered_at"),
+  clickedAt: timestamp("clicked_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertKeystrokeEventSchema = createInsertSchema(keystrokeEvents).omit({ id: true, createdAt: true });
 export const insertTypingAnalyticsSchema = createInsertSchema(typingAnalytics).omit({ id: true, createdAt: true });
 export const insertTypingInsightSchema = createInsertSchema(typingInsights).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertPracticeRecommendationSchema = createInsertSchema(practiceRecommendations).omit({ id: true, createdAt: true });
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true, updatedAt: true, expirationTime: true });
+export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertNotificationHistorySchema = createInsertSchema(notificationHistory).omit({ id: true, createdAt: true });
 
 export type InsertKeystrokeEvent = z.infer<typeof insertKeystrokeEventSchema>;
 export type KeystrokeEvent = typeof keystrokeEvents.$inferSelect;
@@ -749,3 +833,9 @@ export type InsertTypingInsight = z.infer<typeof insertTypingInsightSchema>;
 export type TypingInsight = typeof typingInsights.$inferSelect;
 export type InsertPracticeRecommendation = z.infer<typeof insertPracticeRecommendationSchema>;
 export type PracticeRecommendation = typeof practiceRecommendations.$inferSelect;
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertNotificationPreferences = z.infer<typeof insertNotificationPreferencesSchema>;
+export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationHistory = z.infer<typeof insertNotificationHistorySchema>;
+export type NotificationHistory = typeof notificationHistory.$inferSelect;
