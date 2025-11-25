@@ -389,7 +389,7 @@ export default function CodeMode() {
             )}
 
             <div className="max-w-4xl w-full mx-auto relative">
-              <pre className={`whitespace-pre text-left ${getFontClass(fontFamily)} text-muted-foreground/30 select-none`} style={{ fontSize: `${fontSize}px`, lineHeight: "1.8" }}>
+              <pre className={`whitespace-pre text-left ${getFontClass(fontFamily)} text-muted-foreground/50 select-none`} style={{ fontSize: `${fontSize}px`, lineHeight: "1.8" }}>
                 {codeSnippet}
               </pre>
               
