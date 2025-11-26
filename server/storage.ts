@@ -92,6 +92,24 @@ import {
   type InsertUserChallenge,
   type UserGamification,
   type InsertUserGamification,
+  loginHistory,
+  accountLockouts,
+  emailVerificationTokens,
+  passwordResetTokens,
+  userSessions,
+  securitySettings,
+  type LoginHistory,
+  type InsertLoginHistory,
+  type AccountLockout,
+  type InsertAccountLockout,
+  type EmailVerificationToken,
+  type InsertEmailVerificationToken,
+  type PasswordResetToken,
+  type InsertPasswordResetToken,
+  type UserSession,
+  type InsertUserSession,
+  type SecuritySettings,
+  type InsertSecuritySettings,
 } from "@shared/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 
@@ -114,6 +132,46 @@ export interface IStorage {
   updateUserProfile(userId: string, profile: Partial<User>): Promise<User>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<void>;
   deleteUser(userId: string): Promise<void>;
+  verifyUserEmail(userId: string): Promise<void>;
+  
+  // Login History & Security
+  createLoginHistory(history: InsertLoginHistory): Promise<LoginHistory>;
+  getUserLoginHistory(userId: string, limit?: number): Promise<LoginHistory[]>;
+  getRecentFailedLogins(userId: string, minutes: number): Promise<LoginHistory[]>;
+  
+  // Account Lockout
+  getAccountLockout(userId: string): Promise<AccountLockout | undefined>;
+  createOrUpdateAccountLockout(userId: string, failedAttempts: number, lockedUntil?: Date): Promise<AccountLockout>;
+  clearAccountLockout(userId: string): Promise<void>;
+  isAccountLocked(userId: string): Promise<boolean>;
+  
+  // Email Verification
+  createEmailVerificationToken(userId: string, token: string, expiresAt: Date): Promise<EmailVerificationToken>;
+  getEmailVerificationToken(token: string): Promise<EmailVerificationToken | undefined>;
+  markEmailVerified(userId: string, token: string): Promise<void>;
+  deleteEmailVerificationToken(userId: string): Promise<void>;
+  
+  // Password Reset
+  createPasswordResetToken(userId: string, token: string, expiresAt: Date, ipAddress?: string): Promise<PasswordResetToken>;
+  getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
+  markPasswordResetTokenUsed(token: string): Promise<void>;
+  deletePasswordResetTokens(userId: string): Promise<void>;
+  
+  // User Sessions
+  createUserSession(session: InsertUserSession): Promise<UserSession>;
+  getUserSessions(userId: string): Promise<UserSession[]>;
+  updateSessionActivity(sessionId: string): Promise<void>;
+  revokeSession(sessionId: string): Promise<void>;
+  revokeAllUserSessions(userId: string, exceptSessionId?: string): Promise<void>;
+  
+  // Security Settings
+  getSecuritySettings(userId: string): Promise<SecuritySettings | undefined>;
+  createSecuritySettings(userId: string): Promise<SecuritySettings>;
+  updateSecuritySettings(userId: string, settings: Partial<SecuritySettings>): Promise<SecuritySettings>;
+  enable2FA(userId: string, secret: string, backupCodes: string[]): Promise<void>;
+  disable2FA(userId: string): Promise<void>;
+  verify2FABackupCode(userId: string, code: string): Promise<boolean>;
+  use2FABackupCode(userId: string, code: string): Promise<void>;
   
   createTestResult(result: InsertTestResult): Promise<TestResult>;
   getUserTestResults(userId: string, limit?: number): Promise<TestResult[]>;
@@ -360,6 +418,313 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUser(userId: string): Promise<void> {
     await db.delete(users).where(eq(users.id, userId));
+  }
+
+  async verifyUserEmail(userId: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ emailVerified: true })
+      .where(eq(users.id, userId));
+  }
+
+  // Login History & Security
+  async createLoginHistory(history: InsertLoginHistory): Promise<LoginHistory> {
+    const inserted = await db.insert(loginHistory).values(history).returning();
+    return inserted[0];
+  }
+
+  async getUserLoginHistory(userId: string, limit: number = 20): Promise<LoginHistory[]> {
+    return await db
+      .select()
+      .from(loginHistory)
+      .where(eq(loginHistory.userId, userId))
+      .orderBy(desc(loginHistory.createdAt))
+      .limit(limit);
+  }
+
+  async getRecentFailedLogins(userId: string, minutes: number): Promise<LoginHistory[]> {
+    const cutoffTime = new Date(Date.now() - minutes * 60 * 1000);
+    return await db
+      .select()
+      .from(loginHistory)
+      .where(
+        and(
+          eq(loginHistory.userId, userId),
+          eq(loginHistory.success, false),
+          sql`${loginHistory.createdAt} > ${cutoffTime}`
+        )
+      )
+      .orderBy(desc(loginHistory.createdAt));
+  }
+
+  // Account Lockout
+  async getAccountLockout(userId: string): Promise<AccountLockout | undefined> {
+    const result = await db
+      .select()
+      .from(accountLockouts)
+      .where(eq(accountLockouts.userId, userId))
+      .limit(1);
+    return result[0];
+  }
+
+  async createOrUpdateAccountLockout(
+    userId: string,
+    failedAttempts: number,
+    lockedUntil?: Date
+  ): Promise<AccountLockout> {
+    const existing = await this.getAccountLockout(userId);
+    
+    if (existing) {
+      const updated = await db
+        .update(accountLockouts)
+        .set({
+          failedAttempts,
+          lockedUntil,
+          lastFailedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(accountLockouts.userId, userId))
+        .returning();
+      return updated[0];
+    } else {
+      const inserted = await db
+        .insert(accountLockouts)
+        .values({
+          userId,
+          failedAttempts,
+          lockedUntil,
+          lastFailedAt: new Date(),
+        })
+        .returning();
+      return inserted[0];
+    }
+  }
+
+  async clearAccountLockout(userId: string): Promise<void> {
+    await db
+      .update(accountLockouts)
+      .set({
+        failedAttempts: 0,
+        lockedUntil: null,
+        lastFailedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(accountLockouts.userId, userId));
+  }
+
+  async isAccountLocked(userId: string): Promise<boolean> {
+    const lockout = await this.getAccountLockout(userId);
+    if (!lockout || !lockout.lockedUntil) {
+      return false;
+    }
+    return lockout.lockedUntil > new Date();
+  }
+
+  // Email Verification
+  async createEmailVerificationToken(
+    userId: string,
+    token: string,
+    expiresAt: Date
+  ): Promise<EmailVerificationToken> {
+    await db.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
+    const inserted = await db
+      .insert(emailVerificationTokens)
+      .values({ userId, token, expiresAt })
+      .returning();
+    return inserted[0];
+  }
+
+  async getEmailVerificationToken(token: string): Promise<EmailVerificationToken | undefined> {
+    const result = await db
+      .select()
+      .from(emailVerificationTokens)
+      .where(eq(emailVerificationTokens.token, token))
+      .limit(1);
+    return result[0];
+  }
+
+  async markEmailVerified(userId: string, token: string): Promise<void> {
+    await db
+      .update(emailVerificationTokens)
+      .set({ verified: true, verifiedAt: new Date() })
+      .where(
+        and(
+          eq(emailVerificationTokens.userId, userId),
+          eq(emailVerificationTokens.token, token)
+        )
+      );
+    await this.verifyUserEmail(userId);
+  }
+
+  async deleteEmailVerificationToken(userId: string): Promise<void> {
+    await db
+      .delete(emailVerificationTokens)
+      .where(eq(emailVerificationTokens.userId, userId));
+  }
+
+  // Password Reset
+  async createPasswordResetToken(
+    userId: string,
+    token: string,
+    expiresAt: Date,
+    ipAddress?: string
+  ): Promise<PasswordResetToken> {
+    const inserted = await db
+      .insert(passwordResetTokens)
+      .values({ userId, token, expiresAt, ipAddress })
+      .returning();
+    return inserted[0];
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const result = await db
+      .select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.token, token))
+      .limit(1);
+    return result[0];
+  }
+
+  async markPasswordResetTokenUsed(token: string): Promise<void> {
+    await db
+      .update(passwordResetTokens)
+      .set({ used: true, usedAt: new Date() })
+      .where(eq(passwordResetTokens.token, token));
+  }
+
+  async deletePasswordResetTokens(userId: string): Promise<void> {
+    await db
+      .delete(passwordResetTokens)
+      .where(eq(passwordResetTokens.userId, userId));
+  }
+
+  // User Sessions
+  async createUserSession(session: InsertUserSession): Promise<UserSession> {
+    const inserted = await db.insert(userSessions).values(session).returning();
+    return inserted[0];
+  }
+
+  async getUserSessions(userId: string): Promise<UserSession[]> {
+    return await db
+      .select()
+      .from(userSessions)
+      .where(
+        and(
+          eq(userSessions.userId, userId),
+          eq(userSessions.isActive, true)
+        )
+      )
+      .orderBy(desc(userSessions.lastActivity));
+  }
+
+  async updateSessionActivity(sessionId: string): Promise<void> {
+    await db
+      .update(userSessions)
+      .set({ lastActivity: new Date() })
+      .where(eq(userSessions.sessionId, sessionId));
+  }
+
+  async revokeSession(sessionId: string): Promise<void> {
+    await db
+      .update(userSessions)
+      .set({ isActive: false })
+      .where(eq(userSessions.sessionId, sessionId));
+  }
+
+  async revokeAllUserSessions(userId: string, exceptSessionId?: string): Promise<void> {
+    if (exceptSessionId) {
+      await db
+        .update(userSessions)
+        .set({ isActive: false })
+        .where(
+          and(
+            eq(userSessions.userId, userId),
+            sql`${userSessions.sessionId} != ${exceptSessionId}`
+          )
+        );
+    } else {
+      await db
+        .update(userSessions)
+        .set({ isActive: false })
+        .where(eq(userSessions.userId, userId));
+    }
+  }
+
+  // Security Settings
+  async getSecuritySettings(userId: string): Promise<SecuritySettings | undefined> {
+    const result = await db
+      .select()
+      .from(securitySettings)
+      .where(eq(securitySettings.userId, userId))
+      .limit(1);
+    return result[0];
+  }
+
+  async createSecuritySettings(userId: string): Promise<SecuritySettings> {
+    const inserted = await db
+      .insert(securitySettings)
+      .values({ userId })
+      .returning();
+    return inserted[0];
+  }
+
+  async updateSecuritySettings(
+    userId: string,
+    settings: Partial<SecuritySettings>
+  ): Promise<SecuritySettings> {
+    const updated = await db
+      .update(securitySettings)
+      .set({ ...settings, updatedAt: new Date() })
+      .where(eq(securitySettings.userId, userId))
+      .returning();
+    return updated[0];
+  }
+
+  async enable2FA(userId: string, secret: string, backupCodes: string[]): Promise<void> {
+    await db
+      .update(securitySettings)
+      .set({
+        twoFactorEnabled: true,
+        twoFactorSecret: secret,
+        backupCodes,
+        updatedAt: new Date(),
+      })
+      .where(eq(securitySettings.userId, userId));
+  }
+
+  async disable2FA(userId: string): Promise<void> {
+    await db
+      .update(securitySettings)
+      .set({
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+        backupCodes: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(securitySettings.userId, userId));
+  }
+
+  async verify2FABackupCode(userId: string, code: string): Promise<boolean> {
+    const settings = await this.getSecuritySettings(userId);
+    if (!settings || !settings.backupCodes) {
+      return false;
+    }
+    return settings.backupCodes.includes(code);
+  }
+
+  async use2FABackupCode(userId: string, code: string): Promise<void> {
+    const settings = await this.getSecuritySettings(userId);
+    if (!settings || !settings.backupCodes) {
+      return;
+    }
+    const updatedCodes = settings.backupCodes.filter((c) => c !== code);
+    await db
+      .update(securitySettings)
+      .set({
+        backupCodes: updatedCodes,
+        updatedAt: new Date(),
+      })
+      .where(eq(securitySettings.userId, userId));
   }
 
   async createTestResult(result: InsertTestResult): Promise<TestResult> {

@@ -21,6 +21,7 @@ import multer from "multer";
 import { createNotificationRoutes } from "./notification-routes";
 import { NotificationScheduler } from "./notification-scheduler";
 import { AchievementService } from "./achievement-service";
+import { AuthSecurityService } from "./auth-security-service";
 
 const PgSession = ConnectPgSimple(session);
 
@@ -64,6 +65,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Start notification scheduler
   notificationScheduler.start();
+  
+  // Initialize authentication security service
+  const authSecurityService = new AuthSecurityService(storage);
   
   if (sessionSecret === "typemasterai-secret-key-change-in-production" && process.env.NODE_ENV === "production") {
     console.error("🚨 SECURITY ALERT: Production is using the default SESSION_SECRET. This is highly insecure!");
@@ -118,20 +122,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   passport.use(
     new LocalStrategy(
-      { usernameField: "email" },
-      async (email, password, done) => {
+      { usernameField: "email", passReqToCallback: true },
+      async (req, email, password, done) => {
         try {
           const user = await storage.getUserByEmail(email);
           
           if (!user) {
+            // Record failed login attempt for unknown email
+            await authSecurityService.recordLoginAttempt(
+              null,
+              email,
+              req,
+              false,
+              "Invalid email"
+            );
             return done(null, false, { message: "Invalid email or password" });
+          }
+
+          // Check if account is locked
+          const lockoutCheck = await authSecurityService.checkAccountLockout(user.id);
+          if (!lockoutCheck.allowed) {
+            return done(null, false, { message: lockoutCheck.message || "Account temporarily locked" });
+          }
+
+          // Check if account is inactive
+          if (!user.isActive) {
+            await authSecurityService.recordLoginAttempt(
+              user.id,
+              email,
+              req,
+              false,
+              "Account inactive"
+            );
+            return done(null, false, { message: "Account has been deactivated. Please contact support." });
           }
 
           const isValidPassword = await bcrypt.compare(password, user.password);
           
           if (!isValidPassword) {
-            return done(null, false, { message: "Invalid email or password" });
+            // Handle failed login attempt
+            await authSecurityService.handleFailedLogin(user.id, email, req, "Invalid password");
+            
+            const attemptsRemaining = await authSecurityService.getRemainingAttempts(user.id);
+            const message = attemptsRemaining > 0
+              ? `Invalid email or password. ${attemptsRemaining} attempt${attemptsRemaining > 1 ? 's' : ''} remaining.`
+              : "Invalid email or password";
+            
+            return done(null, false, { message });
           }
+
+          // Handle successful login
+          await authSecurityService.handleSuccessfulLogin(user.id, email, req);
 
           return done(null, {
             id: user.id,
@@ -204,6 +245,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword,
       });
 
+      // Create default security settings for the user
+      await storage.createSecuritySettings(user.id).catch(error => {
+        console.error("Failed to create security settings:", error);
+      });
+
+      // Send email verification (async, don't block registration)
+      authSecurityService.sendVerificationEmail(user.id, user.email).catch(error => {
+        console.error("Failed to send verification email:", error);
+      });
+
+      // Record successful registration login
+      await authSecurityService.recordLoginAttempt(user.id, user.email, req, true);
+
       req.login(
         {
           id: user.id,
@@ -215,11 +269,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return next(err);
           }
           res.status(201).json({
-            message: "Registration successful",
+            message: "Registration successful. Please check your email to verify your account.",
             user: {
               id: user.id,
               username: user.username,
               email: user.email,
+              emailVerified: user.emailVerified,
               avatarColor: user.avatarColor,
               bio: user.bio,
               country: user.country,

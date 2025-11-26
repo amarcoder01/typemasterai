@@ -8,6 +8,8 @@ export const users = pgTable("users", {
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  emailVerified: boolean("email_verified").default(false).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
   avatarColor: text("avatar_color").default("bg-primary"),
   bio: text("bio"),
   country: text("country"),
@@ -21,12 +23,19 @@ export const users = pgTable("users", {
 export const insertUserSchema = createInsertSchema(users, {
   username: z.string().min(3, "Username must be at least 3 characters").max(30, "Username must be less than 30 characters").regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores"),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters").max(100, "Password must be less than 100 characters"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .max(100, "Password must be less than 100 characters")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number")
+    .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
 }).omit({ id: true, createdAt: true });
 
 export const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().min(1, "Password is required"),
+  twoFactorCode: z.string().optional(),
 });
 
 export const updateProfileSchema = z.object({
@@ -40,6 +49,121 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type LoginCredentials = z.infer<typeof loginSchema>;
 export type UpdateProfile = z.infer<typeof updateProfileSchema>;
+
+// Authentication Security Tables
+export const loginHistory = pgTable("login_history", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  deviceFingerprint: varchar("device_fingerprint", { length: 64 }),
+  city: varchar("city", { length: 100 }),
+  country: varchar("country", { length: 100 }),
+  countryCode: varchar("country_code", { length: 2 }),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  success: boolean("success").notNull(),
+  failureReason: varchar("failure_reason", { length: 200 }),
+  isSuspicious: boolean("is_suspicious").default(false).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("login_history_user_id_idx").on(table.userId),
+  emailIdx: index("login_history_email_idx").on(table.email),
+  createdAtIdx: index("login_history_created_at_idx").on(table.createdAt),
+}));
+
+export const accountLockouts = pgTable("account_lockouts", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  failedAttempts: integer("failed_attempts").default(0).notNull(),
+  lockedUntil: timestamp("locked_until"),
+  lastFailedAt: timestamp("last_failed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("account_lockouts_user_id_idx").on(table.userId),
+}));
+
+export const emailVerificationTokens = pgTable("email_verification_tokens", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  verified: boolean("verified").default(false).notNull(),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  tokenIdx: index("email_verification_tokens_token_idx").on(table.token),
+}));
+
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").default(false).notNull(),
+  usedAt: timestamp("used_at"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  tokenIdx: index("password_reset_tokens_token_idx").on(table.token),
+  userIdIdx: index("password_reset_tokens_user_id_idx").on(table.userId),
+}));
+
+export const userSessions = pgTable("user_sessions", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  sessionId: varchar("session_id", { length: 128 }).notNull().unique(),
+  deviceName: varchar("device_name", { length: 200 }),
+  deviceType: varchar("device_type", { length: 50 }),
+  browser: varchar("browser", { length: 100 }),
+  browserVersion: varchar("browser_version", { length: 20 }),
+  os: varchar("os", { length: 100 }),
+  osVersion: varchar("os_version", { length: 20 }),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  city: varchar("city", { length: 100 }),
+  country: varchar("country", { length: 100 }),
+  lastActivity: timestamp("last_activity").notNull().defaultNow(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("user_sessions_user_id_idx").on(table.userId),
+  sessionIdIdx: index("user_sessions_session_id_idx").on(table.sessionId),
+}));
+
+export const securitySettings = pgTable("security_settings", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  twoFactorEnabled: boolean("two_factor_enabled").default(false).notNull(),
+  twoFactorSecret: varchar("two_factor_secret", { length: 32 }),
+  backupCodes: jsonb("backup_codes").$type<string[]>(),
+  suspiciousLoginAlerts: boolean("suspicious_login_alerts").default(true).notNull(),
+  newDeviceAlerts: boolean("new_device_alerts").default(true).notNull(),
+  passwordChangedAt: timestamp("password_changed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertLoginHistorySchema = createInsertSchema(loginHistory).omit({ id: true, createdAt: true });
+export const insertAccountLockoutSchema = createInsertSchema(accountLockouts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertEmailVerificationTokenSchema = createInsertSchema(emailVerificationTokens).omit({ id: true, createdAt: true });
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens).omit({ id: true, createdAt: true });
+export const insertUserSessionSchema = createInsertSchema(userSessions).omit({ id: true, createdAt: true });
+export const insertSecuritySettingsSchema = createInsertSchema(securitySettings).omit({ id: true, createdAt: true, updatedAt: true });
+
+export type LoginHistory = typeof loginHistory.$inferSelect;
+export type InsertLoginHistory = z.infer<typeof insertLoginHistorySchema>;
+export type AccountLockout = typeof accountLockouts.$inferSelect;
+export type InsertAccountLockout = z.infer<typeof insertAccountLockoutSchema>;
+export type EmailVerificationToken = typeof emailVerificationTokens.$inferSelect;
+export type InsertEmailVerificationToken = z.infer<typeof insertEmailVerificationTokenSchema>;
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type InsertPasswordResetToken = z.infer<typeof insertPasswordResetTokenSchema>;
+export type UserSession = typeof userSessions.$inferSelect;
+export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
+export type SecuritySettings = typeof securitySettings.$inferSelect;
+export type InsertSecuritySettings = z.infer<typeof insertSecuritySettingsSchema>;
 
 export const testResults = pgTable("test_results", {
   id: serial("id").primaryKey(),
