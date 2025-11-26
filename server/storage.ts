@@ -2252,33 +2252,98 @@ export class DatabaseStorage implements IStorage {
     user: User;
     preferences: NotificationPreferences;
   }>> {
-    const preferenceField = notificationType === 'daily_reminder' ? 'dailyReminder'
-      : notificationType === 'streak_warning' ? 'streakWarning'
-      : notificationType === 'weekly_summary' ? 'weeklySummary'
+    const preferenceColumn = notificationType === 'daily_reminder' ? 'daily_reminder'
+      : notificationType === 'streak_warning' ? 'streak_warning'
+      : notificationType === 'weekly_summary' ? 'weekly_summary'
       : null;
     
-    if (!preferenceField) return [];
+    if (!preferenceColumn) return [];
     
-    const results = await db
-      .select({
-        user: users,
-        preferences: notificationPreferences,
-      })
-      .from(users)
-      .innerJoin(notificationPreferences, eq(notificationPreferences.userId, users.id))
-      .innerJoin(pushSubscriptions, eq(pushSubscriptions.userId, users.id))
-      .where(
-        and(
-          eq(notificationPreferences[preferenceField], true),
-          eq(pushSubscriptions.isActive, true),
-          eq(users.isActive, true)
-        )
-      )
-      .groupBy(users.id, notificationPreferences.id)
-      .offset(offset)
-      .limit(limit);
+    const results = await db.execute<{
+      u_id: string;
+      u_username: string;
+      u_email: string;
+      u_password: string;
+      u_email_verified: boolean;
+      u_is_active: boolean;
+      u_avatar_color: string | null;
+      u_bio: string | null;
+      u_country: string | null;
+      u_keyboard_layout: string | null;
+      u_timezone: string;
+      u_current_streak: number;
+      u_best_streak: number;
+      u_last_test_date: Date | null;
+      u_created_at: Date;
+      p_id: number;
+      p_user_id: string;
+      p_daily_reminder: boolean;
+      p_daily_reminder_time: string | null;
+      p_streak_warning: boolean;
+      p_weekly_summary: boolean;
+      p_created_at: Date;
+      p_updated_at: Date;
+    }>(sql`
+      SELECT DISTINCT ON (u.id)
+        u.id as u_id, u.username as u_username, u.email as u_email, 
+        u.password as u_password, u.email_verified as u_email_verified, 
+        u.is_active as u_is_active, u.avatar_color as u_avatar_color,
+        u.bio as u_bio, u.country as u_country, u.keyboard_layout as u_keyboard_layout,
+        u.timezone as u_timezone, u.current_streak as u_current_streak,
+        u.best_streak as u_best_streak, u.last_test_date as u_last_test_date,
+        u.created_at as u_created_at,
+        np.id as p_id, np.user_id as p_user_id, np.daily_reminder as p_daily_reminder,
+        np.daily_reminder_time as p_daily_reminder_time, np.streak_warning as p_streak_warning,
+        np.weekly_summary as p_weekly_summary,
+        np.created_at as p_created_at, np.updated_at as p_updated_at
+      FROM users u
+      INNER JOIN notification_preferences np ON np.user_id = u.id
+      INNER JOIN push_subscriptions ps ON ps.user_id = u.id
+      WHERE np.${sql.identifier(preferenceColumn)} = true
+        AND ps.is_active = true
+        AND u.is_active = true
+      OFFSET ${offset}
+      LIMIT ${limit}
+    `);
     
-    return results;
+    return results.rows.map(r => ({
+      user: {
+        id: r.u_id,
+        username: r.u_username,
+        email: r.u_email,
+        password: r.u_password,
+        emailVerified: r.u_email_verified,
+        isActive: r.u_is_active,
+        avatarColor: r.u_avatar_color,
+        bio: r.u_bio,
+        country: r.u_country,
+        keyboardLayout: r.u_keyboard_layout,
+        timezone: r.u_timezone,
+        currentStreak: r.u_current_streak,
+        bestStreak: r.u_best_streak,
+        lastTestDate: r.u_last_test_date,
+        createdAt: r.u_created_at,
+      },
+      preferences: {
+        id: r.p_id,
+        userId: r.p_user_id,
+        dailyReminder: r.p_daily_reminder,
+        dailyReminderTime: r.p_daily_reminder_time,
+        streakWarning: r.p_streak_warning,
+        weeklySummary: r.p_weekly_summary,
+        achievementUnlocked: false,
+        challengeInvite: false,
+        challengeComplete: false,
+        streakMilestone: false,
+        leaderboardRankChange: false,
+        raceInvite: false,
+        quietHoursStart: null,
+        quietHoursEnd: null,
+        weeklySummaryDay: 'sunday',
+        createdAt: r.p_created_at,
+        updatedAt: r.p_updated_at,
+      },
+    }));
   }
 
   async getUsersForDailyReminders(currentHour: number): Promise<Array<{ id: string; username: string; currentStreak: number }>> {

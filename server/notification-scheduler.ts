@@ -124,14 +124,25 @@ export class NotificationScheduler {
         }
 
         case 'streak_warning': {
+          const user = await this.storage.getUser(job.userId);
+          if (!user) break;
+
           const userTimezone = meta.timezone || 'UTC';
-          const now = DateTime.now().setZone(userTimezone);
-          const endOfDay = now.endOf('day');
-          const hoursLeft = Math.ceil(endOfDay.diff(now, 'hours').hours);
+          const nowUserZone = DateTime.now().setZone(userTimezone);
+
+          if (user.lastTestDate) {
+            const lastTestUserZone = DateTime.fromJSDate(user.lastTestDate).setZone(userTimezone);
+            if (lastTestUserZone.hasSame(nowUserZone, 'day')) {
+              break;
+            }
+          }
+
+          const endOfDay = nowUserZone.endOf('day');
+          const hoursLeft = Math.ceil(endOfDay.diff(nowUserZone, 'hours').hours);
 
           await this.notificationService.sendStreakWarning(
             job.userId,
-            meta.streak || 0,
+            user.currentStreak || 0,
             hoursLeft
           );
           break;

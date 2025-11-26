@@ -20,7 +20,7 @@ export class NotificationJobGenerator {
       if (userBatch.length === 0) break;
 
       const jobs: InsertNotificationJob[] = [];
-      const now = DateTime.utc();
+      const nowUtc = DateTime.utc();
 
       for (const { user, preferences } of userBatch) {
         if (!preferences.dailyReminderTime) continue;
@@ -33,7 +33,8 @@ export class NotificationJobGenerator {
           .setZone(userTimezone)
           .set({ hour: hours, minute: minutes, second: 0, millisecond: 0 });
 
-        if (nextSend <= now) {
+        const nextSendUtc = nextSend.toUTC();
+        if (nextSendUtc <= nowUtc) {
           nextSend = nextSend.plus({ days: 1 });
         }
 
@@ -78,20 +79,38 @@ export class NotificationJobGenerator {
       if (userBatch.length === 0) break;
 
       const jobs: InsertNotificationJob[] = [];
-      const now = DateTime.utc();
+      const nowUtc = DateTime.utc();
 
-      for (const { user } of userBatch) {
+      for (const { user, preferences } of userBatch) {
         if (user.currentStreak === 0) continue;
 
-        const todayStart = await this.getUserTestsToday(user.id);
-        if (todayStart) continue;
-
         const userTimezone = user.timezone || 'UTC';
-        let nextSend = DateTime.now()
-          .setZone(userTimezone)
-          .set({ hour: 18, minute: 0, second: 0, millisecond: 0 });
+        const nowUserZone = DateTime.now().setZone(userTimezone);
 
-        if (nextSend <= now) {
+        if (user.lastTestDate) {
+          const lastTestUserZone = DateTime.fromJSDate(user.lastTestDate).setZone(userTimezone);
+          if (lastTestUserZone.hasSame(nowUserZone, 'day')) {
+            continue;
+          }
+        }
+
+        const reminderTime = preferences.dailyReminderTime || '09:00';
+        const [reminderHour, reminderMinute] = reminderTime.split(':').map(Number);
+        
+        const warningHour = (reminderHour + 12) % 24;
+        let nextSend = nowUserZone.set({ 
+          hour: warningHour, 
+          minute: reminderMinute || 0, 
+          second: 0, 
+          millisecond: 0 
+        });
+
+        if (warningHour < reminderHour) {
+          nextSend = nextSend.plus({ days: 1 });
+        }
+
+        const nextSendUtc = nextSend.toUTC();
+        if (nextSendUtc <= nowUtc) {
           nextSend = nextSend.plus({ days: 1 });
         }
 
@@ -136,7 +155,7 @@ export class NotificationJobGenerator {
       if (userBatch.length === 0) break;
 
       const jobs: InsertNotificationJob[] = [];
-      const now = DateTime.utc();
+      const nowUtc = DateTime.utc();
 
       for (const { user } of userBatch) {
         const userTimezone = user.timezone || 'UTC';
@@ -144,7 +163,8 @@ export class NotificationJobGenerator {
           .setZone(userTimezone)
           .set({ weekday: 7, hour: 19, minute: 0, second: 0, millisecond: 0 });
 
-        if (nextSunday <= now) {
+        const nextSundayUtc = nextSunday.toUTC();
+        if (nextSundayUtc <= nowUtc) {
           nextSunday = nextSunday.plus({ weeks: 1 });
         }
 
@@ -188,16 +208,6 @@ export class NotificationJobGenerator {
     return { daily: dailyCount, streak: streakCount, weekly: weeklyCount };
   }
 
-  private async getUserTestsToday(userId: string): Promise<boolean> {
-    const results = await this.storage.getUserTestResults(userId, 1);
-    if (results.length === 0) return false;
-
-    const lastTest = results[0];
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
-    return lastTest.createdAt >= todayStart;
-  }
 
   async cleanupOldJobs(): Promise<number> {
     const deleted = await this.storage.deleteCompletedJobsOlderThan(7);
