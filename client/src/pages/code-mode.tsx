@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Code, Trophy, Zap, Target, RotateCcw, Check, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Code, Trophy, Zap, Target, RotateCcw, Check, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle } from "lucide-react";
 import confetti from "canvas-confetti";
 
 const PROGRAMMING_LANGUAGES = {
@@ -595,49 +596,84 @@ export default function CodeMode() {
   });
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
-      <div className="mb-8 text-center">
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <Code className="w-10 h-10 text-primary" />
-          <h1 className="text-4xl font-bold">Code Typing Mode</h1>
-        </div>
-        <p className="text-muted-foreground text-lg">
-          Master coding speed and accuracy with real programming syntax
-        </p>
-      </div>
-
-      <Card className="p-6 mb-6">
-        <div className="flex flex-wrap gap-4 items-center justify-center mb-6">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Mode:</label>
-            <div className="flex border rounded-md overflow-hidden">
-              <Button
-                variant={mode === "ai" ? "default" : "ghost"}
-                className="rounded-none"
-                onClick={() => handleModeSwitch("ai")}
-                disabled={isActive}
-                data-testid="button-mode-ai"
-              >
-                AI Generated
-              </Button>
-              <Button
-                variant={mode === "custom" ? "default" : "ghost"}
-                className="rounded-none"
-                onClick={() => handleModeSwitch("custom")}
-                disabled={isActive}
-                data-testid="button-mode-custom"
-              >
-                Custom Code
-              </Button>
-            </div>
+    <TooltipProvider>
+      <div className="container mx-auto py-8 px-4 max-w-6xl">
+        <div className="mb-8 text-center">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Code className="w-10 h-10 text-primary" />
+            <h1 className="text-4xl font-bold">Code Typing Mode</h1>
           </div>
+          <p className="text-muted-foreground text-lg">
+            Master coding speed and accuracy with real programming syntax
+          </p>
+        </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Language:</label>
-            <Select value={language} onValueChange={setLanguage} disabled={isActive || mode === "custom"}>
-              <SelectTrigger className="w-[200px]" data-testid="select-language">
-                <SelectValue />
-              </SelectTrigger>
+        <Card className="p-6 mb-6">
+          <div className="flex flex-wrap gap-4 items-center justify-center mb-6">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium flex items-center gap-1">
+                Mode:
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Choose between AI-generated code snippets or paste your own custom code to practice</p>
+                  </TooltipContent>
+                </Tooltip>
+              </label>
+              <div className="flex border rounded-md overflow-hidden">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={mode === "ai" ? "default" : "ghost"}
+                      className="rounded-none"
+                      onClick={() => handleModeSwitch("ai")}
+                      disabled={isActive}
+                      data-testid="button-mode-ai"
+                    >
+                      AI Generated
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Practice with AI-generated code snippets across 50+ languages</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={mode === "custom" ? "default" : "ghost"}
+                      className="rounded-none"
+                      onClick={() => handleModeSwitch("custom")}
+                      disabled={isActive}
+                      data-testid="button-mode-custom"
+                    >
+                      Custom Code
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Paste your own code to practice typing it</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium flex items-center gap-1">
+                Language:
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Select a programming language for AI-generated code snippets</p>
+                  </TooltipContent>
+                </Tooltip>
+              </label>
+              <Select value={language} onValueChange={setLanguage} disabled={isActive || mode === "custom"}>
+                <SelectTrigger className="w-[200px]" data-testid="select-language">
+                  <SelectValue />
+                </SelectTrigger>
               <SelectContent className="max-h-[400px]">
                 {Object.entries(
                   Object.entries(PROGRAMMING_LANGUAGES).reduce((acc, [key, lang]) => {
@@ -660,7 +696,17 @@ export default function CodeMode() {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Difficulty:</label>
+            <label className="text-sm font-medium flex items-center gap-1">
+              Difficulty:
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">Control code complexity: Easy (simple syntax), Medium (common patterns), Hard (advanced features)</p>
+                </TooltipContent>
+              </Tooltip>
+            </label>
             <Select value={difficulty} onValueChange={(val) => setDifficulty(val as any)} disabled={isActive || mode === "custom"}>
               <SelectTrigger className="w-[140px]" data-testid="select-difficulty">
                 <SelectValue />
@@ -674,21 +720,38 @@ export default function CodeMode() {
           </div>
 
           {mode === "ai" && (
-            <Button 
-              onClick={resetTest} 
-              variant="outline" 
-              data-testid="button-restart"
-              disabled={isLoading}
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              New Snippet
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  onClick={resetTest} 
+                  variant="outline" 
+                  data-testid="button-restart"
+                  disabled={isLoading}
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  New Snippet
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Generate a new random code snippet (or press Ctrl+Enter)</p>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
 
         <div className="flex flex-wrap gap-4 items-center justify-center pb-4 border-b">
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Test Mode:</label>
+            <label className="text-sm font-medium flex items-center gap-1">
+              Test Mode:
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">Normal: Practice freely • Expert: Test fails on any error • Master: Must type perfectly (no mistakes allowed)</p>
+                </TooltipContent>
+              </Tooltip>
+            </label>
             <Select value={testMode} onValueChange={(val) => setTestMode(val as any)} disabled={isActive}>
               <SelectTrigger className="w-[140px]" data-testid="select-test-mode">
                 <SelectValue />
@@ -707,7 +770,17 @@ export default function CodeMode() {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Font:</label>
+            <label className="text-sm font-medium flex items-center gap-1">
+              Font:
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Choose your preferred coding font for comfortable reading</p>
+                </TooltipContent>
+              </Tooltip>
+            </label>
             <Select value={fontFamily} onValueChange={setFontFamily}>
               <SelectTrigger className="w-[160px]" data-testid="select-font">
                 <SelectValue />
@@ -721,7 +794,17 @@ export default function CodeMode() {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Size:</label>
+            <label className="text-sm font-medium flex items-center gap-1">
+              Size:
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Adjust font size for optimal visibility</p>
+                </TooltipContent>
+              </Tooltip>
+            </label>
             <Select value={fontSize} onValueChange={setFontSize}>
               <SelectTrigger className="w-[100px]" data-testid="select-font-size">
                 <SelectValue />
@@ -991,6 +1074,7 @@ export default function CodeMode() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
