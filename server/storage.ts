@@ -371,6 +371,19 @@ export interface IStorage {
   markNotificationDelivered(id: number): Promise<void>;
   markNotificationClicked(id: number): Promise<void>;
   
+  getUsersForDailyReminders(currentHour: number): Promise<Array<{ id: string; username: string; currentStreak: number }>>;
+  getUsersWithStreakAtRisk(): Promise<Array<{ id: string; username: string; currentStreak: number }>>;
+  getUsersForWeeklySummary(): Promise<Array<{ id: string; username: string }>>;
+  
+  getUserAverageWpm(userId: string): Promise<number>;
+  getWeeklySummaryStats(userId: string): Promise<{
+    testsCompleted: number;
+    avgWpm: number;
+    avgAccuracy: number;
+    improvement: number;
+    rank: number;
+  }>;
+  
   createAchievement(achievement: InsertAchievement): Promise<Achievement>;
   getAllAchievements(): Promise<Achievement[]>;
   getAchievementByKey(key: string): Promise<Achievement | undefined>;
@@ -2131,6 +2144,183 @@ export class DatabaseStorage implements IStorage {
       .update(notificationHistory)
       .set({ status: 'clicked', clickedAt: new Date() })
       .where(eq(notificationHistory.id, id));
+  }
+
+  async getUsersForDailyReminders(currentHour: number): Promise<Array<{ id: string; username: string; currentStreak: number }>> {
+    const currentHourStr = `${String(currentHour).padStart(2, '0')}:%`;
+    
+    const results = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        currentStreak: users.currentStreak,
+      })
+      .from(users)
+      .innerJoin(notificationPreferences, eq(notificationPreferences.userId, users.id))
+      .innerJoin(pushSubscriptions, eq(pushSubscriptions.userId, users.id))
+      .where(
+        and(
+          eq(notificationPreferences.dailyReminder, true),
+          sql`${notificationPreferences.dailyReminderTime} LIKE ${currentHourStr}`,
+          eq(pushSubscriptions.isActive, true)
+        )
+      )
+      .groupBy(users.id, users.username, users.currentStreak);
+    
+    return results.map(r => ({
+      id: r.id,
+      username: r.username,
+      currentStreak: r.currentStreak || 0,
+    }));
+  }
+
+  async getUsersWithStreakAtRisk(): Promise<Array<{ id: string; username: string; currentStreak: number }>> {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    
+    const results = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        currentStreak: users.currentStreak,
+      })
+      .from(users)
+      .innerJoin(notificationPreferences, eq(notificationPreferences.userId, users.id))
+      .innerJoin(pushSubscriptions, eq(pushSubscriptions.userId, users.id))
+      .where(
+        and(
+          sql`${users.currentStreak} > 0`,
+          eq(notificationPreferences.streakWarning, true),
+          eq(pushSubscriptions.isActive, true),
+          sql`NOT EXISTS (
+            SELECT 1 FROM ${testResults} 
+            WHERE ${testResults.userId} = ${users.id} 
+            AND ${testResults.createdAt} BETWEEN ${todayStart} AND ${todayEnd}
+          )`
+        )
+      )
+      .groupBy(users.id, users.username, users.currentStreak);
+    
+    return results.map(r => ({
+      id: r.id,
+      username: r.username,
+      currentStreak: r.currentStreak || 0,
+    }));
+  }
+
+  async getUsersForWeeklySummary(): Promise<Array<{ id: string; username: string }>> {
+    const results = await db
+      .select({
+        id: users.id,
+        username: users.username,
+      })
+      .from(users)
+      .innerJoin(notificationPreferences, eq(notificationPreferences.userId, users.id))
+      .innerJoin(pushSubscriptions, eq(pushSubscriptions.userId, users.id))
+      .where(
+        and(
+          eq(notificationPreferences.weeklySummary, true),
+          eq(pushSubscriptions.isActive, true)
+        )
+      )
+      .groupBy(users.id, users.username);
+    
+    return results;
+  }
+
+  async getUserAverageWpm(userId: string): Promise<number> {
+    const results = await db
+      .select({
+        avgWpm: sql<number>`ROUND(AVG(${testResults.wpm}))`,
+      })
+      .from(testResults)
+      .where(eq(testResults.userId, userId));
+    
+    return results[0]?.avgWpm || 0;
+  }
+
+  async getWeeklySummaryStats(userId: string): Promise<{
+    testsCompleted: number;
+    avgWpm: number;
+    avgAccuracy: number;
+    improvement: number;
+    rank: number;
+  }> {
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    
+    const currentWeekResults = await db
+      .select({
+        count: sql<number>`CAST(COUNT(*) AS INTEGER)`,
+        avgWpm: sql<number>`COALESCE(ROUND(AVG(${testResults.wpm})), 0)`,
+        avgAccuracy: sql<number>`COALESCE(ROUND(AVG(${testResults.accuracy}), 1), 0)`,
+      })
+      .from(testResults)
+      .where(
+        and(
+          eq(testResults.userId, userId),
+          sql`${testResults.createdAt} >= ${oneWeekAgo}`
+        )
+      );
+    
+    const testsCompleted = currentWeekResults[0]?.count || 0;
+    const avgWpm = currentWeekResults[0]?.avgWpm || 0;
+    const avgAccuracy = currentWeekResults[0]?.avgAccuracy || 0;
+    
+    if (testsCompleted === 0) {
+      return {
+        testsCompleted: 0,
+        avgWpm: 0,
+        avgAccuracy: 0,
+        improvement: 0,
+        rank: 0,
+      };
+    }
+    
+    const previousWeekResults = await db
+      .select({
+        avgWpm: sql<number>`COALESCE(ROUND(AVG(${testResults.wpm})), 0)`,
+      })
+      .from(testResults)
+      .where(
+        and(
+          eq(testResults.userId, userId),
+          sql`${testResults.createdAt} >= ${twoWeeksAgo}`,
+          sql`${testResults.createdAt} < ${oneWeekAgo}`
+        )
+      );
+    
+    const weeklyRankResults = await db
+      .select({
+        rank: sql<number>`CAST(COUNT(DISTINCT ${users.id}) + 1 AS INTEGER)`,
+      })
+      .from(users)
+      .innerJoin(testResults, eq(testResults.userId, users.id))
+      .innerJoin(pushSubscriptions, eq(pushSubscriptions.userId, users.id))
+      .where(
+        and(
+          sql`${testResults.createdAt} >= ${oneWeekAgo}`,
+          eq(pushSubscriptions.isActive, true),
+          sql`${users.id} != ${userId}`
+        )
+      )
+      .groupBy(users.id)
+      .having(sql`AVG(${testResults.wpm}) > ${avgWpm}`);
+    
+    const previousWpm = previousWeekResults[0]?.avgWpm || avgWpm;
+    const improvement = avgWpm - previousWpm;
+    const rank = weeklyRankResults[0]?.rank || 1;
+    
+    return {
+      testsCompleted,
+      avgWpm,
+      avgAccuracy,
+      improvement,
+      rank,
+    };
   }
 
   async createAchievement(achievement: InsertAchievement): Promise<Achievement> {

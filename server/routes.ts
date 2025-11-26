@@ -44,8 +44,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     throw new Error("DATABASE_URL must be set");
   }
 
+  // Enforce SESSION_SECRET in production
   if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
-    console.warn("⚠️ WARNING: SESSION_SECRET is not set in production. Using fallback value is insecure.");
+    throw new Error(
+      "🚨 CRITICAL SECURITY ERROR: SESSION_SECRET must be set in production!\n" +
+      "Using a predictable session secret allows attackers to forge session cookies.\n" +
+      "Set SESSION_SECRET environment variable to a secure random value (minimum 32 characters).\n" +
+      "Generate one using: openssl rand -base64 32"
+    );
   }
 
   const sessionSecret = process.env.SESSION_SECRET || "typemasterai-secret-key-change-in-production";
@@ -68,10 +74,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize authentication security service
   const authSecurityService = new AuthSecurityService(storage);
-  
-  if (sessionSecret === "typemasterai-secret-key-change-in-production" && process.env.NODE_ENV === "production") {
-    console.error("🚨 SECURITY ALERT: Production is using the default SESSION_SECRET. This is highly insecure!");
-  }
 
   const sessionPool = new Pool({ connectionString: process.env.DATABASE_URL });
 

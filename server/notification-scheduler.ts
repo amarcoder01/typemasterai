@@ -74,7 +74,12 @@ export class NotificationScheduler {
       let sent = 0;
       for (const user of eligibleUsers) {
         try {
-          await this.notificationService.sendDailyReminder(user.id, user.username);
+          const avgWpm = await this.storage.getUserAverageWpm(user.id);
+          
+          await this.notificationService.sendDailyReminder(user.id, {
+            streak: user.currentStreak,
+            avgWpm: avgWpm || 0,
+          });
           sent++;
         } catch (error) {
           console.error(`[Scheduler] Failed to send daily reminder to user ${user.id}:`, error);
@@ -110,10 +115,14 @@ export class NotificationScheduler {
       let sent = 0;
       for (const user of usersAtRisk) {
         try {
+          const endOfDay = new Date();
+          endOfDay.setHours(23, 59, 59, 999);
+          const hoursLeft = Math.ceil((endOfDay.getTime() - now.getTime()) / (1000 * 60 * 60));
+          
           await this.notificationService.sendStreakWarning(
             user.id, 
-            user.username, 
-            user.currentStreak || 0
+            user.currentStreak || 0,
+            hoursLeft
           );
           sent++;
         } catch (error) {
@@ -148,26 +157,16 @@ export class NotificationScheduler {
         let sent = 0;
         for (const user of eligibleUsers) {
           try {
-            // Get user's weekly stats
-            const analytics = await this.storage.getUserAnalytics(user.id, 7);
+            // Get user's weekly stats from the last 7 days
+            const weeklyStats = await this.storage.getWeeklySummaryStats(user.id);
             
-            if (analytics.wpmOverTime.length > 0) {
-              const avgWpm = Math.round(
-                analytics.wpmOverTime.reduce((sum, day) => sum + day.wpm, 0) / 
-                analytics.wpmOverTime.length
-              );
-              const avgAccuracy = Math.round(
-                analytics.wpmOverTime.reduce((sum, day) => sum + day.accuracy, 0) / 
-                analytics.wpmOverTime.length
-              );
-              const testCount = analytics.wpmOverTime.reduce((sum, day) => sum + day.testCount, 0);
-              
+            if (weeklyStats.testsCompleted > 0) {
               await this.notificationService.sendWeeklySummary(user.id, {
-                username: user.username,
-                avgWpm,
-                avgAccuracy,
-                testCount,
-                weekStart: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+                testsCompleted: weeklyStats.testsCompleted,
+                avgWpm: weeklyStats.avgWpm,
+                avgAccuracy: weeklyStats.avgAccuracy,
+                improvement: weeklyStats.improvement,
+                rank: weeklyStats.rank,
               });
               sent++;
             }

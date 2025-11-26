@@ -7,17 +7,30 @@ import type {
 import type { IStorage } from './storage';
 
 // VAPID Configuration
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || '';
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:notifications@typemasterai.com';
 
+// Validate VAPID keys in production
+if (process.env.NODE_ENV === 'production') {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    console.error('🚨 CRITICAL: VAPID keys are not configured in production!');
+    console.error('Push notifications will not work. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.');
+    console.error('Generate keys using: npx web-push generate-vapid-keys');
+  }
+}
+
 // Initialize web-push with VAPID keys
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+const VAPID_KEYS_AVAILABLE = !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+if (VAPID_KEYS_AVAILABLE) {
   webpush.setVapidDetails(
     VAPID_SUBJECT,
     VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY
   );
+  console.log('✓ Push notification service initialized with VAPID keys');
+} else {
+  console.warn('⚠️ WARNING: Push notifications disabled - VAPID keys not configured');
 }
 
 export interface NotificationPayload {
@@ -48,6 +61,12 @@ export class NotificationService {
    */
   async sendToUser(options: SendNotificationOptions): Promise<{ sent: number; failed: number }> {
     const { userId, type, payload, ttl = 86400, urgency = 'normal' } = options;
+
+    // Check if VAPID keys are configured
+    if (!VAPID_KEYS_AVAILABLE) {
+      console.warn('[NotificationService] Skipping notification - VAPID keys not configured');
+      return { sent: 0, failed: 0 };
+    }
 
     // Get user's active push subscriptions
     const subscriptions = await this.storage.getUserPushSubscriptions(userId);
@@ -457,7 +476,7 @@ export class NotificationService {
    * Get VAPID public key for client subscription
    */
   getPublicKey(): string {
-    return VAPID_PUBLIC_KEY;
+    return VAPID_PUBLIC_KEY || '';
   }
 
   /**
