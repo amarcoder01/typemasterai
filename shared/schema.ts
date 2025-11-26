@@ -14,6 +14,7 @@ export const users = pgTable("users", {
   bio: text("bio"),
   country: text("country"),
   keyboardLayout: text("keyboard_layout").default("QWERTY"),
+  timezone: varchar("timezone", { length: 50 }).default("UTC").notNull(),
   currentStreak: integer("current_streak").default(0).notNull(),
   bestStreak: integer("best_streak").default(0).notNull(),
   lastTestDate: timestamp("last_test_date"),
@@ -941,6 +942,33 @@ export const notificationHistory = pgTable("notification_history", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Notification Jobs Queue (for scheduled notifications)
+export const notificationJobs = pgTable("notification_jobs", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  
+  // Job Details
+  notificationType: varchar("notification_type", { length: 50 }).notNull(), // daily_reminder, streak_warning, weekly_summary
+  sendAtUtc: timestamp("send_at_utc").notNull(), // When to send in UTC
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, claimed, completed, failed
+  
+  // Retry Logic
+  attemptCount: integer("attempt_count").default(0).notNull(),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  errorMessage: text("error_message"),
+  
+  // Payload Metadata (cached to avoid requerying)
+  payloadMeta: jsonb("payload_meta"), // { streak, avgWpm, etc. }
+  
+  // Timestamps
+  claimedAt: timestamp("claimed_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  sendAtStatusIdx: index("notification_jobs_send_at_status_idx").on(table.sendAtUtc, table.status),
+  userIdTypeIdx: index("notification_jobs_user_id_type_idx").on(table.userId, table.notificationType),
+}));
+
 // Achievements & Badges System
 export const achievements = pgTable("achievements", {
   id: serial("id").primaryKey(),
@@ -1060,6 +1088,7 @@ export const insertPracticeRecommendationSchema = createInsertSchema(practiceRec
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true, updatedAt: true, expirationTime: true });
 export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertNotificationHistorySchema = createInsertSchema(notificationHistory).omit({ id: true, createdAt: true });
+export const insertNotificationJobSchema = createInsertSchema(notificationJobs).omit({ id: true, createdAt: true, claimedAt: true, completedAt: true });
 export const insertAchievementSchema = createInsertSchema(achievements).omit({ id: true, createdAt: true });
 export const insertUserAchievementSchema = createInsertSchema(userAchievements).omit({ id: true, createdAt: true, unlockedAt: true });
 export const insertChallengeSchema = createInsertSchema(challenges).omit({ id: true, createdAt: true });
@@ -1080,6 +1109,8 @@ export type InsertNotificationPreferences = z.infer<typeof insertNotificationPre
 export type NotificationPreferences = typeof notificationPreferences.$inferSelect;
 export type InsertNotificationHistory = z.infer<typeof insertNotificationHistorySchema>;
 export type NotificationHistory = typeof notificationHistory.$inferSelect;
+export type InsertNotificationJob = z.infer<typeof insertNotificationJobSchema>;
+export type NotificationJob = typeof notificationJobs.$inferSelect;
 export type InsertAchievement = z.infer<typeof insertAchievementSchema>;
 export type Achievement = typeof achievements.$inferSelect;
 export type InsertUserAchievement = z.infer<typeof insertUserAchievementSchema>;
