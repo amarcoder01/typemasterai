@@ -37,25 +37,16 @@ export class AuthSecurityService {
   }
 
   async handleFailedLogin(userId: string, email: string, req: Request, reason: string): Promise<void> {
-    // Record failed login attempt
-    await this.recordLoginAttempt(userId, email, req, false, reason);
-
-    // Check recent failed attempts within the window (including the one just recorded)
-    const recentFailures = await this.storage.getRecentFailedLogins(
+    // Record failed login attempt and update lockout in a single transaction
+    await this.storage.handleFailedLoginTransaction(
       userId,
-      this.FAILED_ATTEMPTS_WINDOW_MINUTES
+      email,
+      req,
+      reason,
+      this.FAILED_ATTEMPTS_WINDOW_MINUTES,
+      this.MAX_FAILED_ATTEMPTS,
+      this.LOCKOUT_DURATION_MINUTES
     );
-
-    const failedAttempts = recentFailures.length;
-
-    if (failedAttempts >= this.MAX_FAILED_ATTEMPTS) {
-      // Lock the account
-      const lockedUntil = new Date(Date.now() + this.LOCKOUT_DURATION_MINUTES * 60 * 1000);
-      await this.storage.createOrUpdateAccountLockout(userId, failedAttempts, lockedUntil);
-    } else {
-      // Update failed attempts count
-      await this.storage.createOrUpdateAccountLockout(userId, failedAttempts);
-    }
   }
 
   async handleSuccessfulLogin(userId: string, email: string, req: Request): Promise<void> {

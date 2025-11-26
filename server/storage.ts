@@ -138,6 +138,15 @@ export interface IStorage {
   createLoginHistory(history: InsertLoginHistory): Promise<LoginHistory>;
   getUserLoginHistory(userId: string, limit?: number): Promise<LoginHistory[]>;
   getRecentFailedLogins(userId: string, minutes: number): Promise<LoginHistory[]>;
+  handleFailedLoginTransaction(
+    userId: string,
+    email: string,
+    req: any,
+    reason: string,
+    windowMinutes: number,
+    maxAttempts: number,
+    lockoutMinutes: number
+  ): Promise<void>;
   
   // Account Lockout
   getAccountLockout(userId: string): Promise<AccountLockout | undefined>;
@@ -396,8 +405,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const result = await db.insert(users).values(insertUser).returning();
-    return result[0];
+    // Use transaction to create user and initialize account_lockouts row
+    return await db.transaction(async (tx) => {
+      const result = await tx.insert(users).values(insertUser).returning();
+      const newUser = result[0];
+      
+      // Pre-create account_lockouts row to enable row-level locking for concurrent failed logins
+      await tx.insert(accountLockouts).values({
+        userId: newUser.id,
+        failedAttempts: 0,
+        lockedUntil: null,
+        lastFailedAt: null,
+      });
+      
+      return newUser;
+    });
   }
 
   async updateUserProfile(userId: string, profile: Partial<User>): Promise<User> {
@@ -455,6 +477,92 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(loginHistory.createdAt));
+  }
+
+  async handleFailedLoginTransaction(
+    userId: string,
+    email: string,
+    req: any,
+    reason: string,
+    windowMinutes: number,
+    maxAttempts: number,
+    lockoutMinutes: number
+  ): Promise<void> {
+    await db.transaction(async (tx) => {
+      // 1. Ensure account_lockouts row exists for this user (handles legacy users)
+      //    Try to lock the row; if it doesn't exist, create it
+      let lockoutRow = await tx
+        .select()
+        .from(accountLockouts)
+        .where(eq(accountLockouts.userId, userId))
+        .for('update')
+        .limit(1);
+
+      if (lockoutRow.length === 0) {
+        // Row doesn't exist (legacy user) - create it with conflict handling
+        // If a concurrent transaction already created it, DO NOTHING and proceed to lock
+        await tx
+          .insert(accountLockouts)
+          .values({
+            userId,
+            failedAttempts: 0,
+            lockedUntil: null,
+            lastFailedAt: null,
+          })
+          .onConflictDoNothing({ target: accountLockouts.userId });
+        
+        // Now lock the row (exists either from our insert or a concurrent one)
+        lockoutRow = await tx
+          .select()
+          .from(accountLockouts)
+          .where(eq(accountLockouts.userId, userId))
+          .for('update')
+          .limit(1);
+      }
+
+      // 2. Record the failed login attempt
+      await tx.insert(loginHistory).values({
+        userId,
+        email,
+        success: false,
+        ipAddress: (req.ip || req.headers['x-forwarded-for'] || 'unknown') as string,
+        userAgent: req.headers['user-agent'] || 'unknown',
+        deviceFingerprint: req.headers['x-device-fingerprint'] as string || null,
+        failureReason: reason,
+      });
+
+      // 3. Count recent failed attempts (now includes the one we just inserted)
+      const cutoffTime = new Date(Date.now() - windowMinutes * 60 * 1000);
+      const countResult = await tx
+        .select({ count: sql<number>`cast(count(*) as integer)` })
+        .from(loginHistory)
+        .where(
+          and(
+            eq(loginHistory.userId, userId),
+            eq(loginHistory.success, false),
+            sql`${loginHistory.createdAt} > ${cutoffTime}`
+          )
+        );
+
+      const failedAttempts = countResult[0]?.count || 0;
+
+      // 4. Update the locked row with accurate count and lockout status
+      const lockedUntil = failedAttempts >= maxAttempts
+        ? new Date(Date.now() + lockoutMinutes * 60 * 1000)
+        : null;
+
+      const now = new Date();
+      
+      await tx
+        .update(accountLockouts)
+        .set({
+          failedAttempts,
+          lockedUntil,
+          lastFailedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(accountLockouts.userId, userId));
+    });
   }
 
   // Account Lockout
