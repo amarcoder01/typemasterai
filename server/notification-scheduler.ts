@@ -60,17 +60,28 @@ export class NotificationScheduler {
     try {
       console.log('[Scheduler] Checking daily reminders...');
       
-      // Get all users who have daily reminders enabled
-      // In a real implementation, you'd query the database for users who:
-      // 1. Have push notifications enabled
-      // 2. Have daily reminders enabled
-      // 3. Haven't practiced today
-      // 4. Current time matches their preferred reminder time
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinutes = now.getMinutes();
+      const currentTime = `${String(currentHour).padStart(2, '0')}:${String(currentMinutes).padStart(2, '0')}`;
       
-      // For now, this is a placeholder that would be implemented
-      // with proper user queries and time zone handling
+      // Query users who should receive daily reminders
+      // This is a simplified version - in production, you'd want to handle timezones properly
+      const eligibleUsers = await this.storage.getUsersForDailyReminders(currentHour);
       
-      console.log('[Scheduler] Daily reminder check completed');
+      console.log(`[Scheduler] Found ${eligibleUsers.length} users eligible for daily reminders`);
+      
+      let sent = 0;
+      for (const user of eligibleUsers) {
+        try {
+          await this.notificationService.sendDailyReminder(user.id, user.username);
+          sent++;
+        } catch (error) {
+          console.error(`[Scheduler] Failed to send daily reminder to user ${user.id}:`, error);
+        }
+      }
+      
+      console.log(`[Scheduler] Daily reminder check completed: ${sent}/${eligibleUsers.length} sent`);
     } catch (error) {
       console.error('[Scheduler] Daily reminder check error:', error);
     }
@@ -83,15 +94,34 @@ export class NotificationScheduler {
     try {
       console.log('[Scheduler] Checking streak warnings...');
       
-      // Query users who:
-      // 1. Have an active streak
-      // 2. Haven't practiced today
-      // 3. Have streak warnings enabled
-      // 4. Less than 6 hours remaining until midnight
+      const now = new Date();
+      const currentHour = now.getHours();
       
-      // For each user, send a warning notification
+      // Only send streak warnings in the evening (6PM-11PM)
+      if (currentHour < 18 || currentHour > 23) {
+        return;
+      }
       
-      console.log('[Scheduler] Streak warning check completed');
+      // Query users at risk of losing their streak
+      const usersAtRisk = await this.storage.getUsersWithStreakAtRisk();
+      
+      console.log(`[Scheduler] Found ${usersAtRisk.length} users at risk of losing streak`);
+      
+      let sent = 0;
+      for (const user of usersAtRisk) {
+        try {
+          await this.notificationService.sendStreakWarning(
+            user.id, 
+            user.username, 
+            user.currentStreak || 0
+          );
+          sent++;
+        } catch (error) {
+          console.error(`[Scheduler] Failed to send streak warning to user ${user.id}:`, error);
+        }
+      }
+      
+      console.log(`[Scheduler] Streak warning check completed: ${sent}/${usersAtRisk.length} sent`);
     } catch (error) {
       console.error('[Scheduler] Streak warning check error:', error);
     }
@@ -110,11 +140,43 @@ export class NotificationScheduler {
       if (dayOfWeek === 0 && hour === 20) {
         console.log('[Scheduler] Sending weekly summaries...');
         
-        // Query all users who have weekly summaries enabled
-        // Calculate their stats for the past week
-        // Send summary notification
+        // Get all users who have weekly summaries enabled
+        const eligibleUsers = await this.storage.getUsersForWeeklySummary();
         
-        console.log('[Scheduler] Weekly summaries sent');
+        console.log(`[Scheduler] Sending weekly summaries to ${eligibleUsers.length} users`);
+        
+        let sent = 0;
+        for (const user of eligibleUsers) {
+          try {
+            // Get user's weekly stats
+            const analytics = await this.storage.getUserAnalytics(user.id, 7);
+            
+            if (analytics.wpmOverTime.length > 0) {
+              const avgWpm = Math.round(
+                analytics.wpmOverTime.reduce((sum, day) => sum + day.wpm, 0) / 
+                analytics.wpmOverTime.length
+              );
+              const avgAccuracy = Math.round(
+                analytics.wpmOverTime.reduce((sum, day) => sum + day.accuracy, 0) / 
+                analytics.wpmOverTime.length
+              );
+              const testCount = analytics.wpmOverTime.reduce((sum, day) => sum + day.testCount, 0);
+              
+              await this.notificationService.sendWeeklySummary(user.id, {
+                username: user.username,
+                avgWpm,
+                avgAccuracy,
+                testCount,
+                weekStart: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+              });
+              sent++;
+            }
+          } catch (error) {
+            console.error(`[Scheduler] Failed to send weekly summary to user ${user.id}:`, error);
+          }
+        }
+        
+        console.log(`[Scheduler] Weekly summaries sent: ${sent}/${eligibleUsers.length} completed`);
       }
     } catch (error) {
       console.error('[Scheduler] Weekly summary check error:', error);
