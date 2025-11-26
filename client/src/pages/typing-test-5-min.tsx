@@ -66,7 +66,7 @@ export default function TypingTest5MinPage() {
             Professional-grade endurance test for maximum accuracy
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <Link href="/test">
+            <Link href="/">
               <Button size="lg" className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white text-lg px-8 py-6" data-testid="button-start-5min-test">
                 <Timer className="mr-2 h-5 w-5" />
                 Start 5 Minute Test
@@ -254,7 +254,7 @@ export default function TypingTest5MinPage() {
             </p>
 
             <div className="text-center mt-12">
-              <Link href="/test">
+              <Link href="/">
                 <Button size="lg" className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white text-lg px-12 py-6" data-testid="button-start-test-bottom">
                   <Timer className="mr-2 h-6 w-6" />
                   Start Your Free 5 Minute Professional Test

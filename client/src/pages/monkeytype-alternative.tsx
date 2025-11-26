@@ -30,7 +30,7 @@ export default function MonkeytypeAlternativePage() {
           <p className="text-lg text-slate-400 mb-8">
             Free typing test with advanced analytics, code typing mode, multiplayer racing, and more
           </p>
-          <Link href="/test">
+          <Link href="/">
             <Button size="lg" className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white text-lg px-12 py-6" data-testid="button-try-typemaster">
               <Zap className="mr-2 h-6 w-6" />
               Try TypeMasterAI Free - No Signup Required
@@ -271,7 +271,7 @@ export default function MonkeytypeAlternativePage() {
             </p>
 
             <div className="text-center mt-12">
-              <Link href="/test">
+              <Link href="/">
                 <Button size="lg" className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white text-lg px-12 py-6" data-testid="button-start-test-bottom">
                   <Zap className="mr-2 h-6 w-6" />
                   Try the Best Monkeytype Alternative Now

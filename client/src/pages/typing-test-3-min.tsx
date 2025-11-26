@@ -60,7 +60,7 @@ export default function TypingTest3MinPage() {
             The gold standard for accurate typing speed measurement
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <Link href="/test">
+            <Link href="/">
               <Button size="lg" className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white text-lg px-8 py-6" data-testid="button-start-3min-test">
                 <Clock className="mr-2 h-5 w-5" />
                 Start 3 Minute Test
@@ -241,7 +241,7 @@ export default function TypingTest3MinPage() {
             </p>
 
             <div className="text-center mt-12">
-              <Link href="/test">
+              <Link href="/">
                 <Button size="lg" className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white text-lg px-12 py-6" data-testid="button-start-test-bottom">
                   <Clock className="mr-2 h-6 w-6" />
                   Start Your Free 3 Minute Test Now
@@ -266,7 +266,7 @@ export default function TypingTest3MinPage() {
               </Card>
             </Link>
 
-            <Link href="/test">
+            <Link href="/">
               <Card className="bg-slate-800/50 border-slate-700 hover:border-cyan-500 transition-colors cursor-pointer" data-testid="card-standard-test">
                 <CardHeader>
                   <CardTitle className="text-white">Custom Duration</CardTitle>
