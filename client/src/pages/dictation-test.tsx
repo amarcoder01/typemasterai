@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, Volume2, RotateCcw, Eye, EyeOff, Check, ChevronRight, Mic, Share2 } from 'lucide-react';
+import { ArrowLeft, Volume2, RotateCcw, Eye, EyeOff, Check, ChevronRight, Mic, Share2, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { calculateDictationAccuracy, calculateDictationWPM, getSpeedRate, getSpeedLevelName, getAccuracyGrade, type CharacterDiff } from '@shared/dictation-utils';
@@ -395,29 +396,40 @@ export default function DictationTest() {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <Link href="/">
-          <Button variant="ghost" size="sm" data-testid="button-back">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-        </Link>
-        <h1 className="text-3xl font-bold">Dictation Mode 🎧</h1>
-        <div className="w-20" />
-      </div>
+    <TooltipProvider>
+      <div className="container max-w-4xl mx-auto p-6">
+        <div className="mb-6 flex items-center justify-between">
+          <Link href="/">
+            <Button variant="ghost" size="sm" data-testid="button-back">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+          </Link>
+          <h1 className="text-3xl font-bold">Dictation Mode 🎧</h1>
+          <div className="w-20" />
+        </div>
 
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Progress</span>
-            <span className="text-sm text-muted-foreground" data-testid="text-progress">
-              {sessionProgress} / {SENTENCES_PER_SESSION}
-            </span>
-          </div>
-          <Progress value={(sessionProgress / SENTENCES_PER_SESSION) * 100} className="h-2" />
-        </CardContent>
-      </Card>
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium flex items-center gap-1">
+                Progress
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Complete {SENTENCES_PER_SESSION} dictation tests to finish the session</p>
+                  </TooltipContent>
+                </Tooltip>
+              </span>
+              <span className="text-sm text-muted-foreground" data-testid="text-progress">
+                {sessionProgress} / {SENTENCES_PER_SESSION}
+              </span>
+            </div>
+            <Progress value={(sessionProgress / SENTENCES_PER_SESSION) * 100} className="h-2" />
+          </CardContent>
+        </Card>
 
       {!testState.isComplete ? (
         <>
@@ -428,58 +440,79 @@ export default function DictationTest() {
                 <div className="text-sm text-muted-foreground">Replays</div>
               </CardContent>
             </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <Select value={difficulty} onValueChange={setDifficulty} disabled={isLoading || isSpeaking}>
-                  <SelectTrigger data-testid="select-difficulty">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="easy">Easy</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="hard">Hard</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="text-xs text-muted-foreground mt-1">Difficulty</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <Select value={speedLevel} onValueChange={setSpeedLevel} disabled={isLoading || isSpeaking}>
-                  <SelectTrigger data-testid="select-speed">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="slow">Slow (0.7x)</SelectItem>
-                    <SelectItem value="medium">Medium (1.0x)</SelectItem>
-                    <SelectItem value="fast">Fast (1.5x)</SelectItem>
-                    <SelectItem value="random">Random</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="text-xs text-muted-foreground mt-1">Speed</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <Select 
-                  value={currentVoice?.voiceURI || ''} 
-                  onValueChange={handleVoiceChange}
-                  disabled={isLoading || isSpeaking || englishVoices.length === 0}
-                >
-                  <SelectTrigger data-testid="select-voice">
-                    <SelectValue placeholder="Voice" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {englishVoices.map((voice) => (
-                      <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
-                        {voice.name.split(' ').slice(0, 2).join(' ')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="text-xs text-muted-foreground mt-1">Voice</div>
-              </CardContent>
-            </Card>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card>
+                  <CardContent className="pt-6">
+                    <Select value={difficulty} onValueChange={setDifficulty} disabled={isLoading || isSpeaking}>
+                      <SelectTrigger data-testid="select-difficulty">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="easy">Easy</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="hard">Hard</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="text-xs text-muted-foreground mt-1">Difficulty</div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">Easy: Short simple sentences • Medium: Standard sentences • Hard: Complex sentences with advanced vocabulary</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card>
+                  <CardContent className="pt-6">
+                    <Select value={speedLevel} onValueChange={setSpeedLevel} disabled={isLoading || isSpeaking}>
+                      <SelectTrigger data-testid="select-speed">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="slow">Slow (0.7x)</SelectItem>
+                        <SelectItem value="medium">Medium (1.0x)</SelectItem>
+                        <SelectItem value="fast">Fast (1.5x)</SelectItem>
+                        <SelectItem value="random">Random</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="text-xs text-muted-foreground mt-1">Speed</div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">Control speech speed: Slow (0.7x) for beginners, Medium (1.0x) for practice, Fast (1.5x) for challenge, Random for variety</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card>
+                  <CardContent className="pt-6">
+                    <Select 
+                      value={currentVoice?.voiceURI || ''} 
+                      onValueChange={handleVoiceChange}
+                      disabled={isLoading || isSpeaking || englishVoices.length === 0}
+                    >
+                      <SelectTrigger data-testid="select-voice">
+                        <SelectValue placeholder="Voice" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {englishVoices.map((voice) => (
+                          <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
+                            {voice.name.split(' ').slice(0, 2).join(' ')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="text-xs text-muted-foreground mt-1">Voice</div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Choose the voice accent and tone you prefer for dictation</p>
+              </TooltipContent>
+            </Tooltip>
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold" data-testid="text-speed-label">
@@ -560,41 +593,69 @@ export default function DictationTest() {
           </Card>
 
           <div className="flex gap-3 justify-center flex-wrap">
-            <Button
-              onClick={handleReplay}
-              disabled={!testState.sentence || isSpeaking}
-              variant="outline"
-              data-testid="button-replay"
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Replay Audio
-            </Button>
-            <Button
-              onClick={toggleHint}
-              disabled={!testState.sentence || isSpeaking}
-              variant="outline"
-              data-testid="button-hint"
-            >
-              {testState.showHint ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
-              {testState.showHint ? 'Hide' : 'Show'} Hint
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={!testState.typedText.trim() || isSpeaking || !testState.startTime}
-              size="lg"
-              data-testid="button-submit"
-            >
-              <Check className="w-4 h-4 mr-2" />
-              Submit Answer
-            </Button>
-            <Button
-              onClick={() => setShowKeyboardGuide(!showKeyboardGuide)}
-              variant="ghost"
-              size="sm"
-              data-testid="button-keyboard-guide"
-            >
-              ⌨️ Shortcuts
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleReplay}
+                  disabled={!testState.sentence || isSpeaking}
+                  variant="outline"
+                  data-testid="button-replay"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Replay Audio
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Listen to the sentence again (counts as a replay penalty)</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={toggleHint}
+                  disabled={!testState.sentence || isSpeaking}
+                  variant="outline"
+                  data-testid="button-hint"
+                >
+                  {testState.showHint ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                  {testState.showHint ? 'Hide' : 'Show'} Hint
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Reveal the sentence text if you're stuck (reduces your score)</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!testState.typedText.trim() || isSpeaking || !testState.startTime}
+                  size="lg"
+                  data-testid="button-submit"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  Submit Answer
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Submit your answer for grading (or press Ctrl+Enter)</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setShowKeyboardGuide(!showKeyboardGuide)}
+                  variant="ghost"
+                  size="sm"
+                  data-testid="button-keyboard-guide"
+                >
+                  ⌨️ Shortcuts
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>View available keyboard shortcuts</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           {showKeyboardGuide && (
@@ -772,6 +833,7 @@ export default function DictationTest() {
           errors: sessionStats.totalErrors,
         }}
       />
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
