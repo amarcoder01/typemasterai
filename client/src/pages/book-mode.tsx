@@ -6,11 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/searchable-select";
-import { BookOpen, Trophy, Zap, Target, RotateCcw, ArrowRight, Sparkles, Loader2 } from "lucide-react";
+import { BookOpen, Trophy, Zap, Target, RotateCcw, ArrowRight, Sparkles, Loader2, HelpCircle } from "lucide-react";
 import confetti from "canvas-confetti";
 import type { BookParagraph, InsertBookTypingTest } from "@shared/schema";
 
@@ -400,84 +401,158 @@ export default function BookMode() {
   });
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
-      <div className="mb-8 text-center">
-        <div className="flex items-center justify-center gap-3 mb-4">
-          <BookOpen className="w-10 h-10 text-primary" />
-          <h1 className="text-4xl font-bold">Book Typing Mode</h1>
+    <TooltipProvider>
+      <div className="container mx-auto py-8 px-4 max-w-6xl">
+        <div className="mb-8 text-center">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <BookOpen className="w-10 h-10 text-primary" />
+            <h1 className="text-4xl font-bold">Book Typing Mode</h1>
+          </div>
+          <p className="text-muted-foreground text-lg">
+            Improve your typing speed by reading classic literature
+          </p>
         </div>
-        <p className="text-muted-foreground text-lg">
-          Improve your typing speed by reading classic literature
-        </p>
-      </div>
 
-      {/* Filters */}
-      <Card className="p-6 mb-6">
-        <div className="flex flex-wrap gap-4 items-center justify-center">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Topic:</label>
-            <SearchableSelect
-              value={filters.topic}
-              onValueChange={(value) => setFilters({ ...filters, topic: value })}
-              options={topicOptions}
-              placeholder="All Topics"
-              searchPlaceholder="Search topics..."
-              icon={<Sparkles className="w-4 h-4" />}
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Difficulty:</label>
-            <RadioGroup
-              value={filters.difficulty}
-              onValueChange={(value) => setFilters({ ...filters, difficulty: value })}
-              className="flex gap-2"
-              disabled={isActive}
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="easy" id="easy" data-testid="radio-difficulty-easy" />
-                <Label htmlFor="easy" className="cursor-pointer">Easy</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="medium" id="medium" data-testid="radio-difficulty-medium" />
-                <Label htmlFor="medium" className="cursor-pointer">Medium</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="hard" id="hard" data-testid="radio-difficulty-hard" />
-                <Label htmlFor="hard" className="cursor-pointer">Hard</Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Duration:</label>
-            <div className="flex gap-1">
-              {DURATION_MODES.map((mode) => (
-                <Button
-                  key={mode.value}
-                  variant={filters.durationMode === mode.value ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setFilters({ ...filters, durationMode: mode.value })}
-                  disabled={isActive}
-                  data-testid={`button-duration-${mode.value}`}
-                >
-                  {mode.label}
-                </Button>
-              ))}
+        {/* Filters */}
+        <Card className="p-6 mb-6">
+          <div className="flex flex-wrap gap-4 items-center justify-center">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium flex items-center gap-1">
+                Topic:
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Choose a book topic: fiction, philosophy, science, history, and more from classic literature</p>
+                  </TooltipContent>
+                </Tooltip>
+              </label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <SearchableSelect
+                      value={filters.topic}
+                      onValueChange={(value) => setFilters({ ...filters, topic: value })}
+                      options={topicOptions}
+                      placeholder="All Topics"
+                      searchPlaceholder="Search topics..."
+                      icon={<Sparkles className="w-4 h-4" />}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Filter books by subject matter or browse all topics</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
-          </div>
 
-          <Button
-            onClick={fetchParagraph}
-            disabled={isActive || isLoading}
-            variant="secondary"
-            data-testid="button-new-book"
-          >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
-            <span className="ml-2">New Book</span>
-          </Button>
-        </div>
-      </Card>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium flex items-center gap-1">
+                Difficulty:
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Easy: simple vocabulary • Medium: standard literature • Hard: complex language and longer sentences</p>
+                  </TooltipContent>
+                </Tooltip>
+              </label>
+              <RadioGroup
+                value={filters.difficulty}
+                onValueChange={(value) => setFilters({ ...filters, difficulty: value })}
+                className="flex gap-2"
+                disabled={isActive}
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="easy" id="easy" data-testid="radio-difficulty-easy" />
+                      <Label htmlFor="easy" className="cursor-pointer">Easy</Label>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Simple vocabulary and short sentences</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="medium" id="medium" data-testid="radio-difficulty-medium" />
+                      <Label htmlFor="medium" className="cursor-pointer">Medium</Label>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Standard literary vocabulary and structure</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="hard" id="hard" data-testid="radio-difficulty-hard" />
+                      <Label htmlFor="hard" className="cursor-pointer">Hard</Label>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Complex language, advanced vocabulary, longer sentences</p>
+                  </TooltipContent>
+                </Tooltip>
+              </RadioGroup>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium flex items-center gap-1">
+                Duration:
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">Choose paragraph length: 30s for quick practice, up to 2min for longer reading sessions</p>
+                  </TooltipContent>
+                </Tooltip>
+              </label>
+              <div className="flex gap-1">
+                {DURATION_MODES.map((mode) => (
+                  <Tooltip key={mode.value}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={filters.durationMode === mode.value ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setFilters({ ...filters, durationMode: mode.value })}
+                        disabled={isActive}
+                        data-testid={`button-duration-${mode.value}`}
+                      >
+                        {mode.label}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Target reading time: {mode.label}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </div>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={fetchParagraph}
+                  disabled={isActive || isLoading}
+                  variant="secondary"
+                  data-testid="button-new-book"
+                >
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+                  <span className="ml-2">New Book</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Load a random paragraph from a different book (or press Ctrl+Enter)</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </Card>
 
       {/* Book Metadata */}
       {currentParagraph && (
@@ -575,25 +650,39 @@ export default function BookMode() {
 
         {isFinished && (
           <div className="mt-4 flex gap-3 justify-center">
-            <Button
-              onClick={continueReading}
-              size="lg"
-              className="gap-2"
-              data-testid="button-continue-reading"
-            >
-              <ArrowRight className="w-5 h-5" />
-              Continue Reading
-            </Button>
-            <Button
-              onClick={resetTest}
-              variant="outline"
-              size="lg"
-              className="gap-2"
-              data-testid="button-new-paragraph"
-            >
-              <RotateCcw className="w-5 h-5" />
-              New Paragraph
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={continueReading}
+                  size="lg"
+                  className="gap-2"
+                  data-testid="button-continue-reading"
+                >
+                  <ArrowRight className="w-5 h-5" />
+                  Continue Reading
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Load the next paragraph from the same book (or press Tab)</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={resetTest}
+                  variant="outline"
+                  size="lg"
+                  className="gap-2"
+                  data-testid="button-new-paragraph"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                  New Paragraph
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Get a random paragraph from a different book based on your filters</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         )}
       </Card>
@@ -663,6 +752,7 @@ export default function BookMode() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
