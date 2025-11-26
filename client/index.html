@@ -49,7 +49,12 @@
     <link rel="apple-touch-icon" sizes="167x167" href="/icon-192x192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Importing JetBrains Mono for code/typing and DM Sans for UI -->
+    
+    <!-- Critical font preloading for LCP optimization -->
+    <link rel="preload" href="https://fonts.gstatic.com/s/dmsans/v14/rP2tp2ywxg089UriI5-g4vlH9VoD8CmcqZG40F9JadbnoEwAopxRR25.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="https://fonts.gstatic.com/s/jetbrainsmono/v18/tDbY2o-flEEny0FZhsfKu5WU4zr3E_BX0PnT8RD8yK1jPVmUsaaDhw.woff2" as="font" type="font/woff2" crossorigin>
+    
+    <!-- Importing fonts with font-display: swap for CLS optimization -->
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
     
     <!-- JSON-LD Structured Data for SEO -->

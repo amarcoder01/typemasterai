@@ -35,6 +35,8 @@ import CookiePolicy from "@/pages/cookie-policy";
 import About from "@/pages/about";
 import Contact from "@/pages/contact";
 import NotificationSettings from "@/pages/NotificationSettings";
+import TypingTest1Min from "@/pages/typing-test-1-min";
+import MonkeytypeAlternative from "@/pages/monkeytype-alternative";
 
 function Router() {
   return (
@@ -46,6 +48,8 @@ function Router() {
         <Layout>
           <Switch>
             <Route path="/" component={Home} />
+            <Route path="/1-minute-typing-test" component={TypingTest1Min} />
+            <Route path="/monkeytype-alternative" component={MonkeytypeAlternative} />
             <Route path="/profile" component={Profile} />
             <Route path="/profile/edit" component={ProfileEdit} />
             <Route path="/leaderboard" component={Leaderboard} />

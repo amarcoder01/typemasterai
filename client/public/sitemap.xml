@@ -93,5 +93,22 @@
     <priority>0.4</priority>
     <mobile:mobile/>
   </url>
+  
+  <!-- SEO Landing Pages -->
+  <url>
+    <loc>https://typemaster-ai.replit.app/1-minute-typing-test</loc>
+    <lastmod>2025-11-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <mobile:mobile/>
+  </url>
+  
+  <url>
+    <loc>https://typemaster-ai.replit.app/monkeytype-alternative</loc>
+    <lastmod>2025-11-26</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <mobile:mobile/>
+  </url>
 
 </urlset>
