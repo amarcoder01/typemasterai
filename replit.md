@@ -26,14 +26,22 @@ Preferred communication style: Simple, everyday language.
 - **API Design**: RESTful API for authentication, test results, statistics, leaderboards, multi-language content, multiplayer race management (quick match, create/join room, race state), code typing features (AI snippet generation, code test results, code leaderboards), push notification management (subscription, preferences, history), achievement system, challenge system, and gamification profiles.
 - **AI Code Snippet Generation**: Utilizes OpenAI GPT-4o-mini to generate realistic code examples across 10+ programming languages and frameworks for code typing tests.
 - **Bot Name Pool**: Caches 100 OpenAI GPT-4o-mini generated realistic usernames to optimize API costs and ensure varied bot identities.
-- **Smart Notification System**: Web-push library with VAPID authentication for secure push notifications, intelligent scheduler for daily reminders (hourly checks), streak warnings (bi-hourly checks), and weekly summaries (Sunday evenings), preference-based notification filtering, and automatic subscription cleanup for expired/invalid endpoints.
+- **Smart Notification System**: Production-ready job-based notification scheduler using luxon for timezone-aware scheduling. Features include:
+  - **Job-Based Architecture**: notification_jobs table with FOR UPDATE SKIP LOCKED for concurrent-safe job claiming, exponential backoff retry (max 3 attempts), automatic recurring job generation
+  - **Minute-Precision Scheduler**: 1-minute tick intervals, batched job processing (100 jobs per tick), daily regeneration and cleanup tasks
+  - **Timezone-Aware Scheduling**: All calculations in user's configured timezone (stored in users.timezone column), proper UTC conversion for database storage
+  - **Intelligent Streak Warning Algorithm**: Uses DateTime.max(reminder+8h, reminder+60m) with same-day cap at 23:45, natural luxon rollover for late-night reminders (22:46-23:59), enforces minimum 60-minute buffer while respecting user practice windows
+  - **Real-Time Verification**: Fetches fresh user data before sending, timezone-aware same-day check prevents false warnings if user tested between job creation and execution
+  - **Optimized Queries**: Single-query user preferences fetch using raw SQL (eliminates N+1 pattern), batched user processing (200 users per batch)
+  - **Notification Types**: Daily reminders (user-configured time), streak warnings (clamp-and-roll algorithm), weekly summaries (Sunday evenings)
+  - **Web-Push Integration**: VAPID authentication, preference-based filtering, automatic subscription cleanup for expired endpoints
 - **Achievement Engine**: Automatic achievement checking after each test completion, 25+ predefined achievements across 5 categories (speed, accuracy, streak, consistency, special), 5-tier progression system (bronze, silver, gold, platinum, diamond), point-based rewards, and real-time achievement unlock notifications.
 - **Challenge System**: Daily and weekly competitive challenges with progress tracking, automatic notification triggers (started, progress, completed), points and badge rewards, and difficulty tiers (easy, medium, hard, expert).
 
 ### Data Layer
 - **Database**: PostgreSQL (Neon Serverless compatible) managed with Drizzle ORM.
 - **Schema Design**:
-    - **Users**: UUID, username, email, hashed password, avatar color, streak, timestamp.
+    - **Users**: UUID, username, email, hashed password, avatar color, streak, timezone (default: UTC), timestamp.
     - **Test Results**: WPM, accuracy, mode, character/error count, timestamp.
     - **Typing Paragraphs**: Language (23 supported), category, difficulty, content.
     - **Code Snippets**: Programming language, framework, difficulty, code content, metadata.
@@ -46,6 +54,7 @@ Preferred communication style: Simple, everyday language.
     - **Practice Recommendations**: AI-generated custom practice sessions targeting user weaknesses with focus keys/digraphs, estimated duration, target WPM.
     - **Push Subscriptions**: Endpoint URL, VAPID keys (stored as JSONB), expiration time, user agent, active status, last used timestamp.
     - **Notification Preferences**: Per-user settings for all notification types (daily reminders, streak warnings, weekly summaries, achievements, challenges, leaderboard updates, race invites, etc.), quiet hours configuration, preferred reminder times.
+    - **Notification Jobs**: Job-based notification queue with user_id, notification_type, send_at_utc (indexed), status (pending/in_progress/completed/failed), attempt_count, payload_meta (JSONB), completed_at, error_message. Indexed on (send_at_utc, status) for efficient job claiming.
     - **Notification History**: Complete audit trail of sent notifications with delivery status, engagement tracking (delivered, clicked), error logging, and deduplication support.
     - **Achievements**: Unique keys, names, descriptions, categories, tier levels, requirement specifications (JSONB), point values, icon/color theming, secret/active flags.
     - **User Achievements**: Unlock timestamp, associated test result, notification status, and foreign keys to users and achievements.
