@@ -1,47 +1,50 @@
+import { DateTime } from 'luxon';
 import type { IStorage } from './storage';
 import { NotificationService } from './notification-service';
+import { NotificationJobGenerator } from './notification-job-generator';
+import type { NotificationJob } from '@shared/schema';
 
 export class NotificationScheduler {
   private storage: IStorage;
   private notificationService: NotificationService;
+  private jobGenerator: NotificationJobGenerator;
   private intervals: NodeJS.Timeout[] = [];
+  private isProcessing = false;
 
   constructor(storage: IStorage) {
     this.storage = storage;
     this.notificationService = new NotificationService(storage);
+    this.jobGenerator = new NotificationJobGenerator(storage);
   }
 
   /**
    * Start all scheduled notification tasks
    */
-  start() {
+  async start() {
     console.log('[Scheduler] Starting notification scheduler...');
 
-    // Daily reminder checks (every hour)
-    const dailyReminderInterval = setInterval(() => {
-      this.checkDailyReminders().catch(console.error);
-    }, 60 * 60 * 1000); // Every hour
-    this.intervals.push(dailyReminderInterval);
+    await this.initialJobGeneration();
 
-    // Streak warning checks (every 2 hours)
-    const streakWarningInterval = setInterval(() => {
-      this.checkStreakWarnings().catch(console.error);
-    }, 2 * 60 * 60 * 1000); // Every 2 hours
-    this.intervals.push(streakWarningInterval);
+    const tickInterval = setInterval(() => {
+      this.processDueJobs().catch(console.error);
+    }, 60 * 1000);
+    this.intervals.push(tickInterval);
 
-    // Weekly summary (check once per hour, send on Sunday evening)
-    const weeklySummaryInterval = setInterval(() => {
-      this.checkWeeklySummaries().catch(console.error);
-    }, 60 * 60 * 1000); // Every hour
-    this.intervals.push(weeklySummaryInterval);
+    const regenerationInterval = setInterval(() => {
+      this.regenerateJobs().catch(console.error);
+    }, 24 * 60 * 60 * 1000);
+    this.intervals.push(regenerationInterval);
 
-    // Run immediate check on startup
+    const cleanupInterval = setInterval(() => {
+      this.jobGenerator.cleanupOldJobs().catch(console.error);
+    }, 6 * 60 * 60 * 1000);
+    this.intervals.push(cleanupInterval);
+
     setTimeout(() => {
-      this.checkDailyReminders().catch(console.error);
-      this.checkStreakWarnings().catch(console.error);
-    }, 5000); // After 5 seconds
+      this.processDueJobs().catch(console.error);
+    }, 5000);
 
-    console.log('[Scheduler] Notification scheduler started');
+    console.log('[Scheduler] Notification scheduler started with minute-precision');
   }
 
   /**
@@ -54,133 +57,178 @@ export class NotificationScheduler {
   }
 
   /**
-   * Check and send daily practice reminders
+   * Initial job generation on startup
    */
-  private async checkDailyReminders() {
+  private async initialJobGeneration() {
     try {
-      console.log('[Scheduler] Checking daily reminders...');
-      
-      const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinutes = now.getMinutes();
-      const currentTime = `${String(currentHour).padStart(2, '0')}:${String(currentMinutes).padStart(2, '0')}`;
-      
-      // Query users who should receive daily reminders
-      // This is a simplified version - in production, you'd want to handle timezones properly
-      const eligibleUsers = await this.storage.getUsersForDailyReminders(currentHour);
-      
-      console.log(`[Scheduler] Found ${eligibleUsers.length} users eligible for daily reminders`);
-      
-      let sent = 0;
-      for (const user of eligibleUsers) {
-        try {
-          const avgWpm = await this.storage.getUserAverageWpm(user.id);
-          
-          await this.notificationService.sendDailyReminder(user.id, {
-            streak: user.currentStreak,
-            avgWpm: avgWpm || 0,
-          });
-          sent++;
-        } catch (error) {
-          console.error(`[Scheduler] Failed to send daily reminder to user ${user.id}:`, error);
-        }
-      }
-      
-      console.log(`[Scheduler] Daily reminder check completed: ${sent}/${eligibleUsers.length} sent`);
+      console.log('[Scheduler] Running initial job generation...');
+      await this.jobGenerator.regenerateAllJobs();
     } catch (error) {
-      console.error('[Scheduler] Daily reminder check error:', error);
+      console.error('[Scheduler] Initial job generation failed:', error);
     }
   }
 
   /**
-   * Check and send streak warnings
+   * Process due notification jobs
    */
-  private async checkStreakWarnings() {
+  private async processDueJobs() {
+    if (this.isProcessing) {
+      return;
+    }
+
+    this.isProcessing = true;
+
     try {
-      console.log('[Scheduler] Checking streak warnings...');
-      
-      const now = new Date();
-      const currentHour = now.getHours();
-      
-      // Only send streak warnings in the evening (6PM-11PM)
-      if (currentHour < 18 || currentHour > 23) {
+      const now = DateTime.utc().toJSDate();
+      const batchSize = 100;
+
+      const dueJobs = await this.storage.claimDueNotificationJobs(now, batchSize);
+
+      if (dueJobs.length === 0) {
+        this.isProcessing = false;
         return;
       }
-      
-      // Query users at risk of losing their streak
-      const usersAtRisk = await this.storage.getUsersWithStreakAtRisk();
-      
-      console.log(`[Scheduler] Found ${usersAtRisk.length} users at risk of losing streak`);
-      
-      let sent = 0;
-      for (const user of usersAtRisk) {
-        try {
-          const endOfDay = new Date();
-          endOfDay.setHours(23, 59, 59, 999);
-          const hoursLeft = Math.ceil((endOfDay.getTime() - now.getTime()) / (1000 * 60 * 60));
-          
-          await this.notificationService.sendStreakWarning(
-            user.id, 
-            user.currentStreak || 0,
-            hoursLeft
-          );
-          sent++;
-        } catch (error) {
-          console.error(`[Scheduler] Failed to send streak warning to user ${user.id}:`, error);
-        }
-      }
-      
-      console.log(`[Scheduler] Streak warning check completed: ${sent}/${usersAtRisk.length} sent`);
+
+      console.log(`[Scheduler] Processing ${dueJobs.length} due jobs`);
+
+      const results = await Promise.allSettled(
+        dueJobs.map(job => this.processJob(job))
+      );
+
+      const succeeded = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+
+      console.log(`[Scheduler] Job batch completed: ${succeeded} succeeded, ${failed} failed`);
     } catch (error) {
-      console.error('[Scheduler] Streak warning check error:', error);
+      console.error('[Scheduler] Error processing due jobs:', error);
+    } finally {
+      this.isProcessing = false;
     }
   }
 
   /**
-   * Check and send weekly summaries
+   * Process a single notification job
    */
-  private async checkWeeklySummaries() {
+  private async processJob(job: NotificationJob): Promise<void> {
     try {
-      const now = new Date();
-      const dayOfWeek = now.getDay(); // 0 = Sunday
-      const hour = now.getHours();
+      const meta = job.payloadMeta as Record<string, any> || {};
 
-      // Send weekly summaries on Sunday evening (8 PM)
-      if (dayOfWeek === 0 && hour === 20) {
-        console.log('[Scheduler] Sending weekly summaries...');
-        
-        // Get all users who have weekly summaries enabled
-        const eligibleUsers = await this.storage.getUsersForWeeklySummary();
-        
-        console.log(`[Scheduler] Sending weekly summaries to ${eligibleUsers.length} users`);
-        
-        let sent = 0;
-        for (const user of eligibleUsers) {
-          try {
-            // Get user's weekly stats from the last 7 days
-            const weeklyStats = await this.storage.getWeeklySummaryStats(user.id);
-            
-            if (weeklyStats.testsCompleted > 0) {
-              await this.notificationService.sendWeeklySummary(user.id, {
-                testsCompleted: weeklyStats.testsCompleted,
-                avgWpm: weeklyStats.avgWpm,
-                avgAccuracy: weeklyStats.avgAccuracy,
-                improvement: weeklyStats.improvement,
-                rank: weeklyStats.rank,
-              });
-              sent++;
-            }
-          } catch (error) {
-            console.error(`[Scheduler] Failed to send weekly summary to user ${user.id}:`, error);
-          }
+      switch (job.notificationType) {
+        case 'daily_reminder': {
+          const avgWpm = await this.storage.getUserAverageWpm(job.userId);
+          await this.notificationService.sendDailyReminder(job.userId, {
+            streak: meta.streak || 0,
+            avgWpm: avgWpm || 0,
+          });
+          break;
         }
-        
-        console.log(`[Scheduler] Weekly summaries sent: ${sent}/${eligibleUsers.length} completed`);
+
+        case 'streak_warning': {
+          const userTimezone = meta.timezone || 'UTC';
+          const now = DateTime.now().setZone(userTimezone);
+          const endOfDay = now.endOf('day');
+          const hoursLeft = Math.ceil(endOfDay.diff(now, 'hours').hours);
+
+          await this.notificationService.sendStreakWarning(
+            job.userId,
+            meta.streak || 0,
+            hoursLeft
+          );
+          break;
+        }
+
+        case 'weekly_summary': {
+          const weeklyStats = await this.storage.getWeeklySummaryStats(job.userId);
+
+          if (weeklyStats.testsCompleted > 0) {
+            await this.notificationService.sendWeeklySummary(job.userId, {
+              testsCompleted: weeklyStats.testsCompleted,
+              avgWpm: weeklyStats.avgWpm,
+              avgAccuracy: weeklyStats.avgAccuracy,
+              improvement: weeklyStats.improvement,
+              rank: weeklyStats.rank,
+            });
+          }
+          break;
+        }
+
+        default:
+          throw new Error(`Unknown notification type: ${job.notificationType}`);
+      }
+
+      await this.storage.markJobCompleted(job.id);
+
+      const nextJobTime = this.calculateNextJobTime(job);
+      if (nextJobTime) {
+        await this.storage.createNotificationJobs([{
+          userId: job.userId,
+          notificationType: job.notificationType,
+          sendAtUtc: nextJobTime,
+          status: 'pending',
+          attemptCount: 0,
+          payloadMeta: job.payloadMeta,
+        }]);
       }
     } catch (error) {
-      console.error('[Scheduler] Weekly summary check error:', error);
+      console.error(`[Scheduler] Failed to process job ${job.id}:`, error);
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+      if (job.attemptCount < 3) {
+        const retryDelay = Math.pow(2, job.attemptCount) * 5;
+        const retryTime = DateTime.utc().plus({ minutes: retryDelay }).toJSDate();
+        await this.storage.rescheduleJob(job.id, retryTime);
+      } else {
+        await this.storage.markJobFailed(job.id, errorMessage);
+      }
+
+      throw error;
     }
   }
+
+  /**
+   * Calculate next job time for recurring notifications
+   */
+  private calculateNextJobTime(job: NotificationJob): Date | null {
+    const meta = job.payloadMeta as Record<string, any> || {};
+    const userTimezone = meta.timezone || 'UTC';
+
+    switch (job.notificationType) {
+      case 'daily_reminder': {
+        const currentSendTime = DateTime.fromJSDate(job.sendAtUtc).setZone(userTimezone);
+        return currentSendTime.plus({ days: 1 }).toUTC().toJSDate();
+      }
+
+      case 'streak_warning': {
+        const currentSendTime = DateTime.fromJSDate(job.sendAtUtc).setZone(userTimezone);
+        return currentSendTime.plus({ days: 1 }).toUTC().toJSDate();
+      }
+
+      case 'weekly_summary': {
+        const currentSendTime = DateTime.fromJSDate(job.sendAtUtc).setZone(userTimezone);
+        return currentSendTime.plus({ weeks: 1 }).toUTC().toJSDate();
+      }
+
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Regenerate all notification jobs (run daily)
+   */
+  private async regenerateJobs() {
+    try {
+      console.log('[Scheduler] Running daily job regeneration...');
+      await this.jobGenerator.regenerateAllJobs();
+    } catch (error) {
+      console.error('[Scheduler] Job regeneration failed:', error);
+    }
+  }
+
+  /**
+   * Legacy methods for backward compatibility (kept for achievements, challenges, etc.)
+   */
 
   /**
    * Send achievement unlock notification
@@ -242,7 +290,6 @@ export class NotificationScheduler {
       totalUsers: number;
     }
   ): Promise<void> {
-    // Only notify for rank improvements
     if (update.newRank >= update.oldRank) {
       return;
     }
