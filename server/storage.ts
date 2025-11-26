@@ -71,6 +71,7 @@ import {
   pushSubscriptions,
   notificationPreferences,
   notificationHistory,
+  notificationJobs,
   achievements,
   userAchievements,
   challenges,
@@ -82,6 +83,8 @@ import {
   type InsertNotificationPreferences,
   type NotificationHistory,
   type InsertNotificationHistory,
+  type NotificationJob,
+  type InsertNotificationJob,
   type Achievement,
   type InsertAchievement,
   type UserAchievement,
@@ -371,6 +374,17 @@ export interface IStorage {
   markNotificationDelivered(id: number): Promise<void>;
   markNotificationClicked(id: number): Promise<void>;
   
+  createNotificationJobs(jobs: InsertNotificationJob[]): Promise<NotificationJob[]>;
+  claimDueNotificationJobs(beforeUtc: Date, limit: number): Promise<NotificationJob[]>;
+  markJobCompleted(jobId: number): Promise<void>;
+  markJobFailed(jobId: number, errorMessage: string): Promise<void>;
+  rescheduleJob(jobId: number, newSendAtUtc: Date): Promise<void>;
+  deleteCompletedJobsOlderThan(daysAgo: number): Promise<number>;
+  
+  getUsersWithNotificationPreferences(notificationType: string, offset: number, limit: number): Promise<Array<{
+    user: User;
+    preferences: NotificationPreferences;
+  }>>;
   getUsersForDailyReminders(currentHour: number): Promise<Array<{ id: string; username: string; currentStreak: number }>>;
   getUsersWithStreakAtRisk(): Promise<Array<{ id: string; username: string; currentStreak: number }>>;
   getUsersForWeeklySummary(): Promise<Array<{ id: string; username: string }>>;
@@ -2144,6 +2158,127 @@ export class DatabaseStorage implements IStorage {
       .update(notificationHistory)
       .set({ status: 'clicked', clickedAt: new Date() })
       .where(eq(notificationHistory.id, id));
+  }
+
+  async createNotificationJobs(jobs: InsertNotificationJob[]): Promise<NotificationJob[]> {
+    if (jobs.length === 0) return [];
+    const inserted = await db.insert(notificationJobs).values(jobs).returning();
+    return inserted;
+  }
+
+  async claimDueNotificationJobs(beforeUtc: Date, limit: number): Promise<NotificationJob[]> {
+    const claimed = await db.transaction(async (tx) => {
+      const dueJobs = await tx
+        .select()
+        .from(notificationJobs)
+        .where(
+          and(
+            sql`${notificationJobs.sendAtUtc} <= ${beforeUtc}`,
+            eq(notificationJobs.status, 'pending')
+          )
+        )
+        .orderBy(notificationJobs.sendAtUtc)
+        .limit(limit)
+        .for('update', { skipLocked: true });
+      
+      if (dueJobs.length === 0) return [];
+      
+      const jobIds = dueJobs.map(j => j.id);
+      const updated = await tx
+        .update(notificationJobs)
+        .set({ 
+          status: 'claimed', 
+          claimedAt: new Date(),
+          attemptCount: sql`${notificationJobs.attemptCount} + 1`,
+          lastAttemptAt: new Date()
+        })
+        .where(sql`${notificationJobs.id} = ANY(${jobIds})`)
+        .returning();
+      
+      return updated;
+    });
+    
+    return claimed;
+  }
+
+  async markJobCompleted(jobId: number): Promise<void> {
+    await db
+      .update(notificationJobs)
+      .set({ status: 'completed', completedAt: new Date() })
+      .where(eq(notificationJobs.id, jobId));
+  }
+
+  async markJobFailed(jobId: number, errorMessage: string): Promise<void> {
+    await db
+      .update(notificationJobs)
+      .set({ 
+        status: 'failed', 
+        errorMessage,
+        lastAttemptAt: new Date()
+      })
+      .where(eq(notificationJobs.id, jobId));
+  }
+
+  async rescheduleJob(jobId: number, newSendAtUtc: Date): Promise<void> {
+    await db
+      .update(notificationJobs)
+      .set({ 
+        status: 'pending', 
+        sendAtUtc: newSendAtUtc,
+        claimedAt: null,
+        errorMessage: null
+      })
+      .where(eq(notificationJobs.id, jobId));
+  }
+
+  async deleteCompletedJobsOlderThan(daysAgo: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
+    
+    const deleted = await db
+      .delete(notificationJobs)
+      .where(
+        and(
+          eq(notificationJobs.status, 'completed'),
+          sql`${notificationJobs.completedAt} < ${cutoffDate}`
+        )
+      )
+      .returning({ id: notificationJobs.id });
+    
+    return deleted.length;
+  }
+
+  async getUsersWithNotificationPreferences(notificationType: string, offset: number, limit: number): Promise<Array<{
+    user: User;
+    preferences: NotificationPreferences;
+  }>> {
+    const preferenceField = notificationType === 'daily_reminder' ? 'dailyReminder'
+      : notificationType === 'streak_warning' ? 'streakWarning'
+      : notificationType === 'weekly_summary' ? 'weeklySummary'
+      : null;
+    
+    if (!preferenceField) return [];
+    
+    const results = await db
+      .select({
+        user: users,
+        preferences: notificationPreferences,
+      })
+      .from(users)
+      .innerJoin(notificationPreferences, eq(notificationPreferences.userId, users.id))
+      .innerJoin(pushSubscriptions, eq(pushSubscriptions.userId, users.id))
+      .where(
+        and(
+          eq(notificationPreferences[preferenceField], true),
+          eq(pushSubscriptions.isActive, true),
+          eq(users.isActive, true)
+        )
+      )
+      .groupBy(users.id, notificationPreferences.id)
+      .offset(offset)
+      .limit(limit);
+    
+    return results;
   }
 
   async getUsersForDailyReminders(currentHour: number): Promise<Array<{ id: string; username: string; currentStreak: number }>> {
