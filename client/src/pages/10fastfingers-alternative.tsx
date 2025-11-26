@@ -428,14 +428,14 @@ export default function TenFastFingersAlternativePage() {
               </Card>
             </Link>
 
-            <Link href="/multiplayer">
-              <Card className="bg-slate-800/50 border-slate-700 hover:border-cyan-500 transition-colors cursor-pointer" data-testid="card-multiplayer">
+            <Link href="/typingcom-alternative">
+              <Card className="bg-slate-800/50 border-slate-700 hover:border-cyan-500 transition-colors cursor-pointer" data-testid="card-typingcom">
                 <CardHeader>
-                  <CardTitle className="text-white">Multiplayer Typing Race</CardTitle>
+                  <CardTitle className="text-white">Typing.com Alternative</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-slate-400">
-                    Race against other typists in real-time competitions
+                    100% free with premium features included
                   </p>
                 </CardContent>
               </Card>

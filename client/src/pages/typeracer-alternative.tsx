@@ -355,7 +355,7 @@ export default function TyperacerAlternativePage() {
 
         {/* Related Pages */}
         <section className="max-w-6xl mx-auto py-16">
-          <h2 className="text-3xl font-bold text-center text-white mb-12">Explore More Typing Alternatives</h2>
+          <h2 className="text-3xl font-bold text-center text-white mb-12">Compare More Typing Test Platforms</h2>
           <div className="grid md:grid-cols-3 gap-6">
             <Link href="/monkeytype-alternative">
               <Card className="bg-slate-800/50 border-slate-700 hover:border-cyan-500 transition-colors cursor-pointer" data-testid="card-monkeytype">
@@ -364,33 +364,33 @@ export default function TyperacerAlternativePage() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-slate-400">
-                    Discover how TypeMasterAI compares to Monkeytype's minimalist approach
+                    See how TypeMasterAI compares to Monkeytype's minimalist approach
                   </p>
                 </CardContent>
               </Card>
             </Link>
 
-            <Link href="/">
-              <Card className="bg-slate-800/50 border-slate-700 hover:border-cyan-500 transition-colors cursor-pointer" data-testid="card-solo-test">
+            <Link href="/10fastfingers-alternative">
+              <Card className="bg-slate-800/50 border-slate-700 hover:border-cyan-500 transition-colors cursor-pointer" data-testid="card-10fastfingers">
                 <CardHeader>
-                  <CardTitle className="text-white">Solo Typing Test</CardTitle>
+                  <CardTitle className="text-white">10FastFingers Alternative</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-slate-400">
-                    Practice alone with 1, 3, or 5-minute tests and detailed analytics
+                    Compare our features to 10FastFingers' word-based tests
                   </p>
                 </CardContent>
               </Card>
             </Link>
 
-            <Link href="/code-test">
-              <Card className="bg-slate-800/50 border-slate-700 hover:border-cyan-500 transition-colors cursor-pointer" data-testid="card-code-mode">
+            <Link href="/typingcom-alternative">
+              <Card className="bg-slate-800/50 border-slate-700 hover:border-cyan-500 transition-colors cursor-pointer" data-testid="card-typingcom">
                 <CardHeader>
-                  <CardTitle className="text-white">Code Typing Mode</CardTitle>
+                  <CardTitle className="text-white">Typing.com Alternative</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-slate-400">
-                    Improve your coding speed in 10+ programming languages
+                    100% free with premium features included
                   </p>
                 </CardContent>
               </Card>

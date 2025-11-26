@@ -41,6 +41,7 @@ import TypingTest5Min from "@/pages/typing-test-5-min";
 import MonkeytypeAlternative from "@/pages/monkeytype-alternative";
 import TyperacerAlternative from "@/pages/typeracer-alternative";
 import TenFastFingersAlternative from "@/pages/10fastfingers-alternative";
+import TypingComAlternative from "@/pages/typingcom-alternative";
 
 function Router() {
   return (
@@ -58,6 +59,7 @@ function Router() {
             <Route path="/monkeytype-alternative" component={MonkeytypeAlternative} />
             <Route path="/typeracer-alternative" component={TyperacerAlternative} />
             <Route path="/10fastfingers-alternative" component={TenFastFingersAlternative} />
+            <Route path="/typingcom-alternative" component={TypingComAlternative} />
             <Route path="/profile" component={Profile} />
             <Route path="/profile/edit" component={ProfileEdit} />
             <Route path="/leaderboard" component={Leaderboard} />

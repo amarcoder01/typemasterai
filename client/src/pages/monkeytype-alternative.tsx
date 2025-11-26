@@ -280,6 +280,51 @@ export default function MonkeytypeAlternativePage() {
             </div>
           </article>
         </section>
+
+        {/* Related Pages */}
+        <section className="max-w-6xl mx-auto py-16">
+          <h2 className="text-3xl font-bold text-center text-white mb-12">Compare More Typing Test Platforms</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            <Link href="/typeracer-alternative">
+              <Card className="bg-slate-800/50 border-slate-700 hover:border-cyan-500 transition-colors cursor-pointer" data-testid="card-typeracer">
+                <CardHeader>
+                  <CardTitle className="text-white">Typeracer Alternative</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-400">
+                    Discover multiplayer racing with instant matchmaking
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/10fastfingers-alternative">
+              <Card className="bg-slate-800/50 border-slate-700 hover:border-cyan-500 transition-colors cursor-pointer" data-testid="card-10fastfingers">
+                <CardHeader>
+                  <CardTitle className="text-white">10FastFingers Alternative</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-400">
+                    Compare our features to 10FastFingers' word-based tests
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/typingcom-alternative">
+              <Card className="bg-slate-800/50 border-slate-700 hover:border-cyan-500 transition-colors cursor-pointer" data-testid="card-typingcom">
+                <CardHeader>
+                  <CardTitle className="text-white">Typing.com Alternative</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-slate-400">
+                    100% free with premium features included
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        </section>
       </div>
     </div>
   );
