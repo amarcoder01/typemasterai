@@ -97,18 +97,38 @@ export class NotificationJobGenerator {
         const reminderTime = preferences.dailyReminderTime || '09:00';
         const [reminderHour, reminderMinute] = reminderTime.split(':').map(Number);
         
-        const warningHour = (reminderHour + 12) % 24;
-        let nextSend = nowUserZone.set({ 
-          hour: warningHour, 
+        const reminderToday = nowUserZone.set({ 
+          hour: reminderHour, 
           minute: reminderMinute || 0, 
           second: 0, 
           millisecond: 0 
         });
-
-        if (warningHour < reminderHour) {
-          nextSend = nextSend.plus({ days: 1 });
+        
+        const PRIMARY_BUFFER_HOURS = 8;
+        const MIN_BUFFER_MINUTES = 60;
+        
+        const baseline = reminderToday.plus({ hours: PRIMARY_BUFFER_HOURS });
+        const minBuffer = reminderToday.plus({ minutes: MIN_BUFFER_MINUTES });
+        
+        let deadline = DateTime.max(baseline, minBuffer);
+        
+        const sameDayCap = reminderToday.set({ 
+          hour: 23, 
+          minute: 45, 
+          second: 0, 
+          millisecond: 0 
+        });
+        
+        if (deadline.hasSame(reminderToday, 'day') && deadline > sameDayCap) {
+          deadline = sameDayCap;
         }
-
+        
+        if (!deadline.isValid) {
+          console.error(`[JobGenerator] Invalid deadline for user ${user.id}, skipping`);
+          continue;
+        }
+        
+        let nextSend = deadline;
         const nextSendUtc = nextSend.toUTC();
         if (nextSendUtc <= nowUtc) {
           nextSend = nextSend.plus({ days: 1 });
