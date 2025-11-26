@@ -1,5 +1,4 @@
 import { ChevronRight, Home } from 'lucide-react';
-import { Link } from 'wouter';
 
 export interface BreadcrumbItem {
   label: string;
@@ -15,12 +14,15 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
     <nav aria-label="Breadcrumb" className="py-4">
       <ol className="flex items-center space-x-2 text-sm text-slate-400" itemScope itemType="https://schema.org/BreadcrumbList">
         <li itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
-          <Link href="/">
-            <a className="flex items-center hover:text-cyan-400 transition-colors" itemProp="item" data-testid="breadcrumb-home">
-              <Home className="h-4 w-4" />
-              <span className="sr-only" itemProp="name">Home</span>
-            </a>
-          </Link>
+          <a 
+            href="/" 
+            itemProp="item"
+            className="flex items-center hover:text-cyan-400 transition-colors" 
+            data-testid="breadcrumb-home"
+          >
+            <Home className="h-4 w-4" />
+            <span className="sr-only" itemProp="name">Home</span>
+          </a>
           <meta itemProp="position" content="1" />
         </li>
         
@@ -28,15 +30,21 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
           <li key={item.href} className="flex items-center" itemProp="itemListElement" itemScope itemType="https://schema.org/ListItem">
             <ChevronRight className="h-4 w-4 mx-2" />
             {index === items.length - 1 ? (
-              <span className="text-cyan-400 font-medium" itemProp="name" data-testid={`breadcrumb-${index}`}>
-                {item.label}
-              </span>
+              <>
+                <span className="text-cyan-400 font-medium" itemProp="name" data-testid={`breadcrumb-${index}`}>
+                  {item.label}
+                </span>
+                <meta itemProp="item" content={`https://typemaster-ai.replit.app${item.href}`} />
+              </>
             ) : (
-              <Link href={item.href}>
-                <a className="hover:text-cyan-400 transition-colors" itemProp="item" data-testid={`breadcrumb-${index}`}>
-                  <span itemProp="name">{item.label}</span>
-                </a>
-              </Link>
+              <a 
+                href={item.href} 
+                itemProp="item"
+                className="hover:text-cyan-400 transition-colors" 
+                data-testid={`breadcrumb-${index}`}
+              >
+                <span itemProp="name">{item.label}</span>
+              </a>
             )}
             <meta itemProp="position" content={String(index + 2)} />
           </li>

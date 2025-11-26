@@ -36,6 +36,8 @@ import About from "@/pages/about";
 import Contact from "@/pages/contact";
 import NotificationSettings from "@/pages/NotificationSettings";
 import TypingTest1Min from "@/pages/typing-test-1-min";
+import TypingTest3Min from "@/pages/typing-test-3-min";
+import TypingTest5Min from "@/pages/typing-test-5-min";
 import MonkeytypeAlternative from "@/pages/monkeytype-alternative";
 
 function Router() {
@@ -49,6 +51,8 @@ function Router() {
           <Switch>
             <Route path="/" component={Home} />
             <Route path="/1-minute-typing-test" component={TypingTest1Min} />
+            <Route path="/3-minute-typing-test" component={TypingTest3Min} />
+            <Route path="/5-minute-typing-test" component={TypingTest5Min} />
             <Route path="/monkeytype-alternative" component={MonkeytypeAlternative} />
             <Route path="/profile" component={Profile} />
             <Route path="/profile/edit" component={ProfileEdit} />
