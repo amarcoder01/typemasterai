@@ -1,13 +1,15 @@
 {
-  "name": "TypeMasterAI - AI-Powered Typing Practice",
+  "name": "TypeMasterAI - Free Online Typing Test & WPM Calculator",
   "short_name": "TypeMasterAI",
-  "description": "Master your typing skills with AI-powered practice, real-time analytics, and multiplayer challenges",
-  "start_url": "/",
+  "description": "Free typing speed test with real-time WPM measurement, AI-powered analytics, code typing mode for developers, multiplayer racing, and 23+ language support. Test your typing speed now!",
+  "start_url": "/?utm_source=pwa",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#00ffff",
   "orientation": "portrait-primary",
   "scope": "/",
+  "lang": "en-US",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/icon-72x72.png",
