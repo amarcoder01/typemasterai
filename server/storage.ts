@@ -2123,9 +2123,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateNotificationPreferences(userId: string, prefs: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
+    const { id, userId: _, createdAt, updatedAt: __, ...updateFields } = prefs;
     const updated = await db
       .update(notificationPreferences)
-      .set({ ...prefs, updatedAt: new Date() })
+      .set({ ...updateFields, updatedAt: new Date() })
       .where(eq(notificationPreferences.userId, userId))
       .returning();
     return updated[0];

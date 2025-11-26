@@ -910,6 +910,10 @@ export const notificationPreferences = pgTable("notification_preferences", {
   raceInvite: boolean("race_invite").default(true).notNull(),
   raceStarting: boolean("race_starting").default(true).notNull(),
   
+  // Community & Learning
+  socialUpdates: boolean("social_updates").default(true).notNull(),
+  tipOfTheDay: boolean("tip_of_the_day").default(true).notNull(),
+  
   // User Preferences
   timezone: varchar("timezone", { length: 50 }).default("UTC"),
   quietHoursStart: varchar("quiet_hours_start", { length: 5 }), // HH:MM format
@@ -1087,6 +1091,7 @@ export const insertTypingInsightSchema = createInsertSchema(typingInsights).omit
 export const insertPracticeRecommendationSchema = createInsertSchema(practiceRecommendations).omit({ id: true, createdAt: true });
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).omit({ id: true, createdAt: true, updatedAt: true, expirationTime: true });
 export const insertNotificationPreferencesSchema = createInsertSchema(notificationPreferences).omit({ id: true, createdAt: true, updatedAt: true });
+export const updateNotificationPreferencesSchema = insertNotificationPreferencesSchema.omit({ userId: true }).partial();
 export const insertNotificationHistorySchema = createInsertSchema(notificationHistory).omit({ id: true, createdAt: true });
 export const insertNotificationJobSchema = createInsertSchema(notificationJobs).omit({ id: true, createdAt: true, claimedAt: true, completedAt: true });
 export const insertAchievementSchema = createInsertSchema(achievements).omit({ id: true, createdAt: true });

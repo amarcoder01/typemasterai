@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { IStorage } from './storage';
 import { NotificationService } from './notification-service';
-import { insertPushSubscriptionSchema, insertNotificationPreferencesSchema } from '@shared/schema';
+import { insertPushSubscriptionSchema, insertNotificationPreferencesSchema, updateNotificationPreferencesSchema } from '@shared/schema';
 
 export function createNotificationRoutes(storage: IStorage) {
   const router = Router();
@@ -99,10 +99,15 @@ export function createNotificationRoutes(storage: IStorage) {
     }
 
     try {
+      // Validate request body with Zod schema
+      const validatedPrefs = updateNotificationPreferencesSchema.parse(req.body);
+      
+      console.log('[Notifications] Received preferences update:', JSON.stringify(validatedPrefs, null, 2));
       const prefs = await storage.updateNotificationPreferences(
         req.user.id,
-        req.body
+        validatedPrefs
       );
+      console.log('[Notifications] Saved preferences:', JSON.stringify(prefs, null, 2));
 
       res.json(prefs);
     } catch (error: any) {

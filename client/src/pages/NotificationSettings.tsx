@@ -3,14 +3,31 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Bell, BellOff, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Bell, BellOff, Loader2, CheckCircle2, XCircle, Clock, Globe } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { notificationManager } from '@/lib/notification-manager';
+
+const TIMEZONES = [
+  { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
+  { value: 'America/New_York', label: 'Eastern Time (US & Canada)' },
+  { value: 'America/Chicago', label: 'Central Time (US & Canada)' },
+  { value: 'America/Denver', label: 'Mountain Time (US & Canada)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (US & Canada)' },
+  { value: 'Europe/London', label: 'London (GMT/BST)' },
+  { value: 'Europe/Paris', label: 'Central European Time' },
+  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+  { value: 'Asia/Shanghai', label: 'China Standard Time' },
+  { value: 'Asia/Kolkata', label: 'India Standard Time' },
+  { value: 'Australia/Sydney', label: 'Australian Eastern Time' },
+];
 
 interface NotificationPreferences {
   id: number;
   userId: string;
+  timezone: string | null;
   dailyReminder: boolean;
   dailyReminderTime: string | null;
   streakWarning: boolean;
@@ -149,7 +166,7 @@ export default function NotificationSettings() {
     }
   };
 
-  const updatePreference = (key: keyof NotificationPreferences, value: boolean) => {
+  const updatePreference = (key: keyof NotificationPreferences, value: boolean | string) => {
     if (!preferences) return;
     setPreferences({ ...preferences, [key]: value });
   };
@@ -221,6 +238,59 @@ export default function NotificationSettings() {
       {/* Notification Preferences */}
       {preferences && (
         <>
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                Timezone & Schedule
+              </CardTitle>
+              <CardDescription>
+                Configure your timezone for accurate notification delivery
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="timezone">
+                  Timezone
+                  <p className="text-sm text-muted-foreground">Select your local timezone</p>
+                </Label>
+                <Select
+                  value={preferences.timezone || 'UTC'}
+                  onValueChange={(value) => updatePreference('timezone', value)}
+                >
+                  <SelectTrigger id="timezone" data-testid="select-timezone">
+                    <SelectValue placeholder="Select timezone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMEZONES.map((tz) => (
+                      <SelectItem key={tz.value} value={tz.value} data-testid={`option-timezone-${tz.value}`}>
+                        {tz.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <Label htmlFor="dailyReminderTime" className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Daily Reminder Time
+                  <p className="text-sm text-muted-foreground">Set your preferred reminder time</p>
+                </Label>
+                <Input
+                  id="dailyReminderTime"
+                  type="time"
+                  value={preferences.dailyReminderTime || '09:00'}
+                  onChange={(e) => updatePreference('dailyReminderTime', e.target.value)}
+                  data-testid="input-daily-reminder-time"
+                  className="max-w-[200px]"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="mb-6">
             <CardHeader>
               <CardTitle>Daily & Weekly Notifications</CardTitle>
@@ -375,6 +445,44 @@ export default function NotificationSettings() {
                   checked={preferences.newPersonalRecord}
                   onCheckedChange={(checked) => updatePreference('newPersonalRecord', checked)}
                   data-testid="switch-personal-record"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Community & Learning</CardTitle>
+              <CardDescription>
+                Stay informed with updates and helpful tips
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="socialUpdates" className="flex-1">
+                  Social Updates
+                  <p className="text-sm text-muted-foreground">Get notified about community features and updates</p>
+                </Label>
+                <Switch
+                  id="socialUpdates"
+                  checked={preferences.socialUpdates}
+                  onCheckedChange={(checked) => updatePreference('socialUpdates', checked)}
+                  data-testid="switch-social-updates"
+                />
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="tipOfTheDay" className="flex-1">
+                  Tip of the Day
+                  <p className="text-sm text-muted-foreground">Receive daily typing tips and tricks</p>
+                </Label>
+                <Switch
+                  id="tipOfTheDay"
+                  checked={preferences.tipOfTheDay}
+                  onCheckedChange={(checked) => updatePreference('tipOfTheDay', checked)}
+                  data-testid="switch-tip-of-the-day"
                 />
               </div>
             </CardContent>
