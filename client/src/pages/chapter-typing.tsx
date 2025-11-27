@@ -216,13 +216,6 @@ export default function ChapterTyping() {
     return () => clearTimeout(timer);
   }, [stats, isActive, isFinished]);
 
-  // Check for test completion
-  useEffect(() => {
-    if (isActive && userInput === chapterText && chapterText) {
-      finishTest();
-    }
-  }, [userInput, chapterText, isActive, finishTest]);
-
   // Auto-focus input
   useEffect(() => {
     if (chapterText && !isActive && !isFinished && inputRef.current) {
@@ -387,6 +380,13 @@ export default function ChapterTyping() {
     }
   }, [chapterText, startTime, paragraphs, userInput, user, saveTestMutation]);
 
+  // Check for test completion (moved after finishTest definition)
+  useEffect(() => {
+    if (isActive && userInput === chapterText && chapterText) {
+      finishTest();
+    }
+  }, [userInput, chapterText, isActive, finishTest]);
+
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (isComposing) return;
     processInput(e.target.value);
@@ -519,7 +519,7 @@ export default function ChapterTyping() {
     return (
       <>
         {correctText && (
-          <span ref={correctSpanRef} className="text-foreground">
+          <span ref={correctSpanRef} className="text-green-500">
             {correctText}
           </span>
         )}
