@@ -1,6 +1,29 @@
 import { Users, Zap, Globe, Award, Heart, Target, Sparkles, TrendingUp } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+
+function formatNumber(num: number): string {
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(1)}M+`;
+  }
+  if (num >= 1000) {
+    return `${(num / 1000).toFixed(0)}K+`;
+  }
+  return `${num}+`;
+}
 
 export default function About() {
+  const { data: platformStats } = useQuery({
+    queryKey: ["platform-stats"],
+    queryFn: async () => {
+      const response = await fetch("/api/platform-stats");
+      if (!response.ok) throw new Error("Failed to fetch platform stats");
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  const stats = platformStats?.stats || { totalUsers: 0, totalTests: 0, totalLanguages: 23 };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-12 text-center">
@@ -38,7 +61,7 @@ export default function About() {
                 <div>
                   <h3 className="font-semibold text-lg mb-1">AI-Powered Content</h3>
                   <p className="text-muted-foreground text-sm">
-                    Our platform uses GPT-4 to generate unlimited, contextually relevant typing paragraphs across 23+ languages, ensuring fresh and engaging practice every time.
+                    Our platform uses GPT-4 to generate unlimited, contextually relevant typing paragraphs across {stats.totalLanguages}+ languages, ensuring fresh and engaging practice every time.
                   </p>
                 </div>
               </div>
@@ -66,7 +89,7 @@ export default function About() {
                 <div>
                   <h3 className="font-semibold text-lg mb-1">Global Accessibility</h3>
                   <p className="text-muted-foreground text-sm">
-                    Support for 23+ languages including English, Spanish, French, Japanese, Chinese, Hindi, Arabic, and many more—making typing practice accessible worldwide.
+                    Support for {stats.totalLanguages}+ languages including English, Spanish, French, Japanese, Chinese, Hindi, Arabic, and many more—making typing practice accessible worldwide.
                   </p>
                 </div>
               </div>
@@ -108,15 +131,21 @@ export default function About() {
 
         <section className="grid md:grid-cols-3 gap-6">
           <div className="text-center p-6 bg-card/30 rounded-xl border border-border">
-            <div className="text-4xl font-bold text-primary font-mono mb-2">23+</div>
+            <div className="text-4xl font-bold text-primary font-mono mb-2" data-testid="stat-languages">
+              {stats.totalLanguages}+
+            </div>
             <div className="text-sm text-muted-foreground">Languages Supported</div>
           </div>
           <div className="text-center p-6 bg-card/30 rounded-xl border border-border">
-            <div className="text-4xl font-bold text-primary font-mono mb-2">10k+</div>
-            <div className="text-sm text-muted-foreground">Active Users</div>
+            <div className="text-4xl font-bold text-primary font-mono mb-2" data-testid="stat-users">
+              {stats.totalUsers > 0 ? formatNumber(stats.totalUsers) : "Growing"}
+            </div>
+            <div className="text-sm text-muted-foreground">Registered Users</div>
           </div>
           <div className="text-center p-6 bg-card/30 rounded-xl border border-border">
-            <div className="text-4xl font-bold text-primary font-mono mb-2">1M+</div>
+            <div className="text-4xl font-bold text-primary font-mono mb-2" data-testid="stat-tests">
+              {stats.totalTests > 0 ? formatNumber(stats.totalTests) : "Growing"}
+            </div>
             <div className="text-sm text-muted-foreground">Tests Completed</div>
           </div>
         </section>
@@ -148,7 +177,7 @@ export default function About() {
             <div className="p-6 bg-card/20 rounded-xl border border-border/50">
               <h3 className="font-semibold text-lg mb-2">Language Enthusiasts</h3>
               <p className="text-muted-foreground text-sm">
-                Learn to type in new languages with our 23+ language support. Perfect for multilingual individuals and language students.
+                Learn to type in new languages with our {stats.totalLanguages}+ language support. Perfect for multilingual individuals and language students.
               </p>
             </div>
           </div>
@@ -169,6 +198,7 @@ export default function About() {
           <a
             href="/"
             className="inline-flex items-center gap-2 px-8 py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:opacity-90 transition-opacity"
+            data-testid="button-start-typing"
           >
             Start Typing Now
           </a>

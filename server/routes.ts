@@ -416,6 +416,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/platform-stats", async (req, res) => {
+    try {
+      const stats = await storage.getPlatformStats();
+      res.json({ stats });
+    } catch (error: any) {
+      console.error("Get platform stats error:", error);
+      res.status(500).json({ message: "Failed to fetch platform stats" });
+    }
+  });
+
   app.get("/api/analytics", isAuthenticated, async (req, res) => {
     try {
       const days = req.query.days ? parseInt(req.query.days as string) : 30;
@@ -574,6 +584,173 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Delete account error:", error);
       res.status(500).json({ message: "Failed to delete account" });
+    }
+  });
+
+  app.post("/api/auth/forgot-password", authLimiter, async (req, res) => {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      const user = await storage.getUserByEmail(email.toLowerCase().trim());
+      
+      // Always return success to prevent email enumeration
+      if (!user) {
+        return res.json({ message: "If an account exists with that email, a reset link has been sent." });
+      }
+
+      // Get IP address for logging
+      const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
+
+      // Generate and send password reset email
+      await authSecurityService.sendPasswordResetEmail(user.id, user.email, ipAddress);
+
+      res.json({ message: "If an account exists with that email, a reset link has been sent." });
+    } catch (error: any) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ message: "Failed to process request" });
+    }
+  });
+
+  app.get("/api/auth/validate-reset-token", async (req, res) => {
+    try {
+      const token = req.query.token as string;
+
+      if (!token) {
+        return res.json({ valid: false });
+      }
+
+      const resetToken = await storage.getPasswordResetToken(token);
+
+      if (!resetToken) {
+        return res.json({ valid: false });
+      }
+
+      if (resetToken.usedAt) {
+        return res.json({ valid: false, reason: "already_used" });
+      }
+
+      if (new Date() > resetToken.expiresAt) {
+        return res.json({ valid: false, reason: "expired" });
+      }
+
+      res.json({ valid: true });
+    } catch (error: any) {
+      console.error("Validate reset token error:", error);
+      res.json({ valid: false });
+    }
+  });
+
+  app.post("/api/auth/reset-password", authLimiter, async (req, res) => {
+    try {
+      const { token, password } = req.body;
+
+      if (!token || !password) {
+        return res.status(400).json({ message: "Token and password are required" });
+      }
+
+      // Validate password
+      if (password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      }
+      if (!/[A-Z]/.test(password)) {
+        return res.status(400).json({ message: "Password must contain at least one uppercase letter" });
+      }
+      if (!/[a-z]/.test(password)) {
+        return res.status(400).json({ message: "Password must contain at least one lowercase letter" });
+      }
+      if (!/\d/.test(password)) {
+        return res.status(400).json({ message: "Password must contain at least one number" });
+      }
+
+      const resetToken = await storage.getPasswordResetToken(token);
+
+      if (!resetToken) {
+        return res.status(400).json({ message: "Invalid or expired reset link" });
+      }
+
+      if (resetToken.usedAt) {
+        return res.status(400).json({ message: "This reset link has already been used" });
+      }
+
+      if (new Date() > resetToken.expiresAt) {
+        return res.status(400).json({ message: "This reset link has expired" });
+      }
+
+      // Hash new password and update
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await storage.updateUserPassword(resetToken.userId, hashedPassword);
+
+      // Mark token as used
+      await storage.markPasswordResetTokenUsed(token);
+
+      // Delete all reset tokens for this user
+      await storage.deletePasswordResetTokens(resetToken.userId);
+
+      res.json({ message: "Password reset successfully" });
+    } catch (error: any) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ message: "Failed to reset password" });
+    }
+  });
+
+  app.post("/api/auth/verify-email", async (req, res) => {
+    try {
+      const { token } = req.body;
+
+      if (!token) {
+        return res.status(400).json({ message: "Verification token is required" });
+      }
+
+      const verificationToken = await storage.getEmailVerificationToken(token);
+
+      if (!verificationToken) {
+        return res.status(400).json({ message: "Invalid verification link" });
+      }
+
+      if (verificationToken.verifiedAt) {
+        return res.status(400).json({ message: "Email has already been verified" });
+      }
+
+      if (new Date() > verificationToken.expiresAt) {
+        return res.status(400).json({ message: "Verification link has expired", code: "TOKEN_EXPIRED" });
+      }
+
+      // Mark email as verified
+      await storage.markEmailVerified(verificationToken.userId, token);
+
+      res.json({ message: "Email verified successfully" });
+    } catch (error: any) {
+      console.error("Verify email error:", error);
+      res.status(500).json({ message: "Failed to verify email" });
+    }
+  });
+
+  app.post("/api/auth/resend-verification", authLimiter, isAuthenticated, async (req, res) => {
+    try {
+      const user = await storage.getUser(req.user!.id);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      if (user.emailVerified) {
+        return res.status(400).json({ message: "Email is already verified" });
+      }
+
+      // Delete existing verification tokens
+      await storage.deleteEmailVerificationToken(user.id);
+
+      // Send new verification email
+      await authSecurityService.sendVerificationEmail(user.id, user.email);
+
+      res.json({ message: "Verification email sent" });
+    } catch (error: any) {
+      console.error("Resend verification error:", error);
+      res.status(500).json({ message: "Failed to send verification email" });
     }
   });
 

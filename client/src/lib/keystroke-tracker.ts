@@ -257,6 +257,12 @@ export class KeystrokeTracker {
       }
     });
 
+    // Calculate WPM by position (divide text into 10 chunks)
+    const wpmByPosition = this.calculateWpmByPosition();
+
+    // Identify slowest words
+    const slowestWords = this.calculateSlowestWords();
+
     return {
       wpm,
       rawWpm,
@@ -272,11 +278,110 @@ export class KeystrokeTracker {
       totalErrors,
       errorsByType,
       errorKeys,
-      wpmByPosition: null, // TODO: Calculate WPM by text position
-      slowestWords: null, // TODO: Identify slow words
+      wpmByPosition,
+      slowestWords,
       keyHeatmap,
       testResultId,
     };
+  }
+
+  private calculateWpmByPosition(): number[] | null {
+    if (this.events.length < 10) return null;
+
+    const numChunks = 10;
+    const chunkSize = Math.ceil(this.events.length / numChunks);
+    const wpmByPosition: number[] = [];
+
+    for (let i = 0; i < numChunks; i++) {
+      const startIdx = i * chunkSize;
+      const endIdx = Math.min((i + 1) * chunkSize, this.events.length);
+      const chunkEvents = this.events.slice(startIdx, endIdx);
+
+      if (chunkEvents.length < 2) {
+        wpmByPosition.push(0);
+        continue;
+      }
+
+      const firstEvent = chunkEvents[0];
+      const lastEvent = chunkEvents[chunkEvents.length - 1];
+      
+      if (!firstEvent.pressTime || !lastEvent.releaseTime) {
+        wpmByPosition.push(0);
+        continue;
+      }
+
+      const chunkDuration = (lastEvent.releaseTime - firstEvent.pressTime) / 1000 / 60; // in minutes
+      if (chunkDuration <= 0) {
+        wpmByPosition.push(0);
+        continue;
+      }
+
+      const correctChars = chunkEvents.filter(e => e.isCorrect).length;
+      const chunkWpm = Math.round((correctChars / 5) / chunkDuration);
+      wpmByPosition.push(Math.min(chunkWpm, 300)); // Cap at 300 WPM for sanity
+    }
+
+    return wpmByPosition.length > 0 ? wpmByPosition : null;
+  }
+
+  private calculateSlowestWords(): string[] | null {
+    if (this.events.length < 5 || !this.expectedText) return null;
+
+    // Split expected text into words
+    const words = this.expectedText.split(/\s+/);
+    if (words.length < 2) return null;
+
+    // Map events to word boundaries
+    const wordTimings: { word: string; startTime: number; endTime: number; duration: number }[] = [];
+    let currentWordIndex = 0;
+    let currentWordStart = 0;
+    let charPosition = 0;
+
+    // Find character positions for each word
+    const wordPositions: { word: string; startPos: number; endPos: number }[] = [];
+    let pos = 0;
+    for (const word of words) {
+      wordPositions.push({
+        word,
+        startPos: pos,
+        endPos: pos + word.length - 1
+      });
+      pos += word.length + 1; // +1 for space
+    }
+
+    // Calculate timing for each word based on keystroke events
+    for (const wp of wordPositions) {
+      const wordEvents = this.events.filter(e => e.position >= wp.startPos && e.position <= wp.endPos);
+      
+      if (wordEvents.length < 2) continue;
+
+      const startTime = wordEvents[0].pressTime;
+      const lastEvent = wordEvents[wordEvents.length - 1];
+      const endTime = lastEvent.releaseTime || lastEvent.pressTime;
+
+      if (startTime && endTime && endTime > startTime) {
+        wordTimings.push({
+          word: wp.word,
+          startTime,
+          endTime,
+          duration: endTime - startTime
+        });
+      }
+    }
+
+    if (wordTimings.length < 3) return null;
+
+    // Calculate average word duration
+    const avgDuration = wordTimings.reduce((sum, w) => sum + w.duration, 0) / wordTimings.length;
+
+    // Find words slower than average (sorted by how much slower)
+    const slowWords = wordTimings
+      .filter(w => w.duration > avgDuration * 1.3) // 30% slower than average
+      .sort((a, b) => b.duration - a.duration)
+      .slice(0, 10) // Top 10 slowest
+      .map(w => w.word);
+
+    return slowWords.length > 0 ? slowWords : null;
   }
 
   getEvents(): KeystrokeEvent[] {

@@ -206,6 +206,12 @@ export interface IStorage {
     totalTests: number;
   }>>;
   
+  getPlatformStats(): Promise<{
+    totalUsers: number;
+    totalTests: number;
+    totalLanguages: number;
+  }>;
+  
   createConversation(conversation: InsertConversation): Promise<Conversation>;
   getUserConversations(userId: string): Promise<Conversation[]>;
   getConversation(id: number, userId: string): Promise<Conversation | undefined>;
@@ -973,6 +979,30 @@ export class DatabaseStorage implements IStorage {
     `);
 
     return leaderboard.rows as any[];
+  }
+
+  async getPlatformStats(): Promise<{
+    totalUsers: number;
+    totalTests: number;
+    totalLanguages: number;
+  }> {
+    const usersResult = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users);
+    
+    const testsResult = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(testResults);
+    
+    const languagesResult = await db
+      .select({ count: sql<number>`count(distinct language)::int` })
+      .from(typingParagraphs);
+
+    return {
+      totalUsers: usersResult[0]?.count || 0,
+      totalTests: testsResult[0]?.count || 0,
+      totalLanguages: languagesResult[0]?.count || 23, // Default to 23 if no paragraphs
+    };
   }
 
   async createConversation(conversation: InsertConversation): Promise<Conversation> {
