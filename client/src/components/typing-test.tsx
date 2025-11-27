@@ -616,7 +616,7 @@ export default function TypingTest() {
   const getCharClass = (index: number) => {
     if (index >= userInput.length) return "text-muted-foreground/40";
     const isCorrect = userInput[index] === text[index];
-    return isCorrect ? "text-foreground" : "text-destructive";
+    return isCorrect ? "text-green-500" : "text-destructive";
   };
 
   // Render only the visible portion of text to optimize? 

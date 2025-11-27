@@ -1,0 +1,105 @@
+Analyze the entire typing accuracy system in our codebase and ensure every part works with perfect correctness. You must verify the full logic from start to finish. Confirm the following points carefully and fix any inconsistencies you find:
+
+1. Text Matching Logic
+
+Each character typed must be compared against the corresponding character in the target paragraph
+
+Spaces, punctuation, uppercase/lowercase must be handled correctly
+
+Ensure no character shifting issues occur when the user makes mistakes
+
+Ensure extra characters typed are counted separately and do not break alignment
+
+Confirm backspace logic is clean and does not create ghost errors
+
+2. Error Detection Rules
+
+Count incorrect characters accurately
+
+Ensure corrected mistakes (using backspace) are not counted as errors
+
+Mark errors only when user confirms a wrong character and continues typing
+
+Validate visual highlighting:
+
+Correct character (green)
+
+Incorrect in real-time (red)
+
+Upcoming text (gray/normal)
+
+3. WPM Calculation
+
+Verify the WPM formula is correctly applied:
+
+WPM = (Total Characters Typed / 5) / Time(in minutes)
+
+Ensure only correct characters count toward WPM if required by mode
+
+Ensure gross WPM and net WPM formulas are available if needed
+
+Ensure “Time taken” is calculated correctly, even if user finishes early
+
+4. Accuracy Calculation
+
+Verify:
+
+Accuracy = (Correct Characters / Total Characters Typed) × 100
+
+Ensure incorrect characters reduce accuracy
+
+Ensure corrected mistakes (backspaced errors) are not included
+
+Make sure accuracy updates live and final accuracy is exact
+
+5. Edge Case Handling
+
+Confirm behavior for:
+
+Rapid typing
+
+Long paragraphs
+
+Single short paragraphs
+
+Double spaces
+
+Leading/trailing spaces
+
+Typing beyond text
+
+Pasting text (should be disabled or handled)
+
+6. Timer Correctness
+
+Timer must start on first keystroke
+
+Timer must stop exactly when the last character is typed
+
+No drift, delay, or incorrect rounding
+
+7. Consistency Across Devices
+
+Verify accuracy logic behaves identically on:
+
+Desktop
+
+Mobile
+
+Different keyboard layouts (QWERTY, QWERTZ, AZERTY)
+
+8. Final Validation Report
+
+After completing the analysis, generate a detailed accuracy verification report including:
+
+Logic flaws found
+
+Steps taken to fix each issue
+
+Final accuracy % match between typed text and target text
+
+Proof that WPM and accuracy formulas match industry standards
+
+Any remaining recommendations
+
+Your goal is to ensure that the typing accuracy system is 100% reliable, consistent, and production-ready. Fix every edge case and confirm correct behavior using thorough tests.”
