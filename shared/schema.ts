@@ -1076,6 +1076,7 @@ export const userGamification = pgTable("user_gamification", {
   // Statistics
   totalAchievements: integer("total_achievements").default(0).notNull(),
   totalChallengesCompleted: integer("total_challenges_completed").default(0).notNull(),
+  totalShares: integer("total_shares").default(0).notNull(), // Social sharing count
   
   // Titles & Badges
   currentTitle: varchar("current_title", { length: 100 }), // "Speed Demon", "Accuracy Master", etc.

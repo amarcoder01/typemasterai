@@ -514,6 +514,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Track social shares and award bonus XP
+  app.post("/api/share/track", isAuthenticated, async (req, res) => {
+    try {
+      const { platform, resultId } = req.body;
+      const SHARE_BONUS_XP = 5; // Bonus XP for each share
+      
+      // Get or create gamification profile
+      let gamification = await storage.getUserGamification(req.user!.id);
+      if (!gamification) {
+        gamification = await storage.createUserGamification({
+          userId: req.user!.id,
+          totalPoints: 0,
+          level: 1,
+          experiencePoints: 0,
+          totalAchievements: 0,
+          totalChallengesCompleted: 0,
+        });
+      }
+      
+      // Increment share count and add bonus XP
+      const newShareCount = (gamification.totalShares || 0) + 1;
+      const newXP = gamification.experiencePoints + SHARE_BONUS_XP;
+      const newPoints = gamification.totalPoints + SHARE_BONUS_XP;
+      const newLevel = Math.floor(newXP / 100) + 1;
+      
+      await storage.updateUserGamification(req.user!.id, {
+        totalShares: newShareCount,
+        experiencePoints: newXP,
+        totalPoints: newPoints,
+        level: newLevel,
+      });
+      
+      // Check for social sharing achievements
+      achievementService.checkSocialAchievements(req.user!.id, newShareCount).catch(error => {
+        console.error("Social achievement check error:", error);
+      });
+      
+      res.json({ 
+        success: true, 
+        bonusXP: SHARE_BONUS_XP,
+        totalShares: newShareCount,
+        newXP: newXP,
+        newLevel: newLevel,
+        message: `+${SHARE_BONUS_XP} XP for sharing!`
+      });
+    } catch (error: any) {
+      console.error("Track share error:", error);
+      res.status(500).json({ message: "Failed to track share" });
+    }
+  });
+
   app.post("/api/auth/change-password", authLimiter, isAuthenticated, async (req, res) => {
     try {
       const { currentPassword, newPassword } = req.body;

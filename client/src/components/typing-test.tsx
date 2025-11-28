@@ -10,7 +10,9 @@ import { useToast } from "@/hooks/use-toast";
 import AuthPromptDialog from "@/components/auth-prompt-dialog";
 import { SearchableSelect } from "@/components/searchable-select";
 import { CertificateGenerator } from "@/components/certificate-generator";
+import { ShareCard } from "@/components/share-card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -380,6 +382,31 @@ export default function TypingTest() {
     return { emoji: "🎯", title: "Rising Star", badge: "Bronze" };
   };
 
+  const trackShare = async (platform: string) => {
+    if (!user) return;
+    
+    try {
+      const response = await fetch('/api/share/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ platform, resultId: lastResultId }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        toast({
+          title: `+${data.bonusXP} XP Earned!`,
+          description: data.totalShares === 1 
+            ? "First share bonus! Keep sharing to unlock achievements."
+            : `Total shares: ${data.totalShares}. Share more to level up!`,
+        });
+      }
+    } catch (error) {
+      console.error('Share tracking error:', error);
+    }
+  };
+
   const shareToSocial = (platform: string) => {
     const rating = getPerformanceRating();
     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
@@ -438,6 +465,7 @@ Can you beat my score? Try it here: `,
     
     if (urls[platform]) {
       window.open(urls[platform], '_blank', 'width=600,height=400');
+      trackShare(platform);
     }
   };
 
@@ -451,6 +479,7 @@ Can you beat my score? Try it here: `,
           text: `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!\n\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nCan you beat my score?`,
           url: 'https://typemasterai.com',
         });
+        trackShare('native');
       } catch (error) {
         console.error('Native share error:', error);
       }
@@ -1362,7 +1391,7 @@ Can you beat my score? Try it here: `,
 
       {/* Share Modal */}
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Share2 className="w-5 h-5 text-primary" />
@@ -1370,48 +1399,56 @@ Can you beat my score? Try it here: `,
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-5">
-            {/* Pre-composed Share Message Preview */}
-            <div className="relative">
-              <div className="absolute -top-2 left-3 px-2 bg-background text-xs font-medium text-muted-foreground">
-                Your Share Message
-              </div>
-              <div className="p-4 bg-gradient-to-br from-slate-900/50 to-slate-800/50 rounded-xl border border-primary/20 text-sm leading-relaxed">
-                <div className="space-y-2">
-                  <p className="text-base font-medium">
-                    {getPerformanceRating().emoji} I just scored <span className="text-primary font-bold">{wpm} WPM</span> on TypeMasterAI!
-                  </p>
-                  <p className="text-muted-foreground">
-                    ⌨️ <span className="text-foreground">{wpm} WPM</span> | ✨ <span className="text-foreground">{accuracy}% Accuracy</span>
-                  </p>
-                  <p className="text-muted-foreground">
-                    🏅 <span className="text-yellow-400">{getPerformanceRating().title}</span> - {getPerformanceRating().badge} Badge
-                  </p>
-                  <p className="text-muted-foreground">
-                    ⏱️ {mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`} typing test
-                  </p>
-                  <p className="text-primary/80 text-xs mt-3">
-                    Think you can beat my score? Try it now! 🎯
-                  </p>
-                  <p className="text-xs text-primary mt-2 font-medium">
-                    🔗 typemasterai.com
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    #TypingTest #TypeMasterAI #WPM
-                  </p>
+          <Tabs defaultValue="quick" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsTrigger value="quick" data-testid="tab-quick-share">Quick Share</TabsTrigger>
+              <TabsTrigger value="card" data-testid="tab-visual-card">Visual Card</TabsTrigger>
+              <TabsTrigger value="challenge" data-testid="tab-challenge">Challenge</TabsTrigger>
+            </TabsList>
+            
+            {/* Quick Share Tab */}
+            <TabsContent value="quick" className="space-y-4">
+              {/* Pre-composed Share Message Preview */}
+              <div className="relative">
+                <div className="absolute -top-2 left-3 px-2 bg-background text-xs font-medium text-muted-foreground">
+                  Your Share Message
                 </div>
-              </div>
-              <button
-                onClick={() => {
-                  const rating = getPerformanceRating();
-                  const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-                  const text = `${rating.emoji} I just scored ${wpm} WPM on TypeMasterAI!\n\n⌨️ ${wpm} WPM | ✨ ${accuracy}% Accuracy\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} typing test\n\nThink you can beat my score? Try it now! 🎯\n\n🔗 https://typemasterai.com\n\n#TypingTest #TypeMasterAI #WPM`;
-                  navigator.clipboard.writeText(text);
-                  toast({ title: "Message Copied!", description: "Share message copied to clipboard" });
-                }}
-                className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
-                data-testid="button-copy-message"
-              >
+                <div className="p-4 bg-gradient-to-br from-slate-900/50 to-slate-800/50 rounded-xl border border-primary/20 text-sm leading-relaxed">
+                  <div className="space-y-2">
+                    <p className="text-base font-medium">
+                      {getPerformanceRating().emoji} I just scored <span className="text-primary font-bold">{wpm} WPM</span> on TypeMasterAI!
+                    </p>
+                    <p className="text-muted-foreground">
+                      ⌨️ <span className="text-foreground">{wpm} WPM</span> | ✨ <span className="text-foreground">{accuracy}% Accuracy</span>
+                    </p>
+                    <p className="text-muted-foreground">
+                      🏅 <span className="text-yellow-400">{getPerformanceRating().title}</span> - {getPerformanceRating().badge} Badge
+                    </p>
+                    <p className="text-muted-foreground">
+                      ⏱️ {mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`} typing test
+                    </p>
+                    <p className="text-primary/80 text-xs mt-3">
+                      Think you can beat my score? Try it now! 🎯
+                    </p>
+                    <p className="text-xs text-primary mt-2 font-medium">
+                      🔗 typemasterai.com
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      #TypingTest #TypeMasterAI #WPM
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    const rating = getPerformanceRating();
+                    const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                    const text = `${rating.emoji} I just scored ${wpm} WPM on TypeMasterAI!\n\n⌨️ ${wpm} WPM | ✨ ${accuracy}% Accuracy\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} typing test\n\nThink you can beat my score? Try it now! 🎯\n\n🔗 https://typemasterai.com\n\n#TypingTest #TypeMasterAI #WPM`;
+                    navigator.clipboard.writeText(text);
+                    toast({ title: "Message Copied!", description: "Share message copied to clipboard" });
+                  }}
+                  className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
+                  data-testid="button-copy-message"
+                >
                 <Copy className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
             </div>
@@ -1577,18 +1614,133 @@ Can you beat my score? Try it here: `,
               </div>
             )}
 
-            {/* Native Share - More Options */}
-            {'share' in navigator && (
-              <button
-                onClick={handleNativeShare}
-                className="w-full py-3 bg-gradient-to-r from-primary/10 to-purple-500/10 text-foreground font-medium rounded-xl hover:from-primary/20 hover:to-purple-500/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
-                data-testid="button-native-share"
-              >
-                <Share2 className="w-4 h-4" />
-                More Sharing Options
-              </button>
-            )}
-          </div>
+              {/* Native Share - More Options */}
+              {'share' in navigator && (
+                <button
+                  onClick={handleNativeShare}
+                  className="w-full py-3 bg-gradient-to-r from-primary/10 to-purple-500/10 text-foreground font-medium rounded-xl hover:from-primary/20 hover:to-purple-500/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
+                  data-testid="button-native-share"
+                >
+                  <Share2 className="w-4 h-4" />
+                  More Sharing Options
+                </button>
+              )}
+            </TabsContent>
+
+            {/* Visual Card Tab */}
+            <TabsContent value="card" className="space-y-4">
+              <div className="text-center mb-4">
+                <p className="text-sm text-muted-foreground">
+                  Create a beautiful visual card to share on social media
+                </p>
+              </div>
+              {isFinished && (
+                <ShareCard
+                  wpm={wpm}
+                  accuracy={accuracy}
+                  mode={mode}
+                  language={language}
+                  username={user?.username}
+                  onShareTracked={trackShare}
+                />
+              )}
+            </TabsContent>
+
+            {/* Challenge Tab */}
+            <TabsContent value="challenge" className="space-y-4">
+              <div className="text-center space-y-2 mb-4">
+                <div className="text-4xl">🎯</div>
+                <h3 className="text-lg font-bold">Challenge a Friend</h3>
+                <p className="text-sm text-muted-foreground">
+                  Send a personalized challenge and see if they can beat your score!
+                </p>
+              </div>
+
+              {/* Challenge Link Generator */}
+              <div className="p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Your Score to Beat:</span>
+                    <span className="text-lg font-bold text-primary">{wpm} WPM</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Accuracy Target:</span>
+                    <span className="text-lg font-bold text-green-400">{accuracy}%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Test Duration:</span>
+                    <span className="text-lg font-bold text-purple-400">
+                      {mode >= 60 ? `${Math.floor(mode / 60)} min` : `${mode}s`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Challenge Share Buttons */}
+              <div className="space-y-2">
+                <p className="text-xs text-center text-muted-foreground uppercase tracking-wide">
+                  Send Challenge Via
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      const rating = getPerformanceRating();
+                      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                      const text = encodeURIComponent(`🎯 I CHALLENGE YOU!\n\n${rating.emoji} Can you beat my ${wpm} WPM with ${accuracy}% accuracy?\n\n⏱️ ${modeDisplay} typing test\n🏅 Try to claim my ${rating.badge} Badge!\n\nAccept the challenge now:\n`);
+                      window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
+                      trackShare('challenge_twitter');
+                    }}
+                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all"
+                    data-testid="button-challenge-twitter"
+                  >
+                    <Twitter className="w-5 h-5 text-[#1DA1F2]" />
+                    <span className="text-sm font-medium">Twitter</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const rating = getPerformanceRating();
+                      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                      const text = encodeURIComponent(`🎯 *TYPING CHALLENGE*\n\nCan you beat me?\n\n${rating.emoji} *My Score: ${wpm} WPM*\n✨ *Accuracy: ${accuracy}%*\n⏱️ ${modeDisplay} test\n\n🔥 Accept the challenge: `);
+                      window.open(`https://wa.me/?text=${text}${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
+                      trackShare('challenge_whatsapp');
+                    }}
+                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"
+                    data-testid="button-challenge-whatsapp"
+                  >
+                    <MessageCircle className="w-5 h-5 text-[#25D366]" />
+                    <span className="text-sm font-medium">WhatsApp</span>
+                  </button>
+                </div>
+
+                {/* Copy Challenge Link */}
+                <button
+                  onClick={() => {
+                    const rating = getPerformanceRating();
+                    const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                    const text = `🎯 TYPING CHALLENGE!\n\nCan you beat my score?\n\n${rating.emoji} My Score: ${wpm} WPM\n✨ Accuracy: ${accuracy}%\n⏱️ ${modeDisplay} test\n\n🏅 Beat me to claim the ${rating.badge} Badge!\n\n🔗 Accept the challenge: https://typemasterai.com`;
+                    navigator.clipboard.writeText(text);
+                    toast({ title: "Challenge Copied!", description: "Send it to your friends!" });
+                    trackShare('challenge_copy');
+                  }}
+                  className="w-full py-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 text-foreground font-medium rounded-xl hover:from-yellow-500/20 hover:to-orange-500/20 transition-all flex items-center justify-center gap-2 border border-yellow-500/20"
+                  data-testid="button-copy-challenge"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy Challenge Message
+                </button>
+              </div>
+
+              {/* Fun Stats */}
+              <div className="pt-3 border-t border-border/50 text-center">
+                <p className="text-xs text-muted-foreground">
+                  {wpm >= 80 ? "🔥 That's faster than 95% of typists!" : 
+                   wpm >= 60 ? "💪 That's faster than 75% of typists!" :
+                   wpm >= 40 ? "⚡ You're above average!" : 
+                   "🌱 Keep practicing to improve!"}
+                </p>
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
       </div>

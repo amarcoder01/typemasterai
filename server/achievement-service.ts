@@ -22,6 +22,7 @@ interface UserStats {
   currentStreak: number;
   bestStreak: number;
   lastTestResult?: TestResult;
+  totalShares?: number;
 }
 
 export class AchievementService {
@@ -249,6 +250,41 @@ export class AchievementService {
       check: (stats) => stats.lastTestResult ? 
         stats.lastTestResult.wpm >= 80 && stats.lastTestResult.accuracy >= 95 : false,
     },
+
+    // Social Sharing Achievements
+    {
+      key: 'social_first_share',
+      name: 'Social Butterfly',
+      description: 'Share your first typing result',
+      category: 'special',
+      tier: 'bronze',
+      points: 15,
+      icon: 'Share2',
+      color: 'cyan',
+      check: (stats) => (stats.totalShares ?? 0) >= 1,
+    },
+    {
+      key: 'social_sharer_10',
+      name: 'Community Champion',
+      description: 'Share 10 typing results',
+      category: 'special',
+      tier: 'silver',
+      points: 50,
+      icon: 'Share2',
+      color: 'cyan',
+      check: (stats) => (stats.totalShares ?? 0) >= 10,
+    },
+    {
+      key: 'social_influencer_25',
+      name: 'Typing Influencer',
+      description: 'Share 25 typing results',
+      category: 'special',
+      tier: 'gold',
+      points: 100,
+      icon: 'Share2',
+      color: 'cyan',
+      check: (stats) => (stats.totalShares ?? 0) >= 25,
+    },
   ];
 
   constructor(storage: IStorage, notificationScheduler?: NotificationScheduler) {
@@ -328,6 +364,42 @@ export class AchievementService {
       }
     } catch (error) {
       console.error('[Achievements] Check error:', error);
+    }
+  }
+
+  /**
+   * Check for social sharing achievements
+   */
+  async checkSocialAchievements(userId: string, totalShares: number): Promise<void> {
+    try {
+      const userStats: UserStats = {
+        totalTests: 0,
+        bestWpm: 0,
+        avgWpm: 0,
+        avgAccuracy: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        totalShares: totalShares,
+      };
+
+      // Get user's existing achievements
+      const userAchievements = await this.storage.getUserAchievements(userId);
+      const unlockedKeys = new Set(userAchievements.map(ua => ua.achievement.key));
+
+      // Check only social achievements
+      const socialAchievements = this.achievements.filter(a => a.key.startsWith('social_'));
+      
+      for (const achievement of socialAchievements) {
+        if (unlockedKeys.has(achievement.key)) {
+          continue;
+        }
+
+        if (achievement.check(userStats)) {
+          await this.unlockAchievement(userId, achievement, 0);
+        }
+      }
+    } catch (error) {
+      console.error('[Achievements] Social check error:', error);
     }
   }
 
