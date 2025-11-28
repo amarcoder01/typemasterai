@@ -9,7 +9,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Loader2,
   Send,
-  Bot,
   User,
   Plus,
   ChevronRight,
@@ -127,13 +126,24 @@ function CodeBlock({ language, children }: { language?: string; children: string
 
 function TypingIndicator() {
   return (
-    <div className="flex items-center gap-1 py-2">
-      <div className="flex gap-1">
-        <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-        <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-        <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+    <div className="flex items-center gap-3 py-3">
+      <div className="flex items-center gap-1.5">
+        <span className="w-2.5 h-2.5 bg-gradient-to-r from-primary to-purple-500 rounded-full animate-pulse" style={{ animationDelay: "0ms", animationDuration: "1s" }} />
+        <span className="w-2.5 h-2.5 bg-gradient-to-r from-primary to-purple-500 rounded-full animate-pulse" style={{ animationDelay: "200ms", animationDuration: "1s" }} />
+        <span className="w-2.5 h-2.5 bg-gradient-to-r from-primary to-purple-500 rounded-full animate-pulse" style={{ animationDelay: "400ms", animationDuration: "1s" }} />
       </div>
-      <span className="text-sm text-muted-foreground ml-2">Thinking...</span>
+      <span className="text-sm text-muted-foreground font-medium">Generating response...</span>
+    </div>
+  );
+}
+
+function AIIcon({ className, animated = false }: { className?: string; animated?: boolean }) {
+  return (
+    <div className={cn("relative", animated && "animate-pulse")}>
+      <Sparkles className={cn("text-white", className)} />
+      {animated && (
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/50 to-purple-500/50 rounded-full blur-sm animate-ping" style={{ animationDuration: "2s" }} />
+      )}
     </div>
   );
 }
@@ -808,7 +818,7 @@ export default function Chat() {
                           : "bg-primary/10"
                       )}>
                         {message.role === "assistant" ? (
-                          <Bot className="w-5 h-5 text-white" />
+                          <AIIcon className="w-5 h-5" />
                         ) : (
                           <User className="w-5 h-5 text-primary" />
                         )}
@@ -1070,9 +1080,9 @@ export default function Chat() {
               {isLoading && !isStreaming && (
                 <div className="w-full py-6 px-4 bg-muted/30">
                   <div className="max-w-3xl mx-auto flex gap-4">
-                    <Avatar className="w-8 h-8 flex-shrink-0 mt-1">
+                    <Avatar className="w-8 h-8 flex-shrink-0 mt-1 animate-pulse">
                       <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600">
-                        <Bot className="w-5 h-5 text-white" />
+                        <AIIcon className="w-5 h-5" animated />
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
