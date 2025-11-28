@@ -31,7 +31,7 @@ async function scrapeWebPage(url: string): Promise<ScrapedData | null> {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.5",
       },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!response.ok) return null;
@@ -39,24 +39,48 @@ async function scrapeWebPage(url: string): Promise<ScrapedData | null> {
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    $("script, style, nav, footer, iframe, noscript, header, aside, [role='navigation'], [role='banner']").remove();
+    $("script, style, nav, footer, iframe, noscript, header, aside, [role='navigation'], [role='banner'], .advertisement, .ads, .sidebar").remove();
 
     const title = $("title").text() || $("h1").first().text();
     
-    const mainContent = $("article, main, .content, .post-content, .entry-content, [role='main']").first();
+    const mainContent = $("article, main, .content, .post-content, .entry-content, .article-content, .blog-post, [role='main']").first();
     const container = mainContent.length ? mainContent : $("body");
     
-    const paragraphs = container.find("p")
+    const headings = container.find("h1, h2, h3")
+      .map((_, el) => `### ${$(el).text().trim()}`)
+      .get()
+      .filter((text) => text.length > 4);
+    
+    const paragraphs = container.find("p, li")
       .map((_, el) => $(el).text().trim())
       .get()
-      .filter((text) => text.length > 30 && !text.includes("cookie") && !text.includes("privacy policy"))
-      .slice(0, 8);
+      .filter((text) => 
+        text.length > 30 && 
+        !text.toLowerCase().includes("cookie") && 
+        !text.toLowerCase().includes("privacy policy") &&
+        !text.toLowerCase().includes("terms of service") &&
+        !text.toLowerCase().includes("subscribe to")
+      )
+      .slice(0, 15);
 
-    const content = paragraphs.join("\n\n");
+    let content = "";
+    let charCount = 0;
+    const maxChars = 4000;
+    
+    for (let i = 0; i < paragraphs.length && charCount < maxChars; i++) {
+      const para = paragraphs[i];
+      if (charCount + para.length <= maxChars) {
+        content += para + "\n\n";
+        charCount += para.length + 2;
+      } else {
+        content += para.substring(0, maxChars - charCount) + "...";
+        break;
+      }
+    }
 
     return {
       title: title.trim(),
-      content: content.substring(0, 3000),
+      content: content.trim(),
       url,
     };
   } catch (error) {
@@ -154,6 +178,49 @@ async function searchWithDuckDuckGo(query: string): Promise<SearchResult[]> {
   }
 }
 
+async function generateSearchQueries(originalQuery: string): Promise<string[]> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a search query optimization expert. Given a user's question, generate 2-3 diverse search queries that will help find comprehensive information from different angles.
+
+Rules:
+- Generate queries that approach the topic from different perspectives
+- Include both broad and specific queries
+- Use different keyword combinations
+- Optimize for search engines (concise, keyword-focused)
+- Include the original query as one option if it's good
+- For technical topics, include specific terminology
+- For current events, include time-relevant keywords
+
+Respond with JSON only:
+{
+  "queries": ["query 1", "query 2", "query 3"]
+}`,
+        },
+        {
+          role: "user",
+          content: `Generate optimized search queries for: ${originalQuery}`,
+        },
+      ],
+      temperature: 0.5,
+      max_tokens: 200,
+      response_format: { type: "json_object" },
+    });
+
+    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+    const queries = result.queries || [originalQuery];
+    console.log(`[DeepSearch] Generated ${queries.length} search queries:`, queries);
+    return queries.slice(0, 3);
+  } catch (error) {
+    console.error("Query generation error:", error);
+    return [originalQuery];
+  }
+}
+
 export async function performWebSearch(query: string): Promise<{ results: SearchResult[]; content: string }> {
   console.log(`[WebSearch] Searching for: "${query}"`);
   
@@ -181,7 +248,7 @@ export async function performWebSearch(query: string): Promise<{ results: Search
   let extractedContent = "";
   const scrapedUrls: string[] = [];
 
-  for (let i = 0; i < Math.min(results.length, 3); i++) {
+  for (let i = 0; i < Math.min(results.length, 6); i++) {
     const result = results[i];
     try {
       const scraped = await scrapeWebPage(result.url);
@@ -189,7 +256,7 @@ export async function performWebSearch(query: string): Promise<{ results: Search
         extractedContent += `\n\n---\n**Source ${i + 1}: ${scraped.title}**\nURL: ${result.url}\n\n${scraped.content}\n`;
         scrapedUrls.push(result.url);
         console.log(`[WebSearch] Scraped ${scraped.content.length} chars from ${result.url}`);
-        if (extractedContent.length > 8000) break;
+        if (extractedContent.length > 15000) break;
       }
     } catch (error) {
       console.log(`[WebSearch] Failed to scrape ${result.url}`);
@@ -199,7 +266,7 @@ export async function performWebSearch(query: string): Promise<{ results: Search
   console.log(`[WebSearch] Scraped ${scrapedUrls.length} pages successfully. Total content: ${extractedContent.length} chars`);
 
   if (extractedContent.length === 0 && results.length > 0) {
-    for (let i = 0; i < Math.min(results.length, 5); i++) {
+    for (let i = 0; i < Math.min(results.length, 6); i++) {
       const result = results[i];
       extractedContent += `\n\n---\n**Source ${i + 1}: ${result.title}**\nURL: ${result.url}\n\n${result.snippet}\n`;
     }
@@ -207,6 +274,86 @@ export async function performWebSearch(query: string): Promise<{ results: Search
   }
 
   return { results, content: extractedContent };
+}
+
+export async function performDeepWebSearch(query: string): Promise<{ results: SearchResult[]; content: string }> {
+  console.log(`[DeepSearch] Starting deep search for: "${query}"`);
+  
+  const queries = await generateSearchQueries(query);
+  
+  const allResults: SearchResult[] = [];
+  const seenUrls = new Set<string>();
+  
+  for (const searchQuery of queries) {
+    console.log(`[DeepSearch] Executing query: "${searchQuery}"`);
+    
+    let queryResults: SearchResult[] = [];
+    
+    if (process.env.TAVILY_API_KEY) {
+      queryResults = await searchWithTavily(searchQuery);
+      if (queryResults.length > 0) {
+        console.log(`[DeepSearch] Found ${queryResults.length} results via Tavily for "${searchQuery}"`);
+      }
+    }
+    
+    if (queryResults.length === 0) {
+      queryResults = await searchWithDuckDuckGo(searchQuery);
+      if (queryResults.length > 0) {
+        console.log(`[DeepSearch] Found ${queryResults.length} results via DuckDuckGo for "${searchQuery}"`);
+      }
+    }
+    
+    for (const result of queryResults) {
+      if (!seenUrls.has(result.url)) {
+        seenUrls.add(result.url);
+        allResults.push(result);
+      }
+    }
+    
+    if (allResults.length >= 10) break;
+  }
+  
+  console.log(`[DeepSearch] Total unique results: ${allResults.length}`);
+  
+  if (allResults.length === 0) {
+    console.log("[DeepSearch] No results found");
+    return { results: [], content: "" };
+  }
+  
+  let extractedContent = "";
+  const scrapedUrls: string[] = [];
+  const maxPages = Math.min(allResults.length, 8);
+  
+  for (let i = 0; i < maxPages; i++) {
+    const result = allResults[i];
+    try {
+      const scraped = await scrapeWebPage(result.url);
+      if (scraped && scraped.content && scraped.content.length > 100) {
+        extractedContent += `\n\n---\n**Source ${scrapedUrls.length + 1}: ${scraped.title}**\nURL: ${result.url}\n\n${scraped.content}\n`;
+        scrapedUrls.push(result.url);
+        console.log(`[DeepSearch] Scraped ${scraped.content.length} chars from ${result.url}`);
+        
+        if (extractedContent.length > 20000) {
+          console.log(`[DeepSearch] Reached content limit (20k chars), stopping scrape`);
+          break;
+        }
+      }
+    } catch (error) {
+      console.log(`[DeepSearch] Failed to scrape ${result.url}`);
+    }
+  }
+  
+  console.log(`[DeepSearch] Scraped ${scrapedUrls.length} pages successfully. Total content: ${extractedContent.length} chars`);
+  
+  if (extractedContent.length === 0 && allResults.length > 0) {
+    for (let i = 0; i < Math.min(allResults.length, 8); i++) {
+      const result = allResults[i];
+      extractedContent += `\n\n---\n**Source ${i + 1}: ${result.title}**\nURL: ${result.url}\n\n${result.snippet}\n`;
+    }
+    console.log(`[DeepSearch] Using snippets as fallback. Total content: ${extractedContent.length} chars`);
+  }
+  
+  return { results: allResults.slice(0, 8), content: extractedContent };
 }
 
 export async function decideIfSearchNeeded(message: string): Promise<SearchDecision> {
@@ -364,13 +511,13 @@ export async function* streamChatCompletionWithSearch(
           searchQuery = decision.searchQuery;
           yield { type: "searching", data: { status: "searching", query: searchQuery } };
           
-          searchData = await performWebSearch(searchQuery);
+          searchData = await performDeepWebSearch(searchQuery);
           
           if (searchData.results.length > 0) {
             yield { 
               type: "search_complete", 
               data: { 
-                results: searchData.results.slice(0, 5),
+                results: searchData.results.slice(0, 8),
                 query: searchQuery 
               } 
             };
@@ -380,13 +527,13 @@ export async function* streamChatCompletionWithSearch(
         const quickCheck = shouldPerformWebSearch(lastMessage.content);
         if (quickCheck) {
           yield { type: "searching", data: { status: "searching", query: lastMessage.content } };
-          searchData = await performWebSearch(lastMessage.content);
+          searchData = await performDeepWebSearch(lastMessage.content);
           
           if (searchData.results.length > 0) {
             yield { 
               type: "search_complete", 
               data: { 
-                results: searchData.results.slice(0, 5),
+                results: searchData.results.slice(0, 8),
                 query: lastMessage.content 
               } 
             };
@@ -473,7 +620,7 @@ The user expects FRESH, CURRENT information from these search results. Deliver i
     if (searchData.results.length > 0) {
       yield { 
         type: "sources", 
-        data: searchData.results.slice(0, 5).map(r => ({
+        data: searchData.results.slice(0, 8).map(r => ({
           title: r.title,
           url: r.url,
           snippet: r.snippet?.substring(0, 150) || "",
