@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
-import { calculateWPM } from '@/lib/typing-utils';
+import { calculateWPM, calculateAccuracy } from '@/lib/typing-utils';
 
 type Difficulty = 'beginner' | 'intermediate' | 'expert' | 'nightmare' | 'impossible';
 
@@ -384,7 +384,7 @@ export default function StressTest() {
     // Use correct characters (typed - errors) for WPM calculation with raw seconds
     const correctChars = Math.max(0, typedText.length - errors);
     const wpm = survivalTime > 0 ? calculateWPM(correctChars, survivalTime) : 0;
-    const accuracy = typedText.length > 0 ? ((typedText.length - errors) / typedText.length) * 100 : 0;
+    const accuracy = calculateAccuracy(correctChars, typedText.length);
     
     // Calculate stress score (higher difficulty + better performance = higher score)
     const difficultyMultiplier = selectedDifficulty === 'impossible' ? 5 : 

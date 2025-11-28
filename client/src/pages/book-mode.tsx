@@ -14,6 +14,7 @@ import { SearchableSelect } from "@/components/searchable-select";
 import { BookOpen, Trophy, Zap, Target, RotateCcw, ArrowRight, Sparkles, Loader2, HelpCircle } from "lucide-react";
 import confetti from "canvas-confetti";
 import type { BookParagraph, InsertBookTypingTest } from "@shared/schema";
+import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 
 const DURATION_MODES = [
   { value: 30, label: "30s" },
@@ -21,16 +22,6 @@ const DURATION_MODES = [
   { value: 90, label: "90s" },
   { value: 120, label: "2min" },
 ];
-
-function calculateWPM(chars: number, seconds: number): number {
-  if (seconds === 0) return 0;
-  return Math.round((chars / 5) / (seconds / 60));
-}
-
-function calculateAccuracy(correct: number, total: number): number {
-  if (total === 0) return 100;
-  return Math.round((correct / total) * 100);
-}
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);

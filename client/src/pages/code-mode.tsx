@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Code, Trophy, Zap, Target, RotateCcw, Check, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle } from "lucide-react";
 import confetti from "canvas-confetti";
+import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 
 const PROGRAMMING_LANGUAGES = {
   javascript: { name: "JavaScript", prism: "javascript", category: "Popular" },
@@ -104,16 +105,6 @@ const FONT_SIZES = [
   { value: "18", label: "18px" },
   { value: "20", label: "20px" },
 ];
-
-function calculateWPM(chars: number, seconds: number): number {
-  if (seconds === 0) return 0;
-  return Math.round((chars / 5) / (seconds / 60));
-}
-
-function calculateAccuracy(correct: number, total: number): number {
-  if (total === 0) return 100;
-  return Math.round((correct / total) * 100);
-}
 
 function getFontClass(font: string): string {
   const fonts: Record<string, string> = {

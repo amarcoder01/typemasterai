@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
+import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 
 interface Race {
   id: number;
@@ -297,11 +298,10 @@ export default function RacePage() {
   function updateProgress(progress: number, errorCount = errors) {
     if (!myParticipant || !startTime || !race) return;
 
-    const elapsedMinutes = (Date.now() - startTime) / 60000;
-    const wordsTyped = progress / 5;
-    const wpm = Math.round(wordsTyped / elapsedMinutes);
-    const rawAccuracy = progress > 0 ? ((progress - errorCount) / progress) * 100 : 100;
-    const accuracy = Math.max(0, Math.min(100, Math.round(rawAccuracy)));
+    const elapsedSeconds = (Date.now() - startTime) / 1000;
+    const correctChars = Math.max(0, progress - errorCount);
+    const wpm = calculateWPM(correctChars, elapsedSeconds);
+    const accuracy = calculateAccuracy(correctChars, progress);
 
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({

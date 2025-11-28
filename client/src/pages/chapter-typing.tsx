@@ -11,16 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { BookOpen, Trophy, Zap, Target, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import confetti from "canvas-confetti";
 import type { BookParagraph, InsertBookTypingTest } from "@shared/schema";
-
-function calculateWPM(chars: number, seconds: number): number {
-  if (seconds === 0) return 0;
-  return Math.round((chars / 5) / (seconds / 60));
-}
-
-function calculateAccuracy(correct: number, total: number): number {
-  if (total === 0) return 100;
-  return Math.round((correct / total) * 100);
-}
+import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
