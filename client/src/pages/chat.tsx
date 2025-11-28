@@ -1264,6 +1264,7 @@ function ConversationItem({
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(conversation.title);
+  const [canBlur, setCanBlur] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Sync editTitle with conversation.title when it changes (after successful rename)
@@ -1271,10 +1272,19 @@ function ConversationItem({
     setEditTitle(conversation.title);
   }, [conversation.title]);
 
+  // Delay focus to prevent immediate blur when dropdown closes
   useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+    if (isEditing) {
+      setCanBlur(false);
+      const focusTimer = setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.select();
+        }
+        // Allow blur after input is properly focused
+        setTimeout(() => setCanBlur(true), 100);
+      }, 50);
+      return () => clearTimeout(focusTimer);
     }
   }, [isEditing]);
 
@@ -1285,6 +1295,14 @@ function ConversationItem({
       setEditTitle(conversation.title);
     }
     setIsEditing(false);
+    setCanBlur(false);
+  };
+
+  const handleBlur = () => {
+    // Only save on blur if we've allowed blur (prevents immediate close)
+    if (canBlur) {
+      handleSave();
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -1294,6 +1312,7 @@ function ConversationItem({
     } else if (e.key === 'Escape') {
       setEditTitle(conversation.title);
       setIsEditing(false);
+      setCanBlur(false);
     }
   };
 
@@ -1314,7 +1333,7 @@ function ConversationItem({
           type="text"
           value={editTitle}
           onChange={(e) => setEditTitle(e.target.value)}
-          onBlur={handleSave}
+          onBlur={handleBlur}
           onKeyDown={handleKeyDown}
           onClick={(e) => e.stopPropagation()}
           className="flex-1 text-sm bg-zinc-700 text-zinc-100 px-2 py-1 rounded border border-zinc-600 focus:outline-none focus:ring-1 focus:ring-primary"
