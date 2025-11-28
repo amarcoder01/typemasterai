@@ -108,6 +108,7 @@ export default function TypingTest() {
   const [isTypingFast, setIsTypingFast] = useState(false);
   const lastKeystrokeTimeRef = useRef<number>(0);
   const [isComposing, setIsComposing] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [paragraphError, setParagraphError] = useState<string | null>(null);
   const [fetchRetryCount, setFetchRetryCount] = useState(0);
   const MAX_RETRY_ATTEMPTS = 3;
@@ -1499,6 +1500,8 @@ Can you beat my score? Try it here: `,
           onCompositionEnd={handleCompositionEnd}
           onPaste={handlePaste}
           onCut={handleCut}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           className="absolute opacity-0 w-full h-full cursor-default z-0"
           autoFocus
           disabled={!!paragraphError && !text}
@@ -1512,7 +1515,7 @@ Can you beat my score? Try it here: `,
             dir={isRTL ? "rtl" : "ltr"}
             className={cn(
               "w-full h-full max-h-[400px] overflow-y-auto p-8 text-2xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300 scroll-smooth",
-              !isActive && !isFinished && "blur-[1px] opacity-70 group-hover:blur-0 group-hover:opacity-100"
+              !isActive && !isFinished && !isFocused && "blur-[1px] opacity-70 group-hover:blur-0 group-hover:opacity-100"
             )}
             onClick={() => inputRef.current?.focus({ preventScroll: true })}
           >
@@ -1550,8 +1553,8 @@ Can you beat my score? Try it here: `,
           </div>
         )}
         
-        {/* Focus Overlay */}
-        {!isActive && !isFinished && userInput.length === 0 && text && !isGenerating && (
+        {/* Focus Overlay - Hide when focused, active, or typing */}
+        {!isActive && !isFinished && !isFocused && userInput.length === 0 && text && !isGenerating && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-muted-foreground/50 text-lg animate-pulse">Click or type to start</div>
           </div>
