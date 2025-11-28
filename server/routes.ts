@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { streamChatCompletion, shouldPerformWebSearch, generateConversationTitle, type ChatMessage } from "./chat-service";
+import { streamChatCompletionWithSearch, shouldPerformWebSearch, generateConversationTitle, type ChatMessage, type StreamEvent } from "./chat-service";
 import { generateTypingParagraph } from "./ai-paragraph-generator";
 import { generateCodeSnippet } from "./ai-code-generator";
 import { analyzeFile } from "./file-analyzer";
@@ -1145,17 +1145,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: lastUserMessage.content,
       });
 
-      const performSearch = shouldPerformWebSearch(lastUserMessage.content);
-
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
       try {
         let assistantResponse = "";
-        for await (const chunk of streamChatCompletion(sanitizedMessages, performSearch)) {
-          assistantResponse += chunk;
-          res.write(`data: ${JSON.stringify({ content: chunk, conversationId: convId })}\n\n`);
+        
+        for await (const event of streamChatCompletionWithSearch(sanitizedMessages, true)) {
+          switch (event.type) {
+            case "searching":
+              res.write(`data: ${JSON.stringify({ 
+                type: "searching", 
+                status: event.data.status,
+                query: event.data.query,
+                conversationId: convId 
+              })}\n\n`);
+              break;
+            case "search_complete":
+              res.write(`data: ${JSON.stringify({ 
+                type: "search_complete", 
+                results: event.data.results,
+                query: event.data.query,
+                conversationId: convId 
+              })}\n\n`);
+              break;
+            case "content":
+              assistantResponse += event.data;
+              res.write(`data: ${JSON.stringify({ content: event.data, conversationId: convId })}\n\n`);
+              break;
+            case "sources":
+              res.write(`data: ${JSON.stringify({ 
+                type: "sources", 
+                sources: event.data,
+                conversationId: convId 
+              })}\n\n`);
+              break;
+            case "error":
+              res.write(`data: ${JSON.stringify({ error: event.data })}\n\n`);
+              break;
+          }
         }
         
         await storage.createMessage({
@@ -1164,7 +1193,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           content: assistantResponse,
         });
 
-        // Generate AI title for new conversations (non-blocking)
         if (isNewConversation) {
           generateConversationTitle(lastUserMessage.content)
             .then(async (title) => {

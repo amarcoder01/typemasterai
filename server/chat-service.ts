@@ -5,8 +5,8 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-interface BingSearchResult {
-  name: string;
+interface SearchResult {
+  title: string;
   url: string;
   snippet: string;
 }
@@ -17,13 +17,21 @@ interface ScrapedData {
   url: string;
 }
 
+interface SearchDecision {
+  shouldSearch: boolean;
+  searchQuery: string;
+  reason: string;
+}
+
 async function scrapeWebPage(url: string): Promise<ScrapedData | null> {
   try {
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
       },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!response.ok) return null;
@@ -31,232 +39,269 @@ async function scrapeWebPage(url: string): Promise<ScrapedData | null> {
     const html = await response.text();
     const $ = cheerio.load(html);
 
-    $("script, style, nav, footer, iframe").remove();
+    $("script, style, nav, footer, iframe, noscript, header, aside, [role='navigation'], [role='banner']").remove();
 
     const title = $("title").text() || $("h1").first().text();
-    const paragraphs = $("p")
+    
+    const mainContent = $("article, main, .content, .post-content, .entry-content, [role='main']").first();
+    const container = mainContent.length ? mainContent : $("body");
+    
+    const paragraphs = container.find("p")
       .map((_, el) => $(el).text().trim())
       .get()
-      .filter((text) => text.length > 50)
-      .slice(0, 5);
+      .filter((text) => text.length > 30 && !text.includes("cookie") && !text.includes("privacy policy"))
+      .slice(0, 8);
 
     const content = paragraphs.join("\n\n");
 
     return {
       title: title.trim(),
-      content: content.substring(0, 2000),
+      content: content.substring(0, 3000),
       url,
     };
   } catch (error) {
-    console.error(`Scraping error for ${url}:`, error);
     return null;
   }
 }
 
-async function tryBingSearch(query: string, apiKey: string): Promise<BingSearchResult[]> {
-  const response = await fetch(
-    `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=5&mkt=en-US`,
-    {
-      headers: {
-        "Ocp-Apim-Subscription-Key": apiKey,
-      },
-    }
-  );
+async function searchWithTavily(query: string): Promise<SearchResult[]> {
+  const apiKey = process.env.TAVILY_API_KEY;
+  if (!apiKey) return [];
 
-  if (!response.ok) {
-    throw new Error(`Bing API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.webPages?.value || [];
-}
-
-export async function performWebSearch(query: string): Promise<string> {
-  const keys = [
-    process.env.BING_GROUNDING_KEY,
-    process.env.BING_GROUNDING_KEY_1,
-    process.env.BING_GROUNDING_KEY_2,
-  ].filter(Boolean);
-
-  if (keys.length === 0) {
-    return "⚠️ Web search is not configured. Please add BING_GROUNDING_KEY to enable web search.";
-  }
-
-  let results: BingSearchResult[] = [];
-  let lastError: Error | null = null;
-
-  for (const key of keys) {
-    try {
-      results = await tryBingSearch(query, key!);
-      if (results.length > 0) break;
-    } catch (error: any) {
-      lastError = error;
-      console.error(`Bing API failed with key ending in ...${key!.slice(-4)}:`, error.message);
-    }
-  }
-
-  if (results.length === 0 && lastError) {
-    console.log("Falling back to web scraping...");
-    return await performWebScraping(query);
-  }
-
-  if (results.length === 0) {
-    return "🔍 No search results found. Using AI knowledge only.";
-  }
-
-  let searchContent = "";
-  const sources: string[] = [];
-
-  for (let i = 0; i < Math.min(results.length, 5); i++) {
-    const result = results[i];
-    const citation = i + 1;
-    
-    try {
-      const domain = new URL(result.url).hostname.replace('www.', '');
-      sources.push(
-        `> **[${citation}] ${result.name}**\n` +
-        `> 🔗 \`${domain}\`\n>\n` +
-        `> ${result.snippet}\n>\n` +
-        `> [View source →](${result.url})`
-      );
-    } catch {
-      sources.push(
-        `> **[${citation}] ${result.name}**\n>\n` +
-        `> ${result.snippet}\n>\n` +
-        `> [View source →](${result.url})`
-      );
-    }
-
-    if (i < 2) {
-      const scraped = await scrapeWebPage(result.url);
-      if (scraped && scraped.content) {
-        searchContent += `\n**Content from [${citation}]:**\n${scraped.content.substring(0, 600)}\n`;
-      }
-    }
-  }
-
-  return (
-    `## 📚 Sources\n\n` +
-    sources.join('\n\n') +
-    (searchContent ? `\n\n## 📄 Extracted Content\n${searchContent}` : '')
-  );
-}
-
-async function performWebScraping(query: string): Promise<string> {
   try {
-    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-    const response = await fetch(searchUrl, {
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        api_key: apiKey,
+        query,
+        search_depth: "basic",
+        include_answer: false,
+        max_results: 5,
+      }),
       signal: AbortSignal.timeout(10000),
     });
 
     if (!response.ok) {
-      return "🔍 Web scraping failed. Using AI knowledge only.";
+      console.error(`Tavily API error: ${response.status}`);
+      return [];
     }
+
+    const data = await response.json();
+    return (data.results || []).map((r: any) => ({
+      title: r.title,
+      url: r.url,
+      snippet: r.content?.substring(0, 300) || "",
+    }));
+  } catch (error) {
+    console.error("Tavily search error:", error);
+    return [];
+  }
+}
+
+async function searchWithDuckDuckGo(query: string): Promise<SearchResult[]> {
+  try {
+    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const response = await fetch(searchUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) return [];
 
     const html = await response.text();
     const $ = cheerio.load(html);
+    const results: SearchResult[] = [];
 
-    const results: Array<{ title: string; url: string; snippet: string }> = [];
+    $(".result, .web-result").each((i, elem) => {
+      if (i >= 6) return false;
 
-    $(".result").each((i, elem) => {
-      if (i >= 5) return;
+      const titleElem = $(elem).find(".result__a, .result-link");
+      const title = titleElem.text().trim();
+      const href = titleElem.attr("href") || "";
+      const snippet = $(elem).find(".result__snippet, .result-snippet").text().trim();
 
-      const title = $(elem).find(".result__a").text().trim();
-      const url = $(elem).find(".result__url").text().trim();
-      const snippet = $(elem).find(".result__snippet").text().trim();
+      let url = "";
+      if (href.includes("uddg=")) {
+        try {
+          const uddg = new URL(href, "https://duckduckgo.com").searchParams.get("uddg");
+          url = uddg ? decodeURIComponent(uddg) : "";
+        } catch {
+          url = "";
+        }
+      } else if (href.startsWith("http")) {
+        url = href;
+      } else {
+        const urlText = $(elem).find(".result__url").text().trim();
+        if (urlText) url = urlText.startsWith("http") ? urlText : `https://${urlText}`;
+      }
 
-      if (title && url) {
-        results.push({ title, url: `https://${url}`, snippet });
+      if (title && url && url.startsWith("http")) {
+        results.push({ title, url, snippet });
       }
     });
 
-    if (results.length === 0) {
-      return "🔍 No web results found. Using AI knowledge only.";
-    }
-
-    let searchContent = "";
-    const sources: string[] = [];
-
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
-      const citation = i + 1;
-      
-      try {
-        const domain = new URL(result.url).hostname.replace('www.', '');
-        sources.push(
-          `> **[${citation}] ${result.title}**\n` +
-          `> 🔗 \`${domain}\`\n>\n` +
-          `> ${result.snippet}\n>\n` +
-          `> [View source →](${result.url})`
-        );
-      } catch {
-        sources.push(
-          `> **[${citation}] ${result.title}**\n>\n` +
-          `> ${result.snippet}\n>\n` +
-          `> [View source →](${result.url})`
-        );
-      }
-    }
-
-    const firstUrl = results[0].url;
-    const scraped = await scrapeWebPage(firstUrl);
-    if (scraped && scraped.content) {
-      searchContent = `\n**Content from [1]:**\n${scraped.content.substring(0, 600)}\n`;
-    }
-
-    return (
-      `## 📚 Sources\n\n` +
-      sources.join('\n\n') +
-      (searchContent ? `\n\n## 📄 Extracted Content\n${searchContent}` : '')
-    );
+    return results;
   } catch (error) {
-    console.error("Web scraping error:", error);
-    return "🔍 Web scraping failed. Using AI knowledge only.";
+    console.error("DuckDuckGo search error:", error);
+    return [];
+  }
+}
+
+export async function performWebSearch(query: string): Promise<{ results: SearchResult[]; content: string }> {
+  console.log(`[WebSearch] Searching for: "${query}"`);
+  
+  let results: SearchResult[] = [];
+
+  if (process.env.TAVILY_API_KEY) {
+    results = await searchWithTavily(query);
+    if (results.length > 0) {
+      console.log(`[WebSearch] Found ${results.length} results via Tavily`);
+    }
+  }
+
+  if (results.length === 0) {
+    results = await searchWithDuckDuckGo(query);
+    if (results.length > 0) {
+      console.log(`[WebSearch] Found ${results.length} results via DuckDuckGo`);
+    }
+  }
+
+  if (results.length === 0) {
+    console.log("[WebSearch] No results found");
+    return { results: [], content: "" };
+  }
+
+  let extractedContent = "";
+  const scrapedUrls: string[] = [];
+
+  for (let i = 0; i < Math.min(results.length, 3); i++) {
+    const result = results[i];
+    try {
+      const scraped = await scrapeWebPage(result.url);
+      if (scraped && scraped.content && scraped.content.length > 100) {
+        extractedContent += `\n\n---\n**Source ${i + 1}: ${scraped.title}**\nURL: ${result.url}\n\n${scraped.content}\n`;
+        scrapedUrls.push(result.url);
+        if (extractedContent.length > 6000) break;
+      }
+    } catch {
+    }
+  }
+
+  console.log(`[WebSearch] Scraped ${scrapedUrls.length} pages successfully`);
+
+  return { results, content: extractedContent };
+}
+
+export async function decideIfSearchNeeded(message: string): Promise<SearchDecision> {
+  const lowerMessage = message.toLowerCase();
+
+  const urlPattern = /\b(?:https?:\/\/)?(?:www\.)?[\w-]+\.(?:com|org|net|io|co|ai|dev|app|info|edu|gov)\b/i;
+  if (urlPattern.test(message)) {
+    const urlMatch = message.match(urlPattern);
+    return {
+      shouldSearch: true,
+      searchQuery: urlMatch ? urlMatch[0] : message,
+      reason: "URL detected - fetching content",
+    };
+  }
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a search decision agent. Analyze the user's query and decide if a web search is needed.
+
+SEARCH NEEDED for:
+- Current events, news, or recent information (after Oct 2023)
+- Real-time data: stock prices, weather, sports scores, crypto prices
+- Specific products, companies, or services the user wants to learn about
+- Technical documentation for specific tools/libraries/APIs
+- Factual claims that need verification
+- Questions about specific websites, apps, or online services
+- Pricing information for products or services
+- Reviews or comparisons of products/services
+- Information about specific people, organizations, or events
+- Questions containing years 2024 or later
+
+NO SEARCH NEEDED for:
+- General knowledge questions (history, science concepts, math)
+- Programming help with code logic (not specific library docs)
+- Creative writing, brainstorming, or opinion-based questions
+- Personal advice or conversations
+- Explaining concepts, tutorials, or how-to guides
+- Translation or language help
+- Questions about the assistant itself
+
+Respond with JSON only:
+{
+  "search": true/false,
+  "query": "optimized search query if search=true, empty string if false",
+  "reason": "brief reason for decision"
+}`,
+        },
+        {
+          role: "user",
+          content: message,
+        },
+      ],
+      temperature: 0,
+      max_tokens: 150,
+      response_format: { type: "json_object" },
+    });
+
+    const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+    
+    return {
+      shouldSearch: result.search === true,
+      searchQuery: result.query || message,
+      reason: result.reason || "",
+    };
+  } catch (error) {
+    console.error("Search decision error:", error);
+    
+    const quickTriggers = [
+      "latest", "current", "news", "today", "2024", "2025",
+      "price", "stock", "weather", "what is", "who is",
+      "search", "look up", "find",
+    ];
+    
+    const needsSearch = quickTriggers.some(t => lowerMessage.includes(t));
+    return {
+      shouldSearch: needsSearch,
+      searchQuery: message,
+      reason: "Fallback decision based on keywords",
+    };
   }
 }
 
 export function shouldPerformWebSearch(message: string): boolean {
   const lowerMessage = message.toLowerCase();
 
-  // Always search if user provides a URL
   const urlPattern = /\b(?:https?:\/\/)?(?:www\.)?[\w-]+\.(?:com|org|net|io|co|ai|dev|app|info|edu|gov)\b/i;
   if (urlPattern.test(message)) {
     return true;
   }
 
-  // Only trigger web search for EXPLICIT search requests or time-sensitive queries
   const explicitSearchTriggers = [
-    "search for",
-    "search about",
-    "google",
-    "look up",
-    "lookup",
-    "find online",
-    "find on the web",
-    "web search",
-    "search the web",
-    "search the internet",
+    "search for", "search about", "google", "look up", "lookup",
+    "find online", "find on the web", "web search", "search the web",
+    "search the internet", "what is the latest", "current news",
   ];
 
-  // Time-sensitive / freshness-related triggers
   const freshnessTriggers = [
-    "current",
-    "latest",
-    "recent",
-    "news",
-    "today",
-    "this week",
-    "this month",
-    "this year",
-    "2024",
-    "2025",
-    "update on",
-    "updates on",
-    "what's new",
-    "breaking",
+    "current", "latest", "recent", "news", "today", "this week",
+    "this month", "this year", "2024", "2025", "update on",
+    "updates on", "what's new", "breaking", "price of", "stock price",
+    "weather in", "who won", "score of",
   ];
 
   const hasExplicitSearch = explicitSearchTriggers.some((trigger) => lowerMessage.includes(trigger));
@@ -270,26 +315,71 @@ export interface ChatMessage {
   content: string;
 }
 
-export async function* streamChatCompletion(
-  messages: ChatMessage[],
-  performSearch: boolean = false
-): AsyncGenerator<string, void, unknown> {
-  let searchResults = "";
+export interface StreamEvent {
+  type: "searching" | "search_complete" | "content" | "sources" | "done" | "error";
+  data?: any;
+}
 
-  if (performSearch && messages.length > 0) {
+export async function* streamChatCompletionWithSearch(
+  messages: ChatMessage[],
+  useAISearch: boolean = true
+): AsyncGenerator<StreamEvent, void, unknown> {
+  let searchData: { results: SearchResult[]; content: string } = { results: [], content: "" };
+  let searchQuery = "";
+
+  if (messages.length > 0) {
     const lastMessage = messages[messages.length - 1];
     if (lastMessage.role === "user") {
-      // Perform web search internally but don't show sources to user
-      searchResults = await performWebSearch(lastMessage.content);
+      if (useAISearch) {
+        yield { type: "searching", data: { status: "deciding" } };
+        
+        const decision = await decideIfSearchNeeded(lastMessage.content);
+        console.log(`[AI Search] Decision: ${decision.shouldSearch ? "SEARCH" : "NO SEARCH"} - ${decision.reason}`);
+        
+        if (decision.shouldSearch) {
+          searchQuery = decision.searchQuery;
+          yield { type: "searching", data: { status: "searching", query: searchQuery } };
+          
+          searchData = await performWebSearch(searchQuery);
+          
+          if (searchData.results.length > 0) {
+            yield { 
+              type: "search_complete", 
+              data: { 
+                results: searchData.results.slice(0, 5),
+                query: searchQuery 
+              } 
+            };
+          }
+        }
+      } else {
+        const quickCheck = shouldPerformWebSearch(lastMessage.content);
+        if (quickCheck) {
+          yield { type: "searching", data: { status: "searching", query: lastMessage.content } };
+          searchData = await performWebSearch(lastMessage.content);
+          
+          if (searchData.results.length > 0) {
+            yield { 
+              type: "search_complete", 
+              data: { 
+                results: searchData.results.slice(0, 5),
+                query: lastMessage.content 
+              } 
+            };
+          }
+        }
+      }
     }
   }
 
+  const hasSearchResults = searchData.content.length > 0;
+  
   const systemMessage: ChatMessage = {
     role: "system",
     content: `You are an advanced AI assistant integrated into TypeMasterAI, an AI-powered typing speed test platform. Your capabilities include:
 
 1. **General Knowledge**: Answer questions on any topic with accuracy and clarity
-2. **Web Research**: When web search results are provided, synthesize them into comprehensive answers with citations
+2. **Web Research**: When web search results are provided, synthesize them into comprehensive answers
 3. **Problem Solving**: Help users with technical problems, debugging, and troubleshooting
 4. **Typing Tips**: Provide advice on improving typing speed, accuracy, and ergonomics
 5. **Deep Analysis**: Perform thorough analysis and provide detailed explanations
@@ -316,16 +406,19 @@ Use these markdown features to create beautiful, organized responses:
 - Include examples in code blocks when relevant
 - End with actionable takeaways or next steps
 - Make responses scannable and visually appealing
-${searchResults ? `
+${hasSearchResults ? `
 
-**WEB SEARCH INTEGRATION:**
-Web search results have been provided to you internally. Use this information to provide accurate, up-to-date answers:
+**WEB SEARCH RESULTS PROVIDED:**
+The following web search results are available. Use this fresh information to answer accurately:
 
-1. **Synthesize Information**: Integrate web search findings naturally into your response
-2. **Be Current**: Use the latest information from the search results
-3. **Stay Natural**: Don't mention sources or citations - present the information as your own knowledge
-4. **Be Comprehensive**: Use ALL relevant information from the search results to give complete answers
-5. **Format Well**: Still follow all the rich formatting guidelines above` : ""}`,
+${searchData.content}
+
+**INSTRUCTIONS FOR USING SEARCH RESULTS:**
+1. Synthesize the information naturally into your response
+2. Use the most recent and relevant data from the sources
+3. If sources conflict, mention the different perspectives
+4. Include specific facts, numbers, and details from the sources
+5. Present information confidently as if you know it directly` : ""}`,
   };
 
   const allMessages = [systemMessage, ...messages];
@@ -336,18 +429,44 @@ Web search results have been provided to you internally. Use this information to
       messages: allMessages,
       stream: true,
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: 2500,
     });
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       if (content) {
-        yield content;
+        yield { type: "content", data: content };
       }
     }
+
+    if (searchData.results.length > 0) {
+      yield { 
+        type: "sources", 
+        data: searchData.results.slice(0, 5).map(r => ({
+          title: r.title,
+          url: r.url,
+          snippet: r.snippet?.substring(0, 150) || "",
+        }))
+      };
+    }
+
+    yield { type: "done" };
   } catch (error: any) {
     console.error("OpenAI streaming error:", error);
-    throw new Error(`AI service error: ${error.message}`);
+    yield { type: "error", data: error.message };
+  }
+}
+
+export async function* streamChatCompletion(
+  messages: ChatMessage[],
+  performSearch: boolean = false
+): AsyncGenerator<string, void, unknown> {
+  const generator = streamChatCompletionWithSearch(messages, performSearch);
+  
+  for await (const event of generator) {
+    if (event.type === "content") {
+      yield event.data;
+    }
   }
 }
 

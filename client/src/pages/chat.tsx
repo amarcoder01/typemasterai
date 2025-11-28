@@ -31,6 +31,9 @@ import {
   BookOpen,
   Code,
   MessageSquare,
+  Globe,
+  ExternalLink,
+  ChevronDown,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -53,6 +56,14 @@ interface Message {
   content: string;
   timestamp?: Date;
   feedback?: "up" | "down" | null;
+  sources?: Array<{ title: string; url: string; snippet: string }>;
+}
+
+interface SearchState {
+  isSearching: boolean;
+  status: "deciding" | "searching" | "complete" | null;
+  query: string;
+  results: Array<{ title: string; url: string; snippet: string }>;
 }
 
 function CopyButton({ text, className }: { text: string; className?: string }) {
@@ -124,7 +135,73 @@ function CodeBlock({ language, children }: { language?: string; children: string
   );
 }
 
-function TypingIndicator() {
+function SearchIndicator({ searchState }: { searchState: SearchState }) {
+  if (!searchState.isSearching && searchState.status !== "complete") return null;
+  
+  return (
+    <div className="flex flex-col gap-2 py-3 animate-in fade-in duration-300">
+      <div className="flex items-center gap-3">
+        {searchState.status === "deciding" && (
+          <>
+            <div className="relative">
+              <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            </div>
+            <span className="text-sm text-muted-foreground font-medium">Analyzing query...</span>
+          </>
+        )}
+        {searchState.status === "searching" && (
+          <>
+            <div className="relative">
+              <Globe className="w-5 h-5 text-primary animate-pulse" />
+            </div>
+            <span className="text-sm text-muted-foreground font-medium">
+              Searching the web{searchState.query && `: "${searchState.query.substring(0, 40)}${searchState.query.length > 40 ? '...' : ''}"`}
+            </span>
+          </>
+        )}
+        {searchState.status === "complete" && searchState.results.length > 0 && (
+          <>
+            <Check className="w-4 h-4 text-green-500" />
+            <span className="text-sm text-muted-foreground font-medium">
+              Found {searchState.results.length} source{searchState.results.length !== 1 ? 's' : ''}
+            </span>
+          </>
+        )}
+      </div>
+      
+      {searchState.status === "complete" && searchState.results.length > 0 && (
+        <div className="flex flex-wrap gap-2 ml-8">
+          {searchState.results.slice(0, 4).map((result, idx) => {
+            let domain = "";
+            try {
+              domain = new URL(result.url).hostname.replace("www.", "");
+            } catch {
+              domain = result.url;
+            }
+            return (
+              <a
+                key={idx}
+                href={result.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-2 py-1 text-xs bg-muted/50 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Globe className="w-3 h-3" />
+                <span className="truncate max-w-[120px]">{domain}</span>
+              </a>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TypingIndicator({ searchState }: { searchState?: SearchState }) {
+  if (searchState?.isSearching) {
+    return <SearchIndicator searchState={searchState} />;
+  }
+  
   return (
     <div className="flex items-center gap-3 py-3">
       <div className="flex items-center gap-1.5">
@@ -143,6 +220,65 @@ function AIIcon({ className, animated = false }: { className?: string; animated?
       <Sparkles className={cn("text-white", className)} />
       {animated && (
         <div className="absolute inset-0 bg-gradient-to-r from-primary/50 to-purple-500/50 rounded-full blur-sm animate-ping" style={{ animationDuration: "2s" }} />
+      )}
+    </div>
+  );
+}
+
+function SourcesPanel({ sources }: { sources: Array<{ title: string; url: string; snippet: string }> }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  if (!sources || sources.length === 0) return null;
+  
+  return (
+    <div className="mt-4 pt-4 border-t border-border/50">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        data-testid="button-toggle-sources"
+      >
+        <Globe className="w-4 h-4" />
+        <span className="font-medium">{sources.length} source{sources.length !== 1 ? 's' : ''}</span>
+        <ChevronDown className={cn("w-4 h-4 transition-transform", isExpanded && "rotate-180")} />
+      </button>
+      
+      {isExpanded && (
+        <div className="mt-3 space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+          {sources.map((source, idx) => {
+            let domain = "";
+            try {
+              domain = new URL(source.url).hostname.replace("www.", "");
+            } catch {
+              domain = source.url;
+            }
+            return (
+              <a
+                key={idx}
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-3 rounded-lg bg-muted/30 hover:bg-muted/50 border border-border/50 transition-colors group"
+                data-testid={`link-source-${idx}`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                    <Globe className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{domain}</span>
+                      <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                    <p className="text-sm font-medium text-foreground truncate mt-0.5">{source.title}</p>
+                    {source.snippet && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{source.snippet}</p>
+                    )}
+                  </div>
+                </div>
+              </a>
+            );
+          })}
+        </div>
       )}
     </div>
   );
@@ -184,6 +320,12 @@ export default function Chat() {
   const [searchTerm, setSearchTerm] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
+  const [searchState, setSearchState] = useState<SearchState>({
+    isSearching: false,
+    status: null,
+    query: "",
+    results: [],
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -397,6 +539,7 @@ export default function Chat() {
     setUploadedFile(null);
     setIsLoading(true);
     setIsStreaming(true);
+    setSearchState({ isSearching: false, status: null, query: "", results: [] });
 
     abortControllerRef.current = new AbortController();
 
@@ -420,7 +563,8 @@ export default function Chat() {
 
       let assistantMessage = "";
       let newConvId = currentConversationId;
-      setMessages((prev) => [...prev, { role: "assistant", content: "", timestamp: new Date() }]);
+      let pendingSources: Array<{ title: string; url: string; snippet: string }> = [];
+      let assistantMessageAdded = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -433,13 +577,12 @@ export default function Chat() {
           if (line.startsWith("data: ")) {
             const data = line.slice(6);
             if (data === "[DONE]") {
+              setSearchState({ isSearching: false, status: null, query: "", results: [] });
               if (newConvId) {
-                // Immediately refresh to show the new conversation
                 queryClient.invalidateQueries({ queryKey: ["conversations"] });
                 if (!currentConversationId) {
                   setCurrentConversationId(newConvId);
                 }
-                // Refresh again after a delay to pick up AI-generated title
                 setTimeout(() => {
                   queryClient.invalidateQueries({ queryKey: ["conversations"] });
                 }, 2000);
@@ -452,7 +595,39 @@ export default function Chat() {
               if (parsed.conversationId && !currentConversationId) {
                 newConvId = parsed.conversationId;
               }
-              if (parsed.content) {
+              
+              if (parsed.type === "searching") {
+                setSearchState({
+                  isSearching: true,
+                  status: parsed.status,
+                  query: parsed.query || "",
+                  results: [],
+                });
+              } else if (parsed.type === "search_complete") {
+                setSearchState({
+                  isSearching: false,
+                  status: "complete",
+                  query: parsed.query || "",
+                  results: parsed.results || [],
+                });
+                pendingSources = parsed.results || [];
+              } else if (parsed.type === "sources") {
+                pendingSources = parsed.sources || [];
+                if (assistantMessageAdded) {
+                  setMessages((prev) => {
+                    const newMessages = [...prev];
+                    newMessages[newMessages.length - 1] = {
+                      ...newMessages[newMessages.length - 1],
+                      sources: pendingSources,
+                    };
+                    return newMessages;
+                  });
+                }
+              } else if (parsed.content) {
+                if (!assistantMessageAdded) {
+                  setMessages((prev) => [...prev, { role: "assistant", content: "", timestamp: new Date(), sources: pendingSources.length > 0 ? pendingSources : undefined }]);
+                  assistantMessageAdded = true;
+                }
                 assistantMessage += parsed.content;
                 setMessages((prev) => {
                   const newMessages = [...prev];
@@ -460,6 +635,7 @@ export default function Chat() {
                     role: "assistant",
                     content: assistantMessage,
                     timestamp: new Date(),
+                    sources: pendingSources.length > 0 ? pendingSources : undefined,
                   };
                   return newMessages;
                 });
@@ -471,6 +647,7 @@ export default function Chat() {
       }
     } catch (error: any) {
       if (error.name === 'AbortError') {
+        setSearchState({ isSearching: false, status: null, query: "", results: [] });
         return;
       }
       setMessages((prev) => [
@@ -480,6 +657,7 @@ export default function Chat() {
     } finally {
       setIsLoading(false);
       setIsStreaming(false);
+      setSearchState({ isSearching: false, status: null, query: "", results: [] });
       abortControllerRef.current = null;
     }
   };
@@ -993,6 +1171,9 @@ export default function Chat() {
                           >
                             {message.content || "..."}
                           </ReactMarkdown>
+                          {message.sources && message.sources.length > 0 && (
+                            <SourcesPanel sources={message.sources} />
+                          )}
                         </div>
                       ) : (
                         <p className="whitespace-pre-wrap leading-7 text-foreground">
@@ -1081,8 +1262,8 @@ export default function Chat() {
                 </div>
               ))}
               
-              {/* Loading / Streaming indicator */}
-              {isLoading && !isStreaming && (
+              {/* Loading / Streaming / Searching indicator */}
+              {(isLoading && !isStreaming) || searchState.isSearching || searchState.status === "complete" ? (
                 <div className="w-full py-6 px-4 bg-muted/30">
                   <div className="max-w-3xl mx-auto flex gap-4">
                     <Avatar className="w-8 h-8 flex-shrink-0 mt-1 animate-pulse">
@@ -1094,11 +1275,11 @@ export default function Chat() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-sm font-medium text-foreground">TypeMasterAI</span>
                       </div>
-                      <TypingIndicator />
+                      <TypingIndicator searchState={searchState} />
                     </div>
                   </div>
                 </div>
-              )}
+              ) : null}
               <div ref={messagesEndRef} />
             </div>
           </div>
