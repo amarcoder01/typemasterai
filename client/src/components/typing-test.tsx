@@ -1054,8 +1054,12 @@ Can you beat my score? Try it here: `,
     if (seconds < 60) {
       return `${seconds}s`;
     }
-    const mins = Math.floor(seconds / 60);
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
+    if (hours > 0) {
+      return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
@@ -1217,7 +1221,7 @@ Can you beat my score? Try it here: `,
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Set your own test duration (up to 1 hour)</p>
+                <p>Set your own test duration (up to 4 hours)</p>
               </TooltipContent>
             </Tooltip>
             
@@ -1254,8 +1258,10 @@ Can you beat my score? Try it here: `,
                   { value: 600, label: "10 min" },
                   { value: 900, label: "15 min" },
                   { value: 1800, label: "30 min" },
-                  { value: 2700, label: "45 min" },
-                  { value: 3600, label: "1 hour" },
+                  { value: 3600, label: "1 hr" },
+                  { value: 7200, label: "2 hr" },
+                  { value: 10800, label: "3 hr" },
+                  { value: 14400, label: "4 hr" },
                 ].map((preset) => (
                   <button
                     key={preset.value}
@@ -1286,31 +1292,45 @@ Can you beat my score? Try it here: `,
                 <input
                   type="number"
                   min="5"
-                  max="3600"
+                  max="14400"
                   value={customTime}
                   onChange={(e) => setCustomTime(e.target.value)}
-                  placeholder="Seconds (5-3600)"
+                  placeholder="Seconds (5-14400)"
                   className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm w-36 focus:outline-none focus:ring-2 focus:ring-primary"
                   data-testid="input-custom-time"
                 />
                 <span className="text-xs text-muted-foreground">
                   {customTime && parseInt(customTime) > 0 ? (
-                    parseInt(customTime) >= 60 
-                      ? `= ${Math.floor(parseInt(customTime) / 60)}m ${parseInt(customTime) % 60}s`
-                      : `= ${customTime}s`
+                    (() => {
+                      const t = parseInt(customTime);
+                      const h = Math.floor(t / 3600);
+                      const m = Math.floor((t % 3600) / 60);
+                      const s = t % 60;
+                      if (h > 0) return `= ${h}h ${m}m ${s}s`;
+                      if (m > 0) return `= ${m}m ${s}s`;
+                      return `= ${s}s`;
+                    })()
                   ) : ""}
                 </span>
                 <button
                   onClick={() => {
                     const time = parseInt(customTime);
-                    if (time >= 5 && time <= 3600) {
+                    if (time >= 5 && time <= 14400) {
                       setMode(time);
                       setShowCustomInput(false);
-                      const mins = Math.floor(time / 60);
+                      const hours = Math.floor(time / 3600);
+                      const mins = Math.floor((time % 3600) / 60);
                       const secs = time % 60;
-                      const formatted = mins > 0 
-                        ? `${mins} min${mins > 1 ? 's' : ''}${secs > 0 ? ` ${secs}s` : ''}`
-                        : `${secs} seconds`;
+                      let formatted = '';
+                      if (hours > 0) {
+                        formatted = `${hours} hour${hours > 1 ? 's' : ''}`;
+                        if (mins > 0) formatted += ` ${mins} min`;
+                      } else if (mins > 0) {
+                        formatted = `${mins} min${mins > 1 ? 's' : ''}`;
+                        if (secs > 0) formatted += ` ${secs}s`;
+                      } else {
+                        formatted = `${secs} seconds`;
+                      }
                       toast({
                         title: "Custom time set",
                         description: `Test duration: ${formatted}`,
@@ -1318,7 +1338,7 @@ Can you beat my score? Try it here: `,
                     } else {
                       toast({
                         title: "Invalid time",
-                        description: "Please enter a value between 5 seconds and 1 hour (3600 seconds)",
+                        description: "Please enter a value between 5 seconds and 4 hours",
                         variant: "destructive",
                       });
                     }
@@ -1330,7 +1350,7 @@ Can you beat my score? Try it here: `,
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Enter any duration from 5 seconds to 1 hour
+                Enter any duration from 5 seconds to 4 hours
               </p>
             </div>
           )}
