@@ -92,49 +92,78 @@ async function scrapeWebPage(url: string): Promise<ScrapedData | null> {
 }
 
 async function searchWithBing(query: string): Promise<SearchResult[]> {
-  const apiKey = process.env.BING_GROUNDING_KEY;
-  if (!apiKey) {
-    console.warn("[Bing] BING_GROUNDING_KEY not found");
+  const key1 = process.env.BING_GROUNDING_KEY_1;
+  const key2 = process.env.BING_GROUNDING_KEY_2;
+  const fallbackKey = process.env.BING_GROUNDING_KEY;
+  
+  // Priority: KEY_1 -> KEY_2 -> fallback BING_GROUNDING_KEY
+  const keys = [key1, key2, fallbackKey].filter(Boolean);
+  
+  if (keys.length === 0) {
+    console.warn("[Bing] No BING_GROUNDING keys found (checked KEY_1, KEY_2, and BING_GROUNDING_KEY)");
     return [];
   }
 
-  try {
-    const searchUrl = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=10&mkt=en-US&safeSearch=Moderate`;
+  const searchUrl = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=10&mkt=en-US&safeSearch=Moderate`;
+  
+  // Try each key in sequence until one works
+  for (let i = 0; i < keys.length; i++) {
+    const apiKey = keys[i];
+    if (!apiKey) continue; // Type guard to ensure apiKey is string
     
-    const response = await fetch(searchUrl, {
-      headers: {
-        "Ocp-Apim-Subscription-Key": apiKey,
-        "Accept": "application/json",
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (!response.ok) {
-      console.error(`[Bing] API error: ${response.status} - ${response.statusText}`);
-      const errorText = await response.text().catch(() => "Unable to read error");
-      console.error(`[Bing] Error details: ${errorText}`);
-      return [];
-    }
-
-    const data = await response.json();
+    const keyLabel = i === 0 ? "KEY_1" : i === 1 ? "KEY_2" : "FALLBACK_KEY";
     
-    if (!data.webPages || !data.webPages.value || data.webPages.value.length === 0) {
-      console.warn(`[Bing] No results found for query: "${query}"`);
-      return [];
+    try {
+      console.log(`[Bing] Attempting search with ${keyLabel}...`);
+      
+      const response = await fetch(searchUrl, {
+        headers: {
+          "Ocp-Apim-Subscription-Key": apiKey,
+          "Accept": "application/json",
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "Unable to read error");
+        console.error(`[Bing ${keyLabel}] API error: ${response.status} - ${response.statusText}`);
+        console.error(`[Bing ${keyLabel}] Error details: ${errorText}`);
+        
+        // If 401/403, try next key. Otherwise, return empty
+        if (response.status === 401 || response.status === 403) {
+          console.warn(`[Bing ${keyLabel}] Authentication failed, trying next key...`);
+          continue;
+        }
+        return [];
+      }
+
+      const data = await response.json();
+      
+      if (!data.webPages || !data.webPages.value || data.webPages.value.length === 0) {
+        console.warn(`[Bing ${keyLabel}] No results found for query: "${query}"`);
+        return [];
+      }
+
+      const results = data.webPages.value.map((r: any) => ({
+        title: r.name || "",
+        url: r.url || "",
+        snippet: r.snippet || "",
+      }));
+
+      console.log(`[Bing ${keyLabel}] ✅ Successfully found ${results.length} results for: "${query}"`);
+      return results;
+    } catch (error) {
+      console.error(`[Bing ${keyLabel}] Search error:`, error instanceof Error ? error.message : String(error));
+      // Try next key if available
+      if (i < keys.length - 1) {
+        console.log(`[Bing ${keyLabel}] Failed, trying next key...`);
+        continue;
+      }
     }
-
-    const results = data.webPages.value.map((r: any) => ({
-      title: r.name || "",
-      url: r.url || "",
-      snippet: r.snippet || "",
-    }));
-
-    console.log(`[Bing] Found ${results.length} results for: "${query}"`);
-    return results;
-  } catch (error) {
-    console.error("[Bing] Search error:", error instanceof Error ? error.message : String(error));
-    return [];
   }
+  
+  console.error("[Bing] All keys failed. Falling back to alternative search providers.");
+  return [];
 }
 
 async function searchWithTavily(query: string): Promise<SearchResult[]> {
@@ -282,13 +311,17 @@ Respond with JSON only:
   }
 }
 
+function hasBingKey(): boolean {
+  return !!(process.env.BING_GROUNDING_KEY_1 || process.env.BING_GROUNDING_KEY_2 || process.env.BING_GROUNDING_KEY);
+}
+
 export async function performWebSearch(query: string): Promise<{ results: SearchResult[]; content: string }> {
   console.log(`[WebSearch] Searching for: "${query}"`);
   
   let results: SearchResult[] = [];
 
   // Primary: Bing Search
-  if (process.env.BING_GROUNDING_KEY) {
+  if (hasBingKey()) {
     results = await searchWithBing(query);
     if (results.length > 0) {
       console.log(`[WebSearch] Found ${results.length} results via Bing`);
@@ -369,7 +402,7 @@ export async function performDeepWebSearch(query: string): Promise<{ results: Se
     let queryResults: SearchResult[] = [];
     
     // Primary: Bing Search
-    if (process.env.BING_GROUNDING_KEY) {
+    if (hasBingKey()) {
       queryResults = await searchWithBing(searchQuery);
       if (queryResults.length > 0) {
         console.log(`[DeepSearch] Found ${queryResults.length} results via Bing for "${searchQuery}"`);
