@@ -1663,12 +1663,14 @@ Can you beat my score? Try it here: `,
                   <button
                     onClick={resetTest}
                     className="flex-1 py-3 bg-primary text-primary-foreground font-bold rounded-lg hover:opacity-90 transition-opacity"
+                    data-testid="button-next-test"
                   >
                     Next Test
                   </button>
                   <button
-                    onClick={() => setIsFinished(false)}
+                    onClick={resetTest}
                     className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition-colors"
+                    data-testid="button-close-results"
                   >
                     Close
                   </button>
