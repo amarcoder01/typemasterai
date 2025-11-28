@@ -102,8 +102,11 @@ export default function TypingTest() {
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [copied, setCopied] = useState(false);
   const [smoothCaret, setSmoothCaret] = useState(true);
+  const [caretSpeed, setCaretSpeed] = useState<'off' | 'fast' | 'medium' | 'smooth'>('medium');
   const [quickRestart, setQuickRestart] = useState(true);
   const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
+  const [isTypingFast, setIsTypingFast] = useState(false);
+  const lastKeystrokeTimeRef = useRef<number>(0);
   const [isComposing, setIsComposing] = useState(false);
   const [paragraphError, setParagraphError] = useState<string | null>(null);
   const [fetchRetryCount, setFetchRetryCount] = useState(0);
@@ -740,6 +743,20 @@ Can you beat my score? Try it here: `,
     if (!text) return;
     
     const previousLength = userInput.length;
+    const now = Date.now();
+    
+    // Track typing speed to disable smooth animation during fast typing
+    if (value.length > previousLength) {
+      const timeSinceLastKeystroke = now - lastKeystrokeTimeRef.current;
+      lastKeystrokeTimeRef.current = now;
+      
+      // If typing faster than 80ms between keystrokes, disable smooth animation temporarily
+      if (timeSinceLastKeystroke < 80 && timeSinceLastKeystroke > 0) {
+        setIsTypingFast(true);
+      } else {
+        setIsTypingFast(false);
+      }
+    }
     
     // Play keyboard sound on keystroke (only when adding characters, not deleting)
     if (value.length > previousLength) {
@@ -756,7 +773,7 @@ Can you beat my score? Try it here: `,
     
     if (!isActive && value.length === 1) {
       setIsActive(true);
-      setStartTime(Date.now());
+      setStartTime(now);
     }
 
     setUserInput(value);
@@ -808,10 +825,14 @@ Can you beat my score? Try it here: `,
   // Load typing behavior settings on mount
   useEffect(() => {
     const smoothCaretSetting = localStorage.getItem('smoothCaret');
+    const caretSpeedSetting = localStorage.getItem('caretSpeed');
     const quickRestartSetting = localStorage.getItem('quickRestart');
     
     if (smoothCaretSetting !== null) {
       setSmoothCaret(smoothCaretSetting === 'true');
+    }
+    if (caretSpeedSetting !== null && ['off', 'fast', 'medium', 'smooth'].includes(caretSpeedSetting)) {
+      setCaretSpeed(caretSpeedSetting as 'off' | 'fast' | 'medium' | 'smooth');
     }
     if (quickRestartSetting !== null) {
       setQuickRestart(quickRestartSetting === 'true');
@@ -1473,18 +1494,25 @@ Can you beat my score? Try it here: `,
                 {char}
               </span>
             ))}
-            {/* Single persistent cursor with smooth transitions */}
+            {/* Single persistent cursor with smooth transitions - Monkeytype/VSCode style */}
             {!isFinished && (
               <span 
                 className={cn(
-                  "absolute w-[3px] rounded-full bg-primary pointer-events-none will-change-transform",
-                  !isActive && "animate-cursor-blink",
-                  smoothCaret ? "transition-all duration-75 ease-linear" : "transition-none"
+                  "absolute w-[2.5px] rounded-sm bg-primary pointer-events-none",
+                  // Only blink when idle (not typing)
+                  !isActive && "animate-caret-blink",
+                  // GPU acceleration hints
+                  "will-change-transform backface-visibility-hidden"
                 )}
                 style={{ 
                   transform: `translate3d(${cursorPosition.left}px, ${cursorPosition.top}px, 0)`,
                   height: `${cursorPosition.height}px`,
-                  boxShadow: '0 0 8px rgba(var(--primary), 0.5)'
+                  // Transition timing based on settings - disabled during fast typing for responsiveness
+                  transition: !smoothCaret || caretSpeed === 'off' || isTypingFast
+                    ? 'none'
+                    : `transform ${caretSpeed === 'fast' ? '50ms' : caretSpeed === 'medium' ? '100ms' : '150ms'} cubic-bezier(0.22, 1, 0.36, 1)`,
+                  // Subtle glow effect
+                  boxShadow: '0 0 6px 1px hsl(var(--primary) / 0.4)',
                 }}
               />
             )}

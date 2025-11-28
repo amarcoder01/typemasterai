@@ -158,7 +158,7 @@
   }
 }
 
-/* Custom Typing Animation */
+/* Custom Typing Animation - Legacy */
 @keyframes cursor-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
@@ -166,6 +166,36 @@
 
 .animate-cursor-blink {
   animation: cursor-blink 1s infinite;
+}
+
+/* Smooth Caret Blink Animation - Monkeytype/VSCode style */
+@keyframes caret-blink-smooth {
+  0%, 45% { opacity: 1; }
+  50%, 95% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes caret-blink-phase {
+  0% { opacity: 1; }
+  50% { opacity: 0.2; }
+  100% { opacity: 1; }
+}
+
+.animate-caret-blink {
+  animation: caret-blink-phase 1s ease-in-out infinite;
+}
+
+/* GPU acceleration helper */
+.backface-visibility-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Reduced motion support for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .animate-caret-blink {
+    animation: none !important;
+  }
 }
 
 .glass-panel {
