@@ -699,7 +699,7 @@ export default function Chat() {
     setInput("");
     setUploadedFile(null);
     setIsLoading(true);
-    setIsStreaming(true);
+    setIsStreaming(false);
     setSearchState({ isSearching: false, status: null, query: "", results: [] });
 
     abortControllerRef.current = new AbortController();
@@ -788,6 +788,7 @@ export default function Chat() {
                 if (!assistantMessageAdded) {
                   setMessages((prev) => [...prev, { role: "assistant", content: "", timestamp: new Date(), sources: pendingSources.length > 0 ? pendingSources : undefined }]);
                   assistantMessageAdded = true;
+                  setIsStreaming(true);
                 }
                 assistantMessage += parsed.content;
                 setMessages((prev) => {
