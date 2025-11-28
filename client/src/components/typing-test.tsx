@@ -349,7 +349,7 @@ export default function TypingTest() {
     // Use fetchParagraph with forceGenerate to centralize counter logic
     await fetchParagraph(false, true);
     
-    setTimeout(() => inputRef.current?.focus(), 100);
+    setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 100);
   }, [mode, fetchParagraph]);
 
   const createShareLink = async () => {
@@ -532,7 +532,7 @@ Can you beat my score? Try it here: `,
     const shareText = `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!\n\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nCan you beat my score?`;
     const shareUrl = 'https://typemasterai.com';
     
-    if ('share' in navigator && navigator.canShare) {
+    if ('share' in navigator && typeof navigator.canShare === 'function') {
       try {
         await navigator.share({
           title: 'TypeMasterAI - My Typing Result',
@@ -614,7 +614,7 @@ Can you beat my score? Try it here: `,
     setAccuracy(100);
     // Clear keystroke tracker for new test
     keystrokeTrackerRef.current = null;
-    setTimeout(() => inputRef.current?.focus(), 0);
+    setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 0);
   }, [mode]);
 
   // Fetch new paragraph when language, paragraph mode, or difficulty changes
@@ -943,7 +943,7 @@ Can you beat my score? Try it here: `,
       if (target.closest('select') || target.closest('button') || target.closest('input')) {
         return;
       }
-      inputRef.current?.focus();
+      inputRef.current?.focus({ preventScroll: true });
     };
     document.addEventListener("click", handleClick);
     return () => document.removeEventListener("click", handleClick);
@@ -1432,7 +1432,7 @@ Can you beat my score? Try it here: `,
               "w-full h-full p-8 text-2xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300",
               !isActive && !isFinished && "blur-[1px] opacity-70 group-hover:blur-0 group-hover:opacity-100"
             )}
-            onClick={() => inputRef.current?.focus()}
+            onClick={() => inputRef.current?.focus({ preventScroll: true })}
           >
             {text.split("").map((char, index) => (
               <span 
