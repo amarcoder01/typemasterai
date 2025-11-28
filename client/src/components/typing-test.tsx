@@ -677,9 +677,9 @@ export default function TypingTest() {
                   />
                 </div>
               </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
+              <TooltipContent className="max-w-xs bg-popover text-popover-foreground border shadow-lg p-3">
                 <p className="font-medium mb-1">Language Selection</p>
-                <p className="text-xs text-muted-foreground">Practice typing in your preferred language. Supports 23+ languages including English, Spanish, Hindi, Japanese, Arabic, and more. Great for learning new languages!</p>
+                <p className="text-xs opacity-80">Practice typing in your preferred language. Supports 23+ languages including English, Spanish, Hindi, Japanese, Arabic, and more. Great for learning new languages!</p>
               </TooltipContent>
             </Tooltip>
 
@@ -700,9 +700,9 @@ export default function TypingTest() {
                   />
                 </div>
               </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
+              <TooltipContent className="max-w-xs bg-popover text-popover-foreground border shadow-lg p-3">
                 <p className="font-medium mb-1">Paragraph Topic</p>
-                <p className="text-xs text-muted-foreground">Choose what you want to type about. General for everyday text, Programming for code terms, Business for professional vocabulary, News for current events style, and more!</p>
+                <p className="text-xs opacity-80">Choose what you want to type about. General for everyday text, Programming for code terms, Business for professional vocabulary, News for current events style, and more!</p>
               </TooltipContent>
             </Tooltip>
 
@@ -724,11 +724,11 @@ export default function TypingTest() {
                   />
                 </div>
               </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="font-medium mb-1">Difficulty Level</p>
-                <p className="text-xs text-muted-foreground mb-1"><span className="text-green-500 font-medium">Easy:</span> Short sentences, common words - perfect for beginners</p>
-                <p className="text-xs text-muted-foreground mb-1"><span className="text-yellow-500 font-medium">Medium:</span> Standard paragraphs with varied vocabulary</p>
-                <p className="text-xs text-muted-foreground"><span className="text-red-500 font-medium">Hard:</span> Complex sentences, advanced vocabulary, punctuation</p>
+              <TooltipContent className="max-w-xs bg-popover text-popover-foreground border shadow-lg p-3">
+                <p className="font-medium mb-2">Difficulty Level</p>
+                <p className="text-xs opacity-90 mb-1"><span className="text-green-400 font-semibold">Easy:</span> Short sentences, common words - perfect for beginners</p>
+                <p className="text-xs opacity-90 mb-1"><span className="text-yellow-400 font-semibold">Medium:</span> Standard paragraphs with varied vocabulary</p>
+                <p className="text-xs opacity-90"><span className="text-orange-400 font-semibold">Hard:</span> Complex sentences, advanced vocabulary, punctuation</p>
               </TooltipContent>
             </Tooltip>
             
