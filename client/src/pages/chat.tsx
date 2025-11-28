@@ -1265,95 +1265,41 @@ function ConversationItem({
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(conversation.title);
   const inputRef = useRef<HTMLInputElement>(null);
-  // Use ref for blur guard - refs update synchronously, no race conditions
-  const justStartedEditingRef = useRef(false);
-  const hasUserInteractedRef = useRef(false);
 
   // Sync editTitle with conversation.title when it changes (after successful rename)
   useEffect(() => {
     setEditTitle(conversation.title);
   }, [conversation.title]);
 
-  // Focus input when editing starts - use requestAnimationFrame for reliable timing
+  // Focus input when editing starts
   useEffect(() => {
-    if (isEditing) {
-      justStartedEditingRef.current = true;
-      hasUserInteractedRef.current = false;
-      
-      // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (inputRef.current) {
-            inputRef.current.focus();
-            inputRef.current.select();
-          }
-          // Mark that initial setup is complete after a frame
-          requestAnimationFrame(() => {
-            justStartedEditingRef.current = false;
-          });
-        });
-      });
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
     }
   }, [isEditing]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = () => {
     if (editTitle.trim() && editTitle !== conversation.title) {
       onRename(editTitle.trim());
     } else {
       setEditTitle(conversation.title);
     }
     setIsEditing(false);
-    justStartedEditingRef.current = false;
-    hasUserInteractedRef.current = false;
-  }, [editTitle, conversation.title, onRename]);
+  };
 
-  const handleCancel = useCallback(() => {
-    setEditTitle(conversation.title);
-    setIsEditing(false);
-    justStartedEditingRef.current = false;
-    hasUserInteractedRef.current = false;
-  }, [conversation.title]);
-
-  const handleBlur = useCallback((e: React.FocusEvent) => {
-    // Ignore blur if we just started editing (dropdown closing race condition)
-    if (justStartedEditingRef.current) {
-      return;
-    }
-    // Only save on blur if user has actually interacted with the input
-    if (hasUserInteractedRef.current) {
-      handleSave();
-    } else {
-      // If no interaction, just close without saving
-      handleCancel();
-    }
-  }, [handleSave, handleCancel]);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    hasUserInteractedRef.current = true;
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleSave();
     } else if (e.key === 'Escape') {
       e.preventDefault();
-      handleCancel();
+      setEditTitle(conversation.title);
+      setIsEditing(false);
     }
-  }, [handleSave, handleCancel]);
-
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    hasUserInteractedRef.current = true;
-    setEditTitle(e.target.value);
-  }, []);
-
-  const startRename = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
+    // Stop propagation to prevent Radix keyboard navigation
     e.stopPropagation();
-    // Set editing state first
-    setIsEditing(true);
-    // Close dropdown after a frame to avoid blur race
-    requestAnimationFrame(() => {
-      setIsOpen(false);
-    });
-  }, []);
+  };
 
   return (
     <div
@@ -1371,10 +1317,11 @@ function ConversationItem({
           ref={inputRef}
           type="text"
           value={editTitle}
-          onChange={handleChange}
-          onBlur={handleBlur}
+          onChange={(e) => setEditTitle(e.target.value)}
+          onBlur={handleSave}
           onKeyDown={handleKeyDown}
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
           className="flex-1 text-sm bg-zinc-700 text-zinc-100 px-2 py-1 rounded border border-zinc-600 focus:outline-none focus:ring-1 focus:ring-primary"
           data-testid={`input-rename-${conversation.id}`}
         />
@@ -1382,7 +1329,7 @@ function ConversationItem({
         <span className="text-sm truncate flex-1 leading-tight">{conversation.title}</span>
       )}
       <div className={cn("opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0", (isOpen || isEditing) && "opacity-100")}>
-        <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenu open={isOpen} onOpenChange={setIsOpen} modal={false}>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
             <Button 
               variant="ghost" 
@@ -1397,10 +1344,22 @@ function ConversationItem({
             align="end" 
             className="bg-zinc-800 border-zinc-700 min-w-[160px]"
             onClick={(e) => e.stopPropagation()}
+            onCloseAutoFocus={(e) => {
+              // Prevent dropdown from stealing focus when closing
+              // This is the KEY fix for the rename issue
+              if (isEditing) {
+                e.preventDefault();
+                inputRef.current?.focus();
+              }
+            }}
           >
             <DropdownMenuItem
-              onSelect={(e) => e.preventDefault()}
-              onClick={startRename}
+              onSelect={(e) => {
+                // Prevent default close behavior
+                e.preventDefault();
+                setIsEditing(true);
+                setIsOpen(false);
+              }}
               className="text-zinc-300 hover:bg-zinc-700 focus:bg-zinc-700 focus:text-zinc-100 cursor-pointer"
               data-testid={`button-rename-${conversation.id}`}
             >
@@ -1408,8 +1367,7 @@ function ConversationItem({
               Rename
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={(e) => {
-                e.stopPropagation();
+              onSelect={() => {
                 onDelete();
                 setIsOpen(false);
               }}
