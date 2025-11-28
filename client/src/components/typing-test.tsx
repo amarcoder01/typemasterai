@@ -865,23 +865,20 @@ Can you beat my score? Try it here: `,
           return { left: relativeLeft, top: relativeTop, height };
         });
         
-        // Auto-scroll: Check if cursor is outside visible area of container
-        const cursorBottomRelative = charRect.bottom - containerRect.top;
+        // Auto-scroll: Keep cursor in the top third of visible area
+        // This ensures user can always see upcoming text below the cursor
         const cursorTopRelative = charRect.top - containerRect.top;
         const containerHeight = container.clientHeight;
-        const scrollThreshold = 60; // Trigger scroll when cursor is within 60px of edge
+        const idealCursorPosition = containerHeight * 0.3; // Keep cursor at 30% from top
         
-        // Calculate new scroll position to center the cursor
-        const cursorCenterY = charRect.top + charRect.height / 2 - containerRect.top;
-        const targetScrollTop = scrollTop + cursorCenterY - containerHeight / 2;
-        
-        // Scroll down if cursor is near bottom edge
-        if (cursorBottomRelative > containerHeight - scrollThreshold) {
-          container.scrollTop = Math.max(0, targetScrollTop);
+        // If cursor is below the ideal position, scroll to bring it up
+        if (cursorTopRelative > idealCursorPosition) {
+          const scrollAmount = cursorTopRelative - idealCursorPosition;
+          container.scrollTop = scrollTop + scrollAmount;
         }
-        // Scroll up if cursor is near top edge
-        else if (cursorTopRelative < scrollThreshold && scrollTop > 0) {
-          container.scrollTop = Math.max(0, targetScrollTop);
+        // If cursor is above view (e.g., using backspace), scroll up
+        else if (cursorTopRelative < 0) {
+          container.scrollTop = scrollTop + cursorTopRelative - 20; // Small padding at top
         }
       } else if (containerRef.current) {
         const firstChar = document.querySelector(`[data-char-index="0"]`) as HTMLElement;
