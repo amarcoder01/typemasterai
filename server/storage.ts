@@ -1136,7 +1136,10 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .selectDistinct({ mode: typingParagraphs.mode })
       .from(typingParagraphs);
-    return result.map(r => r.mode);
+    // Filter out custom modes (generated with timestamps) to keep the dropdown clean
+    return result
+      .map(r => r.mode)
+      .filter(mode => !mode.startsWith('custom_'));
   }
 
   async createTypingParagraph(paragraph: InsertTypingParagraph): Promise<TypingParagraph> {
