@@ -202,16 +202,155 @@ function TypingIndicator({ searchState }: { searchState?: SearchState }) {
     return <SearchIndicator searchState={searchState} />;
   }
   
-  return (
-    <div className="flex items-center gap-3 py-3">
-      <div className="flex items-center gap-1.5">
-        <span className="w-2.5 h-2.5 bg-gradient-to-r from-primary to-purple-500 rounded-full animate-pulse" style={{ animationDelay: "0ms", animationDuration: "1s" }} />
-        <span className="w-2.5 h-2.5 bg-gradient-to-r from-primary to-purple-500 rounded-full animate-pulse" style={{ animationDelay: "200ms", animationDuration: "1s" }} />
-        <span className="w-2.5 h-2.5 bg-gradient-to-r from-primary to-purple-500 rounded-full animate-pulse" style={{ animationDelay: "400ms", animationDuration: "1s" }} />
+  return <DynamicAILoadingIndicator />;
+}
+
+function DynamicAILoadingIndicator({ 
+  variant = "breathing-cursor",
+  message = "Thinking..."
+}: { 
+  variant?: "breathing-cursor" | "bouncing-dots" | "pulse-wave" | "typing-cursor";
+  message?: string;
+}) {
+  const [currentMessage, setCurrentMessage] = useState(message);
+  const [dots, setDots] = useState("");
+  
+  useEffect(() => {
+    const messages = [
+      "Thinking...",
+      "Analyzing...",
+      "Generating response...",
+      "Processing...",
+    ];
+    
+    let messageIndex = 0;
+    const messageInterval = setInterval(() => {
+      messageIndex = (messageIndex + 1) % messages.length;
+      setCurrentMessage(messages[messageIndex]);
+    }, 2000);
+    
+    const dotInterval = setInterval(() => {
+      setDots(prev => prev.length >= 3 ? "" : prev + ".");
+    }, 500);
+    
+    return () => {
+      clearInterval(messageInterval);
+      clearInterval(dotInterval);
+    };
+  }, []);
+  
+  if (variant === "breathing-cursor") {
+    return (
+      <div className="flex items-center gap-3 py-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center">
+            <div className="w-1 h-4 bg-gradient-to-b from-primary via-purple-500 to-primary rounded-full animate-pulse" 
+                 style={{ animationDuration: "1.5s" }} 
+            />
+            <div className="w-0.5 h-3 bg-primary/20 ml-0.5 rounded-full opacity-60 animate-pulse" 
+                 style={{ animationDuration: "1.5s", animationDelay: "0.1s" }} 
+            />
+          </div>
+          <span className="text-sm font-medium bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            {currentMessage}
+          </span>
+        </div>
       </div>
-      <span className="text-sm text-muted-foreground font-medium">Generating response...</span>
-    </div>
-  );
+    );
+  }
+  
+  if (variant === "bouncing-dots") {
+    return (
+      <div className="flex items-center gap-3 py-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="flex items-center gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="w-2 h-2 rounded-full bg-gradient-to-br from-primary to-purple-600"
+              style={{
+                animation: "bounce 1.4s ease-in-out infinite",
+                animationDelay: `${i * 0.16}s`,
+              }}
+            />
+          ))}
+        </div>
+        <span className="text-sm text-muted-foreground font-medium">
+          {currentMessage}
+        </span>
+        <style>{`
+          @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); opacity: 0.6; }
+            40% { transform: translateY(-8px); opacity: 1; }
+          }
+        `}</style>
+      </div>
+    );
+  }
+  
+  if (variant === "pulse-wave") {
+    return (
+      <div className="flex items-center gap-3 py-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="flex items-center gap-1">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="w-1 bg-gradient-to-t from-primary to-purple-500 rounded-full"
+              style={{
+                height: "12px",
+                animation: "wave 1.2s ease-in-out infinite",
+                animationDelay: `${i * 0.1}s`,
+              }}
+            />
+          ))}
+        </div>
+        <span className="text-sm text-muted-foreground font-medium">
+          {currentMessage}
+        </span>
+        <style>{`
+          @keyframes wave {
+            0%, 100% { height: 12px; opacity: 0.4; }
+            50% { height: 20px; opacity: 1; }
+          }
+        `}</style>
+      </div>
+    );
+  }
+  
+  if (variant === "typing-cursor") {
+    return (
+      <div className="flex items-center gap-3 py-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="flex items-center gap-0.5">
+          <span className="text-sm font-medium text-muted-foreground">
+            {currentMessage.split("").map((char, i) => (
+              <span
+                key={i}
+                className="inline-block"
+                style={{
+                  animation: "typeIn 0.05s ease-in",
+                  animationDelay: `${i * 0.05}s`,
+                  animationFillMode: "backwards",
+                }}
+              >
+                {char}
+              </span>
+            ))}
+          </span>
+          <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 animate-pulse" 
+                style={{ animationDuration: "1s" }} 
+          />
+        </div>
+        <span className="text-xs text-muted-foreground/60 font-mono">{dots}</span>
+        <style>{`
+          @keyframes typeIn {
+            from { opacity: 0; transform: translateY(2px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+  
+  return null;
 }
 
 function AIIcon({ className, animated = false }: { className?: string; animated?: boolean }) {
