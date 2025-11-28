@@ -121,6 +121,13 @@ export default function TypingTest() {
   const latestRequestIdRef = useRef(0);
   const appliedRequestIdRef = useRef(0);
   const [trackingEnabled, setTrackingEnabled] = useState(true);
+  
+  // Paragraph queue for seamless continuous typing
+  interface QueuedParagraph { id: number; content: string; }
+  const paragraphQueueRef = useRef<QueuedParagraph[]>([]);
+  const usedParagraphIdsRef = useRef<Set<number>>(new Set());
+  const isFetchingQueueRef = useRef(false);
+  const MIN_QUEUE_SIZE = 3;
 
   const { data: languagesData, isError: languagesError, isFetching: languagesFetching, refetch: refetchLanguages } = useQuery({
     queryKey: ["languages"],
@@ -143,6 +150,51 @@ export default function TypingTest() {
     retry: 2,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Fast batch fetch for paragraph queue (database only, no AI generation)
+  const fillParagraphQueue = useCallback(async () => {
+    if (isFetchingQueueRef.current) return;
+    if (paragraphQueueRef.current.length >= MIN_QUEUE_SIZE) return;
+    
+    isFetchingQueueRef.current = true;
+    try {
+      const needed = MIN_QUEUE_SIZE - paragraphQueueRef.current.length + 3;
+      const url = `/api/typing/paragraphs/batch?language=${language}&mode=${paragraphMode}&difficulty=${difficulty}&count=${needed}&t=${Date.now()}`;
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.paragraphs && data.paragraphs.length > 0) {
+          // Filter out already-used paragraphs and add new ones
+          const newParagraphs: QueuedParagraph[] = [];
+          for (const p of data.paragraphs) {
+            if (!usedParagraphIdsRef.current.has(p.id)) {
+              newParagraphs.push({ id: p.id, content: p.content });
+              usedParagraphIdsRef.current.add(p.id);
+            }
+          }
+          // Atomic update of queue
+          paragraphQueueRef.current = [...paragraphQueueRef.current, ...newParagraphs];
+        }
+      }
+    } catch (error) {
+      console.error("Queue fetch error:", error);
+    } finally {
+      isFetchingQueueRef.current = false;
+    }
+  }, [language, paragraphMode, difficulty]);
+
+  // Get next paragraph from queue (instant) or fetch if empty
+  const getNextFromQueue = useCallback((): string | null => {
+    if (paragraphQueueRef.current.length > 0) {
+      const next = paragraphQueueRef.current.shift()!;
+      // Trigger background refill if queue is getting low
+      if (paragraphQueueRef.current.length < MIN_QUEUE_SIZE) {
+        fillParagraphQueue();
+      }
+      return next.content;
+    }
+    return null;
+  }, [fillParagraphQueue]);
 
   const fetchParagraph = useCallback(async (useCustomPrompt = false, forceGenerate = false) => {
     // Increment request ID and capture it for this fetch
@@ -213,6 +265,14 @@ export default function TypingTest() {
         // Clear isGenerating immediately when latest request applies (don't wait for stale fetches)
         setIsGenerating(false);
         setUserInput(""); // Clean slate for new test
+        // Add current paragraph ID to used set to prevent duplicates in queue
+        if (data.paragraph.id) {
+          usedParagraphIdsRef.current.add(data.paragraph.id);
+        }
+        // Pre-seed paragraph queue for seamless continuous typing
+        if (paragraphQueueRef.current.length < MIN_QUEUE_SIZE) {
+          fillParagraphQueue();
+        }
       } else {
         // Stale response - silently ignore
         return;
@@ -619,6 +679,9 @@ Can you beat my score? Try it here: `,
     setAccuracy(100);
     // Clear keystroke tracker for new test
     keystrokeTrackerRef.current = null;
+    // Reset paragraph queue (will be filled after fetchParagraph returns with ID)
+    paragraphQueueRef.current = [];
+    usedParagraphIdsRef.current = new Set();
     setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 0);
   }, [mode]);
 
@@ -635,6 +698,9 @@ Can you beat my score? Try it here: `,
       setAccuracy(100);
       // Clear keystroke tracker for new test
       keystrokeTrackerRef.current = null;
+      // Reset queue (will be filled after fetchParagraph returns with ID)
+      paragraphQueueRef.current = [];
+      usedParagraphIdsRef.current = new Set();
     }
   }, [language, paragraphMode, difficulty]);
 
@@ -782,13 +848,28 @@ Can you beat my score? Try it here: `,
 
     setUserInput(value);
 
-    // If approaching end of text and time still remaining, extend the paragraph
-    if (value.length >= text.length - 20 && timeLeft > 5 && originalText) {
-      const newText = text + " " + originalText;
-      setText(newText);
-      // Update tracker's expected text when paragraph extends
-      if (keystrokeTrackerRef.current) {
-        keystrokeTrackerRef.current.expectedText = newText;
+    // If approaching end of text and time still remaining, extend with queued content
+    if (value.length >= text.length - 30 && timeLeft > 5) {
+      // Try to get next paragraph from queue (instant)
+      const nextParagraph = getNextFromQueue();
+      if (nextParagraph) {
+        // Use functional setState to avoid closure issues
+        setText(prevText => {
+          const newText = prevText + " " + nextParagraph;
+          if (keystrokeTrackerRef.current) {
+            keystrokeTrackerRef.current.expectedText = newText;
+          }
+          return newText;
+        });
+      } else if (originalText) {
+        // Fallback to repeating original if queue is empty
+        setText(prevText => {
+          const newText = prevText + " " + originalText;
+          if (keystrokeTrackerRef.current) {
+            keystrokeTrackerRef.current.expectedText = newText;
+          }
+          return newText;
+        });
       }
     }
   };

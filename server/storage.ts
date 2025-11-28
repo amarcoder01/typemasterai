@@ -222,6 +222,7 @@ export interface IStorage {
   getConversationMessages(conversationId: number): Promise<Message[]>;
   
   getRandomParagraph(language: string, mode?: string, difficulty?: string): Promise<TypingParagraph | undefined>;
+  getRandomParagraphs(language: string, count: number, mode?: string, difficulty?: string): Promise<TypingParagraph[]>;
   getExactParagraph(language: string, mode: string, difficulty?: string): Promise<TypingParagraph | undefined>;
   getAvailableLanguages(): Promise<string[]>;
   getAvailableModes(): Promise<string[]>;
@@ -1123,6 +1124,68 @@ export class DatabaseStorage implements IStorage {
     }
     
     return undefined;
+  }
+
+  async getRandomParagraphs(language: string, count: number, mode?: string, difficulty?: string): Promise<TypingParagraph[]> {
+    // Build conditions for the query
+    const conditions = [eq(typingParagraphs.language, language)];
+    
+    if (mode) {
+      conditions.push(eq(typingParagraphs.mode, mode));
+    }
+    
+    if (difficulty) {
+      conditions.push(eq(typingParagraphs.difficulty, difficulty));
+    }
+    
+    // Get all matching paragraphs in a single query
+    const allParagraphs = await db
+      .select()
+      .from(typingParagraphs)
+      .where(and(...conditions));
+    
+    // If we have enough paragraphs, shuffle and take the requested count
+    if (allParagraphs.length > 0) {
+      // Fisher-Yates shuffle for random selection
+      const shuffled = [...allParagraphs];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled.slice(0, count);
+    }
+    
+    // Fallback to any paragraph in the requested language
+    const languageParagraphs = await db
+      .select()
+      .from(typingParagraphs)
+      .where(eq(typingParagraphs.language, language));
+    
+    if (languageParagraphs.length > 0) {
+      const shuffled = [...languageParagraphs];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled.slice(0, count);
+    }
+    
+    // Final fallback to English paragraphs
+    const englishParagraphs = await db
+      .select()
+      .from(typingParagraphs)
+      .where(eq(typingParagraphs.language, 'en'));
+    
+    if (englishParagraphs.length > 0) {
+      const shuffled = [...englishParagraphs];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled.slice(0, count);
+    }
+    
+    return [];
   }
 
   async getAvailableLanguages(): Promise<string[]> {

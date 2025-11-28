@@ -935,6 +935,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Fast batch endpoint - database only, no AI generation (for pre-fetching)
+  app.get("/api/typing/paragraphs/batch", async (req, res) => {
+    try {
+      const language = (req.query.language as string) || "en";
+      const mode = req.query.mode as string | undefined;
+      const difficulty = req.query.difficulty as string | undefined;
+      const count = Math.min(parseInt(req.query.count as string) || 5, 10); // Max 10
+      
+      // Use efficient batch fetch with single query and shuffle
+      const paragraphs = await storage.getRandomParagraphs(language, count, mode, difficulty);
+      
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.json({ 
+        paragraphs,
+        count: paragraphs.length,
+      });
+    } catch (error: any) {
+      console.error("Get batch paragraphs error:", error);
+      res.status(500).json({ message: "Failed to fetch paragraphs" });
+    }
+  });
+
   app.get("/api/typing/languages", async (req, res) => {
     try {
       const languages = await storage.getAvailableLanguages();
