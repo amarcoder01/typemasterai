@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Share2, Copy, Check, Twitter, Facebook, MessageCircle, Mail, Send } from "lucide-react";
+import { Download, Share2, Copy, Check, Twitter, Facebook, MessageCircle, Mail, Send, Image, Clipboard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ShareCardProps {
@@ -185,6 +185,40 @@ export function ShareCard({ wpm, accuracy, mode, language, username, onClose, on
     }
   };
 
+  const [imageCopied, setImageCopied] = useState(false);
+
+  const copyImageToClipboard = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Failed to create blob"));
+        }, "image/png");
+      });
+
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob })
+      ]);
+      
+      setImageCopied(true);
+      setTimeout(() => setImageCopied(false), 2000);
+      onShareTracked?.('visual_card_copy_image');
+      toast({
+        title: "Image Copied!",
+        description: "Paste directly into Twitter, Discord, or any app that supports images!",
+      });
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Your browser doesn't support image copying. Please download instead.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const copyShareText = () => {
     const rating = getPerformanceRating();
     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
@@ -260,42 +294,52 @@ Think you can beat my score? Try it now! 🎯
         style={{ maxWidth: "100%", height: "auto" }}
       />
       
-      {/* Primary Actions */}
-      <div className="flex flex-wrap gap-3 justify-center w-full">
-        <Button
-          onClick={downloadCard}
-          variant="outline"
-          className="gap-2"
-          data-testid="button-download-card"
-        >
-          <Download className="w-4 h-4" />
-          Download
-        </Button>
-        
-        <Button
-          onClick={shareCard}
-          disabled={isSharing}
-          className="gap-2"
-          data-testid="button-share-card"
-        >
-          <Share2 className="w-4 h-4" />
-          {isSharing ? "Sharing..." : "Share Image"}
-        </Button>
-        
-        <Button
-          onClick={copyShareText}
-          variant="secondary"
-          className="gap-2"
-          data-testid="button-copy-share-text"
-        >
-          {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-          Copy Text
-        </Button>
+      {/* Image Sharing Section */}
+      <div className="w-full space-y-3">
+        <div className="p-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
+          <p className="text-xs text-center text-purple-300 font-medium mb-2">Share This Image</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              onClick={copyImageToClipboard}
+              variant="outline"
+              className="gap-2 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20"
+              data-testid="button-copy-image"
+            >
+              {imageCopied ? <Check className="w-4 h-4 text-green-500" /> : <Clipboard className="w-4 h-4 text-purple-400" />}
+              {imageCopied ? "Copied!" : "Copy Image"}
+            </Button>
+            <Button
+              onClick={downloadCard}
+              variant="outline"
+              className="gap-2 bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20"
+              data-testid="button-download-card"
+            >
+              <Download className="w-4 h-4 text-blue-400" />
+              Download
+            </Button>
+          </div>
+          <p className="text-[10px] text-center text-muted-foreground mt-2">
+            Copy image and paste directly into Twitter, Discord, or any social app
+          </p>
+        </div>
+
+        {/* Native Share (Mobile) */}
+        {'share' in navigator && (
+          <Button
+            onClick={shareCard}
+            disabled={isSharing}
+            className="w-full gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+            data-testid="button-share-card"
+          >
+            <Share2 className="w-4 h-4" />
+            {isSharing ? "Sharing..." : "Share Image (Mobile/Desktop Apps)"}
+          </Button>
+        )}
       </div>
 
-      {/* Social Sharing Buttons */}
+      {/* Quick Text Share Section */}
       <div className="w-full space-y-2">
-        <p className="text-xs text-center text-muted-foreground uppercase tracking-wide">Share on Social Media</p>
+        <p className="text-xs text-center text-muted-foreground uppercase tracking-wide">Or Share with Text + Link</p>
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={shareToTwitter}
@@ -348,6 +392,16 @@ Think you can beat my score? Try it now! 🎯
             <span className="text-xs font-medium">Email</span>
           </button>
         </div>
+        
+        {/* Copy Text Button */}
+        <button
+          onClick={copyShareText}
+          className="w-full py-2 mt-2 bg-secondary/50 hover:bg-secondary text-secondary-foreground rounded-lg text-sm flex items-center justify-center gap-2 transition-all"
+          data-testid="button-copy-share-text"
+        >
+          {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+          {copied ? "Text Copied!" : "Copy Share Text"}
+        </button>
       </div>
     </div>
   );
