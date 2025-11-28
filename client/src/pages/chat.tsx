@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -163,6 +164,7 @@ interface Conversation {
 export default function Chat() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -255,6 +257,17 @@ export default function Chat() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      toast({
+        title: "Renamed",
+        description: "Conversation renamed successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Rename Failed",
+        description: "Could not rename conversation. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -1252,6 +1265,11 @@ function ConversationItem({
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(conversation.title);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync editTitle with conversation.title when it changes (after successful rename)
+  useEffect(() => {
+    setEditTitle(conversation.title);
+  }, [conversation.title]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
