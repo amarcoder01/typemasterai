@@ -663,13 +663,15 @@ Can you beat my score? Try it here: `,
     }
   }, [userInput, isActive, startTime, text]);
 
-  const finishTest = () => {
+  const finishTest = (completedNaturally = true) => {
     setIsActive(false);
     setIsFinished(true);
     setTestCompletionDate(new Date());
     
-    // Recalculate final WPM with precise elapsed time
-    const elapsedSeconds = startTime ? (Date.now() - startTime) / 1000 : mode;
+    // For timed tests that complete naturally (timer reaches 0), use the mode duration
+    // This ensures WPM matches the standard formula: (chars/5) / minutes
+    // Using Date.now() - startTime can drift due to setInterval inaccuracy
+    const elapsedSeconds = completedNaturally ? mode : (startTime ? (Date.now() - startTime) / 1000 : mode);
     const chars = userInput.length;
     const errorCount = userInput.split("").filter((char, i) => char !== text[i]).length;
     const correctChars = chars - errorCount;
