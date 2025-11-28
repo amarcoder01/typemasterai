@@ -76,7 +76,7 @@ export default function TypingTest() {
   const [showCustomInput, setShowCustomInput] = useState(false);
   const [language, setLanguage] = useState("en");
   const [paragraphMode, setParagraphMode] = useState<string>("general");
-  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("easy");
   const [customPrompt, setCustomPrompt] = useState("");
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
   const [text, setText] = useState("");
