@@ -1217,7 +1217,7 @@ Can you beat my score? Try it here: `,
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Set your own test duration (5-600 seconds)</p>
+                <p>Set your own test duration (up to 1 hour)</p>
               </TooltipContent>
             </Tooltip>
             
@@ -1245,39 +1245,93 @@ Can you beat my score? Try it here: `,
           </div>
           
           {showCustomInput && (
-            <div className="flex items-center justify-center gap-2">
-              <input
-                type="number"
-                min="5"
-                max="600"
-                value={customTime}
-                onChange={(e) => setCustomTime(e.target.value)}
-                placeholder="Enter seconds (5-600)"
-                className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm w-48 focus:outline-none focus:ring-2 focus:ring-primary"
-                data-testid="input-custom-time"
-              />
-              <button
-                onClick={() => {
-                  const time = parseInt(customTime);
-                  if (time >= 5 && time <= 600) {
-                    setMode(time);
-                    toast({
-                      title: "Custom time set",
-                      description: `Test duration: ${time} seconds`,
-                    });
-                  } else {
-                    toast({
-                      title: "Invalid time",
-                      description: "Please enter a value between 5 and 600 seconds",
-                      variant: "destructive",
-                    });
-                  }
-                }}
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90"
-                data-testid="button-set-custom-time"
-              >
-                Set
-              </button>
+            <div className="flex flex-col items-center gap-3">
+              {/* Quick Duration Presets */}
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <span className="text-xs text-muted-foreground mr-1">Quick:</span>
+                {[
+                  { value: 300, label: "5 min" },
+                  { value: 600, label: "10 min" },
+                  { value: 900, label: "15 min" },
+                  { value: 1800, label: "30 min" },
+                  { value: 2700, label: "45 min" },
+                  { value: 3600, label: "1 hour" },
+                ].map((preset) => (
+                  <button
+                    key={preset.value}
+                    onClick={() => {
+                      setMode(preset.value);
+                      setCustomTime(preset.value.toString());
+                      setShowCustomInput(false);
+                      toast({
+                        title: "Duration set",
+                        description: `Test duration: ${preset.label}`,
+                      });
+                    }}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                      mode === preset.value
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary/80 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    )}
+                    data-testid={`button-preset-${preset.value}`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Custom Input */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="5"
+                  max="3600"
+                  value={customTime}
+                  onChange={(e) => setCustomTime(e.target.value)}
+                  placeholder="Seconds (5-3600)"
+                  className="px-3 py-2 rounded-lg bg-secondary border border-border text-sm w-36 focus:outline-none focus:ring-2 focus:ring-primary"
+                  data-testid="input-custom-time"
+                />
+                <span className="text-xs text-muted-foreground">
+                  {customTime && parseInt(customTime) > 0 ? (
+                    parseInt(customTime) >= 60 
+                      ? `= ${Math.floor(parseInt(customTime) / 60)}m ${parseInt(customTime) % 60}s`
+                      : `= ${customTime}s`
+                  ) : ""}
+                </span>
+                <button
+                  onClick={() => {
+                    const time = parseInt(customTime);
+                    if (time >= 5 && time <= 3600) {
+                      setMode(time);
+                      setShowCustomInput(false);
+                      const mins = Math.floor(time / 60);
+                      const secs = time % 60;
+                      const formatted = mins > 0 
+                        ? `${mins} min${mins > 1 ? 's' : ''}${secs > 0 ? ` ${secs}s` : ''}`
+                        : `${secs} seconds`;
+                      toast({
+                        title: "Custom time set",
+                        description: `Test duration: ${formatted}`,
+                      });
+                    } else {
+                      toast({
+                        title: "Invalid time",
+                        description: "Please enter a value between 5 seconds and 1 hour (3600 seconds)",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90"
+                  data-testid="button-set-custom-time"
+                >
+                  Set
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enter any duration from 5 seconds to 1 hour
+              </p>
             </div>
           )}
           
