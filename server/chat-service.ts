@@ -51,21 +51,24 @@ async function scrapeWebPage(url: string): Promise<ScrapedData | null> {
       .get()
       .filter((text) => text.length > 4);
     
-    const paragraphs = container.find("p, li")
+    const paragraphs = container.find("p, li, td, dd, blockquote")
       .map((_, el) => $(el).text().trim())
       .get()
       .filter((text) => 
-        text.length > 30 && 
+        text.length > 20 && 
         !text.toLowerCase().includes("cookie") && 
         !text.toLowerCase().includes("privacy policy") &&
         !text.toLowerCase().includes("terms of service") &&
-        !text.toLowerCase().includes("subscribe to")
+        !text.toLowerCase().includes("subscribe") &&
+        !text.toLowerCase().includes("sign up") &&
+        !text.toLowerCase().includes("newsletter") &&
+        !text.toLowerCase().includes("advertisement")
       )
-      .slice(0, 15);
+      .slice(0, 30);
 
     let content = "";
     let charCount = 0;
-    const maxChars = 4000;
+    const maxChars = 6000;
     
     for (let i = 0; i < paragraphs.length && charCount < maxChars; i++) {
       const para = paragraphs[i];
@@ -185,20 +188,30 @@ async function generateSearchQueries(originalQuery: string): Promise<string[]> {
       messages: [
         {
           role: "system",
-          content: `You are a search query optimization expert. Given a user's question, generate 2-3 diverse search queries that will help find comprehensive information from different angles.
+          content: `You are a search query optimization expert. Your job is to generate HIGHLY RELEVANT, FOCUSED search queries that stay EXACTLY on topic.
 
-Rules:
-- Generate queries that approach the topic from different perspectives
-- Include both broad and specific queries
-- Use different keyword combinations
-- Optimize for search engines (concise, keyword-focused)
-- Include the original query as one option if it's good
-- For technical topics, include specific terminology
-- For current events, include time-relevant keywords
+CRITICAL RULES:
+1. **STAY ON TOPIC**: Every query must be 100% relevant to the user's exact question
+2. **NO TANGENTS**: Don't broaden the scope or add unrelated topics
+3. **EXTRACT CORE INTENT**: Understand what the user really wants to know
+4. **BE SPECIFIC**: Include exact entities, dates, names mentioned by user
+5. **MAINTAIN CONTEXT**: Keep all important qualifiers (e.g., "top", "best", "latest", "2024")
+6. **REMOVE FLUFF**: Strip phrases like "give me info about", "tell me about"
+7. **OPTIMIZE FOR RELEVANCE**: Each query should find highly relevant results only
+
+Query Generation Strategy:
+- Query 1: Most specific version (exact entities + qualifiers + time)
+- Query 2: Slightly broader but still focused (synonyms, alternative phrasing)
+- Query 3: Different angle but same core topic (e.g., reviews, comparisons, technical details)
+
+WRONG Examples (TOO BROAD):
+User asks: "top AI coding tools 2024"
+❌ Bad: ["AI tools", "artificial intelligence applications", "machine learning software"]
+✅ Good: ["best AI coding assistants 2024", "top AI code generation tools comparison 2024", "leading AI programming tools reviews 2024"]
 
 Respond with JSON only:
 {
-  "queries": ["query 1", "query 2", "query 3"]
+  "queries": ["highly specific query 1", "focused query 2", "relevant query 3"]
 }`,
         },
         {
@@ -206,8 +219,8 @@ Respond with JSON only:
           content: `Generate optimized search queries for: ${originalQuery}`,
         },
       ],
-      temperature: 0.5,
-      max_tokens: 200,
+      temperature: 0.3,
+      max_tokens: 250,
       response_format: { type: "json_object" },
     });
 
@@ -250,7 +263,7 @@ export async function performWebSearch(query: string): Promise<{ results: Search
   let extractedContent = "";
   const scrapedUrls: string[] = [];
 
-  for (let i = 0; i < Math.min(results.length, 6); i++) {
+  for (let i = 0; i < Math.min(results.length, 8); i++) {
     const result = results[i];
     try {
       const scraped = await scrapeWebPage(result.url);
@@ -258,7 +271,7 @@ export async function performWebSearch(query: string): Promise<{ results: Search
         extractedContent += `\n\n---\n**Source ${i + 1}: ${scraped.title}**\nURL: ${result.url}\n\n${scraped.content}\n`;
         scrapedUrls.push(result.url);
         console.log(`[WebSearch] Scraped ${scraped.content.length} chars from ${result.url}`);
-        if (extractedContent.length > 15000) break;
+        if (extractedContent.length > 30000) break;
       }
     } catch (error) {
       console.log(`[WebSearch] Failed to scrape ${result.url}`);
@@ -282,7 +295,7 @@ export async function performDeepWebSearch(query: string): Promise<{ results: Se
   console.log(`[DeepSearch] Starting deep search for: "${query}"`);
   
   const startTime = Date.now();
-  const MAX_TOTAL_TIME = 45000;
+  const MAX_TOTAL_TIME = 60000;
   
   const queries = await generateSearchQueries(query);
   
@@ -320,7 +333,7 @@ export async function performDeepWebSearch(query: string): Promise<{ results: Se
       }
     }
     
-    if (allResults.length >= 10) break;
+    if (allResults.length >= 15) break;
   }
   
   console.log(`[DeepSearch] Total unique results: ${allResults.length}`);
@@ -332,7 +345,7 @@ export async function performDeepWebSearch(query: string): Promise<{ results: Se
   
   let extractedContent = "";
   const scrapedUrls: string[] = [];
-  const maxPages = Math.min(allResults.length, 8);
+  const maxPages = Math.min(allResults.length, 10);
   
   for (let i = 0; i < maxPages; i++) {
     if (Date.now() - startTime > MAX_TOTAL_TIME) {
@@ -348,8 +361,8 @@ export async function performDeepWebSearch(query: string): Promise<{ results: Se
         scrapedUrls.push(result.url);
         console.log(`[DeepSearch] Scraped ${scraped.content.length} chars from ${result.url}`);
         
-        if (extractedContent.length > 20000) {
-          console.log(`[DeepSearch] Reached content limit (20k chars), stopping scrape`);
+        if (extractedContent.length > 40000) {
+          console.log(`[DeepSearch] Reached content limit (40k chars), stopping scrape`);
           break;
         }
       }
@@ -361,14 +374,14 @@ export async function performDeepWebSearch(query: string): Promise<{ results: Se
   console.log(`[DeepSearch] Scraped ${scrapedUrls.length} pages successfully. Total content: ${extractedContent.length} chars. Total time: ${Date.now() - startTime}ms`);
   
   if (extractedContent.length === 0 && allResults.length > 0) {
-    for (let i = 0; i < Math.min(allResults.length, 8); i++) {
+    for (let i = 0; i < Math.min(allResults.length, 10); i++) {
       const result = allResults[i];
       extractedContent += `\n\n---\n**Source ${i + 1}: ${result.title}**\nURL: ${result.url}\n\n${result.snippet}\n`;
     }
     console.log(`[DeepSearch] Using snippets as fallback. Total content: ${extractedContent.length} chars`);
   }
   
-  return { results: allResults.slice(0, 8), content: extractedContent };
+  return { results: allResults.slice(0, 10), content: extractedContent };
 }
 
 export async function decideIfSearchNeeded(message: string): Promise<SearchDecision> {
@@ -532,7 +545,7 @@ export async function* streamChatCompletionWithSearch(
             yield { 
               type: "search_complete", 
               data: { 
-                results: searchData.results.slice(0, 8),
+                results: searchData.results.slice(0, 10),
                 query: searchQuery 
               } 
             };
@@ -548,7 +561,7 @@ export async function* streamChatCompletionWithSearch(
             yield { 
               type: "search_complete", 
               data: { 
-                results: searchData.results.slice(0, 8),
+                results: searchData.results.slice(0, 10),
                 query: lastMessage.content 
               } 
             };
@@ -622,7 +635,7 @@ The user expects FRESH, CURRENT information from these search results. Deliver i
       messages: allMessages,
       stream: true,
       temperature: hasSearchResults ? 0.3 : 0.7,
-      max_tokens: 2500,
+      max_tokens: 4000,
     });
 
     for await (const chunk of stream) {
@@ -635,7 +648,7 @@ The user expects FRESH, CURRENT information from these search results. Deliver i
     if (searchData.results.length > 0) {
       yield { 
         type: "sources", 
-        data: searchData.results.slice(0, 8).map(r => ({
+        data: searchData.results.slice(0, 10).map(r => ({
           title: r.title,
           url: r.url,
           snippet: r.snippet?.substring(0, 150) || "",
