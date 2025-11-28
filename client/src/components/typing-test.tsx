@@ -383,6 +383,7 @@ export default function TypingTest() {
   const shareToSocial = (platform: string) => {
     const rating = getPerformanceRating();
     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+    const siteUrl = "https://typemasterai.com";
     
     const shareTexts: Record<string, string> = {
       twitter: `${rating.emoji} Just achieved ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!
@@ -426,7 +427,7 @@ Can you beat my score? Try it here: `,
     
     const shareText = shareTexts[platform] || shareTexts.twitter;
     const encodedText = encodeURIComponent(shareText);
-    const encodedUrl = encodeURIComponent(shareUrl || window.location.href);
+    const encodedUrl = encodeURIComponent(siteUrl);
     
     const urls: Record<string, string> = {
       twitter: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
@@ -442,11 +443,13 @@ Can you beat my score? Try it here: `,
 
   const handleNativeShare = async () => {
     if ('share' in navigator) {
+      const rating = getPerformanceRating();
+      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
       try {
         await navigator.share({
           title: 'TypeMasterAI - My Typing Result',
-          text: `I scored ${wpm} WPM with ${accuracy}% accuracy!`,
-          url: shareUrl || window.location.href,
+          text: `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!\n\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nCan you beat my score?`,
+          url: 'https://typemasterai.com',
         });
       } catch (error) {
         console.error('Native share error:', error);
@@ -1390,7 +1393,10 @@ Can you beat my score? Try it here: `,
                   <p className="text-primary/80 text-xs mt-3">
                     Think you can beat my score? Try it now! 🎯
                   </p>
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <p className="text-xs text-primary mt-2 font-medium">
+                    🔗 typemasterai.com
+                  </p>
+                  <p className="text-xs text-muted-foreground">
                     #TypingTest #TypeMasterAI #WPM
                   </p>
                 </div>
@@ -1399,7 +1405,7 @@ Can you beat my score? Try it here: `,
                 onClick={() => {
                   const rating = getPerformanceRating();
                   const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-                  const text = `${rating.emoji} I just scored ${wpm} WPM on TypeMasterAI!\n\n⌨️ ${wpm} WPM | ✨ ${accuracy}% Accuracy\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} typing test\n\nThink you can beat my score? Try it now! 🎯\n\n#TypingTest #TypeMasterAI #WPM`;
+                  const text = `${rating.emoji} I just scored ${wpm} WPM on TypeMasterAI!\n\n⌨️ ${wpm} WPM | ✨ ${accuracy}% Accuracy\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} typing test\n\nThink you can beat my score? Try it now! 🎯\n\n🔗 https://typemasterai.com\n\n#TypingTest #TypeMasterAI #WPM`;
                   navigator.clipboard.writeText(text);
                   toast({ title: "Message Copied!", description: "Share message copied to clipboard" });
                 }}

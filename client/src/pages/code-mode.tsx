@@ -311,7 +311,7 @@ export default function CodeMode() {
       if (!response.ok) throw new Error("Failed to create share");
       const data = await response.json();
       
-      const url = `${window.location.origin}/share/${data.shareId}`;
+      const url = `https://typemasterai.com/share/${data.shareId}`;
       setShareUrl(url);
       setShareDialogOpen(true);
       
@@ -346,15 +346,53 @@ export default function CodeMode() {
   };
 
   const shareToSocial = (platform: string) => {
-    const text = `I just typed ${wpm} WPM with ${accuracy}% accuracy in ${PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}! Can you beat my score?`;
+    const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
+    const siteUrl = "https://typemasterai.com";
+    
+    const shareTexts: Record<string, string> = {
+      twitter: `⌨️ Just typed ${wpm} WPM with ${accuracy}% accuracy in ${langName} on TypeMasterAI!
+
+💻 Code Typing Test
+🏅 Can you beat my score?
+
+#CodingTest #TypeMasterAI #${langName.replace(/[^a-zA-Z]/g, '')}`,
+      
+      facebook: `⌨️ I just completed a code typing test on TypeMasterAI!
+
+💻 Language: ${langName}
+⚡ Speed: ${wpm} WPM
+✨ Accuracy: ${accuracy}%
+
+Challenge yourself!`,
+      
+      linkedin: `Just completed a code typing challenge on TypeMasterAI!
+
+📊 Results:
+• Language: ${langName}
+• Speed: ${wpm} Words Per Minute
+• Accuracy: ${accuracy}%
+
+Improving coding efficiency through practice.
+
+#CodingSkills #TypeMasterAI #Developer`,
+      
+      whatsapp: `⌨️ Check out my code typing score on TypeMasterAI!
+
+💻 *${langName}*
+⚡ *${wpm} WPM* | *${accuracy}% Accuracy*
+
+Can you beat me? Try it here: `,
+    };
+    
+    const text = shareTexts[platform] || shareTexts.twitter;
     const encodedText = encodeURIComponent(text);
-    const encodedUrl = encodeURIComponent(shareUrl);
+    const encodedUrl = encodeURIComponent(siteUrl);
     
     const urls: Record<string, string> = {
       twitter: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`,
       linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
-      whatsapp: `https://wa.me/?text=${encodedText}%20${encodedUrl}`,
+      whatsapp: `https://wa.me/?text=${encodedText}${encodedUrl}`,
     };
     
     window.open(urls[platform], '_blank', 'width=600,height=400');

@@ -167,11 +167,16 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date }: Ce
     ctx.textAlign = "center";
     ctx.fillStyle = "#00ffff";
     ctx.font = "bold 36px 'DM Sans', sans-serif";
-    ctx.fillText("TypeMasterAI", canvas.width / 2, 680);
+    ctx.fillText("TypeMasterAI", canvas.width / 2, 670);
     
     ctx.fillStyle = "#64748b";
     ctx.font = "16px 'DM Sans', sans-serif";
-    ctx.fillText("Master Your Typing with AI", canvas.width / 2, 710);
+    ctx.fillText("Master Your Typing with AI", canvas.width / 2, 700);
+    
+    // Website URL
+    ctx.fillStyle = "#a855f7";
+    ctx.font = "bold 18px 'DM Sans', sans-serif";
+    ctx.fillText("typemasterai.com", canvas.width / 2, 730);
 
     // Signature line (bottom right)
     const signatureX = canvas.width - 280;
@@ -311,7 +316,7 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date }: Ce
   const shareCertificateToSocial = (platform: string) => {
     const rating = getPerformanceRating();
     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-    const siteUrl = window.location.origin;
+    const siteUrl = "https://typemasterai.com";
     
     const shareTexts: Record<string, string> = {
       twitter: `${rating.emoji} Just earned my TypeMasterAI Certificate!
