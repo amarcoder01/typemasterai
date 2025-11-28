@@ -108,7 +108,7 @@ export default function TypingTest() {
   const [isTypingFast, setIsTypingFast] = useState(false);
   const lastKeystrokeTimeRef = useRef<number>(0);
   const [isComposing, setIsComposing] = useState(false);
-  const [isFocused, setIsFocused] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
   const [paragraphError, setParagraphError] = useState<string | null>(null);
   const [fetchRetryCount, setFetchRetryCount] = useState(0);
   const MAX_RETRY_ATTEMPTS = 3;
@@ -346,6 +346,7 @@ export default function TypingTest() {
     setShowShareModal(false);
     setShareUrl("");
     setLastResultId(null);
+    setHasInteracted(false);
     
     // Clear keystroke tracker to start fresh
     keystrokeTrackerRef.current = null;
@@ -1500,8 +1501,6 @@ Can you beat my score? Try it here: `,
           onCompositionEnd={handleCompositionEnd}
           onPaste={handlePaste}
           onCut={handleCut}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
           className="absolute opacity-0 w-full h-full cursor-default z-0"
           autoFocus
           disabled={!!paragraphError && !text}
@@ -1515,9 +1514,12 @@ Can you beat my score? Try it here: `,
             dir={isRTL ? "rtl" : "ltr"}
             className={cn(
               "w-full h-full max-h-[400px] overflow-y-auto p-8 text-2xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300 scroll-smooth",
-              !isActive && !isFinished && !isFocused && "blur-[1px] opacity-70 group-hover:blur-0 group-hover:opacity-100"
+              !isActive && !isFinished && !hasInteracted && "blur-[2px] opacity-60 group-hover:blur-0 group-hover:opacity-100"
             )}
-            onClick={() => inputRef.current?.focus({ preventScroll: true })}
+            onClick={() => {
+              setHasInteracted(true);
+              inputRef.current?.focus({ preventScroll: true });
+            }}
           >
             {text.split("").map((char, index) => (
               <span 
@@ -1553,11 +1555,19 @@ Can you beat my score? Try it here: `,
           </div>
         )}
         
-        {/* Focus Overlay - Hide when focused, active, or typing */}
-        {!isActive && !isFinished && !isFocused && userInput.length === 0 && text && !isGenerating && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-background/40 backdrop-blur-[2px]">
-            <div className="px-6 py-3 bg-primary/90 text-primary-foreground font-semibold text-lg rounded-lg shadow-lg animate-pulse">
-              Click or type to start
+        {/* Focus Overlay - Professional Monkeytype-style hint */}
+        {!isActive && !isFinished && !hasInteracted && userInput.length === 0 && text && !isGenerating && (
+          <div 
+            className="absolute inset-0 flex items-center justify-center cursor-text transition-opacity duration-200"
+            onClick={() => {
+              setHasInteracted(true);
+              inputRef.current?.focus({ preventScroll: true });
+            }}
+          >
+            <div className="flex items-center gap-2 px-4 py-2 bg-card/80 backdrop-blur-sm border border-border/50 rounded-md shadow-sm">
+              <span className="text-muted-foreground text-base font-medium tracking-wide">
+                Click here or start typing
+              </span>
             </div>
           </div>
         )}
