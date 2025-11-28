@@ -91,6 +91,52 @@ async function scrapeWebPage(url: string): Promise<ScrapedData | null> {
   }
 }
 
+async function searchWithBing(query: string): Promise<SearchResult[]> {
+  const apiKey = process.env.BING_GROUNDING_KEY;
+  if (!apiKey) {
+    console.warn("[Bing] BING_GROUNDING_KEY not found");
+    return [];
+  }
+
+  try {
+    const searchUrl = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=10&mkt=en-US&safeSearch=Moderate`;
+    
+    const response = await fetch(searchUrl, {
+      headers: {
+        "Ocp-Apim-Subscription-Key": apiKey,
+        "Accept": "application/json",
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      console.error(`[Bing] API error: ${response.status} - ${response.statusText}`);
+      const errorText = await response.text().catch(() => "Unable to read error");
+      console.error(`[Bing] Error details: ${errorText}`);
+      return [];
+    }
+
+    const data = await response.json();
+    
+    if (!data.webPages || !data.webPages.value || data.webPages.value.length === 0) {
+      console.warn(`[Bing] No results found for query: "${query}"`);
+      return [];
+    }
+
+    const results = data.webPages.value.map((r: any) => ({
+      title: r.name || "",
+      url: r.url || "",
+      snippet: r.snippet || "",
+    }));
+
+    console.log(`[Bing] Found ${results.length} results for: "${query}"`);
+    return results;
+  } catch (error) {
+    console.error("[Bing] Search error:", error instanceof Error ? error.message : String(error));
+    return [];
+  }
+}
+
 async function searchWithTavily(query: string): Promise<SearchResult[]> {
   const apiKey = process.env.TAVILY_API_KEY;
   if (!apiKey) return [];
@@ -112,7 +158,7 @@ async function searchWithTavily(query: string): Promise<SearchResult[]> {
     });
 
     if (!response.ok) {
-      console.error(`Tavily API error: ${response.status}`);
+      console.error(`[Tavily] API error: ${response.status}`);
       return [];
     }
 
@@ -123,7 +169,7 @@ async function searchWithTavily(query: string): Promise<SearchResult[]> {
       snippet: r.content?.substring(0, 300) || "",
     }));
   } catch (error) {
-    console.error("Tavily search error:", error);
+    console.error("[Tavily] Search error:", error);
     return [];
   }
 }
@@ -241,13 +287,23 @@ export async function performWebSearch(query: string): Promise<{ results: Search
   
   let results: SearchResult[] = [];
 
-  if (process.env.TAVILY_API_KEY) {
+  // Primary: Bing Search
+  if (process.env.BING_GROUNDING_KEY) {
+    results = await searchWithBing(query);
+    if (results.length > 0) {
+      console.log(`[WebSearch] Found ${results.length} results via Bing`);
+    }
+  }
+
+  // Fallback 1: Tavily (if configured)
+  if (results.length === 0 && process.env.TAVILY_API_KEY) {
     results = await searchWithTavily(query);
     if (results.length > 0) {
       console.log(`[WebSearch] Found ${results.length} results via Tavily`);
     }
   }
 
+  // Fallback 2: DuckDuckGo
   if (results.length === 0) {
     results = await searchWithDuckDuckGo(query);
     if (results.length > 0) {
@@ -256,7 +312,7 @@ export async function performWebSearch(query: string): Promise<{ results: Search
   }
 
   if (results.length === 0) {
-    console.log("[WebSearch] No results found");
+    console.warn("[WebSearch] No results found from any search provider");
     return { results: [], content: "" };
   }
 
@@ -312,13 +368,23 @@ export async function performDeepWebSearch(query: string): Promise<{ results: Se
     
     let queryResults: SearchResult[] = [];
     
-    if (process.env.TAVILY_API_KEY) {
+    // Primary: Bing Search
+    if (process.env.BING_GROUNDING_KEY) {
+      queryResults = await searchWithBing(searchQuery);
+      if (queryResults.length > 0) {
+        console.log(`[DeepSearch] Found ${queryResults.length} results via Bing for "${searchQuery}"`);
+      }
+    }
+    
+    // Fallback 1: Tavily (if configured)
+    if (queryResults.length === 0 && process.env.TAVILY_API_KEY) {
       queryResults = await searchWithTavily(searchQuery);
       if (queryResults.length > 0) {
         console.log(`[DeepSearch] Found ${queryResults.length} results via Tavily for "${searchQuery}"`);
       }
     }
     
+    // Fallback 2: DuckDuckGo
     if (queryResults.length === 0) {
       queryResults = await searchWithDuckDuckGo(searchQuery);
       if (queryResults.length > 0) {
