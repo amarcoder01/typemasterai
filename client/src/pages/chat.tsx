@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,18 @@ import {
   Paperclip,
   PanelLeft,
   SquarePen,
+  Copy,
+  Check,
+  RefreshCw,
+  Square,
+  ThumbsUp,
+  ThumbsDown,
+  Pencil,
+  Clock,
+  Zap,
+  BookOpen,
+  Code,
+  MessageSquare,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -39,6 +51,105 @@ import {
 interface Message {
   role: "user" | "assistant";
   content: string;
+  timestamp?: Date;
+  feedback?: "up" | "down" | null;
+}
+
+function CopyButton({ text, className }: { text: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className={cn("h-7 w-7 rounded-md hover:bg-muted", className)}
+      onClick={handleCopy}
+      data-testid="button-copy"
+    >
+      {copied ? (
+        <Check className="w-3.5 h-3.5 text-green-500" />
+      ) : (
+        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+      )}
+    </Button>
+  );
+}
+
+function CodeBlock({ language, children }: { language?: string; children: string }) {
+  const [copied, setCopied] = useState(false);
+  
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(children);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  
+  const displayLanguage = language?.replace(/^language-/, '') || 'code';
+  
+  return (
+    <div className="relative group my-4">
+      <div className="flex items-center justify-between px-4 py-2 bg-zinc-800 dark:bg-zinc-900 border-b border-zinc-700 rounded-t-lg">
+        <span className="text-xs text-zinc-400 font-mono">{displayLanguage}</span>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700"
+          onClick={handleCopy}
+          data-testid="button-copy-code"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5 mr-1.5 text-green-500" />
+              Copied!
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5 mr-1.5" />
+              Copy
+            </>
+          )}
+        </Button>
+      </div>
+      <pre className="bg-zinc-800 dark:bg-zinc-900 p-4 rounded-b-lg overflow-x-auto">
+        <code className="text-sm font-mono text-zinc-100">{children}</code>
+      </pre>
+    </div>
+  );
+}
+
+function TypingIndicator() {
+  return (
+    <div className="flex items-center gap-1 py-2">
+      <div className="flex gap-1">
+        <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+        <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+        <span className="w-2 h-2 bg-primary/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+      </div>
+      <span className="text-sm text-muted-foreground ml-2">Thinking...</span>
+    </div>
+  );
+}
+
+function formatTimestamp(date?: Date): string {
+  if (!date) return "";
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 interface Conversation {
@@ -56,6 +167,7 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -63,6 +175,7 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const { data: conversationsData } = useQuery({
     queryKey: ["conversations"],
@@ -86,7 +199,11 @@ export default function Chat() {
         return;
       }
       const data = await response.json();
-      setMessages(data.messages?.map((m: any) => ({ role: m.role, content: m.content })) || []);
+      setMessages(data.messages?.map((m: any) => ({ 
+        role: m.role, 
+        content: m.content,
+        timestamp: m.createdAt ? new Date(m.createdAt) : undefined,
+      })) || []);
       setCurrentConversationId(id);
     } catch (error) {
       console.error("Error loading conversation:", error);
@@ -124,6 +241,26 @@ export default function Chat() {
       setMessages([]);
     },
   });
+
+  const renameConversationMutation = useMutation({
+    mutationFn: async ({ id, title }: { id: number; title: string }) => {
+      const response = await fetch(`/api/conversations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ title }),
+      });
+      if (!response.ok) throw new Error("Failed to rename conversation");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+
+  const handleRename = (id: number, newTitle: string) => {
+    renameConversationMutation.mutate({ id, title: newTitle });
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -186,21 +323,39 @@ export default function Chat() {
     }
   };
 
-  const sendMessage = async () => {
-    if ((!input.trim() && !uploadedFile) || isLoading) return;
+  const stopGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsStreaming(false);
+      setIsLoading(false);
+    }
+  }, []);
 
-    let messageContent = input;
+  const sendMessage = async (regenerateFromIndex?: number) => {
+    const isRegenerating = regenerateFromIndex !== undefined;
+    
+    if (!isRegenerating && (!input.trim() && !uploadedFile) || isLoading) return;
+
+    let messageContent = isRegenerating ? "" : input;
     let fileAnalysis = "";
+    let messagesToSend = [...messages];
 
-    // Analyze file if uploaded
-    if (uploadedFile) {
+    if (isRegenerating) {
+      messagesToSend = messages.slice(0, regenerateFromIndex);
+      const lastUserMessage = messagesToSend.filter(m => m.role === "user").pop();
+      if (lastUserMessage) {
+        messageContent = lastUserMessage.content;
+      }
+      setMessages(messagesToSend);
+    } else if (uploadedFile) {
       try {
         fileAnalysis = await analyzeFile(uploadedFile);
         messageContent = `${input}\n\n[Attached file: ${uploadedFile.name}]\n\n${fileAnalysis}`;
       } catch (error) {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: `Error analyzing file: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.` },
+          { role: "assistant", content: `Error analyzing file: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`, timestamp: new Date() },
         ]);
         setUploadedFile(null);
         setIsAnalyzingFile(false);
@@ -208,11 +363,19 @@ export default function Chat() {
       }
     }
 
-    const userMessage: Message = { role: "user", content: messageContent };
-    setMessages((prev) => [...prev, userMessage]);
+    const userMessage: Message = { role: "user", content: messageContent, timestamp: new Date() };
+    
+    if (!isRegenerating) {
+      setMessages((prev) => [...prev, userMessage]);
+      messagesToSend = [...messages, userMessage];
+    }
+    
     setInput("");
     setUploadedFile(null);
     setIsLoading(true);
+    setIsStreaming(true);
+
+    abortControllerRef.current = new AbortController();
 
     try {
       const response = await fetch("/api/chat", {
@@ -220,9 +383,10 @@ export default function Chat() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          messages: [...messages, userMessage],
+          messages: messagesToSend,
           conversationId: currentConversationId,
         }),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) throw new Error("Failed to get response");
@@ -233,7 +397,7 @@ export default function Chat() {
 
       let assistantMessage = "";
       let newConvId = currentConversationId;
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "", timestamp: new Date() }]);
 
       while (true) {
         const { done, value } = await reader.read();
@@ -267,6 +431,7 @@ export default function Chat() {
                   newMessages[newMessages.length - 1] = {
                     role: "assistant",
                     content: assistantMessage,
+                    timestamp: new Date(),
                   };
                   return newMessages;
                 });
@@ -276,14 +441,35 @@ export default function Chat() {
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        return;
+      }
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Sorry, I encountered an error. Please try again." },
+        { role: "assistant", content: "Sorry, I encountered an error. Please try again.", timestamp: new Date() },
       ]);
     } finally {
       setIsLoading(false);
+      setIsStreaming(false);
+      abortControllerRef.current = null;
     }
+  };
+
+  const handleFeedback = (index: number, feedback: "up" | "down") => {
+    setMessages((prev) => {
+      const newMessages = [...prev];
+      newMessages[index] = {
+        ...newMessages[index],
+        feedback: newMessages[index].feedback === feedback ? null : feedback,
+      };
+      return newMessages;
+    });
+  };
+
+  const regenerateResponse = (messageIndex: number) => {
+    if (isLoading) return;
+    sendMessage(messageIndex);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -403,6 +589,7 @@ export default function Chat() {
                       isActive={currentConversationId === conv.id}
                       onSelect={() => loadConversation(conv.id)}
                       onDelete={() => deleteConversationMutation.mutate(conv.id)}
+                      onRename={(newTitle) => handleRename(conv.id, newTitle)}
                     />
                   ))}
                 </div>
@@ -415,6 +602,7 @@ export default function Chat() {
                       currentId={currentConversationId}
                       onSelect={loadConversation}
                       onDelete={deleteConversationMutation.mutate}
+                      onRename={handleRename}
                     />
                   )}
                   {yesterday.length > 0 && (
@@ -424,6 +612,7 @@ export default function Chat() {
                       currentId={currentConversationId}
                       onSelect={loadConversation}
                       onDelete={deleteConversationMutation.mutate}
+                      onRename={handleRename}
                     />
                   )}
                   {lastWeek.length > 0 && (
@@ -433,6 +622,7 @@ export default function Chat() {
                       currentId={currentConversationId}
                       onSelect={loadConversation}
                       onDelete={deleteConversationMutation.mutate}
+                      onRename={handleRename}
                     />
                   )}
                   {older.length > 0 && (
@@ -442,6 +632,7 @@ export default function Chat() {
                       currentId={currentConversationId}
                       onSelect={loadConversation}
                       onDelete={deleteConversationMutation.mutate}
+                      onRename={handleRename}
                     />
                   )}
                 </>
@@ -489,58 +680,98 @@ export default function Chat() {
               </h1>
               
               {/* Suggestion Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto mt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl mx-auto mt-6">
                 <button
                   onClick={() => setInput("What are the best practices for improving typing speed?")}
-                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 transition-colors"
+                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 hover:border-primary/30 transition-all"
                   data-testid="suggestion-typing-speed"
                 >
-                  <div className="font-medium text-foreground group-hover:text-primary transition-colors">
-                    Improve typing speed
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 rounded-lg bg-blue-500/10">
+                      <Zap className="w-4 h-4 text-blue-500" />
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    Learn techniques to type faster and more accurately
+                  <div className="font-medium text-foreground group-hover:text-primary transition-colors text-sm">
+                    Improve speed
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Type faster & accurately
                   </div>
                 </button>
                 
                 <button
-                  onClick={() => setInput("How do I maintain proper typing posture?")}
-                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 transition-colors"
+                  onClick={() => setInput("How do I maintain proper typing posture and prevent strain?")}
+                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 hover:border-primary/30 transition-all"
                   data-testid="suggestion-typing-posture"
                 >
-                  <div className="font-medium text-foreground group-hover:text-primary transition-colors">
-                    Typing ergonomics
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 rounded-lg bg-green-500/10">
+                      <User className="w-4 h-4 text-green-500" />
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    Tips for healthy typing habits and posture
+                  <div className="font-medium text-foreground group-hover:text-primary transition-colors text-sm">
+                    Ergonomics
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Healthy typing habits
                   </div>
                 </button>
                 
                 <button
-                  onClick={() => setInput("What is a good typing speed for professionals?")}
-                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 transition-colors"
-                  data-testid="suggestion-professional-speed"
+                  onClick={() => setInput("What keyboard shortcuts should every programmer know?")}
+                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 hover:border-primary/30 transition-all"
+                  data-testid="suggestion-keyboard-shortcuts"
                 >
-                  <div className="font-medium text-foreground group-hover:text-primary transition-colors">
-                    Professional standards
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 rounded-lg bg-purple-500/10">
+                      <Code className="w-4 h-4 text-purple-500" />
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    Average typing speeds for different professions
+                  <div className="font-medium text-foreground group-hover:text-primary transition-colors text-sm">
+                    Shortcuts
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Essential keyboard tips
                   </div>
                 </button>
                 
                 <button
                   onClick={() => setInput("How can I practice touch typing effectively?")}
-                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 transition-colors"
+                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 hover:border-primary/30 transition-all"
                   data-testid="suggestion-touch-typing"
                 >
-                  <div className="font-medium text-foreground group-hover:text-primary transition-colors">
-                    Touch typing practice
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="p-1.5 rounded-lg bg-orange-500/10">
+                      <BookOpen className="w-4 h-4 text-orange-500" />
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    Effective methods to master touch typing
+                  <div className="font-medium text-foreground group-hover:text-primary transition-colors text-sm">
+                    Touch typing
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Master typing technique
                   </div>
                 </button>
+              </div>
+              
+              {/* Capabilities row */}
+              <div className="flex flex-wrap items-center justify-center gap-4 mt-8 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Chat with AI</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Web search</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Paperclip className="w-3.5 h-3.5" />
+                  <span>Analyze files</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Code className="w-3.5 h-3.5" />
+                  <span>Code help</span>
+                </div>
               </div>
             </div>
           </div>
@@ -551,13 +782,13 @@ export default function Chat() {
                 <div
                   key={index}
                   className={cn(
-                    "w-full py-8 px-4",
+                    "w-full py-6 px-4 group/message",
                     message.role === "assistant" ? "bg-muted/30" : "bg-background"
                   )}
                   data-testid={`message-${message.role}-${index}`}
                 >
-                  <div className="max-w-3xl mx-auto flex gap-6">
-                    <Avatar className="w-8 h-8 flex-shrink-0">
+                  <div className="max-w-3xl mx-auto flex gap-4">
+                    <Avatar className="w-8 h-8 flex-shrink-0 mt-1">
                       <AvatarFallback className={cn(
                         message.role === "assistant" 
                           ? "bg-gradient-to-br from-primary to-purple-600" 
@@ -570,7 +801,18 @@ export default function Chat() {
                         )}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 space-y-2 overflow-hidden pt-1">
+                    <div className="flex-1 space-y-2 overflow-hidden">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-medium text-foreground">
+                          {message.role === "assistant" ? "TypeMasterAI" : "You"}
+                        </span>
+                        {message.timestamp && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatTimestamp(message.timestamp)}
+                          </span>
+                        )}
+                      </div>
                       {message.role === "assistant" ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none">
                           <ReactMarkdown 
@@ -605,18 +847,12 @@ export default function Chat() {
                                     </code>
                                   );
                                 }
-                                return (
-                                  <code 
-                                    className={`${className} block bg-muted/40 p-4 rounded-lg border border-border/40 overflow-x-auto text-sm font-mono`}
-                                    {...props}
-                                  >
-                                    {children}
-                                  </code>
-                                );
+                                const codeString = String(children).replace(/\n$/, '');
+                                return <CodeBlock language={className}>{codeString}</CodeBlock>;
                               },
-                              pre: ({node, ...props}) => (
-                                <pre className="my-4 bg-muted/40 rounded-lg border border-border/40 overflow-hidden" {...props} />
-                              ),
+                              pre: ({node, children, ...props}) => {
+                                return <>{children}</>;
+                              },
                               blockquote: ({node, children, ...props}) => {
                                 // Extract text content from children for admonition detection
                                 const extractText = (children: any): string => {
@@ -735,20 +971,102 @@ export default function Chat() {
                           {message.content}
                         </p>
                       )}
+                      
+                      {/* Message Actions */}
+                      <div className={cn(
+                        "flex items-center gap-1 mt-3 pt-2 border-t border-border/30 opacity-0 group-hover/message:opacity-100 transition-opacity",
+                        message.content && "opacity-100 sm:opacity-0"
+                      )}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <CopyButton text={message.content} />
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            <p>Copy message</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        
+                        {message.role === "assistant" && message.content && (
+                          <>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className={cn(
+                                    "h-7 w-7 rounded-md hover:bg-muted",
+                                    message.feedback === "up" && "text-green-500 bg-green-500/10"
+                                  )}
+                                  onClick={() => handleFeedback(index, "up")}
+                                  data-testid={`button-thumbs-up-${index}`}
+                                >
+                                  <ThumbsUp className="w-3.5 h-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom">
+                                <p>Good response</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className={cn(
+                                    "h-7 w-7 rounded-md hover:bg-muted",
+                                    message.feedback === "down" && "text-red-500 bg-red-500/10"
+                                  )}
+                                  onClick={() => handleFeedback(index, "down")}
+                                  data-testid={`button-thumbs-down-${index}`}
+                                >
+                                  <ThumbsDown className="w-3.5 h-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom">
+                                <p>Bad response</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 rounded-md hover:bg-muted"
+                                  onClick={() => regenerateResponse(index)}
+                                  disabled={isLoading}
+                                  data-testid={`button-regenerate-${index}`}
+                                >
+                                  <RefreshCw className="w-3.5 h-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom">
+                                <p>Regenerate response</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
-              {isLoading && (
-                <div className="w-full py-8 px-4 bg-muted/30">
-                  <div className="max-w-3xl mx-auto flex gap-6">
-                    <Avatar className="w-8 h-8 flex-shrink-0">
+              
+              {/* Loading / Streaming indicator */}
+              {isLoading && !isStreaming && (
+                <div className="w-full py-6 px-4 bg-muted/30">
+                  <div className="max-w-3xl mx-auto flex gap-4">
+                    <Avatar className="w-8 h-8 flex-shrink-0 mt-1">
                       <AvatarFallback className="bg-gradient-to-br from-primary to-purple-600">
                         <Bot className="w-5 h-5 text-white" />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 pt-1">
-                      <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-medium text-foreground">TypeMasterAI</span>
+                      </div>
+                      <TypingIndicator />
                     </div>
                   </div>
                 </div>
@@ -818,35 +1136,61 @@ export default function Chat() {
                 disabled={isLoading}
                 data-testid="input-chat-message"
               />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={sendMessage}
-                    disabled={isLoading || !input.trim()}
-                    size="icon"
-                    className={cn(
-                      "absolute right-3 bottom-3 h-10 w-10 rounded-full transition-all",
-                      input.trim() && !isLoading 
-                        ? "bg-foreground hover:bg-foreground/90 text-background" 
-                        : "bg-muted text-muted-foreground cursor-not-allowed"
-                    )}
-                    data-testid="button-send-message"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>{isLoading ? 'Sending...' : 'Send message'}</p>
-                </TooltipContent>
-              </Tooltip>
+              {isStreaming ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={stopGeneration}
+                      size="icon"
+                      className="absolute right-3 bottom-3 h-10 w-10 rounded-full bg-red-500 hover:bg-red-600 text-white transition-all"
+                      data-testid="button-stop-generation"
+                    >
+                      <Square className="w-4 h-4 fill-current" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>Stop generating</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={() => sendMessage()}
+                      disabled={isLoading || (!input.trim() && !uploadedFile)}
+                      size="icon"
+                      className={cn(
+                        "absolute right-3 bottom-3 h-10 w-10 rounded-full transition-all",
+                        (input.trim() || uploadedFile) && !isLoading 
+                          ? "bg-foreground hover:bg-foreground/90 text-background" 
+                          : "bg-muted text-muted-foreground cursor-not-allowed"
+                      )}
+                      data-testid="button-send-message"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Send className="w-5 h-5" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>{isLoading ? 'Sending...' : 'Send message'}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground text-center mt-3">
-              AI can make mistakes. Verify important information.
-            </p>
+            <div className="flex items-center justify-between mt-3 px-1">
+              <span className={cn(
+                "text-xs transition-colors",
+                input.length > 4000 ? "text-red-500" : "text-muted-foreground"
+              )}>
+                {input.length > 0 && `${input.length.toLocaleString()} characters`}
+              </span>
+              <p className="text-xs text-muted-foreground">
+                AI can make mistakes. Verify important information.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -861,12 +1205,14 @@ function ConversationGroup({
   currentId,
   onSelect,
   onDelete,
+  onRename,
 }: {
   title: string;
   conversations: Conversation[];
   currentId: number | null;
   onSelect: (id: number) => void;
   onDelete: (id: number) => void;
+  onRename: (id: number, newTitle: string) => void;
 }) {
   return (
     <div className="mb-3">
@@ -881,6 +1227,7 @@ function ConversationGroup({
             isActive={currentId === conv.id}
             onSelect={() => onSelect(conv.id)}
             onDelete={() => onDelete(conv.id)}
+            onRename={(newTitle) => onRename(conv.id, newTitle)}
           />
         ))}
       </div>
@@ -893,13 +1240,44 @@ function ConversationItem({
   isActive,
   onSelect,
   onDelete,
+  onRename,
 }: {
   conversation: Conversation;
   isActive: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  onRename: (newTitle: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(conversation.title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  const handleSave = () => {
+    if (editTitle.trim() && editTitle !== conversation.title) {
+      onRename(editTitle.trim());
+    } else {
+      setEditTitle(conversation.title);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSave();
+    } else if (e.key === 'Escape') {
+      setEditTitle(conversation.title);
+      setIsEditing(false);
+    }
+  };
 
   return (
     <div
@@ -909,11 +1287,25 @@ function ConversationItem({
           ? "bg-zinc-800/70 text-zinc-50" 
           : "text-zinc-300 hover:bg-zinc-800/40"
       )}
-      onClick={onSelect}
+      onClick={isEditing ? undefined : onSelect}
       data-testid={`conversation-${conversation.id}`}
     >
-      <span className="text-sm truncate flex-1 leading-tight">{conversation.title}</span>
-      <div className={cn("opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0", isOpen && "opacity-100")}>
+      {isEditing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={handleKeyDown}
+          onClick={(e) => e.stopPropagation()}
+          className="flex-1 text-sm bg-zinc-700 text-zinc-100 px-2 py-1 rounded border border-zinc-600 focus:outline-none focus:ring-1 focus:ring-primary"
+          data-testid={`input-rename-${conversation.id}`}
+        />
+      ) : (
+        <span className="text-sm truncate flex-1 leading-tight">{conversation.title}</span>
+      )}
+      <div className={cn("opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0", (isOpen || isEditing) && "opacity-100")}>
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
             <Button 
@@ -933,10 +1325,22 @@ function ConversationItem({
             <DropdownMenuItem
               onClick={(e) => {
                 e.stopPropagation();
-                onDelete();
+                setIsEditing(true);
                 setIsOpen(false);
               }}
               className="text-zinc-300 hover:bg-zinc-700 focus:bg-zinc-700 focus:text-zinc-100 cursor-pointer"
+              data-testid={`button-rename-${conversation.id}`}
+            >
+              <Pencil className="w-4 h-4 mr-2" />
+              Rename
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+                setIsOpen(false);
+              }}
+              className="text-red-400 hover:bg-zinc-700 focus:bg-zinc-700 focus:text-red-300 cursor-pointer"
               data-testid={`button-delete-${conversation.id}`}
             >
               <Trash2 className="w-4 h-4 mr-2" />
