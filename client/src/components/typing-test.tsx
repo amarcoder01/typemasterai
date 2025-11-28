@@ -820,37 +820,53 @@ Can you beat my score? Try it here: `,
 
   // Update cursor position based on typing progress and layout changes
   const updateCursorPosition = useCallback(() => {
-    // Use requestAnimationFrame to ensure DOM has updated
-    requestAnimationFrame(() => {
+    const updatePosition = () => {
       const charElement = document.querySelector(`[data-char-index="${userInput.length}"]`) as HTMLElement;
       if (charElement && containerRef.current) {
         const charRect = charElement.getBoundingClientRect();
         const containerRect = containerRef.current.getBoundingClientRect();
+        const scrollTop = containerRef.current.scrollTop;
+        
+        // Calculate position relative to container, accounting for scroll
         const relativeLeft = charRect.left - containerRect.left;
-        const relativeTop = charRect.top - containerRect.top + containerRef.current.scrollTop;
+        const relativeTop = charRect.top - containerRect.top + scrollTop;
         const height = charRect.height || 40;
-        setCursorPosition({ left: relativeLeft, top: relativeTop, height });
+        
+        // Only update if position actually changed (prevents unnecessary re-renders)
+        setCursorPosition(prev => {
+          if (prev.left === relativeLeft && prev.top === relativeTop && prev.height === height) {
+            return prev;
+          }
+          return { left: relativeLeft, top: relativeTop, height };
+        });
         
         // Auto-scroll container to keep cursor visible
         const cursorBottomInContainer = charRect.bottom - containerRect.top;
         const cursorTopInContainer = charRect.top - containerRect.top;
         const containerHeight = containerRef.current.clientHeight;
-        const scrollPadding = 80; // Keep some padding around cursor
+        const scrollPadding = 80;
         
         if (cursorBottomInContainer > containerHeight - scrollPadding) {
-          // Cursor is near bottom, scroll down
           containerRef.current.scrollTop += cursorBottomInContainer - containerHeight + scrollPadding;
         } else if (cursorTopInContainer < scrollPadding) {
-          // Cursor is near top, scroll up
           containerRef.current.scrollTop += cursorTopInContainer - scrollPadding;
         }
       } else if (containerRef.current) {
-        // Fallback: get first character's height for proper sizing
         const firstChar = document.querySelector(`[data-char-index="0"]`) as HTMLElement;
         const height = firstChar?.getBoundingClientRect().height || 40;
-        setCursorPosition({ left: 0, top: 0, height });
+        setCursorPosition(prev => {
+          if (prev.left === 0 && prev.top === 0 && prev.height === height) return prev;
+          return { left: 0, top: 0, height };
+        });
       }
-    });
+    };
+    
+    // Use microtask for faster response, fall back to rAF for layout changes
+    if (typeof queueMicrotask !== 'undefined') {
+      queueMicrotask(updatePosition);
+    } else {
+      requestAnimationFrame(updatePosition);
+    }
   }, [userInput.length]);
 
   useEffect(() => {
@@ -1461,13 +1477,14 @@ Can you beat my score? Try it here: `,
             {!isFinished && (
               <span 
                 className={cn(
-                  "absolute w-[2px] bg-primary animate-cursor-blink pointer-events-none",
-                  smoothCaret && "transition-all duration-100 ease-out"
+                  "absolute w-[3px] rounded-full bg-primary pointer-events-none will-change-transform",
+                  !isActive && "animate-cursor-blink",
+                  smoothCaret ? "transition-all duration-75 ease-linear" : "transition-none"
                 )}
                 style={{ 
-                  left: `${cursorPosition.left}px`,
-                  top: `${cursorPosition.top}px`,
-                  height: `${cursorPosition.height}px`
+                  transform: `translate3d(${cursorPosition.left}px, ${cursorPosition.top}px, 0)`,
+                  height: `${cursorPosition.height}px`,
+                  boxShadow: '0 0 8px rgba(var(--primary), 0.5)'
                 }}
               />
             )}
