@@ -843,12 +843,14 @@ Can you beat my score? Try it here: `,
 
   // Update cursor position based on typing progress and layout changes
   const updateCursorPosition = useCallback(() => {
-    const updatePosition = () => {
+    // Use requestAnimationFrame to ensure DOM has updated before measuring
+    requestAnimationFrame(() => {
       const charElement = document.querySelector(`[data-char-index="${userInput.length}"]`) as HTMLElement;
       if (charElement && containerRef.current) {
+        const container = containerRef.current;
         const charRect = charElement.getBoundingClientRect();
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const scrollTop = containerRef.current.scrollTop;
+        const containerRect = container.getBoundingClientRect();
+        const scrollTop = container.scrollTop;
         
         // Calculate position relative to container, accounting for scroll
         const relativeLeft = charRect.left - containerRect.left;
@@ -863,16 +865,23 @@ Can you beat my score? Try it here: `,
           return { left: relativeLeft, top: relativeTop, height };
         });
         
-        // Auto-scroll container to keep cursor visible
-        const cursorBottomInContainer = charRect.bottom - containerRect.top;
-        const cursorTopInContainer = charRect.top - containerRect.top;
-        const containerHeight = containerRef.current.clientHeight;
-        const scrollPadding = 80;
+        // Auto-scroll: Check if cursor is outside visible area of container
+        const cursorBottomRelative = charRect.bottom - containerRect.top;
+        const cursorTopRelative = charRect.top - containerRect.top;
+        const containerHeight = container.clientHeight;
+        const scrollThreshold = 60; // Trigger scroll when cursor is within 60px of edge
         
-        if (cursorBottomInContainer > containerHeight - scrollPadding) {
-          containerRef.current.scrollTop += cursorBottomInContainer - containerHeight + scrollPadding;
-        } else if (cursorTopInContainer < scrollPadding) {
-          containerRef.current.scrollTop += cursorTopInContainer - scrollPadding;
+        // Calculate new scroll position to center the cursor
+        const cursorCenterY = charRect.top + charRect.height / 2 - containerRect.top;
+        const targetScrollTop = scrollTop + cursorCenterY - containerHeight / 2;
+        
+        // Scroll down if cursor is near bottom edge
+        if (cursorBottomRelative > containerHeight - scrollThreshold) {
+          container.scrollTop = Math.max(0, targetScrollTop);
+        }
+        // Scroll up if cursor is near top edge
+        else if (cursorTopRelative < scrollThreshold && scrollTop > 0) {
+          container.scrollTop = Math.max(0, targetScrollTop);
         }
       } else if (containerRef.current) {
         const firstChar = document.querySelector(`[data-char-index="0"]`) as HTMLElement;
@@ -881,15 +890,10 @@ Can you beat my score? Try it here: `,
           if (prev.left === 0 && prev.top === 0 && prev.height === height) return prev;
           return { left: 0, top: 0, height };
         });
+        // Reset scroll to top when starting fresh
+        containerRef.current.scrollTop = 0;
       }
-    };
-    
-    // Use microtask for faster response, fall back to rAF for layout changes
-    if (typeof queueMicrotask !== 'undefined') {
-      queueMicrotask(updatePosition);
-    } else {
-      requestAnimationFrame(updatePosition);
-    }
+    });
   }, [userInput.length]);
 
   useEffect(() => {
