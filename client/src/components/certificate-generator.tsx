@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Share2, Twitter, Facebook, Linkedin, MessageCircle, Check, Copy } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { jsPDF } from "jspdf";
+import { useToast } from "@/hooks/use-toast";
 
 interface CertificateProps {
   username: string;
@@ -23,6 +24,17 @@ type DownloadFormat = "png" | "pdf" | "jpeg";
 export function CertificateGenerator({ username, wpm, accuracy, mode, date }: CertificateProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedFormat, setSelectedFormat] = useState<DownloadFormat>("png");
+  const [showShareOptions, setShowShareOptions] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const { toast } = useToast();
+
+  const getPerformanceRating = () => {
+    if (wpm >= 100 && accuracy >= 98) return { emoji: "🏆", title: "Legendary Typist", badge: "Diamond" };
+    if (wpm >= 80 && accuracy >= 95) return { emoji: "⚡", title: "Speed Demon", badge: "Platinum" };
+    if (wpm >= 60 && accuracy >= 90) return { emoji: "🔥", title: "Fast & Accurate", badge: "Gold" };
+    if (wpm >= 40 && accuracy >= 85) return { emoji: "💪", title: "Solid Performance", badge: "Silver" };
+    return { emoji: "🎯", title: "Rising Star", badge: "Bronze" };
+  };
 
   useEffect(() => {
     generateCertificate();
@@ -245,6 +257,120 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date }: Ce
     pdf.save(`${filename}.pdf`);
   };
 
+  const shareCertificate = async () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    setIsSharing(true);
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Failed to create blob"));
+        }, "image/png");
+      });
+
+      const file = new File([blob], `TypeMasterAI_Certificate_${username}_${wpm}WPM.png`, {
+        type: "image/png",
+      });
+
+      const rating = getPerformanceRating();
+      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+
+      if ('share' in navigator && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: `TypeMasterAI Certificate - ${wpm} WPM`,
+          text: `${rating.emoji} I earned a ${rating.badge} badge on TypeMasterAI! ${wpm} WPM with ${accuracy}% accuracy in a ${modeDisplay} test. Can you beat my score?`,
+          files: [file],
+        });
+        toast({
+          title: "Certificate Shared!",
+          description: "Your achievement has been shared successfully.",
+        });
+      } else {
+        downloadPNG(canvas, `TypeMasterAI_Certificate_${username}_${wpm}WPM`);
+        toast({
+          title: "Certificate Downloaded",
+          description: "Your device doesn't support direct sharing. Certificate has been downloaded instead.",
+        });
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error("Share error:", error);
+        toast({
+          title: "Share Failed",
+          description: "Could not share certificate. Try downloading it instead.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const shareCertificateToSocial = (platform: string) => {
+    const rating = getPerformanceRating();
+    const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+    const siteUrl = window.location.origin;
+    
+    const shareTexts: Record<string, string> = {
+      twitter: `${rating.emoji} Just earned my TypeMasterAI Certificate!
+
+⌨️ ${wpm} WPM | ${accuracy}% Accuracy
+🏅 ${rating.title} - ${rating.badge} Badge
+⏱️ ${modeDisplay} typing test
+
+Get your certificate too! 🎓
+
+#TypingTest #TypeMasterAI #Certificate`,
+      
+      facebook: `${rating.emoji} I just earned my official TypeMasterAI Certificate of Achievement!
+
+🏆 ${wpm} Words Per Minute
+✨ ${accuracy}% Accuracy
+🏅 ${rating.title} - ${rating.badge} Badge
+⏱️ ${modeDisplay} test
+
+Test your typing skills and get certified! 🎓`,
+      
+      linkedin: `Proud to share my TypeMasterAI Certificate of Achievement! ${rating.emoji}
+
+📜 Certification Details:
+• Typing Speed: ${wpm} Words Per Minute
+• Accuracy: ${accuracy}%
+• Performance Rating: ${rating.title} (${rating.badge})
+• Test Duration: ${modeDisplay}
+
+Continuous skill development is key to professional growth. This certification validates my typing proficiency.
+
+#Certificate #ProfessionalDevelopment #TypingSkills #TypeMasterAI`,
+      
+      whatsapp: `${rating.emoji} Check out my TypeMasterAI Certificate!
+
+📜 *Certificate of Achievement*
+⌨️ *${wpm} WPM* | *${accuracy}% Accuracy*
+🏅 ${rating.title} - ${rating.badge} Badge
+⏱️ ${modeDisplay} test
+
+Get your certificate: `,
+    };
+    
+    const shareText = shareTexts[platform] || shareTexts.twitter;
+    const encodedText = encodeURIComponent(shareText);
+    const encodedUrl = encodeURIComponent(siteUrl);
+    
+    const urls: Record<string, string> = {
+      twitter: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+      whatsapp: `https://wa.me/?text=${encodedText}${encodedUrl}`,
+    };
+    
+    if (urls[platform]) {
+      window.open(urls[platform], '_blank', 'width=600,height=400');
+    }
+  };
+
   return (
     <div className="flex flex-col items-center gap-6">
       <canvas
@@ -253,7 +379,8 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date }: Ce
         style={{ maxHeight: "500px" }}
       />
       
-      <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-md">
+      {/* Download Section */}
+      <div className="flex flex-col sm:flex-row items-center gap-4 w-full max-w-lg">
         <div className="flex flex-col gap-2 w-full sm:w-auto">
           <label className="text-sm text-muted-foreground font-medium">
             Download Format
@@ -291,6 +418,75 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date }: Ce
           <Download className="w-5 h-5" />
           Download {selectedFormat.toUpperCase()}
         </Button>
+
+        <Button
+          onClick={shareCertificate}
+          disabled={isSharing}
+          size="lg"
+          variant="secondary"
+          className="gap-2 w-full sm:w-auto sm:mt-7"
+          data-testid="button-share-certificate"
+        >
+          <Share2 className="w-5 h-5" />
+          {isSharing ? "Sharing..." : "Share"}
+        </Button>
+      </div>
+
+      {/* Share to Social Media */}
+      <div className="w-full max-w-lg">
+        <button
+          onClick={() => setShowShareOptions(!showShareOptions)}
+          className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          data-testid="button-toggle-share-options"
+        >
+          <Share2 className="w-4 h-4" />
+          {showShareOptions ? "Hide Share Options" : "Share Certificate on Social Media"}
+        </button>
+        
+        {showShareOptions && (
+          <div className="mt-4 p-4 bg-muted/30 rounded-xl border space-y-4">
+            <p className="text-sm font-medium text-center text-muted-foreground">
+              Share your achievement on social media
+            </p>
+            <div className="grid grid-cols-4 gap-3">
+              <button
+                onClick={() => shareCertificateToSocial('twitter')}
+                className="flex flex-col items-center gap-2 p-3 rounded-lg bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/20 transition-colors group"
+                data-testid="button-share-cert-twitter"
+              >
+                <Twitter className="w-6 h-6 text-[#1DA1F2]" />
+                <span className="text-xs text-muted-foreground group-hover:text-foreground">Twitter</span>
+              </button>
+              <button
+                onClick={() => shareCertificateToSocial('facebook')}
+                className="flex flex-col items-center gap-2 p-3 rounded-lg bg-[#1877F2]/10 hover:bg-[#1877F2]/20 transition-colors group"
+                data-testid="button-share-cert-facebook"
+              >
+                <Facebook className="w-6 h-6 text-[#1877F2]" />
+                <span className="text-xs text-muted-foreground group-hover:text-foreground">Facebook</span>
+              </button>
+              <button
+                onClick={() => shareCertificateToSocial('linkedin')}
+                className="flex flex-col items-center gap-2 p-3 rounded-lg bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 transition-colors group"
+                data-testid="button-share-cert-linkedin"
+              >
+                <Linkedin className="w-6 h-6 text-[#0A66C2]" />
+                <span className="text-xs text-muted-foreground group-hover:text-foreground">LinkedIn</span>
+              </button>
+              <button
+                onClick={() => shareCertificateToSocial('whatsapp')}
+                className="flex flex-col items-center gap-2 p-3 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors group"
+                data-testid="button-share-cert-whatsapp"
+              >
+                <MessageCircle className="w-6 h-6 text-[#25D366]" />
+                <span className="text-xs text-muted-foreground group-hover:text-foreground">WhatsApp</span>
+              </button>
+            </div>
+            <p className="text-xs text-center text-muted-foreground">
+              Download your certificate first, then attach it to your post for the best results!
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

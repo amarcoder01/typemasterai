@@ -372,8 +372,59 @@ export default function TypingTest() {
     }
   };
 
+  const getPerformanceRating = () => {
+    if (wpm >= 100 && accuracy >= 98) return { emoji: "🏆", title: "Legendary Typist", badge: "Diamond" };
+    if (wpm >= 80 && accuracy >= 95) return { emoji: "⚡", title: "Speed Demon", badge: "Platinum" };
+    if (wpm >= 60 && accuracy >= 90) return { emoji: "🔥", title: "Fast & Accurate", badge: "Gold" };
+    if (wpm >= 40 && accuracy >= 85) return { emoji: "💪", title: "Solid Performance", badge: "Silver" };
+    return { emoji: "🎯", title: "Rising Star", badge: "Bronze" };
+  };
+
   const shareToSocial = (platform: string) => {
-    const shareText = `I just scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! Can you beat my score? 🚀`;
+    const rating = getPerformanceRating();
+    const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+    
+    const shareTexts: Record<string, string> = {
+      twitter: `${rating.emoji} Just achieved ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!
+
+⌨️ ${rating.title} | ${rating.badge} Badge
+⏱️ ${modeDisplay} test
+🌐 ${LANGUAGE_NAMES[language]}
+
+Think you can beat me? 🎮
+
+#TypingTest #TypeMasterAI #WPM`,
+      
+      facebook: `${rating.emoji} I just achieved ${wpm} Words Per Minute with ${accuracy}% accuracy on TypeMasterAI!
+
+🏅 ${rating.title} - ${rating.badge} Badge Earned!
+⏱️ ${modeDisplay} typing test
+🌐 Language: ${LANGUAGE_NAMES[language]}
+
+Challenge yourself and see how fast you can type! 🚀`,
+      
+      linkedin: `Excited to share my typing achievement! ${rating.emoji}
+
+📊 Performance Stats:
+• Speed: ${wpm} Words Per Minute
+• Accuracy: ${accuracy}%
+• Duration: ${modeDisplay} test
+• Rating: ${rating.title} (${rating.badge})
+
+Continuous improvement in professional skills matters. TypeMasterAI helps track and improve typing efficiency.
+
+#ProfessionalDevelopment #Productivity #TypingSkills #TypeMasterAI`,
+      
+      whatsapp: `${rating.emoji} Check out my typing score on TypeMasterAI!
+
+⌨️ *${wpm} WPM* | *${accuracy}% Accuracy*
+🏅 ${rating.title} - ${rating.badge} Badge
+⏱️ ${modeDisplay} test
+
+Can you beat my score? Try it here: `,
+    };
+    
+    const shareText = shareTexts[platform] || shareTexts.twitter;
     const encodedText = encodeURIComponent(shareText);
     const encodedUrl = encodeURIComponent(shareUrl || window.location.href);
     
@@ -381,7 +432,7 @@ export default function TypingTest() {
       twitter: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`,
       linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
-      whatsapp: `https://wa.me/?text=${encodedText}%20${encodedUrl}`,
+      whatsapp: `https://wa.me/?text=${encodedText}${encodedUrl}`,
     };
     
     if (urls[platform]) {
@@ -1317,13 +1368,22 @@ export default function TypingTest() {
           </DialogHeader>
           
           <div className="space-y-6">
-            {/* Result Preview */}
-            <div className="text-center p-6 bg-gradient-to-br from-primary/10 to-purple-500/10 rounded-xl border">
+            {/* Result Preview with Badge */}
+            <div className="text-center p-6 bg-gradient-to-br from-primary/10 to-purple-500/10 rounded-xl border relative overflow-hidden">
+              {/* Performance Badge */}
+              <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-full border border-yellow-500/30">
+                <span className="text-lg">{getPerformanceRating().emoji}</span>
+                <span className="text-xs font-semibold text-yellow-400">{getPerformanceRating().badge}</span>
+              </div>
+              
               <div className="text-5xl font-bold text-primary mb-2">{wpm} WPM</div>
               <div className="text-lg text-muted-foreground">
                 {accuracy}% accuracy • {errors} errors
               </div>
-              <div className="text-sm text-muted-foreground mt-1">
+              <div className="text-sm font-medium text-primary/80 mt-2">
+                {getPerformanceRating().title}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
                 {mode}s test • {LANGUAGE_NAMES[language]} • {difficulty}
               </div>
             </div>
