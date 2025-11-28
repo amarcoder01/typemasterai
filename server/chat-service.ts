@@ -222,40 +222,61 @@ export async function decideIfSearchNeeded(message: string): Promise<SearchDecis
     };
   }
 
+  const quickTriggers = [
+    "search", "websearch", "web search", "look up", "lookup", "find", "google",
+    "latest", "current", "recent", "news", "today", "now", "update",
+    "2024", "2025", "this week", "this month", "this year",
+    "price", "cost", "stock", "weather", "score",
+    "what is", "what are", "who is", "who are", "which are", "which is",
+    "top", "best", "ranking", "list", "comparison", "compare",
+    "new", "breaking", "trending", "popular", "hot",
+  ];
+  
+  const hasQuickTrigger = quickTriggers.some(t => lowerMessage.includes(t));
+  if (hasQuickTrigger) {
+    console.log(`[AI Search] Quick trigger detected: searching for "${message}"`);
+    return {
+      shouldSearch: true,
+      searchQuery: message.replace(/perform\s+a?\s*web\s*search\s+(and\s+)?/gi, "").replace(/search\s+for\s+/gi, "").trim(),
+      reason: "Quick trigger keyword detected",
+    };
+  }
+
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
-          content: `You are a search decision agent. Analyze the user's query and decide if a web search is needed.
+          content: `You are a search decision agent. You should be VERY AGGRESSIVE about triggering searches - when in doubt, SEARCH.
 
-SEARCH NEEDED for:
-- Current events, news, or recent information (after Oct 2023)
-- Real-time data: stock prices, weather, sports scores, crypto prices
-- Specific products, companies, or services the user wants to learn about
-- Technical documentation for specific tools/libraries/APIs
-- Factual claims that need verification
-- Questions about specific websites, apps, or online services
-- Pricing information for products or services
-- Reviews or comparisons of products/services
-- Information about specific people, organizations, or events
-- Questions containing years 2024 or later
+ALWAYS SEARCH for (be generous):
+- ANY question asking "what is", "what are", "who is", "which are", "top X", "best X", "list of"
+- Current events, news, or information that could be recent (after 2023)
+- Real-time data: stock prices, weather, sports scores, crypto prices, market data
+- Specific products, companies, tools, libraries, frameworks, or services
+- Technical documentation, APIs, or specific implementations
+- Factual claims, statistics, or data that could be verified
+- Questions about specific websites, apps, or online platforms
+- Pricing, reviews, or comparisons
+- Information about people, organizations, or events
+- Technology topics, AI models, coding tools, programming languages
+- Anything with years 2024, 2025 or later
+- Questions that benefit from fresh/current information
 
-NO SEARCH NEEDED for:
-- General knowledge questions (history, science concepts, math)
-- Programming help with code logic (not specific library docs)
-- Creative writing, brainstorming, or opinion-based questions
-- Personal advice or conversations
-- Explaining concepts, tutorials, or how-to guides
-- Translation or language help
-- Questions about the assistant itself
+ONLY SKIP SEARCH for:
+- Pure creative writing requests (poems, stories with no factual basis)
+- Basic math calculations
+- Simple logical reasoning with no external facts needed
+- Personal advice based on subjective opinion only
+
+When in doubt → SEARCH. Prioritize recency and accuracy.
 
 Respond with JSON only:
 {
   "search": true/false,
-  "query": "optimized search query if search=true, empty string if false",
-  "reason": "brief reason for decision"
+  "query": "optimized search query (remove phrases like 'perform a web search', 'search for')",
+  "reason": "brief reason"
 }`,
         },
         {
@@ -278,17 +299,10 @@ Respond with JSON only:
   } catch (error) {
     console.error("Search decision error:", error);
     
-    const quickTriggers = [
-      "latest", "current", "news", "today", "2024", "2025",
-      "price", "stock", "weather", "what is", "who is",
-      "search", "look up", "find",
-    ];
-    
-    const needsSearch = quickTriggers.some(t => lowerMessage.includes(t));
     return {
-      shouldSearch: needsSearch,
+      shouldSearch: true,
       searchQuery: message,
-      reason: "Fallback decision based on keywords",
+      reason: "Fallback - default to search on error",
     };
   }
 }
