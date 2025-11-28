@@ -827,9 +827,23 @@ Can you beat my score? Try it here: `,
         const charRect = charElement.getBoundingClientRect();
         const containerRect = containerRef.current.getBoundingClientRect();
         const relativeLeft = charRect.left - containerRect.left;
-        const relativeTop = charRect.top - containerRect.top;
-        const height = charRect.height || 40; // Use actual height or fallback
+        const relativeTop = charRect.top - containerRect.top + containerRef.current.scrollTop;
+        const height = charRect.height || 40;
         setCursorPosition({ left: relativeLeft, top: relativeTop, height });
+        
+        // Auto-scroll container to keep cursor visible
+        const cursorBottomInContainer = charRect.bottom - containerRect.top;
+        const cursorTopInContainer = charRect.top - containerRect.top;
+        const containerHeight = containerRef.current.clientHeight;
+        const scrollPadding = 80; // Keep some padding around cursor
+        
+        if (cursorBottomInContainer > containerHeight - scrollPadding) {
+          // Cursor is near bottom, scroll down
+          containerRef.current.scrollTop += cursorBottomInContainer - containerHeight + scrollPadding;
+        } else if (cursorTopInContainer < scrollPadding) {
+          // Cursor is near top, scroll up
+          containerRef.current.scrollTop += cursorTopInContainer - scrollPadding;
+        }
       } else if (containerRef.current) {
         // Fallback: get first character's height for proper sizing
         const firstChar = document.querySelector(`[data-char-index="0"]`) as HTMLElement;
@@ -1343,7 +1357,7 @@ Can you beat my score? Try it here: `,
       </div>
 
       {/* Typing Area */}
-      <div className="relative min-h-[300px] group">
+      <div className="relative min-h-[300px] max-h-[400px] overflow-hidden group">
         {/* Error State */}
         {paragraphError && !text && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
@@ -1429,7 +1443,7 @@ Can you beat my score? Try it here: `,
             lang={language}
             dir={isRTL ? "rtl" : "ltr"}
             className={cn(
-              "w-full h-full p-8 text-2xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300",
+              "w-full h-full max-h-[400px] overflow-y-auto p-8 text-2xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300 scroll-smooth",
               !isActive && !isFinished && "blur-[1px] opacity-70 group-hover:blur-0 group-hover:opacity-100"
             )}
             onClick={() => inputRef.current?.focus({ preventScroll: true })}
