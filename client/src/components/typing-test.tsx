@@ -845,9 +845,36 @@ Can you beat my score? Try it here: `,
   const updateCursorPosition = useCallback(() => {
     // Use requestAnimationFrame to ensure DOM has updated before measuring
     requestAnimationFrame(() => {
-      const charElement = document.querySelector(`[data-char-index="${userInput.length}"]`) as HTMLElement;
-      if (charElement && containerRef.current) {
-        const container = containerRef.current;
+      const container = containerRef.current;
+      if (!container) return;
+      
+      // Find the character element at current position
+      let charElement = document.querySelector(`[data-char-index="${userInput.length}"]`) as HTMLElement;
+      
+      // If we're at the end of text (all characters typed), position cursor after the last character
+      if (!charElement && userInput.length > 0 && text) {
+        const lastCharElement = document.querySelector(`[data-char-index="${text.length - 1}"]`) as HTMLElement;
+        if (lastCharElement) {
+          const containerRect = container.getBoundingClientRect();
+          const charRect = lastCharElement.getBoundingClientRect();
+          const scrollTop = container.scrollTop;
+          
+          // Position cursor AFTER the last character (add character width to left position)
+          const relativeLeft = charRect.right - containerRect.left;
+          const relativeTop = charRect.top - containerRect.top + scrollTop;
+          const height = charRect.height || 40;
+          
+          setCursorPosition(prev => {
+            if (prev.left === relativeLeft && prev.top === relativeTop && prev.height === height) {
+              return prev;
+            }
+            return { left: relativeLeft, top: relativeTop, height };
+          });
+          return;
+        }
+      }
+      
+      if (charElement) {
         const charRect = charElement.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
         const scrollTop = container.scrollTop;
@@ -880,7 +907,8 @@ Can you beat my score? Try it here: `,
         else if (cursorTopRelative < 0) {
           container.scrollTop = scrollTop + cursorTopRelative - 20; // Small padding at top
         }
-      } else if (containerRef.current) {
+      } else {
+        // No input yet - position at start
         const firstChar = document.querySelector(`[data-char-index="0"]`) as HTMLElement;
         const height = firstChar?.getBoundingClientRect().height || 40;
         setCursorPosition(prev => {
@@ -888,10 +916,10 @@ Can you beat my score? Try it here: `,
           return { left: 0, top: 0, height };
         });
         // Reset scroll to top when starting fresh
-        containerRef.current.scrollTop = 0;
+        container.scrollTop = 0;
       }
     });
-  }, [userInput.length]);
+  }, [userInput.length, text]);
 
   useEffect(() => {
     updateCursorPosition();
