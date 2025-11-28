@@ -202,9 +202,31 @@ function TypingIndicator({ searchState }: { searchState?: SearchState }) {
     return <SearchIndicator searchState={searchState} />;
   }
   
-  return <DynamicAILoadingIndicator />;
+  // Easily customize the loading indicator variant here:
+  // Available variants: "breathing-cursor" (default), "bouncing-dots", "pulse-wave", "typing-cursor"
+  // Example: <DynamicAILoadingIndicator variant="pulse-wave" />
+  return <DynamicAILoadingIndicator variant="breathing-cursor" />;
 }
 
+/**
+ * DynamicAILoadingIndicator - Modern AI response loading animations
+ * 
+ * Inspired by ChatGPT, Claude, and Gemini loading experiences.
+ * Features 4 distinct animation variants with rotating status messages.
+ * 
+ * @param variant - Animation style to display
+ *   - "breathing-cursor": ChatGPT-inspired pulsing cursor (default)
+ *   - "bouncing-dots": Classic animated bouncing dots
+ *   - "pulse-wave": Sound wave-style pulsing bars
+ *   - "typing-cursor": Simulated typing with blinking cursor
+ * 
+ * @param message - Optional custom initial message (defaults to "Thinking...")
+ * 
+ * Messages automatically rotate every 2 seconds between:
+ * "Thinking...", "Analyzing...", "Generating response...", "Processing..."
+ * 
+ * Easy to extend: Add new variants by adding another if block with your animation
+ */
 function DynamicAILoadingIndicator({ 
   variant = "breathing-cursor",
   message = "Thinking..."
