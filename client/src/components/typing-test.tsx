@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { generateText, calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award } from "lucide-react";
+import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award, Share2, Twitter, Facebook, MessageCircle, Copy, Check, Link2, Linkedin } from "lucide-react";
 import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -93,6 +93,11 @@ export default function TypingTest() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
   const [testCompletionDate, setTestCompletionDate] = useState<Date>(new Date());
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [lastResultId, setLastResultId] = useState<number | null>(null);
+  const [shareUrl, setShareUrl] = useState<string>("");
+  const [isCreatingShare, setIsCreatingShare] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [smoothCaret, setSmoothCaret] = useState(true);
   const [quickRestart, setQuickRestart] = useState(true);
   const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
@@ -259,7 +264,10 @@ export default function TypingTest() {
       
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data?.id) {
+        setLastResultId(data.id);
+      }
       toast({
         title: "Test Saved!",
         description: "Your result has been saved to your profile.",
@@ -284,6 +292,9 @@ export default function TypingTest() {
     setWpm(0);
     setAccuracy(100);
     setShowAuthPrompt(false);
+    setShowShareModal(false);
+    setShareUrl("");
+    setLastResultId(null);
     
     // Clear keystroke tracker to start fresh
     keystrokeTrackerRef.current = null;
@@ -293,6 +304,104 @@ export default function TypingTest() {
     
     setTimeout(() => inputRef.current?.focus(), 100);
   }, [mode, fetchParagraph]);
+
+  const createShareLink = async () => {
+    if (!lastResultId) {
+      toast({
+        title: "Cannot Share",
+        description: "Please save your result first by logging in.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingShare(true);
+    try {
+      const response = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          mode: 'typing-test',
+          resultId: lastResultId,
+          isAnonymous: false
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create share link');
+      }
+
+      const data = await response.json();
+      setShareUrl(data.shareUrl);
+      setShowShareModal(true);
+      
+      toast({
+        title: "Share Link Created!",
+        description: "Your result is ready to share with others.",
+      });
+    } catch (error) {
+      console.error('Share error:', error);
+      toast({
+        title: "Share Failed",
+        description: "Could not create share link. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingShare(false);
+    }
+  };
+
+  const copyShareLink = async () => {
+    if (!shareUrl) return;
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({
+        title: "Copied!",
+        description: "Share link copied to clipboard.",
+      });
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Could not copy link to clipboard.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const shareToSocial = (platform: string) => {
+    const shareText = `I just scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! Can you beat my score? 🚀`;
+    const encodedText = encodeURIComponent(shareText);
+    const encodedUrl = encodeURIComponent(shareUrl || window.location.href);
+    
+    const urls: Record<string, string> = {
+      twitter: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+      whatsapp: `https://wa.me/?text=${encodedText}%20${encodedUrl}`,
+    };
+    
+    if (urls[platform]) {
+      window.open(urls[platform], '_blank', 'width=600,height=400');
+    }
+  };
+
+  const handleNativeShare = async () => {
+    if ('share' in navigator) {
+      try {
+        await navigator.share({
+          title: 'TypeMasterAI - My Typing Result',
+          text: `I scored ${wpm} WPM with ${accuracy}% accuracy!`,
+          url: shareUrl || window.location.href,
+        });
+      } catch (error) {
+        console.error('Native share error:', error);
+      }
+    }
+  };
 
   // Initial setup and when time mode changes
   useEffect(() => {
@@ -1121,13 +1230,34 @@ export default function TypingTest() {
 
               <div className="mt-8 flex flex-col gap-3">
                 {user && (
+                  <>
+                    <button
+                      onClick={() => setShowCertificate(true)}
+                      className="w-full py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                      data-testid="button-view-certificate"
+                    >
+                      <Award className="w-5 h-5" />
+                      Get Certificate
+                    </button>
+                    <button
+                      onClick={() => setShowShareModal(true)}
+                      disabled={isCreatingShare}
+                      className="w-full py-3 bg-gradient-to-r from-blue-500 to-green-500 text-white font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                      data-testid="button-share-result"
+                    >
+                      <Share2 className="w-5 h-5" />
+                      {isCreatingShare ? "Creating..." : "Share Result"}
+                    </button>
+                  </>
+                )}
+                {!user && (
                   <button
-                    onClick={() => setShowCertificate(true)}
-                    className="w-full py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-                    data-testid="button-view-certificate"
+                    onClick={() => setShowShareModal(true)}
+                    className="w-full py-3 bg-gradient-to-r from-blue-500 to-green-500 text-white font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    data-testid="button-share-result"
                   >
-                    <Award className="w-5 h-5" />
-                    Get Certificate
+                    <Share2 className="w-5 h-5" />
+                    Share Result
                   </button>
                 )}
                 <div className="flex gap-3">
@@ -1173,6 +1303,122 @@ export default function TypingTest() {
               date={testCompletionDate}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Modal */}
+      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Share2 className="w-5 h-5 text-primary" />
+              Share Your Result
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            {/* Result Preview */}
+            <div className="text-center p-6 bg-gradient-to-br from-primary/10 to-purple-500/10 rounded-xl border">
+              <div className="text-5xl font-bold text-primary mb-2">{wpm} WPM</div>
+              <div className="text-lg text-muted-foreground">
+                {accuracy}% accuracy • {errors} errors
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">
+                {mode}s test • {LANGUAGE_NAMES[language]} • {difficulty}
+              </div>
+            </div>
+
+            {/* Share Link Section */}
+            {user && lastResultId ? (
+              <>
+                {!shareUrl ? (
+                  <button
+                    onClick={createShareLink}
+                    disabled={isCreatingShare}
+                    className="w-full py-3 bg-primary text-primary-foreground font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    data-testid="button-create-share-link"
+                  >
+                    <Link2 className="w-4 h-4" />
+                    {isCreatingShare ? "Creating Link..." : "Create Shareable Link"}
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={shareUrl}
+                        readOnly
+                        className="flex-1 px-3 py-2 bg-background border rounded-lg text-sm"
+                        data-testid="input-share-url"
+                      />
+                      <button
+                        onClick={copyShareLink}
+                        className="px-3 py-2 bg-secondary rounded-lg hover:bg-secondary/80 transition-colors"
+                        data-testid="button-copy-link"
+                      >
+                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center text-sm text-muted-foreground p-4 bg-muted/50 rounded-lg">
+                {!user ? "Log in to create a permanent shareable link for your result!" : "Complete a test to share your result."}
+              </div>
+            )}
+
+            {/* Social Share Buttons */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-center text-muted-foreground">Share on Social Media</p>
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  onClick={() => shareToSocial('twitter')}
+                  className="flex flex-col items-center gap-1 p-3 rounded-lg bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/20 transition-colors group"
+                  data-testid="button-share-twitter"
+                >
+                  <Twitter className="w-5 h-5 text-[#1DA1F2]" />
+                  <span className="text-xs text-muted-foreground group-hover:text-foreground">Twitter</span>
+                </button>
+                <button
+                  onClick={() => shareToSocial('facebook')}
+                  className="flex flex-col items-center gap-1 p-3 rounded-lg bg-[#1877F2]/10 hover:bg-[#1877F2]/20 transition-colors group"
+                  data-testid="button-share-facebook"
+                >
+                  <Facebook className="w-5 h-5 text-[#1877F2]" />
+                  <span className="text-xs text-muted-foreground group-hover:text-foreground">Facebook</span>
+                </button>
+                <button
+                  onClick={() => shareToSocial('linkedin')}
+                  className="flex flex-col items-center gap-1 p-3 rounded-lg bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 transition-colors group"
+                  data-testid="button-share-linkedin"
+                >
+                  <Linkedin className="w-5 h-5 text-[#0A66C2]" />
+                  <span className="text-xs text-muted-foreground group-hover:text-foreground">LinkedIn</span>
+                </button>
+                <button
+                  onClick={() => shareToSocial('whatsapp')}
+                  className="flex flex-col items-center gap-1 p-3 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors group"
+                  data-testid="button-share-whatsapp"
+                >
+                  <MessageCircle className="w-5 h-5 text-[#25D366]" />
+                  <span className="text-xs text-muted-foreground group-hover:text-foreground">WhatsApp</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Native Share */}
+            {'share' in navigator && (
+              <button
+                onClick={handleNativeShare}
+                className="w-full py-3 bg-secondary text-secondary-foreground font-medium rounded-lg hover:bg-secondary/80 transition-colors flex items-center justify-center gap-2"
+                data-testid="button-native-share"
+              >
+                <Share2 className="w-4 h-4" />
+                More Sharing Options...
+              </button>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
       </div>

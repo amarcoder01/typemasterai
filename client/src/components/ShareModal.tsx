@@ -228,7 +228,7 @@ export function ShareModal({
                 </Button>
               </div>
 
-              {navigator.share && (
+              {'share' in navigator && (
                 <Button
                   onClick={handleNativeShare}
                   variant="secondary"
