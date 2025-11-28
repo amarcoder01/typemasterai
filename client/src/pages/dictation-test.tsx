@@ -218,9 +218,11 @@ export default function DictationTest() {
     const currentStartTime = testState.startTime;
     
     const endTime = Date.now();
-    const duration = Math.round((endTime - currentStartTime) / 1000);
+    // Use raw seconds for WPM calculation, rounded for display/storage
+    const elapsedSeconds = (endTime - currentStartTime) / 1000;
+    const duration = Math.round(elapsedSeconds);
     
-    if (duration === 0) {
+    if (elapsedSeconds < 1) {
       toast({
         title: 'Too fast!',
         description: 'Please take your time to type the sentence.',
@@ -235,7 +237,7 @@ export default function DictationTest() {
     
     const wpm = calculateDictationWPM(
       currentTypedText.length,
-      duration
+      elapsedSeconds
     );
 
     const result = {

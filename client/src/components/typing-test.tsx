@@ -357,6 +357,21 @@ export default function TypingTest() {
     setIsActive(false);
     setIsFinished(true);
     setTestCompletionDate(new Date());
+    
+    // Recalculate final WPM with precise elapsed time
+    const elapsedSeconds = startTime ? (Date.now() - startTime) / 1000 : mode;
+    const chars = userInput.length;
+    const errorCount = userInput.split("").filter((char, i) => char !== text[i]).length;
+    const correctChars = chars - errorCount;
+    const finalWpm = calculateWPM(correctChars, elapsedSeconds);
+    const finalAccuracy = calculateAccuracy(correctChars, chars);
+    const finalErrors = errorCount;
+    
+    // Update state with precise final values
+    setWpm(finalWpm);
+    setAccuracy(finalAccuracy);
+    setErrors(finalErrors);
+    
     confetti({
       particleCount: 100,
       spread: 70,
@@ -366,11 +381,11 @@ export default function TypingTest() {
 
     if (user) {
       const testData = {
-        wpm,
-        accuracy,
+        wpm: finalWpm,
+        accuracy: finalAccuracy,
         mode,
         characters: userInput.length,
-        errors,
+        errors: finalErrors,
       };
       
       saveResultMutation.mutate(testData);
@@ -378,12 +393,12 @@ export default function TypingTest() {
       // Save keystroke analytics if tracking is enabled
       if (trackingEnabled && keystrokeTrackerRef.current) {
         try {
-          const rawWpm = calculateWPM(userInput.length, (mode - timeLeft));
+          const rawWpm = calculateWPM(userInput.length, elapsedSeconds);
           const analytics = keystrokeTrackerRef.current.computeAnalytics(
-            wpm,
+            finalWpm,
             rawWpm,
-            accuracy,
-            errors,
+            finalAccuracy,
+            finalErrors,
             null
           );
           

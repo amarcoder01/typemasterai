@@ -339,9 +339,10 @@ export default function ChapterTyping() {
     const chars = userInput.length;
     const errorCount = userInput.split("").filter((char, i) => char !== chapterText[i]).length;
     const correctChars = chars - errorCount;
-    const duration = Math.round((Date.now() - startTime) / 1000);
+    const elapsedSeconds = (Date.now() - startTime) / 1000; // Raw seconds for WPM calculation
+    const duration = Math.round(elapsedSeconds); // Rounded for display/storage
     
-    const finalWpm = calculateWPM(correctChars, duration);
+    const finalWpm = calculateWPM(correctChars, elapsedSeconds);
     const finalAccuracy = calculateAccuracy(correctChars, chars);
     const finalErrors = errorCount;
 

@@ -439,13 +439,26 @@ export default function CodeMode() {
     setIsActive(false);
     setIsFinished(true);
     
-    const duration = startTime ? Math.round((Date.now() - startTime) / 1000) : 0;
+    // Use raw seconds for WPM calculation, rounded for display/storage
+    const elapsedSeconds = startTime ? (Date.now() - startTime) / 1000 : 0;
+    const duration = Math.round(elapsedSeconds);
+    
+    // Recalculate final WPM with precise elapsed time
+    const chars = userInput.length;
+    const errorCount = userInput.split("").filter((char, i) => codeSnippet && char !== codeSnippet[i]).length;
+    const correctChars = chars - errorCount;
+    const finalWpm = elapsedSeconds > 0 ? calculateWPM(correctChars, elapsedSeconds) : 0;
+    const finalAccuracy = calculateAccuracy(correctChars, chars);
+    
+    setWpm(finalWpm);
+    setAccuracy(finalAccuracy);
+    setErrors(errorCount);
     
     setCompletedTestData({
       duration,
-      wpm,
-      accuracy,
-      errors,
+      wpm: finalWpm,
+      accuracy: finalAccuracy,
+      errors: errorCount,
       codeContent: codeSnippet,
     });
     
@@ -460,10 +473,10 @@ export default function CodeMode() {
       saveCodeTestMutation.mutate({
         codeSnippetId: snippetId,
         programmingLanguage: language,
-        wpm,
-        accuracy,
+        wpm: finalWpm,
+        accuracy: finalAccuracy,
         characters: userInput.length,
-        errors,
+        errors: errorCount,
         syntaxErrors: 0,
         duration,
       });

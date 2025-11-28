@@ -276,13 +276,26 @@ export default function BookMode() {
     setIsActive(false);
     setIsFinished(true);
     
-    const duration = Math.round((Date.now() - startTime) / 1000);
+    // Use raw seconds for WPM calculation, rounded for display/storage
+    const elapsedSeconds = (Date.now() - startTime) / 1000;
+    const duration = Math.round(elapsedSeconds);
+    
+    // Recalculate final WPM with precise elapsed time
+    const chars = userInput.length;
+    const errorCount = userInput.split("").filter((char, i) => char !== currentParagraph.text[i]).length;
+    const correctChars = chars - errorCount;
+    const finalWpm = calculateWPM(correctChars, elapsedSeconds);
+    const finalAccuracy = calculateAccuracy(correctChars, chars);
+    
+    setWpm(finalWpm);
+    setAccuracy(finalAccuracy);
+    setErrors(errorCount);
     
     setCompletedTestData({
       duration,
-      wpm,
-      accuracy,
-      errors,
+      wpm: finalWpm,
+      accuracy: finalAccuracy,
+      errors: errorCount,
     });
     
     confetti({
@@ -295,10 +308,10 @@ export default function BookMode() {
     if (user) {
       saveTestMutation.mutate({
         paragraphId: currentParagraph.id,
-        wpm,
-        accuracy,
+        wpm: finalWpm,
+        accuracy: finalAccuracy,
         characters: userInput.length,
-        errors,
+        errors: errorCount,
         duration,
       });
     }
