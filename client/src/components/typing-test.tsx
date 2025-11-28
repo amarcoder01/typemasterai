@@ -1359,123 +1359,144 @@ Can you beat my score? Try it here: `,
 
       {/* Share Modal */}
       <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Share2 className="w-5 h-5 text-primary" />
-              Share Your Result
+              Share Your Achievement
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-6">
-            {/* Result Preview with Badge */}
-            <div className="text-center p-6 bg-gradient-to-br from-primary/10 to-purple-500/10 rounded-xl border relative overflow-hidden">
-              {/* Performance Badge */}
-              <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-full border border-yellow-500/30">
-                <span className="text-lg">{getPerformanceRating().emoji}</span>
-                <span className="text-xs font-semibold text-yellow-400">{getPerformanceRating().badge}</span>
+          <div className="space-y-5">
+            {/* Pre-composed Share Message Preview */}
+            <div className="relative">
+              <div className="absolute -top-2 left-3 px-2 bg-background text-xs font-medium text-muted-foreground">
+                Your Share Message
               </div>
-              
-              <div className="text-5xl font-bold text-primary mb-2">{wpm} WPM</div>
-              <div className="text-lg text-muted-foreground">
-                {accuracy}% accuracy • {errors} errors
+              <div className="p-4 bg-gradient-to-br from-slate-900/50 to-slate-800/50 rounded-xl border border-primary/20 text-sm leading-relaxed">
+                <div className="space-y-2">
+                  <p className="text-base font-medium">
+                    {getPerformanceRating().emoji} I just scored <span className="text-primary font-bold">{wpm} WPM</span> on TypeMasterAI!
+                  </p>
+                  <p className="text-muted-foreground">
+                    ⌨️ <span className="text-foreground">{wpm} WPM</span> | ✨ <span className="text-foreground">{accuracy}% Accuracy</span>
+                  </p>
+                  <p className="text-muted-foreground">
+                    🏅 <span className="text-yellow-400">{getPerformanceRating().title}</span> - {getPerformanceRating().badge} Badge
+                  </p>
+                  <p className="text-muted-foreground">
+                    ⏱️ {mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`} typing test
+                  </p>
+                  <p className="text-primary/80 text-xs mt-3">
+                    Think you can beat my score? Try it now! 🎯
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    #TypingTest #TypeMasterAI #WPM
+                  </p>
+                </div>
               </div>
-              <div className="text-sm font-medium text-primary/80 mt-2">
-                {getPerformanceRating().title}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {mode}s test • {LANGUAGE_NAMES[language]} • {difficulty}
+              <button
+                onClick={() => {
+                  const rating = getPerformanceRating();
+                  const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                  const text = `${rating.emoji} I just scored ${wpm} WPM on TypeMasterAI!\n\n⌨️ ${wpm} WPM | ✨ ${accuracy}% Accuracy\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} typing test\n\nThink you can beat my score? Try it now! 🎯\n\n#TypingTest #TypeMasterAI #WPM`;
+                  navigator.clipboard.writeText(text);
+                  toast({ title: "Message Copied!", description: "Share message copied to clipboard" });
+                }}
+                className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
+                data-testid="button-copy-message"
+              >
+                <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </div>
+
+            {/* Quick Share Buttons - One Click Share */}
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-center text-muted-foreground uppercase tracking-wide">
+                Click to Share Instantly
+              </p>
+              <div className="grid grid-cols-4 gap-3">
+                <button
+                  onClick={() => shareToSocial('twitter')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 hover:border-[#1DA1F2]/40 transition-all group"
+                  data-testid="button-share-twitter"
+                >
+                  <Twitter className="w-6 h-6 text-[#1DA1F2]" />
+                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">Twitter</span>
+                </button>
+                <button
+                  onClick={() => shareToSocial('facebook')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 hover:border-[#1877F2]/40 transition-all group"
+                  data-testid="button-share-facebook"
+                >
+                  <Facebook className="w-6 h-6 text-[#1877F2]" />
+                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">Facebook</span>
+                </button>
+                <button
+                  onClick={() => shareToSocial('linkedin')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 hover:border-[#0A66C2]/40 transition-all group"
+                  data-testid="button-share-linkedin"
+                >
+                  <Linkedin className="w-6 h-6 text-[#0A66C2]" />
+                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">LinkedIn</span>
+                </button>
+                <button
+                  onClick={() => shareToSocial('whatsapp')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 hover:border-[#25D366]/40 transition-all group"
+                  data-testid="button-share-whatsapp"
+                >
+                  <MessageCircle className="w-6 h-6 text-[#25D366]" />
+                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">WhatsApp</span>
+                </button>
               </div>
             </div>
 
-            {/* Share Link Section */}
-            {user && lastResultId ? (
-              <>
+            {/* Shareable Link for logged in users */}
+            {user && lastResultId && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-center text-muted-foreground uppercase tracking-wide">
+                  Permanent Link
+                </p>
                 {!shareUrl ? (
                   <button
                     onClick={createShareLink}
                     disabled={isCreatingShare}
-                    className="w-full py-3 bg-primary text-primary-foreground font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-primary/10 text-primary font-medium rounded-lg hover:bg-primary/20 transition-colors flex items-center justify-center gap-2 border border-primary/20"
                     data-testid="button-create-share-link"
                   >
                     <Link2 className="w-4 h-4" />
-                    {isCreatingShare ? "Creating Link..." : "Create Shareable Link"}
+                    {isCreatingShare ? "Creating..." : "Create Shareable Link"}
                   </button>
                 ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={shareUrl}
-                        readOnly
-                        className="flex-1 px-3 py-2 bg-background border rounded-lg text-sm"
-                        data-testid="input-share-url"
-                      />
-                      <button
-                        onClick={copyShareLink}
-                        className="px-3 py-2 bg-secondary rounded-lg hover:bg-secondary/80 transition-colors"
-                        data-testid="button-copy-link"
-                      >
-                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={shareUrl}
+                      readOnly
+                      className="flex-1 px-3 py-2 bg-muted/50 border rounded-lg text-sm font-mono"
+                      data-testid="input-share-url"
+                    />
+                    <button
+                      onClick={copyShareLink}
+                      className="px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
+                      data-testid="button-copy-link"
+                    >
+                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    </button>
                   </div>
                 )}
-              </>
-            ) : (
-              <div className="text-center text-sm text-muted-foreground p-4 bg-muted/50 rounded-lg">
-                {!user ? "Log in to create a permanent shareable link for your result!" : "Complete a test to share your result."}
               </div>
             )}
 
-            {/* Social Share Buttons */}
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-center text-muted-foreground">Share on Social Media</p>
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  onClick={() => shareToSocial('twitter')}
-                  className="flex flex-col items-center gap-1 p-3 rounded-lg bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/20 transition-colors group"
-                  data-testid="button-share-twitter"
-                >
-                  <Twitter className="w-5 h-5 text-[#1DA1F2]" />
-                  <span className="text-xs text-muted-foreground group-hover:text-foreground">Twitter</span>
-                </button>
-                <button
-                  onClick={() => shareToSocial('facebook')}
-                  className="flex flex-col items-center gap-1 p-3 rounded-lg bg-[#1877F2]/10 hover:bg-[#1877F2]/20 transition-colors group"
-                  data-testid="button-share-facebook"
-                >
-                  <Facebook className="w-5 h-5 text-[#1877F2]" />
-                  <span className="text-xs text-muted-foreground group-hover:text-foreground">Facebook</span>
-                </button>
-                <button
-                  onClick={() => shareToSocial('linkedin')}
-                  className="flex flex-col items-center gap-1 p-3 rounded-lg bg-[#0A66C2]/10 hover:bg-[#0A66C2]/20 transition-colors group"
-                  data-testid="button-share-linkedin"
-                >
-                  <Linkedin className="w-5 h-5 text-[#0A66C2]" />
-                  <span className="text-xs text-muted-foreground group-hover:text-foreground">LinkedIn</span>
-                </button>
-                <button
-                  onClick={() => shareToSocial('whatsapp')}
-                  className="flex flex-col items-center gap-1 p-3 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors group"
-                  data-testid="button-share-whatsapp"
-                >
-                  <MessageCircle className="w-5 h-5 text-[#25D366]" />
-                  <span className="text-xs text-muted-foreground group-hover:text-foreground">WhatsApp</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Native Share */}
+            {/* Native Share - More Options */}
             {'share' in navigator && (
               <button
                 onClick={handleNativeShare}
-                className="w-full py-3 bg-secondary text-secondary-foreground font-medium rounded-lg hover:bg-secondary/80 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-r from-primary/10 to-purple-500/10 text-foreground font-medium rounded-xl hover:from-primary/20 hover:to-purple-500/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
                 data-testid="button-native-share"
               >
                 <Share2 className="w-4 h-4" />
-                More Sharing Options...
+                More Sharing Options
               </button>
             )}
           </div>
