@@ -350,3 +350,78 @@ Web search results have been provided to you internally. Use this information to
     throw new Error(`AI service error: ${error.message}`);
   }
 }
+
+/**
+ * Generate a concise, meaningful title for a conversation based on the first user message.
+ * This mimics ChatGPT's auto-naming behavior.
+ */
+export async function generateConversationTitle(userMessage: string): Promise<string> {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a conversation title generator. Generate a short, concise title (3-6 words max) that captures the essence of the user's message.
+
+Rules:
+- Title should be 3-6 words maximum
+- Be descriptive and specific to the topic
+- Use title case (capitalize first letter of major words)
+- No punctuation at the end
+- No quotes around the title
+- If it's a question, summarize the topic rather than using the question format
+- If it's about coding, include the language/technology if mentioned
+- Be creative but accurate
+
+Examples:
+- "How do I center a div in CSS?" → "CSS Div Centering Guide"
+- "What's the best way to learn Python?" → "Python Learning Path"
+- "Can you help me write a poem about rain?" → "Rain Poetry Creation"
+- "I need to improve my typing speed" → "Typing Speed Improvement"
+- "Explain quantum computing to me" → "Quantum Computing Basics"`,
+        },
+        {
+          role: "user",
+          content: userMessage,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 20,
+    });
+
+    const title = response.choices[0]?.message?.content?.trim();
+    
+    // Fallback if empty or too long
+    if (!title || title.length > 50) {
+      return generateFallbackTitle(userMessage);
+    }
+    
+    // Remove any quotes that might be in the response
+    return title.replace(/^["']|["']$/g, '').trim();
+  } catch (error) {
+    console.error("Title generation error:", error);
+    return generateFallbackTitle(userMessage);
+  }
+}
+
+/**
+ * Generate a simple fallback title from the message content
+ */
+function generateFallbackTitle(message: string): string {
+  // Remove special characters and extra whitespace
+  const cleaned = message
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  // Take first few words
+  const words = cleaned.split(' ').slice(0, 5);
+  
+  // Capitalize first letter of each word
+  const title = words
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+  
+  return title.length > 40 ? title.substring(0, 40) + '...' : title;
+}

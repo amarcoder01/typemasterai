@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { streamChatCompletion, shouldPerformWebSearch, type ChatMessage } from "./chat-service";
+import { streamChatCompletion, shouldPerformWebSearch, generateConversationTitle, type ChatMessage } from "./chat-service";
 import { generateTypingParagraph } from "./ai-paragraph-generator";
 import { generateCodeSnippet } from "./ai-code-generator";
 import { analyzeFile } from "./file-analyzer";
@@ -1116,17 +1116,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let convId = conversationId;
+      let isNewConversation = false;
+      
       if (!convId) {
+        // Create conversation with temporary title
         const conversation = await storage.createConversation({
           userId: req.user!.id,
-          title: lastUserMessage.content.substring(0, 100),
+          title: "New Chat",
           isPinned: 0,
         });
         convId = conversation.id;
+        isNewConversation = true;
       } else {
         const conversation = await storage.getConversation(convId, req.user!.id);
         if (!conversation) {
           return res.status(404).json({ message: "Conversation not found" });
+        }
+        // Check if this is the first message in an existing "New Chat" conversation
+        const existingMessages = await storage.getConversationMessages(convId);
+        if (existingMessages.length === 0 && conversation.title === "New Chat") {
+          isNewConversation = true;
         }
       }
 
@@ -1154,6 +1163,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: "assistant",
           content: assistantResponse,
         });
+
+        // Generate AI title for new conversations (non-blocking)
+        if (isNewConversation) {
+          generateConversationTitle(lastUserMessage.content)
+            .then(async (title) => {
+              try {
+                await storage.updateConversation(convId!, req.user!.id, { title });
+                console.log(`[Chat] Generated title for conversation ${convId}: "${title}"`);
+              } catch (err) {
+                console.error(`[Chat] Failed to update conversation title:`, err);
+              }
+            })
+            .catch((err) => {
+              console.error(`[Chat] Title generation failed:`, err);
+            });
+        }
 
         res.write("data: [DONE]\n\n");
         res.end();

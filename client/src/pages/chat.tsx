@@ -434,10 +434,15 @@ export default function Chat() {
             const data = line.slice(6);
             if (data === "[DONE]") {
               if (newConvId) {
+                // Immediately refresh to show the new conversation
                 queryClient.invalidateQueries({ queryKey: ["conversations"] });
                 if (!currentConversationId) {
                   setCurrentConversationId(newConvId);
                 }
+                // Refresh again after a delay to pick up AI-generated title
+                setTimeout(() => {
+                  queryClient.invalidateQueries({ queryKey: ["conversations"] });
+                }, 2000);
               }
               continue;
             }
