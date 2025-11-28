@@ -188,13 +188,23 @@ export async function performWebSearch(query: string): Promise<{ results: Search
       if (scraped && scraped.content && scraped.content.length > 100) {
         extractedContent += `\n\n---\n**Source ${i + 1}: ${scraped.title}**\nURL: ${result.url}\n\n${scraped.content}\n`;
         scrapedUrls.push(result.url);
-        if (extractedContent.length > 6000) break;
+        console.log(`[WebSearch] Scraped ${scraped.content.length} chars from ${result.url}`);
+        if (extractedContent.length > 8000) break;
       }
-    } catch {
+    } catch (error) {
+      console.log(`[WebSearch] Failed to scrape ${result.url}`);
     }
   }
 
-  console.log(`[WebSearch] Scraped ${scrapedUrls.length} pages successfully`);
+  console.log(`[WebSearch] Scraped ${scrapedUrls.length} pages successfully. Total content: ${extractedContent.length} chars`);
+
+  if (extractedContent.length === 0 && results.length > 0) {
+    for (let i = 0; i < Math.min(results.length, 5); i++) {
+      const result = results[i];
+      extractedContent += `\n\n---\n**Source ${i + 1}: ${result.title}**\nURL: ${result.url}\n\n${result.snippet}\n`;
+    }
+    console.log(`[WebSearch] Using snippets as fallback. Total content: ${extractedContent.length} chars`);
+  }
 
   return { results, content: extractedContent };
 }
@@ -408,17 +418,24 @@ Use these markdown features to create beautiful, organized responses:
 - Make responses scannable and visually appealing
 ${hasSearchResults ? `
 
-**WEB SEARCH RESULTS PROVIDED:**
-The following web search results are available. Use this fresh information to answer accurately:
+**⚠️ CRITICAL: WEB SEARCH RESULTS PROVIDED - YOU MUST USE THIS INFORMATION ⚠️**
 
+The user has requested current/fresh information that requires web search. Below are the MOST RECENT web search results scraped from live websites. You MUST base your answer EXCLUSIVELY on this data, NOT on your training data.
+
+**FRESH SEARCH RESULTS (Just Retrieved):**
 ${searchData.content}
 
-**INSTRUCTIONS FOR USING SEARCH RESULTS:**
-1. Synthesize the information naturally into your response
-2. Use the most recent and relevant data from the sources
-3. If sources conflict, mention the different perspectives
-4. Include specific facts, numbers, and details from the sources
-5. Present information confidently as if you know it directly` : ""}`,
+**MANDATORY INSTRUCTIONS - FOLLOW THESE RULES:**
+1. ✅ USE ONLY the information from the search results above
+2. ✅ DO NOT rely on your training data (it's outdated for this query)
+3. ✅ Include specific facts, numbers, dates, and details from the sources
+4. ✅ Cite or reference the sources naturally when mentioning key information
+5. ✅ If the search results don't fully answer the question, acknowledge what's missing
+6. ✅ Present the information as current and up-to-date (because it is!)
+7. ❌ DO NOT say "based on the search results" - just answer confidently
+8. ❌ DO NOT use outdated information from your training cutoff
+
+The user expects FRESH, CURRENT information from these search results. Deliver it accurately.` : ""}`,
   };
 
   const allMessages = [systemMessage, ...messages];
@@ -428,7 +445,7 @@ ${searchData.content}
       model: "gpt-4o-mini",
       messages: allMessages,
       stream: true,
-      temperature: 0.7,
+      temperature: hasSearchResults ? 0.3 : 0.7,
       max_tokens: 2500,
     });
 
