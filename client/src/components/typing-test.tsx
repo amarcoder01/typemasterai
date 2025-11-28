@@ -1555,8 +1555,10 @@ Can you beat my score? Try it here: `,
         
         {/* Focus Overlay - Hide when focused, active, or typing */}
         {!isActive && !isFinished && !isFocused && userInput.length === 0 && text && !isGenerating && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="text-muted-foreground/50 text-lg animate-pulse">Click or type to start</div>
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-background/40 backdrop-blur-[2px]">
+            <div className="px-6 py-3 bg-primary/90 text-primary-foreground font-semibold text-lg rounded-lg shadow-lg animate-pulse">
+              Click or type to start
+            </div>
           </div>
         )}
       </div>
