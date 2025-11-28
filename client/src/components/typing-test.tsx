@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { generateText, calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award, Share2, Twitter, Facebook, MessageCircle, Copy, Check, Link2, Linkedin, Mail, Send, AlertCircle, Loader2 } from "lucide-react";
@@ -23,6 +23,30 @@ import {
 import { KeystrokeTracker } from "@/lib/keystroke-tracker";
 
 type TestMode = 15 | 30 | 45 | 60 | 90 | 120 | 180 | number;
+
+// Memoized character component for performance - only re-renders when state changes
+const CharSpan = memo(({ 
+  char, 
+  index, 
+  state 
+}: { 
+  char: string; 
+  index: number; 
+  state: 'pending' | 'correct' | 'incorrect';
+}) => {
+  const className = state === 'pending' 
+    ? "relative text-muted-foreground/40"
+    : state === 'correct' 
+      ? "relative text-green-500" 
+      : "relative text-destructive";
+  
+  return (
+    <span data-char-index={index} className={className}>
+      {char}
+    </span>
+  );
+});
+CharSpan.displayName = 'CharSpan';
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English",
@@ -1128,8 +1152,8 @@ Can you beat my score? Try it here: `,
     return isCorrect ? "text-green-500" : "text-destructive";
   };
 
-  // Render only the visible portion of text to optimize? 
-  // For now, render all but maybe slice for extremely long texts if performance issues arise.
+  // Memoize the characters array to avoid recreating on every render
+  const characters = useMemo(() => text.split(""), [text]);
   
   const availableLanguages = languagesData?.languages || ["en"];
   const availableModes = modesData?.modes || ["general"];
@@ -1684,15 +1708,22 @@ Can you beat my score? Try it here: `,
               inputRef.current?.focus({ preventScroll: true });
             }}
           >
-            {text.split("").map((char, index) => (
-              <span 
-                key={`${text.length}-${index}`}
-                data-char-index={index}
-                className={cn("relative", getCharClass(index))}
-              >
-                {char}
-              </span>
-            ))}
+            {characters.map((char, index) => {
+              const state: 'pending' | 'correct' | 'incorrect' = 
+                index >= userInput.length 
+                  ? 'pending' 
+                  : userInput[index] === text[index] 
+                    ? 'correct' 
+                    : 'incorrect';
+              return (
+                <CharSpan 
+                  key={`${text.length}-${index}`}
+                  char={char}
+                  index={index}
+                  state={state}
+                />
+              );
+            })}
             {/* Single persistent cursor with smooth transitions - Monkeytype/VSCode style */}
             {!isFinished && (
               <span 
