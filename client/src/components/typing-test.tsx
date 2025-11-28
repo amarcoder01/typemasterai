@@ -1311,7 +1311,42 @@ Can you beat my score? Try it here: `,
                 </div>
               </div>
 
-              <div className="mt-8 flex flex-col gap-3">
+              {/* Celebratory Share Prompt - appears for good performances */}
+              {wpm >= 40 && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.5, duration: 0.4 }}
+                  className="mb-4 p-4 bg-gradient-to-r from-yellow-500/10 via-orange-500/10 to-pink-500/10 rounded-xl border border-yellow-500/30 text-center"
+                >
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <span className="text-2xl">{wpm >= 80 ? "🔥" : wpm >= 60 ? "⚡" : "🎉"}</span>
+                    <span className="font-bold text-lg">
+                      {wpm >= 80 ? "Amazing Performance!" : wpm >= 60 ? "Great Job!" : "Nice Work!"}
+                    </span>
+                    <span className="text-2xl">{wpm >= 80 ? "🔥" : wpm >= 60 ? "⚡" : "🎉"}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {wpm >= 80 
+                      ? "You're faster than 95% of typists! Share your achievement!" 
+                      : wpm >= 60 
+                      ? "You're faster than 75% of typists! Challenge your friends!" 
+                      : "You're above average! Share and see if your friends can beat you!"}
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowShareModal(true)}
+                    className="px-6 py-2 bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 text-white font-bold rounded-lg shadow-lg animate-pulse hover:animate-none"
+                    data-testid="button-share-celebration"
+                  >
+                    <Share2 className="w-4 h-4 inline mr-2" />
+                    Share & Earn 5 XP
+                  </motion.button>
+                </motion.div>
+              )}
+
+              <div className="mt-4 flex flex-col gap-3">
                 {user && (
                   <>
                     <button
