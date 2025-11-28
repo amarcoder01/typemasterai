@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { generateText, calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award, Share2, Twitter, Facebook, MessageCircle, Copy, Check, Link2, Linkedin, Mail, Send } from "lucide-react";
+import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award, Share2, Twitter, Facebook, MessageCircle, Copy, Check, Link2, Linkedin, Mail, Send, AlertCircle, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -104,6 +105,9 @@ export default function TypingTest() {
   const [quickRestart, setQuickRestart] = useState(true);
   const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
   const [isComposing, setIsComposing] = useState(false);
+  const [paragraphError, setParagraphError] = useState<string | null>(null);
+  const [fetchRetryCount, setFetchRetryCount] = useState(0);
+  const MAX_RETRY_ATTEMPTS = 3;
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -111,31 +115,38 @@ export default function TypingTest() {
   const keystrokeTrackerRef = useRef<KeystrokeTracker | null>(null);
   const pendingFetchesRef = useRef(0);
   const latestRequestIdRef = useRef(0);
-  const appliedRequestIdRef = useRef(0); // Tracks which request successfully updated state
+  const appliedRequestIdRef = useRef(0);
   const [trackingEnabled, setTrackingEnabled] = useState(true);
 
-  const { data: languagesData } = useQuery({
+  const { data: languagesData, isError: languagesError, isFetching: languagesFetching, refetch: refetchLanguages } = useQuery({
     queryKey: ["languages"],
     queryFn: async () => {
       const response = await fetch("/api/typing/languages");
       if (!response.ok) throw new Error("Failed to fetch languages");
       return response.json();
     },
+    retry: 2,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: modesData } = useQuery({
+  const { data: modesData, isError: modesError, isFetching: modesFetching, refetch: refetchModes } = useQuery({
     queryKey: ["modes"],
     queryFn: async () => {
       const response = await fetch("/api/typing/modes");
       if (!response.ok) throw new Error("Failed to fetch modes");
       return response.json();
     },
+    retry: 2,
+    staleTime: 5 * 60 * 1000,
   });
 
   const fetchParagraph = useCallback(async (useCustomPrompt = false, forceGenerate = false) => {
     // Increment request ID and capture it for this fetch
     latestRequestIdRef.current++;
     const currentRequestId = latestRequestIdRef.current;
+    
+    // Clear any existing error state when starting a new fetch
+    setParagraphError(null);
     
     // Increment pending fetches counter
     pendingFetchesRef.current++;
@@ -191,6 +202,8 @@ export default function TypingTest() {
       if (currentRequestId === latestRequestIdRef.current) {
         setText(extendedText);
         setOriginalText(paragraphText);
+        setParagraphError(null);
+        setFetchRetryCount(0);
         // Mark this request as successfully applied
         appliedRequestIdRef.current = currentRequestId;
         // Clear isGenerating immediately when latest request applies (don't wait for stale fetches)
@@ -228,28 +241,42 @@ export default function TypingTest() {
       
       // Only update state if this is still the latest request
       if (currentRequestId === latestRequestIdRef.current) {
-        const fallbackText = generateText(100);
-        setText(fallbackText);
-        setOriginalText(fallbackText); // Update originalText for paragraph extension
-        toast({
-          title: "Using random text",
-          description: "Could not load paragraph from database.",
-          variant: "default",
-        });
+        const newRetryCount = fetchRetryCount + 1;
+        setFetchRetryCount(newRetryCount);
+        
+        // Check if we've exceeded max retries
+        if (newRetryCount >= MAX_RETRY_ATTEMPTS) {
+          // Use fallback text after max retries
+          const fallbackText = generateText(100);
+          setText(fallbackText);
+          setOriginalText(fallbackText);
+          setParagraphError(null);
+          toast({
+            title: "Using practice text",
+            description: "Unable to connect to server. Using generated text for practice.",
+            variant: "default",
+          });
+        } else {
+          // Show error state with retry option
+          setParagraphError("Unable to load typing content. Please check your connection.");
+          toast({
+            title: "Connection issue",
+            description: `Failed to load content (attempt ${newRetryCount}/${MAX_RETRY_ATTEMPTS}). Tap retry or we'll use practice text.`,
+            variant: "destructive",
+          });
+        }
+        
         // Mark this request as successfully applied
         appliedRequestIdRef.current = currentRequestId;
-        // Clear isGenerating immediately when latest request applies
         setIsGenerating(false);
-        setUserInput(""); // Clean slate for new test
+        setUserInput("");
       }
     } finally {
-      // Always decrement counter (even for stale responses)
       pendingFetchesRef.current = Math.max(0, pendingFetchesRef.current - 1);
-      
-      // Note: isGenerating is cleared immediately when the latest request applies (in try block)
-      // No need to wait for all fetches to complete
     }
-  }, [language, paragraphMode, difficulty, customPrompt, mode, toast]);
+  }, [language, paragraphMode, difficulty, customPrompt, mode, toast, fetchRetryCount]);
+
+  const [pendingResult, setPendingResult] = useState<{ wpm: number; accuracy: number; mode: number; characters: number; errors: number } | null>(null);
 
   const saveResultMutation = useMutation({
     mutationFn: async (result: { wpm: number; accuracy: number; mode: number; characters: number; errors: number }) => {
@@ -261,7 +288,8 @@ export default function TypingTest() {
       });
       
       if (!response.ok) {
-        throw new Error("Failed to save test result");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to save test result");
       }
       
       return response.json();
@@ -270,19 +298,36 @@ export default function TypingTest() {
       if (data?.id) {
         setLastResultId(data.id);
       }
+      setPendingResult(null);
       toast({
         title: "Test Saved!",
         description: "Your result has been saved to your profile.",
       });
     },
-    onError: () => {
+    onError: (error, variables) => {
+      setPendingResult(variables);
       toast({
         title: "Save Failed",
-        description: "Could not save your test result. Please try again.",
+        description: "Could not save your test result. Use the retry button below.",
         variant: "destructive",
+        action: (
+          <button
+            onClick={() => saveResultMutation.mutate(variables)}
+            className="bg-primary text-primary-foreground px-3 py-1 rounded text-sm"
+          >
+            Retry
+          </button>
+        ),
       });
     },
+    retry: 1,
   });
+
+  const retryPendingResult = useCallback(() => {
+    if (pendingResult) {
+      saveResultMutation.mutate(pendingResult);
+    }
+  }, [pendingResult, saveResultMutation]);
 
   const resetTest = useCallback(async () => {
     // Reset test state first
@@ -386,12 +431,18 @@ export default function TypingTest() {
     if (!user) return;
     
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
       const response = await fetch('/api/share/track', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ platform, resultId: lastResultId }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const data = await response.json();
@@ -401,9 +452,15 @@ export default function TypingTest() {
             ? "First share bonus! Keep sharing to unlock achievements."
             : `Total shares: ${data.totalShares}. Share more to level up!`,
         });
+      } else {
+        console.warn(`Share tracking failed: ${response.status}`);
       }
     } catch (error) {
-      console.error('Share tracking error:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.warn('Share tracking timed out');
+      } else {
+        console.error('Share tracking error:', error);
+      }
     }
   };
 
@@ -470,19 +527,77 @@ Can you beat my score? Try it here: `,
   };
 
   const handleNativeShare = async () => {
-    if ('share' in navigator) {
-      const rating = getPerformanceRating();
-      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+    const rating = getPerformanceRating();
+    const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+    const shareText = `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!\n\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nCan you beat my score?`;
+    const shareUrl = 'https://typemasterai.com';
+    
+    if ('share' in navigator && navigator.canShare) {
       try {
         await navigator.share({
           title: 'TypeMasterAI - My Typing Result',
-          text: `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!\n\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nCan you beat my score?`,
-          url: 'https://typemasterai.com',
+          text: shareText,
+          url: shareUrl,
         });
         trackShare('native');
       } catch (error) {
-        console.error('Native share error:', error);
+        if (error instanceof Error) {
+          if (error.name === 'AbortError') {
+            return;
+          }
+          if (error.name === 'NotAllowedError') {
+            toast({
+              title: "Share Blocked",
+              description: "Browser denied share request. Try copying the link instead.",
+              variant: "default",
+            });
+            return;
+          }
+        }
+        copyToClipboardFallback(`${shareText}\n${shareUrl}`);
       }
+    } else {
+      copyToClipboardFallback(`${shareText}\n${shareUrl}`);
+    }
+  };
+
+  const copyToClipboardFallback = async (text: string) => {
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+        toast({
+          title: "Copied!",
+          description: "Text copied to clipboard. Paste to share!",
+        });
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.select();
+        const success = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        if (success) {
+          toast({
+            title: "Copied!",
+            description: "Text copied to clipboard. Paste to share!",
+          });
+        } else {
+          toast({
+            title: "Copy Failed",
+            description: "Please manually select and copy the text.",
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Unable to copy to clipboard. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -564,12 +679,19 @@ Can you beat my score? Try it here: `,
     setAccuracy(finalAccuracy);
     setErrors(finalErrors);
     
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#FFD700', '#00FFFF', '#FF00FF']
-    });
+    // Safe confetti call with error handling
+    try {
+      if (typeof confetti === 'function') {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#FFD700', '#00FFFF', '#FF00FF']
+        });
+      }
+    } catch (error) {
+      console.warn('Confetti animation failed:', error);
+    }
 
     if (user) {
       const testData = {
@@ -614,15 +736,22 @@ Can you beat my score? Try it here: `,
   };
 
   const processInput = (value: string) => {
-    if (isFinished || isGenerating) return;
+    if (isFinished) return;
+    if (!text) return;
     
     const previousLength = userInput.length;
     
     // Play keyboard sound on keystroke (only when adding characters, not deleting)
     if (value.length > previousLength) {
-      import('@/lib/keyboard-sounds').then((module) => {
-        module.keyboardSound.play();
-      });
+      import('@/lib/keyboard-sounds')
+        .then((module) => {
+          if (module.keyboardSound && typeof module.keyboardSound.play === 'function') {
+            module.keyboardSound.play();
+          }
+        })
+        .catch((error) => {
+          console.warn('Keyboard sound failed to load:', error);
+        });
     }
     
     if (!isActive && value.length === 1) {
@@ -644,7 +773,7 @@ Can you beat my score? Try it here: `,
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isComposing || isGenerating) return;
+    if (isComposing) return;
     processInput(e.target.value);
   };
 
@@ -849,12 +978,30 @@ Can you beat my score? Try it here: `,
   return (
     <TooltipProvider delayDuration={300}>
       <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
+        {/* API Error Banner - only show when there's an error and not currently fetching */}
+        {((languagesError && !languagesFetching) || (modesError && !modesFetching)) && (
+          <div className="flex items-center justify-center gap-2 p-2 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+            <AlertCircle className="w-4 h-4" />
+            <span>Some options may be limited. </span>
+            <button 
+              onClick={() => {
+                if (languagesError && !languagesFetching) refetchLanguages();
+                if (modesError && !modesFetching) refetchModes();
+              }}
+              className="underline hover:no-underline"
+              disabled={languagesFetching || modesFetching}
+            >
+              {languagesFetching || modesFetching ? 'Retrying...' : 'Retry'}
+            </button>
+          </div>
+        )}
+
         {/* Language & Mode Selectors */}
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <Tooltip>
               <TooltipTrigger asChild>
-                <div>
+                <div className="relative">
                   <SearchableSelect
                     value={language}
                     onValueChange={setLanguage}
@@ -867,6 +1014,9 @@ Can you beat my score? Try it here: `,
                     emptyText="No language found."
                     icon={<Globe className="w-4 h-4" />}
                   />
+                  {languagesError && !languagesFetching && !languagesData && (
+                    <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" title="Failed to load languages" />
+                  )}
                 </div>
               </TooltipTrigger>
               <TooltipContent className="max-w-xs bg-popover text-popover-foreground border shadow-lg p-3">
@@ -877,7 +1027,7 @@ Can you beat my score? Try it here: `,
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <div>
+                <div className="relative">
                   <SearchableSelect
                     value={paragraphMode}
                     onValueChange={setParagraphMode}
@@ -890,6 +1040,9 @@ Can you beat my score? Try it here: `,
                     emptyText="No mode found."
                     icon={<BookOpen className="w-4 h-4" />}
                   />
+                  {modesError && !modesFetching && !modesData && (
+                    <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" title="Failed to load modes" />
+                  )}
                 </div>
               </TooltipTrigger>
               <TooltipContent className="max-w-xs bg-popover text-popover-foreground border shadow-lg p-3">
@@ -1191,6 +1344,69 @@ Can you beat my score? Try it here: `,
 
       {/* Typing Area */}
       <div className="relative min-h-[300px] group">
+        {/* Error State */}
+        {paragraphError && !text && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+              <AlertCircle className="w-8 h-8 text-destructive" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Unable to Load Content</h3>
+            <p className="text-muted-foreground mb-4 max-w-md">{paragraphError}</p>
+            <div className="flex gap-3">
+              <Button
+                variant="default"
+                onClick={() => {
+                  setParagraphError(null);
+                  fetchParagraph();
+                }}
+                disabled={isGenerating}
+                data-testid="button-retry-paragraph"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Try Again
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const fallbackText = generateText(100);
+                  setText(fallbackText);
+                  setOriginalText(fallbackText);
+                  setParagraphError(null);
+                  setFetchRetryCount(0);
+                }}
+                data-testid="button-use-practice-text"
+              >
+                Use Practice Text
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Loading State - only show full overlay if no text exists yet */}
+        {isGenerating && !text && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+            <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Generating content...</p>
+          </div>
+        )}
+        
+        {/* Inline loading indicator when text exists (regenerating) */}
+        {isGenerating && text && (
+          <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full z-10">
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            <span className="text-xs text-primary">Loading new content...</span>
+          </div>
+        )}
+
         {/* Hidden Input */}
         <input
           ref={inputRef}
@@ -1203,46 +1419,49 @@ Can you beat my score? Try it here: `,
           onCut={handleCut}
           className="absolute opacity-0 w-full h-full cursor-default z-0"
           autoFocus
+          disabled={!!paragraphError && !text}
         />
 
         {/* Visual Text Display */}
-        <div 
-          ref={containerRef}
-          lang={language}
-          dir={isRTL ? "rtl" : "ltr"}
-          className={cn(
-            "w-full h-full p-8 text-2xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300",
-            !isActive && !isFinished && "blur-[1px] opacity-70 group-hover:blur-0 group-hover:opacity-100"
-          )}
-          onClick={() => inputRef.current?.focus()}
-        >
-          {text.split("").map((char, index) => (
-            <span 
-              key={`${text.length}-${index}`}
-              data-char-index={index}
-              className={cn("relative", getCharClass(index))}
-            >
-              {char}
-            </span>
-          ))}
-          {/* Single persistent cursor with smooth transitions */}
-          {!isFinished && (
-            <span 
-              className={cn(
-                "absolute w-[2px] bg-primary animate-cursor-blink pointer-events-none",
-                smoothCaret && "transition-all duration-100 ease-out"
-              )}
-              style={{ 
-                left: `${cursorPosition.left}px`,
-                top: `${cursorPosition.top}px`,
-                height: `${cursorPosition.height}px`
-              }}
-            />
-          )}
-        </div>
+        {text && (
+          <div 
+            ref={containerRef}
+            lang={language}
+            dir={isRTL ? "rtl" : "ltr"}
+            className={cn(
+              "w-full h-full p-8 text-2xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300",
+              !isActive && !isFinished && "blur-[1px] opacity-70 group-hover:blur-0 group-hover:opacity-100"
+            )}
+            onClick={() => inputRef.current?.focus()}
+          >
+            {text.split("").map((char, index) => (
+              <span 
+                key={`${text.length}-${index}`}
+                data-char-index={index}
+                className={cn("relative", getCharClass(index))}
+              >
+                {char}
+              </span>
+            ))}
+            {/* Single persistent cursor with smooth transitions */}
+            {!isFinished && (
+              <span 
+                className={cn(
+                  "absolute w-[2px] bg-primary animate-cursor-blink pointer-events-none",
+                  smoothCaret && "transition-all duration-100 ease-out"
+                )}
+                style={{ 
+                  left: `${cursorPosition.left}px`,
+                  top: `${cursorPosition.top}px`,
+                  height: `${cursorPosition.height}px`
+                }}
+              />
+            )}
+          </div>
+        )}
         
         {/* Focus Overlay */}
-        {!isActive && !isFinished && userInput.length === 0 && (
+        {!isActive && !isFinished && userInput.length === 0 && text && !isGenerating && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-muted-foreground/50 text-lg animate-pulse">Click or type to start</div>
           </div>
