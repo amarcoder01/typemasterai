@@ -1494,6 +1494,89 @@ Can you beat my score? Try it here: `,
               </div>
             )}
 
+            {/* Share Certificate Section - Only for logged in users */}
+            {user && (
+              <div className="space-y-3 pt-2 border-t">
+                <div className="flex items-center gap-2 justify-center">
+                  <Award className="w-4 h-4 text-yellow-400" />
+                  <p className="text-xs font-medium text-center text-muted-foreground uppercase tracking-wide">
+                    Share Your Certificate
+                  </p>
+                  <Award className="w-4 h-4 text-yellow-400" />
+                </div>
+                
+                {/* Certificate Share Message */}
+                <div className="p-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-lg border border-yellow-500/20">
+                  <p className="text-sm text-center text-foreground">
+                    🎓 <span className="font-medium">Show off your official TypeMasterAI certificate!</span>
+                  </p>
+                  <p className="text-xs text-center text-muted-foreground mt-1">
+                    Share your {wpm} WPM achievement with friends and colleagues
+                  </p>
+                </div>
+
+                {/* Certificate Social Share Buttons */}
+                <div className="grid grid-cols-4 gap-2">
+                  <button
+                    onClick={() => {
+                      const rating = getPerformanceRating();
+                      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                      const text = encodeURIComponent(`🎓 I just earned my TypeMasterAI Certificate!\n\n⌨️ ${wpm} WPM | ${accuracy}% Accuracy\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} typing test\n\nGet your certificate too!\n\n#TypeMasterAI #TypingCertificate`);
+                      window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
+                    }}
+                    className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all group"
+                    data-testid="button-share-cert-twitter"
+                  >
+                    <Twitter className="w-5 h-5 text-[#1DA1F2]" />
+                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground">Twitter</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const rating = getPerformanceRating();
+                      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                      const text = encodeURIComponent(`🎓 I just earned my TypeMasterAI Certificate!\n\n🏆 ${wpm} Words Per Minute\n✨ ${accuracy}% Accuracy\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nTest your typing skills and get certified!`);
+                      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://typemasterai.com')}&quote=${text}`, '_blank', 'width=600,height=400');
+                    }}
+                    className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all group"
+                    data-testid="button-share-cert-facebook"
+                  >
+                    <Facebook className="w-5 h-5 text-[#1877F2]" />
+                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground">Facebook</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const rating = getPerformanceRating();
+                      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                      const text = encodeURIComponent(`Proud to share my TypeMasterAI Certificate of Achievement! 🎓\n\n📜 Certification Details:\n• Typing Speed: ${wpm} Words Per Minute\n• Accuracy: ${accuracy}%\n• Performance Rating: ${rating.title} (${rating.badge})\n• Test Duration: ${modeDisplay}\n\nContinuous skill development is key to professional growth.\n\n#Certificate #TypeMasterAI #ProfessionalDevelopment`);
+                      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
+                    }}
+                    className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all group"
+                    data-testid="button-share-cert-linkedin"
+                  >
+                    <Linkedin className="w-5 h-5 text-[#0A66C2]" />
+                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground">LinkedIn</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const rating = getPerformanceRating();
+                      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                      const text = encodeURIComponent(`🎓 Check out my TypeMasterAI Certificate!\n\n📜 *Certificate of Achievement*\n⌨️ *${wpm} WPM* | *${accuracy}% Accuracy*\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nGet your certificate: `);
+                      window.open(`https://wa.me/?text=${text}${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
+                    }}
+                    className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all group"
+                    data-testid="button-share-cert-whatsapp"
+                  >
+                    <MessageCircle className="w-5 h-5 text-[#25D366]" />
+                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground">WhatsApp</span>
+                  </button>
+                </div>
+                
+                <p className="text-xs text-center text-muted-foreground">
+                  💡 Tip: View your certificate to download it, then attach it to your post!
+                </p>
+              </div>
+            )}
+
             {/* Native Share - More Options */}
             {'share' in navigator && (
               <button
