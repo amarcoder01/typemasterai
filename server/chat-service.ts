@@ -212,7 +212,9 @@ Respond with JSON only:
     });
 
     const result = JSON.parse(response.choices[0]?.message?.content || "{}");
-    const queries = result.queries || [originalQuery];
+    const queries = result.queries && Array.isArray(result.queries) && result.queries.length > 0 
+      ? result.queries 
+      : [originalQuery];
     console.log(`[DeepSearch] Generated ${queries.length} search queries:`, queries);
     return queries.slice(0, 3);
   } catch (error) {
@@ -279,12 +281,20 @@ export async function performWebSearch(query: string): Promise<{ results: Search
 export async function performDeepWebSearch(query: string): Promise<{ results: SearchResult[]; content: string }> {
   console.log(`[DeepSearch] Starting deep search for: "${query}"`);
   
+  const startTime = Date.now();
+  const MAX_TOTAL_TIME = 45000;
+  
   const queries = await generateSearchQueries(query);
   
   const allResults: SearchResult[] = [];
   const seenUrls = new Set<string>();
   
   for (const searchQuery of queries) {
+    if (Date.now() - startTime > MAX_TOTAL_TIME) {
+      console.log(`[DeepSearch] Reached time limit, stopping query execution`);
+      break;
+    }
+    
     console.log(`[DeepSearch] Executing query: "${searchQuery}"`);
     
     let queryResults: SearchResult[] = [];
@@ -325,6 +335,11 @@ export async function performDeepWebSearch(query: string): Promise<{ results: Se
   const maxPages = Math.min(allResults.length, 8);
   
   for (let i = 0; i < maxPages; i++) {
+    if (Date.now() - startTime > MAX_TOTAL_TIME) {
+      console.log(`[DeepSearch] Reached time limit, stopping scrape`);
+      break;
+    }
+    
     const result = allResults[i];
     try {
       const scraped = await scrapeWebPage(result.url);
@@ -343,7 +358,7 @@ export async function performDeepWebSearch(query: string): Promise<{ results: Se
     }
   }
   
-  console.log(`[DeepSearch] Scraped ${scrapedUrls.length} pages successfully. Total content: ${extractedContent.length} chars`);
+  console.log(`[DeepSearch] Scraped ${scrapedUrls.length} pages successfully. Total content: ${extractedContent.length} chars. Total time: ${Date.now() - startTime}ms`);
   
   if (extractedContent.length === 0 && allResults.length > 0) {
     for (let i = 0; i < Math.min(allResults.length, 8); i++) {
