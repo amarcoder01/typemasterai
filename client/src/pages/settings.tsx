@@ -45,6 +45,7 @@ export default function Settings() {
   // Typing behavior settings state
   const [smoothCaret, setSmoothCaret] = useState(true);
   const [quickRestart, setQuickRestart] = useState(true);
+  const [zenMode, setZenMode] = useState(false);
 
   // Load sound settings on mount
   useEffect(() => {
@@ -57,12 +58,16 @@ export default function Settings() {
   useEffect(() => {
     const smoothCaretSetting = localStorage.getItem('smoothCaret');
     const quickRestartSetting = localStorage.getItem('quickRestart');
+    const zenModeSetting = localStorage.getItem('zenMode');
     
     if (smoothCaretSetting !== null) {
       setSmoothCaret(smoothCaretSetting === 'true');
     }
     if (quickRestartSetting !== null) {
       setQuickRestart(quickRestartSetting === 'true');
+    }
+    if (zenModeSetting !== null) {
+      setZenMode(zenModeSetting === 'true');
     }
   }, []);
 
@@ -101,6 +106,15 @@ export default function Settings() {
     toast({
       title: enabled ? "Quick Restart Enabled" : "Quick Restart Disabled",
       description: enabled ? "Press Tab to restart" : "Use the restart button",
+    });
+  };
+
+  const handleZenModeChange = (enabled: boolean) => {
+    setZenMode(enabled);
+    localStorage.setItem('zenMode', enabled.toString());
+    toast({
+      title: enabled ? "Zen Mode Enabled" : "Zen Mode Disabled",
+      description: enabled ? "Minimalist typing experience - focus on the text" : "Full UI with all controls visible",
     });
   };
 
@@ -425,6 +439,19 @@ export default function Settings() {
                   checked={quickRestart}
                   onCheckedChange={handleQuickRestartChange}
                   data-testid="switch-quick-restart"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                 <Label htmlFor="zen-mode" className="flex flex-col gap-1">
+                  <span>Zen Mode</span>
+                  <span className="font-normal text-xs text-muted-foreground">Minimalist UI - hides stats and controls during typing</span>
+                </Label>
+                <Switch
+                  id="zen-mode"
+                  checked={zenMode}
+                  onCheckedChange={handleZenModeChange}
+                  data-testid="switch-zen-mode"
                 />
               </div>
             </CardContent>

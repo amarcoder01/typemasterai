@@ -114,8 +114,11 @@ export default function TypingTest() {
   const [isActive, setIsActive] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
   const [wpm, setWpm] = useState(0);
+  const [rawWpm, setRawWpm] = useState(0);
+  const [consistency, setConsistency] = useState(100);
   const [accuracy, setAccuracy] = useState(100);
   const [errors, setErrors] = useState(0);
+  const wpmHistoryRef = useRef<number[]>([]);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
@@ -128,9 +131,21 @@ export default function TypingTest() {
   const [smoothCaret, setSmoothCaret] = useState(true);
   const [caretSpeed, setCaretSpeed] = useState<'off' | 'fast' | 'medium' | 'smooth'>('medium');
   const [quickRestart, setQuickRestart] = useState(true);
+  const [zenMode, setZenMode] = useState(false);
   const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
   const [isTypingFast, setIsTypingFast] = useState(false);
   const lastKeystrokeTimeRef = useRef<number>(0);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  
+  // Detect prefers-reduced-motion for accessibility
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mediaQuery.matches);
+    
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
   const [isComposing, setIsComposing] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [paragraphError, setParagraphError] = useState<string | null>(null);
@@ -432,6 +447,8 @@ export default function TypingTest() {
     setIsActive(false);
     setIsFinished(false);
     setWpm(0);
+    setRawWpm(0);
+    setConsistency(100);
     setAccuracy(100);
     setShowAuthPrompt(false);
     setShowShareModal(false);
@@ -439,8 +456,9 @@ export default function TypingTest() {
     setLastResultId(null);
     setHasInteracted(false);
     
-    // Clear keystroke tracker to start fresh
+    // Clear keystroke tracker and WPM history to start fresh
     keystrokeTrackerRef.current = null;
+    wpmHistoryRef.current = [];
     
     // Use fetchParagraph with forceGenerate to centralize counter logic
     await fetchParagraph(false, true);
@@ -707,9 +725,12 @@ Can you beat my score? Try it here: `,
     setIsActive(false);
     setIsFinished(false);
     setWpm(0);
+    setRawWpm(0);
+    setConsistency(100);
     setAccuracy(100);
-    // Clear keystroke tracker for new test
+    // Clear keystroke tracker and WPM history for new test
     keystrokeTrackerRef.current = null;
+    wpmHistoryRef.current = [];
     // Reset paragraph queue (will be filled after fetchParagraph returns with ID)
     paragraphQueueRef.current = [];
     usedParagraphIdsRef.current = new Set();
@@ -726,9 +747,12 @@ Can you beat my score? Try it here: `,
       setIsActive(false);
       setIsFinished(false);
       setWpm(0);
+      setRawWpm(0);
+      setConsistency(100);
       setAccuracy(100);
-      // Clear keystroke tracker for new test
+      // Clear keystroke tracker and WPM history for new test
       keystrokeTrackerRef.current = null;
+      wpmHistoryRef.current = [];
       // Reset queue (will be filled after fetchParagraph returns with ID)
       paragraphQueueRef.current = [];
       usedParagraphIdsRef.current = new Set();
@@ -748,7 +772,7 @@ Can you beat my score? Try it here: `,
     return () => clearInterval(interval);
   }, [isActive, timeLeft]);
 
-  // Calculate live stats
+  // Calculate live stats with Raw WPM and Consistency tracking
   useEffect(() => {
     if (isActive && startTime) {
       const chars = userInput.length;
@@ -756,9 +780,39 @@ Can you beat my score? Try it here: `,
       const correctChars = chars - errorCount;
       const timeElapsed = (Date.now() - startTime) / 1000;
       
-      setWpm(calculateWPM(correctChars, timeElapsed));
+      // Net WPM (adjusted for errors) - standard metric
+      const netWpm = calculateWPM(correctChars, timeElapsed);
+      // Raw WPM (pure speed, no error penalty)
+      const rawWpmValue = calculateWPM(chars, timeElapsed);
+      
+      setWpm(netWpm);
+      setRawWpm(rawWpmValue);
       setAccuracy(calculateAccuracy(correctChars, chars));
       setErrors(errorCount);
+      
+      // Track WPM history for consistency calculation (sample every ~1 second)
+      if (timeElapsed > 1 && Math.floor(timeElapsed) !== Math.floor((Date.now() - startTime - 100) / 1000)) {
+        wpmHistoryRef.current.push(netWpm);
+        
+        // Calculate consistency (lower standard deviation = higher consistency)
+        if (wpmHistoryRef.current.length >= 3) {
+          const avg = wpmHistoryRef.current.reduce((a, b) => a + b, 0) / wpmHistoryRef.current.length;
+          const variance = wpmHistoryRef.current.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / wpmHistoryRef.current.length;
+          const stdDev = Math.sqrt(variance);
+          // Convert to 0-100% scale (lower deviation = higher consistency)
+          // Using formula: 100 - (stdDev / avg * 100), clamped to 0-100
+          const consistencyScore = avg > 0 ? Math.max(0, Math.min(100, Math.round(100 - (stdDev / avg * 100)))) : 100;
+          setConsistency(consistencyScore);
+        }
+      }
+      
+      // Adaptive cursor: detect fast typing (>80 WPM or <150ms between keystrokes)
+      const now = Date.now();
+      if (lastKeystrokeTimeRef.current > 0) {
+        const timeSinceLastKeystroke = now - lastKeystrokeTimeRef.current;
+        setIsTypingFast(timeSinceLastKeystroke < 150 || rawWpmValue > 80);
+      }
+      lastKeystrokeTimeRef.current = now;
     }
   }, [userInput, isActive, startTime, text]);
 
@@ -944,6 +998,7 @@ Can you beat my score? Try it here: `,
     const smoothCaretSetting = localStorage.getItem('smoothCaret');
     const caretSpeedSetting = localStorage.getItem('caretSpeed');
     const quickRestartSetting = localStorage.getItem('quickRestart');
+    const zenModeSetting = localStorage.getItem('zenMode');
     
     if (smoothCaretSetting !== null) {
       setSmoothCaret(smoothCaretSetting === 'true');
@@ -953,6 +1008,9 @@ Can you beat my score? Try it here: `,
     }
     if (quickRestartSetting !== null) {
       setQuickRestart(quickRestartSetting === 'true');
+    }
+    if (zenModeSetting !== null) {
+      setZenMode(zenModeSetting === 'true');
     }
   }, []);
 
@@ -1197,8 +1255,11 @@ Can you beat my score? Try it here: `,
           </div>
         )}
 
-        {/* Language & Mode Selectors */}
-        <div className="flex flex-col gap-4">
+        {/* Language & Mode Selectors - Hidden in Zen Mode when typing */}
+        <div className={cn(
+          "flex flex-col gap-4 transition-opacity duration-300",
+          zenMode && isActive && "opacity-0 h-0 overflow-hidden"
+        )}>
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1515,9 +1576,11 @@ Can you beat my score? Try it here: `,
                       setIsActive(false);
                       setIsFinished(false);
                       setWpm(0);
+                      setRawWpm(0);
+                      setConsistency(100);
                       setAccuracy(100);
-                      // Clear keystroke tracker for new test
                       keystrokeTrackerRef.current = null;
+                      wpmHistoryRef.current = [];
                     }
                   }}
                 />
@@ -1531,9 +1594,11 @@ Can you beat my score? Try it here: `,
                       setIsActive(false);
                       setIsFinished(false);
                       setWpm(0);
+                      setRawWpm(0);
+                      setConsistency(100);
                       setAccuracy(100);
-                      // Clear keystroke tracker for new test
                       keystrokeTrackerRef.current = null;
+                      wpmHistoryRef.current = [];
                     } else {
                       toast({
                         title: "Empty prompt",
@@ -1563,13 +1628,16 @@ Can you beat my score? Try it here: `,
         </div>
       </div>
 
-      {/* Stats Overview (Live) */}
-      <div className="grid grid-cols-4 gap-4">
+      {/* Stats Overview (Live) - 6 metrics like Monkeytype - Hidden in Zen Mode when typing */}
+      <div className={cn(
+        "grid grid-cols-3 md:grid-cols-6 gap-3 transition-opacity duration-300",
+        zenMode && isActive && "opacity-0 h-0 overflow-hidden"
+      )}>
          <Tooltip>
            <TooltipTrigger asChild>
-             <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Time</span>
-               <span className="text-4xl font-mono font-bold text-primary">{formatTime(timeLeft)}</span>
+             <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Time</span>
+               <span className="text-2xl md:text-3xl font-mono font-bold text-primary" data-testid="text-time-left">{formatTime(timeLeft)}</span>
              </div>
            </TooltipTrigger>
            <TooltipContent>
@@ -1578,20 +1646,31 @@ Can you beat my score? Try it here: `,
          </Tooltip>
          <Tooltip>
            <TooltipTrigger asChild>
-             <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">WPM</span>
-               <span className="text-4xl font-mono font-bold">{wpm}</span>
+             <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">WPM</span>
+               <span className="text-2xl md:text-3xl font-mono font-bold" data-testid="text-wpm">{wpm}</span>
              </div>
            </TooltipTrigger>
            <TooltipContent>
-             <p>Words Per Minute - Your typing speed in real-time</p>
+             <p>Net WPM - Adjusted typing speed (correct chars only)</p>
            </TooltipContent>
          </Tooltip>
          <Tooltip>
            <TooltipTrigger asChild>
-             <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Accuracy</span>
-               <span className="text-4xl font-mono font-bold">{accuracy}%</span>
+             <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Raw</span>
+               <span className="text-2xl md:text-3xl font-mono font-bold text-muted-foreground" data-testid="text-raw-wpm">{rawWpm}</span>
+             </div>
+           </TooltipTrigger>
+           <TooltipContent>
+             <p>Raw WPM - Pure typing speed without error adjustment</p>
+           </TooltipContent>
+         </Tooltip>
+         <Tooltip>
+           <TooltipTrigger asChild>
+             <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Accuracy</span>
+               <span className="text-2xl md:text-3xl font-mono font-bold" data-testid="text-accuracy">{accuracy}%</span>
              </div>
            </TooltipTrigger>
            <TooltipContent>
@@ -1600,9 +1679,22 @@ Can you beat my score? Try it here: `,
          </Tooltip>
          <Tooltip>
            <TooltipTrigger asChild>
-             <div className="flex flex-col items-center p-4 rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Status</span>
-               <span className={cn("text-4xl font-mono font-bold", isActive ? "text-green-500" : "text-muted-foreground")}>
+             <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Consistency</span>
+               <span className={cn("text-2xl md:text-3xl font-mono font-bold", 
+                 consistency >= 80 ? "text-green-500" : consistency >= 60 ? "text-yellow-500" : "text-orange-500"
+               )} data-testid="text-consistency">{consistency}%</span>
+             </div>
+           </TooltipTrigger>
+           <TooltipContent>
+             <p>Typing rhythm stability - Higher = more consistent pace</p>
+           </TooltipContent>
+         </Tooltip>
+         <Tooltip>
+           <TooltipTrigger asChild>
+             <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Status</span>
+               <span className={cn("text-2xl md:text-3xl font-mono font-bold", isActive ? "text-green-500" : "text-muted-foreground")} data-testid="text-status">
                  {isActive ? "GO" : isFinished ? "DONE" : "READY"}
                </span>
              </div>
@@ -1737,8 +1829,8 @@ Can you beat my score? Try it here: `,
                 style={{ 
                   transform: `translate3d(${cursorPosition.left}px, ${cursorPosition.top}px, 0)`,
                   height: `${cursorPosition.height}px`,
-                  // Transition timing based on settings - disabled during fast typing for responsiveness
-                  transition: !smoothCaret || caretSpeed === 'off' || isTypingFast
+                  // Transition timing based on settings - disabled during fast typing, reduced motion, or user preference
+                  transition: !smoothCaret || caretSpeed === 'off' || isTypingFast || prefersReducedMotion
                     ? 'none'
                     : `transform ${caretSpeed === 'fast' ? '50ms' : caretSpeed === 'medium' ? '100ms' : '150ms'} cubic-bezier(0.22, 1, 0.36, 1)`,
                   // Subtle glow effect
