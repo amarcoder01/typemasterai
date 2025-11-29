@@ -29,26 +29,68 @@ function getAzureClient(): AIProjectClient {
   return azureClient;
 }
 
-// Get pre-provisioned Bing Grounding Agent ID (agent must be created ahead of time to avoid write permissions requirement)
-function getBingGroundingAgentId(): string {
+// Get or create Bing Grounding Agent (tries env var first, then creates if permissions allow)
+async function getOrCreateBingGroundingAgent(): Promise<string> {
   if (cachedBingGroundingAgentId) {
     return cachedBingGroundingAgentId;
   }
 
-  // Agent must be pre-provisioned in Azure AI Foundry and ID supplied via environment variable
-  // This avoids requiring Microsoft.CognitiveServices/accounts/AIServices/agents/write permission at runtime
-  const agentId = process.env.AZURE_BING_AGENT_ID;
-
-  if (!agentId) {
-    throw new Error(
-      "AZURE_BING_AGENT_ID not configured. The Bing Grounding agent must be pre-provisioned in Azure AI Foundry " +
-      "and its ID provided via the AZURE_BING_AGENT_ID environment variable to avoid requiring write permissions at runtime."
-    );
+  // First, try using pre-provisioned agent ID from environment
+  const preProvisionedAgentId = process.env.AZURE_BING_AGENT_ID;
+  if (preProvisionedAgentId) {
+    cachedBingGroundingAgentId = preProvisionedAgentId;
+    console.log(`[Azure Bing Grounding] ✅ Using pre-provisioned agent: ${preProvisionedAgentId}`);
+    return preProvisionedAgentId;
   }
 
-  cachedBingGroundingAgentId = agentId;
-  console.log(`[Azure Bing Grounding] Using pre-provisioned agent: ${agentId}`);
-  return agentId;
+  // If not provided, try creating agent (requires write permissions)
+  console.log("[Azure Bing Grounding] AZURE_BING_AGENT_ID not found, attempting to create agent...");
+  
+  try {
+    const client = getAzureClient();
+    const agentsClient = client.agents;
+    const modelDeployment = process.env.AZURE_MODEL_DEPLOYMENT || "gpt-4o-mini";
+    const connectionId = process.env.AZURE_BING_CONNECTION_ID;
+
+    if (!connectionId) {
+      throw new Error("AZURE_BING_CONNECTION_ID not configured");
+    }
+
+    const agent = await agentsClient.createAgent(modelDeployment, {
+      name: "bing-search-agent",
+      instructions: `You are a web search agent. Your ONLY job is to:
+1. Use Bing search to find relevant, current information
+2. Extract and return search results in a structured format
+3. Include titles, URLs, and snippets from the search
+
+Return results as a JSON array with this exact structure:
+[{"title": "...", "url": "...", "snippet": "..."}]
+
+Be concise and focus only on factual search results.`,
+      tools: [
+        {
+          type: "bing_grounding",
+          bingGrounding: {
+            searchConfigurations: [{ connectionId }],
+          },
+        },
+      ],
+    });
+
+    cachedBingGroundingAgentId = agent.id;
+    console.log(`[Azure Bing Grounding] ✅ Agent created successfully: ${agent.id}`);
+    console.log(`[Azure Bing Grounding] 💡 TIP: Set AZURE_BING_AGENT_ID=${agent.id} to reuse this agent and avoid recreating it`);
+    return agent.id;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[Azure Bing Grounding] ❌ Failed to create agent: ${errorMessage}`);
+    
+    if (errorMessage.includes("write") || errorMessage.includes("permission") || errorMessage.includes("401")) {
+      console.error("[Azure Bing Grounding] 💡 SOLUTION: Create an agent in Azure AI Foundry portal and set AZURE_BING_AGENT_ID environment variable");
+    }
+    
+    throw new Error(`Azure Bing Grounding agent unavailable: ${errorMessage}`);
+  }
 }
 
 interface SearchResult {
@@ -144,8 +186,8 @@ async function searchWithBing(query: string): Promise<SearchResult[]> {
     console.log(`[Azure Bing Grounding] Starting search for: "${query}"`);
     const startTime = Date.now();
 
-    // Get pre-provisioned agent ID (must be created ahead of time in Azure AI Foundry)
-    const agentId = getBingGroundingAgentId();
+    // Get or create Bing Grounding agent
+    const agentId = await getOrCreateBingGroundingAgent();
 
     const client = getAzureClient();
     const agentsClient = client.agents;
