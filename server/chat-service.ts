@@ -1102,46 +1102,43 @@ export async function* streamChatCompletionWithSearch(
 - Balance being informative with being engaging
 
 ## Response Guidelines
-**RICH FORMATTING - Use these markdown features:**
-Use these markdown features to create beautiful, organized responses:
+FORMATTING RULES - Keep responses clean and readable:
 
-1. **Headings**: Use ## for main sections, ### for subsections
-2. **Lists**: Use bullet points or numbered lists for clarity
-3. **Bold**: Use **text** to emphasize important points
-4. **Code**: Use \`inline code\` for terms or \`\`\`language for code blocks
-5. **Tables**: Use markdown tables for comparing data or showing structured information
-6. **Callouts**: Use blockquotes with keywords for special content:
-   - \`> **Note:** Important information\` → Blue info box
-   - \`> **Warning:** Be careful about this\` → Yellow warning box
-   - \`> **Tip:** Pro suggestion here\` → Purple tip box
-   - \`> **Success:** Great achievement\` → Green success box
-   - \`> **Danger:** Critical issue\` → Red danger box
+1. Headings: Use ## for main sections, ### for subsections
+2. Lists: Use bullet points or numbered lists for clarity
+3. DO NOT use asterisks for bold (**text**) - write plain text instead
+4. Code: Use \`inline code\` for technical terms or \`\`\`language for code blocks
+5. Tables: Use markdown tables for comparing data
+6. Callouts: Use blockquotes for special content:
+   - \`> Note: Important information\`
+   - \`> Warning: Be careful about this\`
+   - \`> Tip: Pro suggestion here\`
 
-**Response Structure Best Practices:**
+Response Structure:
 - Start with a brief, direct answer
 - Break long content into sections with headings
-- Use callouts to highlight important information
+- Use lists for multiple points
 - Include examples in code blocks when relevant
-- End with actionable takeaways or next steps
-- Make responses scannable and visually appealing
+- End with actionable takeaways
+- Keep text clean without excessive formatting
 ${hasSearchResults ? `
 
-**⚠️ CRITICAL: WEB SEARCH RESULTS PROVIDED - YOU MUST USE THIS INFORMATION ⚠️**
+CRITICAL: WEB SEARCH RESULTS PROVIDED - USE THIS INFORMATION
 
-The user has requested current/fresh information that requires web search. Below are the MOST RECENT web search results scraped from live websites. You MUST base your answer EXCLUSIVELY on this data, NOT on your training data.
+The user has requested current/fresh information that requires web search. Below are the MOST RECENT web search results scraped from live websites. Base your answer on this data, NOT on your training data.
 
-**FRESH SEARCH RESULTS (Just Retrieved):**
+FRESH SEARCH RESULTS (Just Retrieved):
 ${searchData.content}
 
-**MANDATORY INSTRUCTIONS - FOLLOW THESE RULES:**
-1. ✅ USE ONLY the information from the search results above
-2. ✅ DO NOT rely on your training data (it's outdated for this query)
-3. ✅ Include specific facts, numbers, dates, and details from the sources
-4. ✅ Cite or reference the sources naturally when mentioning key information
-5. ✅ If the search results don't fully answer the question, acknowledge what's missing
-6. ✅ Present the information as current and up-to-date (because it is!)
-7. ❌ DO NOT say "based on the search results" - just answer confidently
-8. ❌ DO NOT use outdated information from your training cutoff
+MANDATORY INSTRUCTIONS:
+1. USE ONLY the information from the search results above
+2. DO NOT rely on your training data (it's outdated for this query)
+3. Include specific facts, numbers, dates, and details from the sources
+4. Cite or reference the sources naturally when mentioning key information
+5. If the search results don't fully answer the question, acknowledge what's missing
+6. Present the information as current and up-to-date (because it is!)
+7. DO NOT say "based on the search results" - just answer confidently
+8. DO NOT use outdated information from your training cutoff
 
 The user expects FRESH, CURRENT information from these search results. Deliver it accurately.` : ""}`,
   };

@@ -634,6 +634,7 @@ export default function Chat() {
   const [searchTerm, setSearchTerm] = useState("");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
+  const [fileAnalysisProgress, setFileAnalysisProgress] = useState("");
   const [searchState, setSearchState] = useState<SearchState>({
     isSearching: false,
     status: null,
@@ -789,6 +790,18 @@ export default function Chat() {
 
   const analyzeFile = async (file: File): Promise<string> => {
     setIsAnalyzingFile(true);
+    
+    const isImage = file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf';
+    
+    if (isImage) {
+      setFileAnalysisProgress("Analyzing image with AI vision...");
+    } else if (isPdf) {
+      setFileAnalysisProgress("Extracting and analyzing PDF content...");
+    } else {
+      setFileAnalysisProgress("Processing document...");
+    }
+    
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -804,6 +817,7 @@ export default function Chat() {
         throw new Error(error.message || 'Failed to analyze file');
       }
 
+      setFileAnalysisProgress("Finalizing analysis...");
       const data = await response.json();
       return data.analysis;
     } catch (error) {
@@ -811,6 +825,7 @@ export default function Chat() {
       throw error;
     } finally {
       setIsAnalyzingFile(false);
+      setFileAnalysisProgress("");
     }
   };
 
@@ -1719,8 +1734,20 @@ export default function Chat() {
               onChange={handleFileSelect}
               className="hidden"
             />
+            {/* File Analysis Progress */}
+            {isAnalyzingFile && (
+              <div className="mb-3 flex items-center gap-3 px-4 py-3 bg-primary/10 border border-primary/20 rounded-xl animate-pulse">
+                <div className="relative">
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-primary">{fileAnalysisProgress || "Processing file..."}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">This may take a few seconds</p>
+                </div>
+              </div>
+            )}
             {/* File Preview - Above input */}
-            {uploadedFile && (
+            {uploadedFile && !isAnalyzingFile && (
               <div className="mb-2">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-full border border-border text-sm">
                   <Paperclip className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
