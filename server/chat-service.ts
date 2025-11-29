@@ -29,50 +29,26 @@ function getAzureClient(): AIProjectClient {
   return azureClient;
 }
 
-// Initialize Bing Grounding Agent at startup (creates once, reuses across searches)
-async function getOrCreateBingGroundingAgent(): Promise<string> {
+// Get pre-provisioned Bing Grounding Agent ID (agent must be created ahead of time to avoid write permissions requirement)
+function getBingGroundingAgentId(): string {
   if (cachedBingGroundingAgentId) {
     return cachedBingGroundingAgentId;
   }
 
-  const client = getAzureClient();
-  const agentsClient = client.agents;
-  const modelDeployment = process.env.AZURE_MODEL_DEPLOYMENT || "gpt-4o-mini";
-  const connectionId = process.env.AZURE_BING_CONNECTION_ID;
+  // Agent must be pre-provisioned in Azure AI Foundry and ID supplied via environment variable
+  // This avoids requiring Microsoft.CognitiveServices/accounts/AIServices/agents/write permission at runtime
+  const agentId = process.env.AZURE_BING_AGENT_ID;
 
-  if (!connectionId) {
-    throw new Error("AZURE_BING_CONNECTION_ID not configured");
+  if (!agentId) {
+    throw new Error(
+      "AZURE_BING_AGENT_ID not configured. The Bing Grounding agent must be pre-provisioned in Azure AI Foundry " +
+      "and its ID provided via the AZURE_BING_AGENT_ID environment variable to avoid requiring write permissions at runtime."
+    );
   }
 
-  try {
-    const agent = await agentsClient.createAgent(modelDeployment, {
-      name: "bing-search-agent",
-      instructions: `You are a web search agent. Your ONLY job is to:
-1. Use Bing search to find relevant, current information
-2. Extract and return search results in a structured format
-3. Include titles, URLs, and snippets from the search
-
-Return results as a JSON array with this exact structure:
-[{"title": "...", "url": "...", "snippet": "..."}]
-
-Be concise and focus only on factual search results.`,
-      tools: [
-        {
-          type: "bing_grounding",
-          bingGrounding: {
-            searchConfigurations: [{ connectionId }],
-          },
-        },
-      ],
-    });
-
-    cachedBingGroundingAgentId = agent.id;
-    console.log(`[Azure Bing Grounding] Agent created and cached: ${agent.id}`);
-    return agent.id;
-  } catch (error) {
-    console.error("[Azure Bing Grounding] Failed to create agent:", error instanceof Error ? error.message : String(error));
-    throw error;
-  }
+  cachedBingGroundingAgentId = agentId;
+  console.log(`[Azure Bing Grounding] Using pre-provisioned agent: ${agentId}`);
+  return agentId;
 }
 
 interface SearchResult {
@@ -168,9 +144,8 @@ async function searchWithBing(query: string): Promise<SearchResult[]> {
     console.log(`[Azure Bing Grounding] Starting search for: "${query}"`);
     const startTime = Date.now();
 
-    // Get or create cached agent (avoids requiring write permissions on every search)
-    const agentId = await getOrCreateBingGroundingAgent();
-    console.log(`[Azure Bing Grounding] Using agent: ${agentId}`);
+    // Get pre-provisioned agent ID (must be created ahead of time in Azure AI Foundry)
+    const agentId = getBingGroundingAgentId();
 
     const client = getAzureClient();
     const agentsClient = client.agents;
@@ -234,8 +209,9 @@ async function searchWithBing(query: string): Promise<SearchResult[]> {
         const content = assistantMessage.content[0];
         
         if (content.type === "text") {
-          const textContent = content as any;
-          const responseText = textContent.text?.value || "";
+          // Type-safe access to text content
+          const textContent = content.type === "text" && "text" in content ? content.text : null;
+          const responseText = textContent?.value || "";
           console.log(`[Azure Bing Grounding] Response received: ${responseText.substring(0, 200)}...`);
 
           // Try to parse JSON from the response
