@@ -8,37 +8,35 @@ const openai = new OpenAI({
 });
 
 // OpenAI Web Search using gpt-4o-search-preview model
-// This model automatically performs web searches when it detects the need for current information
+// This model performs live web searches when web_search_options is enabled
 async function searchWithOpenAI(query: string): Promise<SearchResult[]> {
   try {
     console.log(`[OpenAI Web Search] Starting search for: "${query}"`);
     const startTime = Date.now();
 
-    // Use the search-preview model which automatically searches the web
-    // The model natively integrates web search and returns grounded responses
-    const response = await openai.chat.completions.create({
+    // Use the search-preview model with web_search_options enabled
+    // NOTE: This model does NOT support temperature parameter
+    const response = await (openai.chat.completions.create as any)({
       model: "gpt-4o-search-preview",
+      web_search_options: {}, // Required to enable web search
       messages: [
         {
           role: "system",
-          content: `You are a web search assistant. Your task is to search the web and find current, accurate information.
+          content: `You are a web search assistant. Search the web and return current, accurate information.
 
-IMPORTANT: For the user's query, search the web and return your findings as a JSON array.
+Return your findings as a JSON array with 5-10 results. Each result must have:
+- title: The title of the webpage/article  
+- url: The actual URL of the source
+- snippet: A brief excerpt of the relevant content
 
-Each result must include:
-- title: The title of the webpage/article
-- url: The actual URL of the source (must be real, working URLs)
-- snippet: A brief excerpt or summary of the relevant content
-
-Return ONLY a valid JSON array with 5-10 results, no other text:
+Return ONLY a valid JSON array, no other text:
 [{"title": "...", "url": "...", "snippet": "..."}]`
         },
         {
           role: "user",
-          content: `Search the web for current information about: ${query}`
+          content: `Search the web for: ${query}`
         }
       ],
-      temperature: 0.2,
       max_tokens: 2000,
     });
 
