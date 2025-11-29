@@ -139,58 +139,96 @@ function SearchIndicator({ searchState }: { searchState: SearchState }) {
   if (!searchState.isSearching && searchState.status !== "complete") return null;
   
   return (
-    <div className="flex flex-col gap-2 py-3 animate-in fade-in duration-300">
-      <div className="flex items-center gap-3">
-        {searchState.status === "deciding" && (
-          <>
-            <div className="relative">
-              <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-            </div>
-            <span className="text-sm text-muted-foreground font-medium">Analyzing query...</span>
-          </>
-        )}
-        {searchState.status === "searching" && (
-          <>
-            <div className="relative">
-              <Globe className="w-5 h-5 text-primary animate-pulse" />
-            </div>
-            <span className="text-sm text-muted-foreground font-medium">
-              Searching the web{searchState.query && `: "${searchState.query.substring(0, 40)}${searchState.query.length > 40 ? '...' : ''}"`}
-            </span>
-          </>
-        )}
-        {searchState.status === "complete" && searchState.results.length > 0 && (
-          <>
-            <Check className="w-4 h-4 text-green-500" />
-            <span className="text-sm text-muted-foreground font-medium">
-              Found {searchState.results.length} source{searchState.results.length !== 1 ? 's' : ''}
-            </span>
-          </>
-        )}
-      </div>
+    <div className="flex flex-col gap-3 py-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+      {/* Deciding Phase */}
+      {searchState.status === "deciding" && (
+        <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-primary/10 to-transparent rounded-lg border border-primary/20">
+          <div className="relative flex items-center justify-center w-8 h-8">
+            <div className="absolute w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            <Sparkles className="w-4 h-4 text-primary animate-pulse" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-foreground">Analyzing your question</span>
+            <span className="text-xs text-muted-foreground">Determining if web search is needed...</span>
+          </div>
+        </div>
+      )}
       
+      {/* Searching Phase */}
+      {searchState.status === "searching" && (
+        <div className="flex flex-col gap-3 p-4 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-lg border border-primary/20 overflow-hidden relative">
+          {/* Animated background effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" style={{ backgroundSize: '200% 100%' }} />
+          
+          <div className="flex items-center gap-3 relative z-10">
+            <div className="relative flex items-center justify-center w-10 h-10 bg-primary/20 rounded-full">
+              <Globe className="w-5 h-5 text-primary animate-spin" style={{ animationDuration: '3s' }} />
+              <div className="absolute inset-0 rounded-full border-2 border-primary/50 animate-ping" style={{ animationDuration: '1.5s' }} />
+            </div>
+            <div className="flex flex-col flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-foreground">Searching the web</span>
+                <div className="flex gap-1">
+                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+              {searchState.query && (
+                <span className="text-xs text-muted-foreground mt-0.5">
+                  "{searchState.query.substring(0, 50)}{searchState.query.length > 50 ? '...' : ''}"
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {/* Progress bar animation */}
+          <div className="relative h-1 bg-primary/20 rounded-full overflow-hidden">
+            <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary via-purple-500 to-pink-500 rounded-full animate-pulse" style={{ width: '60%', animationDuration: '1s' }} />
+            <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary to-purple-500 rounded-full" style={{ width: '100%', animation: 'progress-indeterminate 1.5s ease-in-out infinite' }} />
+          </div>
+        </div>
+      )}
+      
+      {/* Complete Phase */}
       {searchState.status === "complete" && searchState.results.length > 0 && (
-        <div className="flex flex-wrap gap-2 ml-8">
-          {searchState.results.slice(0, 4).map((result, idx) => {
-            let domain = "";
-            try {
-              domain = new URL(result.url).hostname.replace("www.", "");
-            } catch {
-              domain = result.url;
-            }
-            return (
-              <a
-                key={idx}
-                href={result.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 px-2 py-1 text-xs bg-muted/50 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Globe className="w-3 h-3" />
-                <span className="truncate max-w-[120px]">{domain}</span>
-              </a>
-            );
-          })}
+        <div className="flex flex-col gap-3 p-3 bg-gradient-to-r from-green-500/10 to-transparent rounded-lg border border-green-500/30 animate-in fade-in duration-300">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-8 h-8 bg-green-500/20 rounded-full">
+              <Check className="w-4 h-4 text-green-500" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-foreground">
+                Found {searchState.results.length} source{searchState.results.length !== 1 ? 's' : ''}
+              </span>
+              <span className="text-xs text-muted-foreground">Generating response with live data...</span>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap gap-2 ml-11">
+            {searchState.results.slice(0, 5).map((result, idx) => {
+              let domain = "";
+              try {
+                domain = new URL(result.url).hostname.replace("www.", "");
+              } catch {
+                domain = result.url;
+              }
+              return (
+                <a
+                  key={idx}
+                  href={result.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-muted/50 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-all hover:scale-105 border border-transparent hover:border-primary/30"
+                  data-testid={`link-source-${idx}`}
+                >
+                  <Globe className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate max-w-[140px]">{domain}</span>
+                  <ExternalLink className="w-2.5 h-2.5 opacity-50" />
+                </a>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

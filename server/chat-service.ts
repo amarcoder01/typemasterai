@@ -44,7 +44,7 @@ Return ONLY a valid JSON array, no other text:
     const duration = Date.now() - startTime;
     console.log(`[OpenAI Web Search] Response received in ${duration}ms (${responseText.length} chars)`);
 
-    // Extract JSON from response
+    // Try to extract JSON from response
     try {
       const jsonMatch = responseText.match(/\[[\s\S]*?\]/);
       if (jsonMatch) {
@@ -52,7 +52,7 @@ Return ONLY a valid JSON array, no other text:
         if (Array.isArray(results) && results.length > 0) {
           const validResults = results.filter((r: any) => r.title && r.url && r.snippet);
           if (validResults.length > 0) {
-            console.log(`[OpenAI Web Search] ✅ Parsed ${validResults.length} valid search results`);
+            console.log(`[OpenAI Web Search] ✅ Parsed ${validResults.length} JSON results`);
             return validResults.slice(0, 10).map((r: any) => ({
               title: String(r.title || "").substring(0, 200),
               url: String(r.url || ""),
@@ -62,16 +62,52 @@ Return ONLY a valid JSON array, no other text:
         }
       }
     } catch (parseError) {
-      console.error("[OpenAI Web Search] JSON parse failed:", parseError instanceof Error ? parseError.message : String(parseError));
+      // JSON parsing failed, try to extract URLs and content from text response
+      console.log("[OpenAI Web Search] JSON parse failed, extracting from text response");
     }
 
-    // If JSON parsing failed but we have useful content, create synthetic result
+    // Extract URLs and create results from markdown-style or plain text response
+    const urlPattern = /\[([^\]]+)\]\(([^)]+)\)|(?:https?:\/\/[^\s\])"]+)/g;
+    const extractedResults: SearchResult[] = [];
+    let match;
+    
+    while ((match = urlPattern.exec(responseText)) !== null && extractedResults.length < 10) {
+      const title = match[1] || match[0].split('/').pop()?.substring(0, 50) || "Web Result";
+      const url = match[2] || match[0];
+      
+      // Skip if we already have this URL
+      if (extractedResults.some(r => r.url === url)) continue;
+      
+      // Get surrounding text as snippet
+      const snippetStart = Math.max(0, match.index - 100);
+      const snippetEnd = Math.min(responseText.length, match.index + match[0].length + 200);
+      let snippet = responseText.substring(snippetStart, snippetEnd)
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .replace(/https?:\/\/[^\s]+/g, '')
+        .replace(/[\[\]]/g, '')
+        .trim();
+      
+      if (url.startsWith('http')) {
+        extractedResults.push({
+          title: title.substring(0, 100),
+          url: url,
+          snippet: snippet.substring(0, 300) || "Web search result",
+        });
+      }
+    }
+
+    if (extractedResults.length > 0) {
+      console.log(`[OpenAI Web Search] ✅ Extracted ${extractedResults.length} results from text`);
+      return extractedResults;
+    }
+
+    // Final fallback: create synthetic result from the entire response
     if (responseText.length > 100) {
       console.log("[OpenAI Web Search] Creating synthetic result from response content");
       return [{
-        title: `Web Search: ${query.substring(0, 50)}`,
+        title: `Web Search Results: ${query.substring(0, 40)}`,
         url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-        snippet: responseText.substring(0, 500).replace(/```json/g, "").replace(/```/g, "").trim(),
+        snippet: responseText.substring(0, 500).replace(/```json/g, "").replace(/```/g, "").replace(/\[|\]/g, "").trim(),
       }];
     }
 
