@@ -645,6 +645,8 @@ export default function Chat() {
   const [isRetrying, setIsRetrying] = useState(false);
   const [lastUserMessageForRetry, setLastUserMessageForRetry] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isUserNearBottomRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -711,6 +713,10 @@ export default function Chat() {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       setCurrentConversationId(null);
       setMessages([]);
+      toast({
+        title: "Chat deleted",
+        description: "The conversation has been removed.",
+      });
     },
   });
 
@@ -745,13 +751,24 @@ export default function Chat() {
     renameConversationMutation.mutate({ id, title: newTitle });
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const scrollToBottom = useCallback((force = false) => {
+    if (force || isUserNearBottomRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    
+    const threshold = 150;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    isUserNearBottomRef.current = distanceFromBottom < threshold;
+  }, []);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    scrollToBottom(true);
+  }, [messages.length, scrollToBottom]);
 
   // Auto-resize textarea as user types
   useEffect(() => {
@@ -976,6 +993,7 @@ export default function Chat() {
                   setMessages((prev) => [...prev, { role: "assistant", content: "", timestamp: new Date(), sources: pendingSources.length > 0 ? pendingSources : undefined }]);
                   assistantMessageAdded = true;
                   setIsStreaming(true);
+                  isUserNearBottomRef.current = true;
                 }
                 assistantMessage += parsed.content;
                 setMessages((prev) => {
@@ -988,6 +1006,7 @@ export default function Chat() {
                   };
                   return newMessages;
                 });
+                requestAnimationFrame(() => scrollToBottom());
               }
               // Handle structured errors from backend
               if (parsed.error) {
@@ -1400,7 +1419,11 @@ export default function Chat() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto">
+          <div 
+            ref={messagesContainerRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto"
+          >
             <div className="w-full">
               {messages.map((message, index) => (
                 <div
