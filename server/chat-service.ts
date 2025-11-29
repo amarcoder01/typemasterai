@@ -520,29 +520,12 @@ export async function performDeepWebSearch(query: string): Promise<{ results: Se
     
     console.log(`[DeepSearch] Executing query: "${searchQuery}"`);
     
-    // Try Azure Bing Grounding first, then fallback providers
-    let queryResults = await searchWithBing(searchQuery);
-    
+    // Use Azure Bing Grounding
+    const queryResults = await searchWithBing(searchQuery);
     if (queryResults.length > 0) {
       console.log(`[DeepSearch] Found ${queryResults.length} results via Azure Bing Grounding for "${searchQuery}"`);
     } else {
-      // Fallback to Tavily
-      console.log(`[DeepSearch] Azure returned no results, trying Tavily...`);
-      queryResults = await searchWithTavily(searchQuery);
-      
-      if (queryResults.length > 0) {
-        console.log(`[DeepSearch] Found ${queryResults.length} results via Tavily for "${searchQuery}"`);
-      } else {
-        // Final fallback to DuckDuckGo
-        console.log(`[DeepSearch] Tavily returned no results, trying DuckDuckGo...`);
-        queryResults = await searchWithDuckDuckGo(searchQuery);
-        
-        if (queryResults.length > 0) {
-          console.log(`[DeepSearch] Found ${queryResults.length} results via DuckDuckGo for "${searchQuery}"`);
-        } else {
-          console.log(`[DeepSearch] All search providers returned no results for "${searchQuery}"`);
-        }
-      }
+      console.log(`[DeepSearch] Azure Bing Grounding returned no results for "${searchQuery}"`);
     }
     
     for (const result of queryResults) {
