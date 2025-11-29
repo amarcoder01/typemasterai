@@ -1758,30 +1758,32 @@ export default function Chat() {
                 </div>
               </div>
             )}
-            {/* Compact pill-shaped input container */}
+            {/* Dynamic pill-shaped input container */}
             <div className={cn(
-              "relative flex items-end gap-2 bg-muted/30 border border-border rounded-[26px] transition-all duration-200",
-              "focus-within:border-primary/50 focus-within:bg-muted/40 focus-within:shadow-sm",
-              input.length > 0 ? "px-3 py-2" : "px-3 py-2"
+              "relative flex items-end gap-1 rounded-[24px] transition-all duration-300 ease-out",
+              "bg-zinc-800/50 border border-zinc-700/50",
+              "focus-within:border-primary/40 focus-within:bg-zinc-800/70 focus-within:shadow-lg focus-within:shadow-primary/5",
+              "hover:border-zinc-600/50",
+              input.length > 100 ? "px-3 py-2.5" : "px-2.5 py-2"
             )}>
               {/* Attach button */}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     className={cn(
-                      "flex-shrink-0 p-1.5 rounded-full transition-colors",
-                      "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-                      (isLoading || isAnalyzingFile) && "opacity-50 cursor-not-allowed"
+                      "flex-shrink-0 p-1.5 rounded-lg transition-all duration-200",
+                      "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700/50",
+                      (isLoading || isAnalyzingFile) && "opacity-40 cursor-not-allowed"
                     )}
                     disabled={isLoading || isAnalyzingFile}
                     onClick={() => fileInputRef.current?.click()}
                     data-testid="button-attach-file"
                   >
-                    <Paperclip className="w-4 h-4" />
+                    <Paperclip className="w-[18px] h-[18px]" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p>Attach file</p>
+                  <p>Attach</p>
                 </TooltipContent>
               </Tooltip>
               
@@ -1791,10 +1793,11 @@ export default function Chat() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyPress}
-                placeholder="Message TypeMasterAI..."
+                placeholder="Ask anything..."
                 className={cn(
-                  "flex-1 min-h-[24px] max-h-[150px] resize-none border-0 bg-transparent p-0 text-sm",
-                  "focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
+                  "flex-1 min-h-[20px] max-h-[120px] resize-none border-0 bg-transparent px-1 py-0 text-sm leading-relaxed",
+                  "focus-visible:ring-0 focus-visible:ring-offset-0",
+                  "placeholder:text-zinc-500 text-zinc-100"
                 )}
                 disabled={isLoading}
                 rows={1}
@@ -1807,10 +1810,10 @@ export default function Chat() {
                   <TooltipTrigger asChild>
                     <button
                       onClick={stopGeneration}
-                      className="flex-shrink-0 p-1.5 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
+                      className="flex-shrink-0 p-1.5 rounded-lg bg-red-500/90 hover:bg-red-500 text-white transition-all duration-200 hover:scale-105"
                       data-testid="button-stop-generation"
                     >
-                      <Square className="w-4 h-4 fill-current" />
+                      <Square className="w-[18px] h-[18px] fill-current" />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
@@ -1824,17 +1827,17 @@ export default function Chat() {
                       onClick={() => sendMessage()}
                       disabled={isLoading || (!input.trim() && !uploadedFile)}
                       className={cn(
-                        "flex-shrink-0 p-1.5 rounded-full transition-all",
+                        "flex-shrink-0 p-1.5 rounded-lg transition-all duration-200",
                         (input.trim() || uploadedFile) && !isLoading 
-                          ? "bg-foreground hover:bg-foreground/90 text-background" 
-                          : "bg-transparent text-muted-foreground/40 cursor-not-allowed"
+                          ? "bg-primary hover:bg-primary/90 text-primary-foreground hover:scale-105" 
+                          : "text-zinc-600 cursor-not-allowed"
                       )}
                       data-testid="button-send-message"
                     >
                       {isLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-[18px] h-[18px] animate-spin" />
                       ) : (
-                        <Send className="w-4 h-4" />
+                        <Send className="w-[18px] h-[18px]" />
                       )}
                     </button>
                   </TooltipTrigger>
@@ -1844,17 +1847,17 @@ export default function Chat() {
                 </Tooltip>
               )}
             </div>
-            {/* Footer info - more compact */}
-            <div className="flex items-center justify-center mt-2">
-              <p className="text-[11px] text-muted-foreground/60">
-                {input.length > 0 ? (
-                  <span className={input.length > 4000 ? "text-red-500" : ""}>
-                    {input.length.toLocaleString()} chars · 
-                  </span>
-                ) : null}
-                AI can make mistakes
-              </p>
-            </div>
+            {/* Minimal footer - only shows when typing */}
+            {input.length > 0 && (
+              <div className="flex items-center justify-center mt-1.5">
+                <span className={cn(
+                  "text-[10px] transition-colors",
+                  input.length > 4000 ? "text-red-400" : "text-muted-foreground/50"
+                )}>
+                  {input.length.toLocaleString()}/4000
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
