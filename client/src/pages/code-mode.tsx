@@ -89,6 +89,15 @@ const TEST_MODES = [
   { value: "master", label: "Master", description: "100% accuracy required" },
 ];
 
+const TIME_OPTIONS = [
+  { value: 0, label: "No Limit" },
+  { value: 15, label: "15s" },
+  { value: 30, label: "30s" },
+  { value: 60, label: "1:00" },
+  { value: 120, label: "2:00" },
+  { value: 300, label: "5:00" },
+];
+
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -104,6 +113,7 @@ export default function CodeMode() {
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [mode, setMode] = useState<"ai" | "custom">("ai");
   const [testMode, setTestMode] = useState<"normal" | "expert" | "master">("normal");
+  const [timeLimit, setTimeLimit] = useState(0); // 0 = no limit
   const [customCode, setCustomCode] = useState("");
   const [codeSnippet, setCodeSnippet] = useState("");
   const [snippetId, setSnippetId] = useState<number | null>(null);
@@ -197,6 +207,12 @@ export default function CodeMode() {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         setElapsedTime(elapsed);
         
+        // Check if time limit reached
+        if (timeLimit > 0 && elapsed >= timeLimit) {
+          finishTest();
+          return;
+        }
+        
         // Calculate real-time stats
         const minutes = elapsed / 60;
         if (minutes > 0) {
@@ -230,13 +246,13 @@ export default function CodeMode() {
           }
           setAccuracy(Math.round((correct / userInput.length) * 100));
         }
-      }, 1000);
+      }, 100); // More accurate timing with 100ms intervals
       
       return () => {
         if (timerRef.current) clearInterval(timerRef.current);
       };
     }
-  }, [isActive, startTime, isFinished, userInput, codeSnippet]);
+  }, [isActive, startTime, isFinished, userInput, codeSnippet, timeLimit]);
 
   useEffect(() => {
     if (isActive && startTime && userInput === codeSnippet && codeSnippet.length > 0) {
@@ -639,6 +655,20 @@ export default function CodeMode() {
                 </Select>
               </div>
 
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Time:</label>
+                <Select value={timeLimit.toString()} onValueChange={(val) => setTimeLimit(parseInt(val))} disabled={isActive}>
+                  <SelectTrigger className="w-[90px] h-8 text-xs" data-testid="select-time">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_OPTIONS.map(({ value, label }) => (
+                      <SelectItem key={value} value={value.toString()}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -679,9 +709,18 @@ export default function CodeMode() {
           {/* Stats Bar - Monkeytype Style */}
           <div className="grid grid-cols-6 gap-2 mb-6">
             <Card className="p-3 text-center bg-card/50 border-border/50">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Time</div>
-              <div className="text-2xl font-mono font-bold text-yellow-500">
-                {formatTime(elapsedTime)}
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                {timeLimit > 0 ? "Time Left" : "Time"}
+              </div>
+              <div className={`text-2xl font-mono font-bold ${
+                timeLimit > 0 && (timeLimit - elapsedTime) <= 10 
+                  ? "text-red-500 animate-pulse" 
+                  : "text-yellow-500"
+              }`}>
+                {timeLimit > 0 
+                  ? formatTime(Math.max(0, timeLimit - elapsedTime))
+                  : formatTime(elapsedTime)
+                }
               </div>
             </Card>
             <Card className="p-3 text-center bg-card/50 border-border/50">
