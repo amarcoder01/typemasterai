@@ -16,47 +16,29 @@ export async function analyzeImage(buffer: Buffer, mimeType: string): Promise<st
       model: "gpt-4o",
       messages: [
         {
-          role: "system",
-          content: `You are an expert image analyst. Provide comprehensive, detailed analysis of images. Your analysis should be thorough and actionable.`
-        },
-        {
           role: "user",
           content: [
             {
               type: "text",
-              text: `Analyze this image comprehensively. Provide:
+              text: `Analyze this image concisely:
+1. What it shows (main subject, key elements)
+2. Any text visible (transcribe exactly)
+3. Key data/information if chart/diagram/document
+4. Important insights or actionable details
 
-## Visual Analysis
-- Main subject and scene description
-- Objects, people, or elements visible
-- Colors, lighting, and composition
-- Any text visible (OCR) - transcribe exactly
-
-## Technical Details
-- Image type (photo, diagram, chart, screenshot, document, etc.)
-- Quality assessment
-- Notable visual elements
-
-## Content Insights
-- Key information or data shown
-- If it's a chart/graph: explain the data and trends
-- If it's a document: summarize the content
-- If it's a screenshot: describe the application/context
-- Any actionable insights or important details
-
-Be thorough, specific, and helpful.`
+Keep response focused and useful.`
             },
             {
               type: "image_url",
               image_url: {
                 url: dataUrl,
-                detail: "high"
+                detail: "auto"
               },
             },
           ],
         },
       ],
-      max_tokens: 2000,
+      max_tokens: 1000,
     });
 
     const analysis = response.choices[0]?.message?.content || "Unable to analyze image";
@@ -92,48 +74,26 @@ export async function analyzePDF(buffer: Buffer): Promise<string> {
     console.log(`[File Analyzer] Extracted ${textForAnalysis.length} chars from ${pageCount} pages, sending to GPT-4o for analysis...`);
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages: [
         {
-          role: "system",
-          content: `You are an expert document analyst. Analyze documents thoroughly and provide actionable insights. Be comprehensive but organized.`
-        },
-        {
           role: "user",
-          content: `Analyze this PDF document content (${pageCount} pages):
+          content: `Analyze this document (${pageCount} pages):
 
----
 ${textForAnalysis}
-${rawText.length > 8000 ? "\n[Document truncated - showing first 8000 characters]" : ""}
----
+${rawText.length > 8000 ? "\n[Truncated]" : ""}
 
-Provide a comprehensive analysis:
+Provide:
+1. Document type and main topic
+2. Key points and important data
+3. Notable findings or insights
+4. Action items if applicable
 
-## Document Overview
-- Document type (report, article, contract, form, etc.)
-- Main topic/subject
-- Author/source if identifiable
-
-## Key Content Summary
-- Main points and findings
-- Important data, facts, or figures
-- Critical information highlighted
-
-## Detailed Analysis
-- Structure and organization
-- Key sections breakdown
-- Notable quotes or statements
-
-## Insights & Recommendations
-- Key takeaways
-- Action items if applicable
-- Questions this document answers
-
-Be thorough and extract maximum value from this document.`
+Be concise and focus on what matters.`
         }
       ],
-      max_tokens: 2500,
-      temperature: 0.3,
+      max_tokens: 1200,
+      temperature: 0.2,
     });
 
     const aiAnalysis = response.choices[0]?.message?.content || "";
@@ -167,50 +127,29 @@ export async function analyzeWordDocument(buffer: Buffer): Promise<string> {
 
     const textForAnalysis = rawText.substring(0, 8000);
     
-    console.log(`[File Analyzer] Extracted ${textForAnalysis.length} chars, sending to GPT-4o for analysis...`);
+    console.log(`[File Analyzer] Extracted ${textForAnalysis.length} chars, sending to GPT-4o-mini for analysis...`);
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages: [
         {
-          role: "system",
-          content: `You are an expert document analyst. Analyze documents thoroughly and provide actionable insights.`
-        },
-        {
           role: "user",
-          content: `Analyze this Word document content:
+          content: `Analyze this document:
 
----
 ${textForAnalysis}
-${rawText.length > 8000 ? "\n[Document truncated - showing first 8000 characters]" : ""}
----
+${rawText.length > 8000 ? "\n[Truncated]" : ""}
 
-Provide a comprehensive analysis:
+Provide:
+1. Document type and main topic
+2. Key points and important information
+3. Notable findings or insights
+4. Action items if applicable
 
-## Document Overview
-- Document type and purpose
-- Main topic/subject
-- Target audience
-
-## Content Summary
-- Key points and main ideas
-- Important information
-- Structure overview
-
-## Detailed Analysis
-- Key sections breakdown
-- Notable content
-- Data or facts mentioned
-
-## Insights
-- Key takeaways
-- Recommendations if applicable
-
-Be thorough and helpful.`
+Be concise and focus on what matters.`
         }
       ],
-      max_tokens: 2000,
-      temperature: 0.3,
+      max_tokens: 1200,
+      temperature: 0.2,
     });
 
     const aiAnalysis = response.choices[0]?.message?.content || "";
@@ -238,69 +177,41 @@ export async function analyzeTextFile(buffer: Buffer): Promise<string> {
     const isCode = /^(import |from |const |let |var |function |class |def |public |private |#include|package |using )/.test(rawText) ||
                    rawText.includes('function(') || rawText.includes('=>') || rawText.includes('{}');
 
-    console.log(`[File Analyzer] Text file detected as ${isCode ? 'code' : 'text'}, sending to GPT-4o...`);
+    console.log(`[File Analyzer] Text file detected as ${isCode ? 'code' : 'text'}, sending to GPT-4o-mini...`);
 
     const prompt = isCode ? 
-      `Analyze this code file:
+      `Analyze this code:
 
----
 ${textForAnalysis}
-${rawText.length > 8000 ? "\n[File truncated]" : ""}
----
+${rawText.length > 8000 ? "\n[Truncated]" : ""}
 
 Provide:
-## Code Overview
-- Programming language
-- Purpose/functionality
-- Main components (functions, classes, etc.)
+1. Language and purpose
+2. Main functions/components
+3. Key logic and what it does
+4. Any issues or improvements
 
-## Code Analysis
-- Key logic and flow
-- Dependencies used
-- Notable patterns
+Be concise.` :
+      `Analyze this text:
 
-## Quality Assessment
-- Code structure
-- Potential improvements
-- Any issues or bugs spotted
-
-## Summary
-- What this code does
-- How to use it` :
-      `Analyze this text file:
-
----
 ${textForAnalysis}
-${rawText.length > 8000 ? "\n[File truncated]" : ""}
----
+${rawText.length > 8000 ? "\n[Truncated]" : ""}
 
 Provide:
-## Content Overview
-- Type of content
-- Main topic
+1. Content type and topic
+2. Key points
+3. Notable information
+4. Insights
 
-## Summary
-- Key points
-- Important information
-
-## Analysis
-- Structure
-- Notable content
-- Insights`;
+Be concise.`;
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages: [
-        {
-          role: "system",
-          content: isCode ? 
-            "You are an expert code analyst. Analyze code thoroughly." :
-            "You are an expert content analyst. Analyze text content thoroughly."
-        },
         { role: "user", content: prompt }
       ],
-      max_tokens: 2000,
-      temperature: 0.3,
+      max_tokens: 1000,
+      temperature: 0.2,
     });
 
     const aiAnalysis = response.choices[0]?.message?.content || "";

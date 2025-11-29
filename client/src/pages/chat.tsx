@@ -1090,6 +1090,16 @@ export default function Chat() {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
+    } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      sendMessage();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      if (isStreaming) {
+        stopGeneration();
+      } else if (uploadedFile) {
+        setUploadedFile(null);
+      }
     }
   };
 
@@ -1435,7 +1445,7 @@ export default function Chat() {
                               h1: ({node, ...props}) => <h1 className="text-3xl font-bold mt-8 mb-4 bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent" {...props} />,
                               h2: ({node, ...props}) => <h2 className="text-2xl font-semibold mt-6 mb-3 text-foreground border-l-4 border-primary pl-4" {...props} />,
                               h3: ({node, ...props}) => <h3 className="text-xl font-semibold mt-5 mb-2 text-foreground" {...props} />,
-                              p: ({node, ...props}) => <p className="leading-7 my-3 text-foreground/90" {...props} />,
+                              p: ({node, ...props}) => <div className="leading-7 my-3 text-foreground/90" {...props} />,
                               ul: ({node, ...props}) => <ul className="my-4 space-y-2 pl-6" {...props} />,
                               ol: ({node, ...props}) => <ol className="my-4 space-y-2 pl-6 list-decimal" {...props} />,
                               li: ({node, ...props}) => (
@@ -1822,7 +1832,7 @@ export default function Chat() {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    <p>Stop</p>
+                    <p>Stop (Esc)</p>
                   </TooltipContent>
                 </Tooltip>
               ) : (
@@ -1847,7 +1857,7 @@ export default function Chat() {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    <p>{isLoading ? 'Sending...' : 'Send'}</p>
+                    <p>{isLoading ? 'Sending...' : 'Send (Enter)'}</p>
                   </TooltipContent>
                 </Tooltip>
               )}
