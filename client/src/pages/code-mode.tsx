@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle } from "lucide-react";
+import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap } from "lucide-react";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -143,6 +143,7 @@ export default function CodeMode() {
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const codeDisplayRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const timerRef = useRef<number | null>(null);
   const wpmHistoryRef = useRef<number[]>([]);
@@ -522,8 +523,17 @@ export default function CodeMode() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Tab key - either insert tab or get new snippet if finished/empty
     if (e.key === "Tab") {
       e.preventDefault();
+      
+      // If test is finished or no input, Tab gets new snippet
+      if (isFinished || isFailed || (!isActive && userInput.length === 0)) {
+        fetchCodeSnippet(true);
+        return;
+      }
+      
+      // Otherwise, insert tab character if expected
       const tabChar = codeSnippet[userInput.length];
       if (tabChar === "\t") {
         const newValue = userInput + "\t";
@@ -533,20 +543,15 @@ export default function CodeMode() {
           setStartTime(Date.now());
         }
       }
-      
-      // Tab+Enter to restart
-      if (e.shiftKey || (e.key === "Tab" && !codeSnippet)) {
-        resetTest();
-      }
     }
     
-    // Escape to reset
+    // Escape to reset/restart
     if (e.key === "Escape") {
       resetTest();
     }
   };
-
-  const resetTest = () => {
+  
+  const resetTest = useCallback(() => {
     setUserInput("");
     setStartTime(null);
     setIsActive(false);
@@ -568,7 +573,35 @@ export default function CodeMode() {
     }
     
     setTimeout(() => textareaRef.current?.focus(), 0);
-  };
+  }, [mode, customCode, fetchCodeSnippet]);
+  
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Only handle when not focused on textarea
+      if (document.activeElement === textareaRef.current) return;
+      
+      // Tab to get new snippet
+      if (e.key === "Tab") {
+        e.preventDefault();
+        fetchCodeSnippet(true);
+      }
+      
+      // Escape to reset
+      if (e.key === "Escape") {
+        e.preventDefault();
+        resetTest();
+      }
+      
+      // Any printable key focuses and starts typing
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        textareaRef.current?.focus();
+      }
+    };
+    
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [fetchCodeSnippet, resetTest]);
 
   const handleModeSwitch = (newMode: "ai" | "custom") => {
     if (newMode === mode) return;
@@ -591,6 +624,21 @@ export default function CodeMode() {
       setRetryCount(0);
     }
   }, [language, difficulty]);
+  
+  // Auto-scroll to keep current line visible
+  useEffect(() => {
+    if (!codeDisplayRef.current || !codeSnippet) return;
+    
+    // Calculate which line the cursor is on
+    const textBeforeCursor = codeSnippet.substring(0, userInput.length);
+    const currentLine = textBeforeCursor.split('\n').length;
+    
+    // Find the line element and scroll into view
+    const lineElement = codeDisplayRef.current.querySelector(`[data-line="${currentLine}"]`);
+    if (lineElement) {
+      lineElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [userInput.length, codeSnippet]);
 
   const applyCustomCode = () => {
     if (!customCode.trim()) {
@@ -632,46 +680,79 @@ export default function CodeMode() {
   const highlightedCode = useMemo(() => {
     if (!codeSnippet) return null;
     
-    return codeSnippet.split("").map((char, index) => {
-      let className = "";
-      
-      if (index < userInput.length) {
-        const isCorrect = userInput[index] === char;
-        className = isCorrect 
-          ? "text-green-500" 
-          : "text-red-500 bg-red-500/20";
-      } else if (index === userInput.length) {
-        className = "bg-primary/30 text-primary";
-      } else {
-        className = "text-muted-foreground/60";
-      }
-      
-      // Handle newlines - show ↵ symbol and actual newline
-      if (char === "\n") {
+    const lines = codeSnippet.split("\n");
+    let charIndex = 0;
+    
+    return lines.map((line, lineIndex) => {
+      const lineContent = line.split("").map((char, i) => {
+        const currentCharIndex = charIndex + i;
+        let className = "";
+        const isCurrent = currentCharIndex === userInput.length;
+        
+        if (currentCharIndex < userInput.length) {
+          const isCorrect = userInput[currentCharIndex] === char;
+          className = isCorrect 
+            ? "text-green-500" 
+            : "text-red-500 bg-red-500/20";
+        } else if (isCurrent) {
+          className = "relative";
+        } else {
+          className = "text-muted-foreground/60";
+        }
+        
+        // Handle tabs - show visible indicator
+        if (char === "\t") {
+          return (
+            <span key={currentCharIndex} className={className}>
+              {"    "}
+              {isCurrent && !isFinished && (
+                <span className="absolute left-0 top-0 w-0.5 h-full bg-primary animate-pulse" />
+              )}
+            </span>
+          );
+        }
+        
         return (
-          <span key={index} className={className}>
-            <span className="text-muted-foreground/30">↵</span>
-            {"\n"}
+          <span key={currentCharIndex} className={className}>
+            {isCurrent && !isFinished && (
+              <span className="absolute left-0 top-0 w-0.5 h-full bg-primary animate-pulse" />
+            )}
+            {char}
           </span>
         );
-      }
+      });
       
-      // Handle tabs - show visible indicator
-      if (char === "\t") {
-        return (
-          <span key={index} className={className}>
-            {"    "}
-          </span>
-        );
-      }
+      // Check if cursor is at end of this line (at newline position)
+      const newlineIndex = charIndex + line.length;
+      const isCursorAtNewline = newlineIndex === userInput.length;
+      
+      // Update charIndex for next line (add line content + newline char)
+      charIndex += line.length + 1;
       
       return (
-        <span key={index} className={className}>
-          {char}
-        </span>
+        <div key={lineIndex} className="flex" data-line={lineIndex + 1}>
+          <span className="select-none w-8 text-right pr-4 text-muted-foreground/40 text-sm">
+            {lineIndex + 1}
+          </span>
+          <span className="flex-1">
+            {lineContent}
+            {isCursorAtNewline && !isFinished && lineIndex < lines.length - 1 && (
+              <span className="relative">
+                <span className="absolute left-0 top-0 w-0.5 h-full bg-primary animate-pulse" />
+              </span>
+            )}
+            {lineIndex < lines.length - 1 && (
+              <span className={
+                newlineIndex < userInput.length 
+                  ? "text-green-500/30" 
+                  : "text-muted-foreground/20"
+              }>↵</span>
+            )}
+          </span>
+        </div>
       );
     });
-  }, [codeSnippet, userInput]);
+  }, [codeSnippet, userInput, isFinished]);
 
   const shareToSocial = (platform: string) => {
     const text = `I just typed ${codeSnippet.length} characters of ${PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language} code at ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! 🚀`;
@@ -900,9 +981,23 @@ export default function CodeMode() {
             data-testid="typing-container"
           >
             {isLoading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-muted-foreground animate-pulse">
-                  Generating {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name} snippet...
+              <div className="h-64 p-4 space-y-3">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-3 h-3 rounded-full bg-red-500/50 animate-pulse" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/50 animate-pulse" style={{ animationDelay: '0.2s' }} />
+                  <div className="w-3 h-3 rounded-full bg-green-500/50 animate-pulse" style={{ animationDelay: '0.4s' }} />
+                  <span className="text-xs text-muted-foreground ml-2">
+                    Generating {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name} snippet...
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-muted/30 rounded animate-pulse w-3/4" />
+                  <div className="h-4 bg-muted/30 rounded animate-pulse w-1/2" style={{ animationDelay: '0.1s' }} />
+                  <div className="h-4 bg-muted/30 rounded animate-pulse w-5/6" style={{ animationDelay: '0.2s' }} />
+                  <div className="h-4 bg-muted/30 rounded animate-pulse w-2/3" style={{ animationDelay: '0.3s' }} />
+                  <div className="h-4 bg-muted/30 rounded animate-pulse w-4/5" style={{ animationDelay: '0.4s' }} />
+                  <div className="h-4 bg-muted/30 rounded animate-pulse w-1/3" style={{ animationDelay: '0.5s' }} />
+                  <div className="h-4 bg-muted/30 rounded animate-pulse w-3/5" style={{ animationDelay: '0.6s' }} />
                 </div>
               </div>
             ) : codeSnippet ? (
@@ -927,10 +1022,13 @@ export default function CodeMode() {
                   disabled={isFinished || isFailed}
                 />
                 
-                {/* Displayed code with highlighting */}
-                <pre className="font-mono text-lg leading-relaxed whitespace-pre-wrap break-words select-none">
+                {/* Displayed code with highlighting and line numbers */}
+                <div 
+                  className="font-mono text-lg leading-relaxed select-none overflow-auto max-h-[400px] scroll-smooth"
+                  ref={codeDisplayRef}
+                >
                   {highlightedCode}
-                </pre>
+                </div>
 
                 {/* Click to start overlay */}
                 {!isActive && !isFinished && userInput.length === 0 && !isFocused && (
@@ -1010,32 +1108,20 @@ export default function CodeMode() {
             )}
           </div>
 
-          {/* Bottom Controls */}
-          {isFinished && (
-            <div className="flex items-center justify-center gap-4 mt-6">
-              <Button
-                variant="outline"
-                onClick={resetTest}
-                disabled={isLoading}
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Try Again
-              </Button>
-              <Button
-                variant="default"
-                onClick={() => setShareDialogOpen(true)}
-                data-testid="button-share"
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                Share Result
-              </Button>
-            </div>
-          )}
-
-          {/* Progress indicator */}
+          {/* Progress indicator with keyboard shortcuts */}
           {codeSnippet && !isFinished && (
-            <div className="mt-4 text-center text-sm text-muted-foreground">
-              {userInput.length} / {codeSnippet.length} characters
+            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+              <div className="flex items-center gap-4">
+                <span className="font-mono">{userInput.length} / {codeSnippet.length}</span>
+                <span className="text-xs">({Math.round((userInput.length / codeSnippet.length) * 100)}% complete)</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-3 text-xs">
+                <kbd className="px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">Esc</kbd>
+                <span>restart</span>
+                <span className="text-muted-foreground/50">•</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">Tab</kbd>
+                <span>new snippet</span>
+              </div>
             </div>
           )}
 
@@ -1049,26 +1135,80 @@ export default function CodeMode() {
               >
                 <Card className="mt-6 p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
                   <h3 className="text-xl font-bold text-center mb-4">Test Complete!</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                    <div>
+                  
+                  {/* Main stats grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center mb-6">
+                    <div className="p-3 rounded-lg bg-background/50">
                       <div className="text-3xl font-bold text-primary">{wpm}</div>
-                      <div className="text-sm text-muted-foreground">WPM</div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Net WPM</div>
                     </div>
-                    <div>
+                    <div className="p-3 rounded-lg bg-background/50">
                       <div className="text-3xl font-bold">{rawWpm}</div>
-                      <div className="text-sm text-muted-foreground">Raw WPM</div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Raw WPM</div>
                     </div>
-                    <div>
-                      <div className="text-3xl font-bold text-green-500">{accuracy}%</div>
-                      <div className="text-sm text-muted-foreground">Accuracy</div>
+                    <div className="p-3 rounded-lg bg-background/50">
+                      <div className={`text-3xl font-bold ${Number(accuracy) >= 95 ? 'text-green-500' : Number(accuracy) >= 85 ? 'text-yellow-500' : 'text-red-500'}`}>
+                        {accuracy}%
+                      </div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Accuracy</div>
                     </div>
-                    <div>
+                    <div className="p-3 rounded-lg bg-background/50">
+                      <div className="text-3xl font-bold text-green-500">{consistency}%</div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Consistency</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-background/50">
                       <div className="text-3xl font-bold">{formatTime(elapsedTime)}</div>
-                      <div className="text-sm text-muted-foreground">Time</div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Time</div>
                     </div>
                   </div>
-                  <div className="mt-4 text-center text-sm text-muted-foreground">
-                    {codeSnippet.length} characters • {errors} errors • {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}
+
+                  {/* Detail stats */}
+                  <div className="grid grid-cols-3 gap-4 text-center text-sm border-t border-border/50 pt-4">
+                    <div>
+                      <span className="text-muted-foreground">Characters: </span>
+                      <span className="font-mono font-medium">{codeSnippet.length}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Errors: </span>
+                      <span className={`font-mono font-medium ${errors > 0 ? 'text-red-500' : 'text-green-500'}`}>{errors}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Language: </span>
+                      <span className="font-medium">{PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}</span>
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center justify-center gap-3 mt-6">
+                    <Button
+                      variant="outline"
+                      onClick={resetTest}
+                      disabled={isLoading}
+                      className="gap-2"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Try Again
+                      <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted">Esc</kbd>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => fetchCodeSnippet(true)}
+                      disabled={isLoading}
+                      className="gap-2"
+                    >
+                      <Zap className="w-4 h-4" />
+                      New Snippet
+                      <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted">Tab</kbd>
+                    </Button>
+                    <Button
+                      variant="default"
+                      onClick={() => setShareDialogOpen(true)}
+                      data-testid="button-share"
+                      className="gap-2"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      Share
+                    </Button>
                   </div>
                 </Card>
               </motion.div>
