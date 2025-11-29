@@ -1264,15 +1264,15 @@ export default function Chat() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl mx-auto mt-6">
                 <button
                   onClick={() => setInput("What are the best practices for improving typing speed?")}
-                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 hover:border-primary/30 transition-all"
+                  className="group p-4 text-left rounded-2xl border border-border bg-gradient-to-br from-blue-500/5 to-transparent hover:from-blue-500/10 hover:border-blue-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/10"
                   data-testid="suggestion-typing-speed"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-lg bg-blue-500/10">
+                    <div className="p-1.5 rounded-lg bg-blue-500/10 group-hover:bg-blue-500/20 transition-colors">
                       <Zap className="w-4 h-4 text-blue-500" />
                     </div>
                   </div>
-                  <div className="font-medium text-foreground group-hover:text-primary transition-colors text-sm">
+                  <div className="font-medium text-foreground group-hover:text-blue-400 transition-colors text-sm">
                     Improve speed
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
@@ -1282,15 +1282,15 @@ export default function Chat() {
                 
                 <button
                   onClick={() => setInput("How do I maintain proper typing posture and prevent strain?")}
-                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 hover:border-primary/30 transition-all"
+                  className="group p-4 text-left rounded-2xl border border-border bg-gradient-to-br from-green-500/5 to-transparent hover:from-green-500/10 hover:border-green-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-green-500/10"
                   data-testid="suggestion-typing-posture"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-lg bg-green-500/10">
+                    <div className="p-1.5 rounded-lg bg-green-500/10 group-hover:bg-green-500/20 transition-colors">
                       <User className="w-4 h-4 text-green-500" />
                     </div>
                   </div>
-                  <div className="font-medium text-foreground group-hover:text-primary transition-colors text-sm">
+                  <div className="font-medium text-foreground group-hover:text-green-400 transition-colors text-sm">
                     Ergonomics
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
@@ -1300,15 +1300,15 @@ export default function Chat() {
                 
                 <button
                   onClick={() => setInput("What keyboard shortcuts should every programmer know?")}
-                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 hover:border-primary/30 transition-all"
+                  className="group p-4 text-left rounded-2xl border border-border bg-gradient-to-br from-purple-500/5 to-transparent hover:from-purple-500/10 hover:border-purple-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-purple-500/10"
                   data-testid="suggestion-keyboard-shortcuts"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-lg bg-purple-500/10">
+                    <div className="p-1.5 rounded-lg bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
                       <Code className="w-4 h-4 text-purple-500" />
                     </div>
                   </div>
-                  <div className="font-medium text-foreground group-hover:text-primary transition-colors text-sm">
+                  <div className="font-medium text-foreground group-hover:text-purple-400 transition-colors text-sm">
                     Shortcuts
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
@@ -1318,15 +1318,15 @@ export default function Chat() {
                 
                 <button
                   onClick={() => setInput("How can I practice touch typing effectively?")}
-                  className="group p-4 text-left rounded-2xl border border-border bg-background hover:bg-muted/50 hover:border-primary/30 transition-all"
+                  className="group p-4 text-left rounded-2xl border border-border bg-gradient-to-br from-orange-500/5 to-transparent hover:from-orange-500/10 hover:border-orange-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-orange-500/10"
                   data-testid="suggestion-touch-typing"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 rounded-lg bg-orange-500/10">
+                    <div className="p-1.5 rounded-lg bg-orange-500/10 group-hover:bg-orange-500/20 transition-colors">
                       <BookOpen className="w-4 h-4 text-orange-500" />
                     </div>
                   </div>
-                  <div className="font-medium text-foreground group-hover:text-primary transition-colors text-sm">
+                  <div className="font-medium text-foreground group-hover:text-orange-400 transition-colors text-sm">
                     Touch typing
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
@@ -1685,6 +1685,45 @@ export default function Chat() {
 
         {/* Input Area - ChatGPT Style */}
         <div className="border-t border-border bg-background">
+          {/* Quick Action Chips - Show when there are messages */}
+          {messages.length > 0 && !isLoading && !isStreaming && (
+            <div className="max-w-3xl mx-auto px-4 pt-4 pb-2">
+              <div className="flex flex-wrap gap-2 justify-center">
+                <button
+                  onClick={() => setInput("Can you explain that in more detail?")}
+                  className="px-3 py-1.5 text-xs rounded-full border border-border bg-background hover:bg-muted/50 hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all flex items-center gap-1.5"
+                  data-testid="quick-action-explain"
+                >
+                  <BookOpen className="w-3 h-3" />
+                  Explain more
+                </button>
+                <button
+                  onClick={() => setInput("Give me a practical example")}
+                  className="px-3 py-1.5 text-xs rounded-full border border-border bg-background hover:bg-muted/50 hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all flex items-center gap-1.5"
+                  data-testid="quick-action-example"
+                >
+                  <Code className="w-3 h-3" />
+                  Show example
+                </button>
+                <button
+                  onClick={() => setInput("What are the next steps I should take?")}
+                  className="px-3 py-1.5 text-xs rounded-full border border-border bg-background hover:bg-muted/50 hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all flex items-center gap-1.5"
+                  data-testid="quick-action-next-steps"
+                >
+                  <ChevronRight className="w-3 h-3" />
+                  Next steps
+                </button>
+                <button
+                  onClick={() => setInput("Search the web for the latest information on this topic")}
+                  className="px-3 py-1.5 text-xs rounded-full border border-border bg-background hover:bg-muted/50 hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all flex items-center gap-1.5"
+                  data-testid="quick-action-search"
+                >
+                  <Globe className="w-3 h-3" />
+                  Search web
+                </button>
+              </div>
+            </div>
+          )}
           <div className="max-w-3xl mx-auto px-4 py-6">
             <div className="relative bg-background border border-border rounded-3xl shadow-sm hover:shadow-md transition-shadow">
               <input
