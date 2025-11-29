@@ -9,6 +9,7 @@ const openai = new OpenAI({
 
 // Azure AI Foundry Client Setup
 let azureClient: AIProjectClient | null = null;
+let cachedBingGroundingAgentId: string | null = null;
 
 function getAzureClient(): AIProjectClient {
   if (!azureClient) {
@@ -26,6 +27,52 @@ function getAzureClient(): AIProjectClient {
     console.log("[Azure AI Foundry] Client initialized successfully");
   }
   return azureClient;
+}
+
+// Initialize Bing Grounding Agent at startup (creates once, reuses across searches)
+async function getOrCreateBingGroundingAgent(): Promise<string> {
+  if (cachedBingGroundingAgentId) {
+    return cachedBingGroundingAgentId;
+  }
+
+  const client = getAzureClient();
+  const agentsClient = client.agents;
+  const modelDeployment = process.env.AZURE_MODEL_DEPLOYMENT || "gpt-4o-mini";
+  const connectionId = process.env.AZURE_BING_CONNECTION_ID;
+
+  if (!connectionId) {
+    throw new Error("AZURE_BING_CONNECTION_ID not configured");
+  }
+
+  try {
+    const agent = await agentsClient.createAgent(modelDeployment, {
+      name: "bing-search-agent",
+      instructions: `You are a web search agent. Your ONLY job is to:
+1. Use Bing search to find relevant, current information
+2. Extract and return search results in a structured format
+3. Include titles, URLs, and snippets from the search
+
+Return results as a JSON array with this exact structure:
+[{"title": "...", "url": "...", "snippet": "..."}]
+
+Be concise and focus only on factual search results.`,
+      tools: [
+        {
+          type: "bing_grounding",
+          bingGrounding: {
+            searchConfigurations: [{ connectionId }],
+          },
+        },
+      ],
+    });
+
+    cachedBingGroundingAgentId = agent.id;
+    console.log(`[Azure Bing Grounding] Agent created and cached: ${agent.id}`);
+    return agent.id;
+  } catch (error) {
+    console.error("[Azure Bing Grounding] Failed to create agent:", error instanceof Error ? error.message : String(error));
+    throw error;
+  }
 }
 
 interface SearchResult {
@@ -115,58 +162,33 @@ async function scrapeWebPage(url: string): Promise<ScrapedData | null> {
 }
 
 async function searchWithBing(query: string): Promise<SearchResult[]> {
+  let threadId: string | null = null;
+  
   try {
-    const connectionId = process.env.AZURE_BING_CONNECTION_ID;
-    const modelDeployment = process.env.AZURE_MODEL_DEPLOYMENT;
-
-    if (!connectionId || !modelDeployment) {
-      console.error("[Azure Bing Grounding] Configuration missing");
-      return [];
-    }
-
     console.log(`[Azure Bing Grounding] Starting search for: "${query}"`);
     const startTime = Date.now();
+
+    // Get or create cached agent (avoids requiring write permissions on every search)
+    const agentId = await getOrCreateBingGroundingAgent();
+    console.log(`[Azure Bing Grounding] Using agent: ${agentId}`);
 
     const client = getAzureClient();
     const agentsClient = client.agents;
 
-    // Create agent with Bing Grounding tool
-    const agent = await agentsClient.createAgent(modelDeployment, {
-      name: "bing-search-agent",
-      instructions: `You are a web search agent. Your ONLY job is to:
-1. Use Bing search to find relevant, current information
-2. Extract and return search results in a structured format
-3. Include titles, URLs, and snippets from the search
-
-Return results as a JSON array with this exact structure:
-[{"title": "...", "url": "...", "snippet": "..."}]
-
-Be concise and focus only on factual search results.`,
-      tools: [
-        {
-          type: "bing_grounding",
-          bingGrounding: {
-            searchConfigurations: [{ connectionId }],
-          },
-        } as any,
-      ],
-    });
-
-    console.log(`[Azure Bing Grounding] Agent created: ${agent.id}`);
-
     // Create thread
     const thread = await agentsClient.threads.create();
-    console.log(`[Azure Bing Grounding] Thread created: ${thread.id}`);
+    threadId = thread.id;
+    console.log(`[Azure Bing Grounding] Thread created: ${threadId}`);
 
     // Send search message
     await agentsClient.messages.create(
-      thread.id,
+      threadId,
       "user",
       `Search for: ${query}\n\nReturn the top 10 search results as a JSON array with title, url, and snippet for each result.`
     );
 
     // Create and poll run
-    const runResponse = await agentsClient.runs.create(thread.id, agent.id);
+    const runResponse = await agentsClient.runs.create(threadId, agentId);
     console.log(`[Azure Bing Grounding] Run created: ${runResponse.id}`);
 
     // Poll for completion (max 30 seconds)
@@ -186,7 +208,7 @@ Be concise and focus only on factual search results.`,
       }
 
       await new Promise((resolve) => setTimeout(resolve, pollInterval));
-      run = await agentsClient.runs.get(thread.id, run.id);
+      run = await agentsClient.runs.get(threadId, run.id);
       pollCount++;
 
       if (pollCount % 5 === 0) {
@@ -198,7 +220,7 @@ Be concise and focus only on factual search results.`,
 
     if (run.status === "completed") {
       // Retrieve messages
-      const messages = agentsClient.messages.list(thread.id);
+      const messages = agentsClient.messages.list(threadId);
       const messagesArray = [];
       
       for await (const msg of messages) {
@@ -225,10 +247,6 @@ Be concise and focus only on factual search results.`,
               if (Array.isArray(results)) {
                 console.log(`[Azure Bing Grounding] ✅ Parsed ${results.length} search results`);
                 
-                // Clean up
-                await agentsClient.deleteAgent(agent.id);
-                await agentsClient.threads.delete(thread.id);
-                
                 return results.slice(0, 10).map((r: any) => ({
                   title: r.title || "",
                   url: r.url || "",
@@ -242,8 +260,6 @@ Be concise and focus only on factual search results.`,
 
           // Fallback: create synthetic results from the response
           console.log("[Azure Bing Grounding] Using fallback result extraction");
-          await agentsClient.deleteAgent(agent.id);
-          await agentsClient.threads.delete(thread.id);
           
           return [{
             title: "Search Results",
@@ -256,14 +272,6 @@ Be concise and focus only on factual search results.`,
       console.error(`[Azure Bing Grounding] Run failed: ${run.lastError?.message || "Unknown error"}`);
     }
 
-    // Cleanup on failure
-    try {
-      await agentsClient.deleteAgent(agent.id);
-      await agentsClient.threads.delete(thread.id);
-    } catch (cleanupError) {
-      console.error("[Azure Bing Grounding] Cleanup error:", cleanupError);
-    }
-
     return [];
   } catch (error) {
     console.error(`[Azure Bing Grounding] Search error:`, error instanceof Error ? error.message : String(error));
@@ -271,6 +279,18 @@ Be concise and focus only on factual search results.`,
       console.error(`[Azure Bing Grounding] Stack trace:`, error.stack);
     }
     return [];
+  } finally {
+    // Always clean up thread, even on errors (agent is cached and reused)
+    if (threadId) {
+      try {
+        const client = getAzureClient();
+        await client.agents.threads.delete(threadId);
+        console.log(`[Azure Bing Grounding] Thread ${threadId} deleted`);
+      } catch (cleanupError) {
+        // Ignore cleanup errors - thread will expire eventually
+        console.warn(`[Azure Bing Grounding] Thread cleanup warning:`, cleanupError instanceof Error ? cleanupError.message : String(cleanupError));
+      }
+    }
   }
 }
 
