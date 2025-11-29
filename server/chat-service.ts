@@ -847,6 +847,28 @@ export async function performDeepWebSearch(query: string): Promise<{ results: Se
 export async function decideIfSearchNeeded(message: string): Promise<SearchDecision> {
   const lowerMessage = message.toLowerCase();
 
+  const hasFileAnalysis = message.includes("[Attached file:") || message.includes("# File Analysis:");
+  
+  if (hasFileAnalysis) {
+    const researchTriggers = [
+      "research", "find more", "learn more", "what else", "related",
+      "context", "background", "explain", "details", "information about",
+      "search", "look up", "find", "more about"
+    ];
+    const wantsResearch = researchTriggers.some(t => lowerMessage.includes(t));
+    
+    if (wantsResearch) {
+      const topicMatch = message.match(/## (?:Document Overview|Content Summary|Key Content)[\s\S]*?(?:topic|subject|about)[:\s]*([^\n]+)/i);
+      const searchQuery = topicMatch ? topicMatch[1].trim() : message.substring(0, 200);
+      console.log(`[AI Search] File analysis with research request detected`);
+      return {
+        shouldSearch: true,
+        searchQuery: `${searchQuery} latest information`,
+        reason: "File analysis with research request",
+      };
+    }
+  }
+
   const urlPattern = /\b(?:https?:\/\/)?(?:www\.)?[\w-]+\.(?:com|org|net|io|co|ai|dev|app|info|edu|gov)\b/i;
   if (urlPattern.test(message)) {
     const urlMatch = message.match(urlPattern);
@@ -1047,11 +1069,18 @@ export async function* streamChatCompletionWithSearch(
 - **Ergonomics**: Preventing RSI, proper posture, keyboard height, and break schedules
 - **Practice Strategies**: Deliberate practice, identifying weak keys, and tracking progress
 
+### Document & File Analysis
+- **Image Analysis**: Detailed visual analysis using GPT-4o Vision - extracting text, describing content, analyzing charts/graphs
+- **PDF Analysis**: Deep content extraction and summarization of PDF documents
+- **Document Understanding**: Comprehensive analysis of Word docs, text files, and code files
+- **Research Integration**: Combine file analysis with web research for comprehensive insights
+
 ### General Assistance
 - Answer questions on any topic with accuracy and depth
 - Help with coding, writing, math, research, and problem-solving
 - Provide creative ideas and thoughtful analysis
 - When web search results are provided, synthesize current information
+- When file analysis is provided, provide detailed insights and answer questions about the content
 
 ## Personality
 - Encouraging and supportive, celebrating user progress
