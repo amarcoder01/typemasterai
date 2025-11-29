@@ -646,6 +646,7 @@ export default function Chat() {
   const [lastUserMessageForRetry, setLastUserMessageForRetry] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const lastAssistantMessageRef = useRef<HTMLDivElement>(null);
   const isUserNearBottomRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -751,10 +752,25 @@ export default function Chat() {
     renameConversationMutation.mutate({ id, title: newTitle });
   };
 
-  const scrollToBottom = useCallback((force = false) => {
-    if (force || isUserNearBottomRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+  const hasScrolledToNewResponseRef = useRef(false);
+  
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  const scrollToMessageTop = useCallback(() => {
+    if (hasScrolledToNewResponseRef.current) return;
+    
+    const tryScroll = () => {
+      if (lastAssistantMessageRef.current && messagesContainerRef.current) {
+        const container = messagesContainerRef.current;
+        const messageTop = lastAssistantMessageRef.current.offsetTop - 20;
+        container.scrollTo({ top: messageTop, behavior: "smooth" });
+        hasScrolledToNewResponseRef.current = true;
+      }
+    };
+    
+    requestAnimationFrame(tryScroll);
   }, []);
 
   const handleScroll = useCallback(() => {
@@ -767,7 +783,18 @@ export default function Chat() {
   }, []);
 
   useEffect(() => {
-    scrollToBottom(true);
+    if (messages.length > 0 && !isStreaming) {
+      setTimeout(() => scrollToBottom(), 50);
+    }
+  }, [currentConversationId]);
+  
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === "user" && isUserNearBottomRef.current) {
+        scrollToBottom();
+      }
+    }
   }, [messages.length, scrollToBottom]);
 
   // Auto-resize textarea as user types
@@ -990,10 +1017,13 @@ export default function Chat() {
                 }
               } else if (parsed.content) {
                 if (!assistantMessageAdded) {
+                  hasScrolledToNewResponseRef.current = false;
                   setMessages((prev) => [...prev, { role: "assistant", content: "", timestamp: new Date(), sources: pendingSources.length > 0 ? pendingSources : undefined }]);
                   assistantMessageAdded = true;
                   setIsStreaming(true);
-                  isUserNearBottomRef.current = true;
+                  if (isUserNearBottomRef.current) {
+                    setTimeout(() => scrollToMessageTop(), 100);
+                  }
                 }
                 assistantMessage += parsed.content;
                 setMessages((prev) => {
@@ -1006,7 +1036,6 @@ export default function Chat() {
                   };
                   return newMessages;
                 });
-                requestAnimationFrame(() => scrollToBottom());
               }
               // Handle structured errors from backend
               if (parsed.error) {
@@ -1425,9 +1454,12 @@ export default function Chat() {
             className="flex-1 overflow-y-auto"
           >
             <div className="w-full">
-              {messages.map((message, index) => (
+              {messages.map((message, index) => {
+                const isLastAssistant = message.role === "assistant" && index === messages.length - 1;
+                return (
                 <div
                   key={index}
+                  ref={isLastAssistant ? lastAssistantMessageRef : undefined}
                   className={cn(
                     "w-full py-6 px-4 group/message",
                     message.role === "assistant" ? "bg-muted/30" : "bg-background"
@@ -1709,7 +1741,8 @@ export default function Chat() {
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+              })}
               
               {/* Loading / Streaming / Searching indicator */}
               {(isLoading && !isStreaming) || searchState.isSearching || searchState.status === "complete" ? (
