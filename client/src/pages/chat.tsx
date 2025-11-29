@@ -647,7 +647,6 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const lastAssistantMessageRef = useRef<HTMLDivElement>(null);
-  const isUserNearBottomRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -752,50 +751,6 @@ export default function Chat() {
     renameConversationMutation.mutate({ id, title: newTitle });
   };
 
-  const hasScrolledToNewResponseRef = useRef(false);
-  
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
-  const scrollToMessageTop = useCallback(() => {
-    if (hasScrolledToNewResponseRef.current) return;
-    
-    const tryScroll = () => {
-      if (lastAssistantMessageRef.current && messagesContainerRef.current) {
-        const container = messagesContainerRef.current;
-        const messageTop = lastAssistantMessageRef.current.offsetTop - 20;
-        container.scrollTo({ top: messageTop, behavior: "smooth" });
-        hasScrolledToNewResponseRef.current = true;
-      }
-    };
-    
-    requestAnimationFrame(tryScroll);
-  }, []);
-
-  const handleScroll = useCallback(() => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    
-    const threshold = 150;
-    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    isUserNearBottomRef.current = distanceFromBottom < threshold;
-  }, []);
-
-  useEffect(() => {
-    if (messages.length > 0 && !isStreaming) {
-      setTimeout(() => scrollToBottom(), 50);
-    }
-  }, [currentConversationId]);
-  
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.role === "user" && isUserNearBottomRef.current) {
-        scrollToBottom();
-      }
-    }
-  }, [messages.length, scrollToBottom]);
 
   // Auto-resize textarea as user types
   useEffect(() => {
@@ -1017,13 +972,9 @@ export default function Chat() {
                 }
               } else if (parsed.content) {
                 if (!assistantMessageAdded) {
-                  hasScrolledToNewResponseRef.current = false;
                   setMessages((prev) => [...prev, { role: "assistant", content: "", timestamp: new Date(), sources: pendingSources.length > 0 ? pendingSources : undefined }]);
                   assistantMessageAdded = true;
                   setIsStreaming(true);
-                  if (isUserNearBottomRef.current) {
-                    setTimeout(() => scrollToMessageTop(), 100);
-                  }
                 }
                 assistantMessage += parsed.content;
                 setMessages((prev) => {
@@ -1251,7 +1202,7 @@ export default function Chat() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent px-1">
+            <div className="flex-1 overflow-y-auto px-1">
               {searchTerm ? (
                 <div className="p-2">
                   {filtered.map((conv: Conversation) => (
@@ -1450,7 +1401,6 @@ export default function Chat() {
         ) : (
           <div 
             ref={messagesContainerRef}
-            onScroll={handleScroll}
             className="flex-1 overflow-y-auto"
           >
             <div className="w-full">
