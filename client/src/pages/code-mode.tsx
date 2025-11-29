@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Code, Trophy, Zap, Target, RotateCcw, Check, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle } from "lucide-react";
+import { Code, Trophy, Zap, Target, RotateCcw, Check, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Keyboard } from "lucide-react";
 import confetti from "canvas-confetti";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 
@@ -161,33 +161,66 @@ export default function CodeMode() {
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   const fetchCodeSnippet = useCallback(async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+    
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/code/snippet?language=${language}&difficulty=${difficulty}&generate=true`);
+      const response = await fetch(
+        `/api/code/snippet?language=${encodeURIComponent(language)}&difficulty=${encodeURIComponent(difficulty)}&generate=true`,
+        { signal }
+      );
+      
+      if (signal.aborted) return;
+      
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || `Server error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Server error: ${response.status}`);
       }
+      
       const data = await response.json();
+      
+      if (signal.aborted) return;
+      
       setCodeSnippet(data.snippet.content);
       setSnippetId(data.snippet.id);
     } catch (error: any) {
+      if (error.name === 'AbortError') return;
+      
       console.error("Error fetching code snippet:", error);
       toast({
         title: "Failed to Load Code Snippet",
         description: error.message?.includes("500") 
           ? "AI service is currently unavailable. Try changing the language or difficulty." 
-          : error.message?.includes("Network") 
+          : error.message?.includes("Network") || error.message?.includes("fetch")
           ? "Network error. Please check your connection and try again."
+          : error.message?.includes("429")
+          ? "Too many requests. Please wait a moment before trying again."
           : "Unable to generate code snippet. Press Ctrl+Enter to retry or try a different language.",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      if (!signal.aborted) {
+        setIsLoading(false);
+      }
     }
   }, [language, difficulty, toast]);
+  
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (mode === "ai") {
@@ -226,6 +259,16 @@ export default function CodeMode() {
       });
       return;
     }
+    
+    if (customCode.length > 10000) {
+      toast({
+        title: "Code Too Long",
+        description: "Please use code that is less than 10,000 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setCodeSnippet(customCode);
     setSnippetId(null);
     toast({
@@ -448,18 +491,22 @@ Can you beat me? Try it here: `,
   }, [codeSnippet, isActive, isFinished]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    
     if (isActive && startTime) {
-      interval = setInterval(() => {
-        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
-      }, 100);
+      const updateTimer = () => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        setElapsedTime(elapsed);
+        timerRef.current = requestAnimationFrame(updateTimer);
+      };
+      timerRef.current = requestAnimationFrame(updateTimer);
     } else if (!isActive) {
       setElapsedTime(0);
     }
     
     return () => {
-      if (interval) clearInterval(interval);
+      if (timerRef.current) {
+        cancelAnimationFrame(timerRef.current);
+        timerRef.current = null;
+      }
     };
   }, [isActive, startTime]);
 
@@ -622,20 +669,22 @@ Can you beat me? Try it here: `,
     setTimeout(() => textareaRef.current?.focus(), 0);
   };
 
-  const lines = codeSnippet.split("\n");
+  const lines = useMemo(() => codeSnippet.split("\n"), [codeSnippet]);
   const lineCount = lines.length;
   
-  const highlightedCode = codeSnippet.split("").map((char, index) => {
-    let className = "";
-    if (index < userInput.length) {
-      className = userInput[index] === char ? "text-green-500" : "text-red-500 bg-red-500/20";
-    }
-    return (
-      <span key={index} className={className}>
-        {char === "\n" ? "↵\n" : char}
-      </span>
-    );
-  });
+  const highlightedCode = useMemo(() => {
+    return codeSnippet.split("").map((char, index) => {
+      let className = "";
+      if (index < userInput.length) {
+        className = userInput[index] === char ? "text-green-500" : "text-red-500 bg-red-500/20";
+      }
+      return (
+        <span key={index} className={className}>
+          {char === "\n" ? "↵\n" : char}
+        </span>
+      );
+    });
+  }, [codeSnippet, userInput]);
 
   return (
     <TooltipProvider>
@@ -956,6 +1005,9 @@ Can you beat me? Try it here: `,
                       autoComplete="off"
                       autoCapitalize="off"
                       autoCorrect="off"
+                      aria-label="Type the code shown on the left. Your progress and errors will be highlighted in real-time."
+                      aria-describedby="typing-stats"
+                      role="textbox"
                       data-testid="input-code"
                     />
                     <pre className={`whitespace-pre-wrap px-4 py-4 pointer-events-none ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }}>
@@ -998,7 +1050,7 @@ Can you beat me? Try it here: `,
       </Card>
 
       <Card className="p-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div id="typing-stats" className="grid grid-cols-2 md:grid-cols-4 gap-4" role="status" aria-live="polite">
           <div className="text-center" data-testid="stat-wpm">
             <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm mb-1">
               <Zap className="w-4 h-4" /> WPM
@@ -1046,13 +1098,38 @@ Can you beat me? Try it here: `,
         )}
       </Card>
 
+      {/* Keyboard Shortcuts Help */}
+      <Card className="p-4 mt-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Keyboard className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-muted-foreground">Keyboard Shortcuts</span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Ctrl + Enter</kbd>
+            <span className="text-muted-foreground">New snippet</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
+            <span className="text-muted-foreground">Reset test</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Tab</kbd>
+            <span className="text-muted-foreground">Insert tab</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">Start typing to begin</span>
+          </div>
+        </div>
+      </Card>
+
       {!user && (
         <Card className="p-4 mt-6 bg-primary/5 border-primary/20">
           <p className="text-center text-sm">
             <span className="text-muted-foreground">Want to save your progress and compete on leaderboards? </span>
-            <a href="/login" className="text-primary hover:underline font-semibold">Sign in</a>
+            <a href="/login" className="text-primary hover:underline font-semibold" data-testid="link-signin">Sign in</a>
             <span className="text-muted-foreground"> or </span>
-            <a href="/register" className="text-primary hover:underline font-semibold">create an account</a>
+            <a href="/register" className="text-primary hover:underline font-semibold" data-testid="link-register">create an account</a>
           </p>
         </Card>
       )}

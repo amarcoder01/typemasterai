@@ -1462,24 +1462,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/code/snippet", aiGenerationLimiter, async (req, res) => {
     try {
-      const language = req.query.language as string;
-      const difficulty = req.query.difficulty as string | undefined;
-      const framework = req.query.framework as string | undefined;
-      const generate = req.query.generate === "true";
-
-      if (!language) {
-        return res.status(400).json({ message: "Programming language is required" });
+      const { z } = await import("zod");
+      
+      const querySchema = z.object({
+        language: z.string().min(1).max(50).regex(/^[a-zA-Z0-9+#_-]+$/),
+        difficulty: z.enum(["easy", "medium", "hard"]).optional(),
+        framework: z.string().max(50).optional(),
+        generate: z.enum(["true", "false"]).optional(),
+      });
+      
+      const parsed = querySchema.safeParse(req.query);
+      
+      if (!parsed.success) {
+        return res.status(400).json({ 
+          message: "Invalid request parameters",
+          errors: fromError(parsed.error).toString()
+        });
       }
+      
+      const { language, difficulty, framework, generate } = parsed.data;
 
       let snippet = await storage.getRandomCodeSnippet(language, difficulty, framework);
 
-      if (!snippet && generate) {
+      if (!snippet && generate === "true") {
         console.log(`🤖 Generating code snippet for ${language}/${difficulty || 'medium'}`);
         
         try {
           const { content, description } = await generateCodeSnippet(
             language,
-            (difficulty as "easy" | "medium" | "hard") || "medium",
+            difficulty || "medium",
             framework
           );
           
@@ -1489,7 +1500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           snippet = await storage.createCodeSnippet({
             programmingLanguage: language,
             framework,
-            difficulty: (difficulty as "easy" | "medium" | "hard") || "medium",
+            difficulty: difficulty || "medium",
             content,
             lineCount,
             characterCount,
