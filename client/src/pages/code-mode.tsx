@@ -9,10 +9,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail } from "lucide-react";
+import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail, Award } from "lucide-react";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
 import { CodeShareCard } from "@/components/CodeShareCard";
+import { CodeCertificate } from "@/components/CodeCertificate";
 
 const PROGRAMMING_LANGUAGES = {
   javascript: { name: "JavaScript", prism: "javascript", category: "Popular" },
@@ -1288,17 +1289,37 @@ export default function CodeMode() {
               </DialogDescription>
             </DialogHeader>
             
-            <Tabs defaultValue="visual" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs defaultValue="certificate" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="certificate" className="gap-2">
+                  <Award className="w-4 h-4" />
+                  Certificate
+                </TabsTrigger>
                 <TabsTrigger value="visual" className="gap-2">
                   <Image className="w-4 h-4" />
-                  Visual Card
+                  Card
                 </TabsTrigger>
                 <TabsTrigger value="link" className="gap-2">
                   <Link2 className="w-4 h-4" />
-                  Share Link
+                  Link
                 </TabsTrigger>
               </TabsList>
+              
+              <TabsContent value="certificate" className="mt-4">
+                <CodeCertificate
+                  wpm={wpm}
+                  rawWpm={rawWpm}
+                  accuracy={accuracy}
+                  consistency={consistency}
+                  language={language}
+                  languageName={PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}
+                  difficulty={difficulty}
+                  characters={codeSnippet.length}
+                  errors={errors}
+                  time={formatTime(elapsedTime)}
+                  username={user?.username}
+                />
+              </TabsContent>
               
               <TabsContent value="visual" className="mt-4">
                 <CodeShareCard
