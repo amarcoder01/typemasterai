@@ -7,6 +7,91 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// OpenAI Web Search using gpt-4o-search-preview model
+// This model automatically performs web searches when it detects the need for current information
+async function searchWithOpenAI(query: string): Promise<SearchResult[]> {
+  try {
+    console.log(`[OpenAI Web Search] Starting search for: "${query}"`);
+    const startTime = Date.now();
+
+    // Use the search-preview model which automatically searches the web
+    // The model natively integrates web search and returns grounded responses
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-search-preview",
+      messages: [
+        {
+          role: "system",
+          content: `You are a web search assistant. Your task is to search the web and find current, accurate information.
+
+IMPORTANT: For the user's query, search the web and return your findings as a JSON array.
+
+Each result must include:
+- title: The title of the webpage/article
+- url: The actual URL of the source (must be real, working URLs)
+- snippet: A brief excerpt or summary of the relevant content
+
+Return ONLY a valid JSON array with 5-10 results, no other text:
+[{"title": "...", "url": "...", "snippet": "..."}]`
+        },
+        {
+          role: "user",
+          content: `Search the web for current information about: ${query}`
+        }
+      ],
+      temperature: 0.2,
+      max_tokens: 2000,
+    });
+
+    const responseText = response.choices[0]?.message?.content || "";
+    const duration = Date.now() - startTime;
+    console.log(`[OpenAI Web Search] Response received in ${duration}ms (${responseText.length} chars)`);
+
+    // Extract JSON from response
+    try {
+      const jsonMatch = responseText.match(/\[[\s\S]*?\]/);
+      if (jsonMatch) {
+        const results = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(results) && results.length > 0) {
+          const validResults = results.filter((r: any) => r.title && r.url && r.snippet);
+          if (validResults.length > 0) {
+            console.log(`[OpenAI Web Search] ✅ Parsed ${validResults.length} valid search results`);
+            return validResults.slice(0, 10).map((r: any) => ({
+              title: String(r.title || "").substring(0, 200),
+              url: String(r.url || ""),
+              snippet: String(r.snippet || r.description || "").substring(0, 500),
+            }));
+          }
+        }
+      }
+    } catch (parseError) {
+      console.error("[OpenAI Web Search] JSON parse failed:", parseError instanceof Error ? parseError.message : String(parseError));
+    }
+
+    // If JSON parsing failed but we have useful content, create synthetic result
+    if (responseText.length > 100) {
+      console.log("[OpenAI Web Search] Creating synthetic result from response content");
+      return [{
+        title: `Web Search: ${query.substring(0, 50)}`,
+        url: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+        snippet: responseText.substring(0, 500).replace(/```json/g, "").replace(/```/g, "").trim(),
+      }];
+    }
+
+    console.log("[OpenAI Web Search] No usable results from response");
+    return [];
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[OpenAI Web Search] ❌ Error: ${errorMessage}`);
+    
+    // Log more details for debugging
+    if (error instanceof Error && 'response' in error) {
+      console.error(`[OpenAI Web Search] Response status:`, (error as any).response?.status);
+    }
+    
+    return [];
+  }
+}
+
 // Azure AI Foundry Client Setup
 let azureClient: AIProjectClient | null = null;
 let cachedBingGroundingAgentId: string | null = null;
@@ -520,12 +605,21 @@ export async function performDeepWebSearch(query: string): Promise<{ results: Se
     
     console.log(`[DeepSearch] Executing query: "${searchQuery}"`);
     
-    // Use Azure Bing Grounding
-    const queryResults = await searchWithBing(searchQuery);
+    // Try OpenAI Web Search first (primary), then Azure Bing Grounding (fallback)
+    let queryResults = await searchWithOpenAI(searchQuery);
+    
     if (queryResults.length > 0) {
-      console.log(`[DeepSearch] Found ${queryResults.length} results via Azure Bing Grounding for "${searchQuery}"`);
+      console.log(`[DeepSearch] ✅ Found ${queryResults.length} results via OpenAI Web Search for "${searchQuery}"`);
     } else {
-      console.log(`[DeepSearch] Azure Bing Grounding returned no results for "${searchQuery}"`);
+      // Fallback to Azure Bing Grounding
+      console.log(`[DeepSearch] OpenAI returned no results, trying Azure Bing Grounding...`);
+      queryResults = await searchWithBing(searchQuery);
+      
+      if (queryResults.length > 0) {
+        console.log(`[DeepSearch] ✅ Found ${queryResults.length} results via Azure Bing Grounding for "${searchQuery}"`);
+      } else {
+        console.log(`[DeepSearch] Both search providers returned no results for "${searchQuery}"`);
+      }
     }
     
     for (const result of queryResults) {
@@ -833,7 +927,7 @@ The user expects FRESH, CURRENT information from these search results. Deliver i
 
   try {
     const stream = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4o",
       messages: allMessages,
       stream: true,
       temperature: hasSearchResults ? 0.3 : 0.7,
