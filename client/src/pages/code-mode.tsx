@@ -133,6 +133,13 @@ export default function CodeMode() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [errorState, setErrorState] = useState<{
+    type: 'network' | 'server' | 'generation' | 'timeout' | null;
+    message: string;
+    canRetry: boolean;
+  }>({ type: null, message: '', canRetry: false });
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -140,7 +147,7 @@ export default function CodeMode() {
   const timerRef = useRef<number | null>(null);
   const wpmHistoryRef = useRef<number[]>([]);
 
-  const fetchCodeSnippet = useCallback(async (forceNew = true) => {
+  const fetchCodeSnippet = useCallback(async (forceNew = true, isRetry = false) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -149,40 +156,116 @@ export default function CodeMode() {
     const signal = abortControllerRef.current.signal;
     
     setIsLoading(true);
+    setErrorState({ type: null, message: '', canRetry: false });
+    
+    // Set timeout for the request (30 seconds)
+    const timeoutId = setTimeout(() => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    }, 30000);
+    
     try {
       const response = await fetch(
         `/api/code/snippet?language=${encodeURIComponent(language)}&difficulty=${encodeURIComponent(difficulty)}&generate=true&forceNew=${forceNew}`,
         { signal, cache: 'no-store' }
       );
       
+      clearTimeout(timeoutId);
+      
       if (signal.aborted) return;
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Server error: ${response.status}`);
+        const status = response.status;
+        
+        // Handle specific HTTP error codes
+        if (status === 429) {
+          throw { type: 'server', message: 'Too many requests. Please wait a moment before trying again.', canRetry: true };
+        } else if (status === 503 || status === 502) {
+          throw { type: 'server', message: 'AI service is temporarily unavailable. Please try again.', canRetry: true };
+        } else if (status === 500) {
+          throw { type: 'generation', message: 'Failed to generate code. Try a different language or difficulty.', canRetry: true };
+        } else if (status === 404) {
+          throw { type: 'generation', message: 'No snippets available for this language. Try another one.', canRetry: false };
+        } else {
+          throw { type: 'server', message: errorData.message || `Server error (${status})`, canRetry: true };
+        }
       }
       
       const data = await response.json();
       
       if (signal.aborted) return;
       
+      // Validate response data
+      if (!data.snippet || !data.snippet.content) {
+        throw { type: 'generation', message: 'Received empty code snippet. Please try again.', canRetry: true };
+      }
+      
+      // Success - clear error state and retry count
       setCodeSnippet(data.snippet.content);
       setSnippetId(data.snippet.id);
+      setErrorState({ type: null, message: '', canRetry: false });
+      setRetryCount(0);
+      
     } catch (error: any) {
-      if (error.name === 'AbortError') return;
+      clearTimeout(timeoutId);
+      
+      if (error.name === 'AbortError') {
+        // Check if it was a timeout
+        if (!signal.aborted) {
+          setErrorState({ 
+            type: 'timeout', 
+            message: 'Request timed out. The AI might be busy. Please try again.', 
+            canRetry: true 
+          });
+        }
+        return;
+      }
       
       console.error("Error fetching code snippet:", error);
-      toast({
-        title: "Failed to Load Code Snippet",
-        description: "Unable to generate code snippet. Try a different language or press Tab+Enter to retry.",
-        variant: "destructive",
-      });
+      
+      // Handle network errors
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        setErrorState({ 
+          type: 'network', 
+          message: 'Network error. Please check your connection and try again.', 
+          canRetry: true 
+        });
+      } else if (error.type) {
+        // Custom error object
+        setErrorState({ 
+          type: error.type, 
+          message: error.message, 
+          canRetry: error.canRetry 
+        });
+      } else {
+        setErrorState({ 
+          type: 'server', 
+          message: error.message || 'An unexpected error occurred.', 
+          canRetry: true 
+        });
+      }
+      
+      // Auto-retry logic for retryable errors
+      if (!isRetry && retryCount < MAX_RETRIES && (error.canRetry !== false)) {
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => {
+          fetchCodeSnippet(forceNew, true);
+        }, 2000 * (retryCount + 1)); // Exponential backoff
+      } else {
+        toast({
+          title: "Failed to Load Code Snippet",
+          description: error.message || "Unable to generate code snippet. Try a different language.",
+          variant: "destructive",
+        });
+      }
     } finally {
       if (!signal.aborted) {
         setIsLoading(false);
       }
     }
-  }, [language, difficulty, toast]);
+  }, [language, difficulty, toast, retryCount]);
   
   useEffect(() => {
     return () => {
@@ -494,10 +577,20 @@ export default function CodeMode() {
     setUserInput("");
     setIsActive(false);
     setIsFinished(false);
+    setErrorState({ type: null, message: '', canRetry: false });
+    setRetryCount(0);
     if (newMode === "ai") {
-      fetchCodeSnippet();
+      fetchCodeSnippet(true);
     }
   };
+  
+  // Reset error state when language or difficulty changes
+  useEffect(() => {
+    if (mode === "ai") {
+      setErrorState({ type: null, message: '', canRetry: false });
+      setRetryCount(0);
+    }
+  }, [language, difficulty]);
 
   const applyCustomCode = () => {
     if (!customCode.trim()) {
@@ -854,13 +947,65 @@ export default function CodeMode() {
                   </div>
                 )}
               </>
+            ) : errorState.type ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-4">
+                <div className={`text-center p-4 rounded-lg ${
+                  errorState.type === 'network' ? 'bg-yellow-500/10 border border-yellow-500/30' :
+                  errorState.type === 'timeout' ? 'bg-orange-500/10 border border-orange-500/30' :
+                  'bg-red-500/10 border border-red-500/30'
+                }`}>
+                  <div className={`text-lg font-medium mb-2 ${
+                    errorState.type === 'network' ? 'text-yellow-500' :
+                    errorState.type === 'timeout' ? 'text-orange-500' :
+                    'text-red-500'
+                  }`}>
+                    {errorState.type === 'network' ? '🌐 Network Error' :
+                     errorState.type === 'timeout' ? '⏱️ Request Timeout' :
+                     errorState.type === 'generation' ? '⚠️ Generation Failed' :
+                     '❌ Server Error'}
+                  </div>
+                  <p className="text-muted-foreground text-sm mb-3">{errorState.message}</p>
+                  {retryCount > 0 && retryCount < MAX_RETRIES && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Auto-retrying... (Attempt {retryCount + 1}/{MAX_RETRIES})
+                    </p>
+                  )}
+                  {errorState.canRetry && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setRetryCount(0);
+                        fetchCodeSnippet(true);
+                      }}
+                      disabled={isLoading}
+                      data-testid="button-retry"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Try Again
+                    </Button>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Or try a different language/difficulty above
+                </div>
+              </div>
             ) : mode === "custom" ? (
               <div className="flex items-center justify-center h-64 text-muted-foreground">
-                Open settings to paste your custom code
+                Select "Custom Code" mode and paste your code above
               </div>
             ) : (
-              <div className="flex items-center justify-center h-64 text-muted-foreground">
-                No code snippet available
+              <div className="flex flex-col items-center justify-center h-64 gap-4">
+                <div className="text-muted-foreground">No code snippet available</div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchCodeSnippet(true)}
+                  disabled={isLoading}
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Generate Snippet
+                </Button>
               </div>
             )}
           </div>
