@@ -7,6 +7,126 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Error types for better error handling
+export enum ChatErrorCode {
+  NETWORK_ERROR = "NETWORK_ERROR",
+  API_KEY_INVALID = "API_KEY_INVALID",
+  RATE_LIMITED = "RATE_LIMITED",
+  CONTEXT_LENGTH_EXCEEDED = "CONTEXT_LENGTH_EXCEEDED",
+  CONTENT_FILTERED = "CONTENT_FILTERED",
+  SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE",
+  TIMEOUT = "TIMEOUT",
+  SEARCH_FAILED = "SEARCH_FAILED",
+  UNKNOWN_ERROR = "UNKNOWN_ERROR",
+}
+
+export interface ChatError {
+  code: ChatErrorCode;
+  message: string;
+  userMessage: string;
+  retryable: boolean;
+  retryAfter?: number;
+}
+
+// Parse OpenAI errors into structured format
+function parseOpenAIError(error: any): ChatError {
+  const errorMessage = error?.message || String(error);
+  const statusCode = error?.status || error?.response?.status;
+  
+  // Rate limiting
+  if (statusCode === 429 || errorMessage.includes("rate limit")) {
+    const retryAfter = error?.headers?.["retry-after"] 
+      ? parseInt(error.headers["retry-after"]) 
+      : 30;
+    return {
+      code: ChatErrorCode.RATE_LIMITED,
+      message: errorMessage,
+      userMessage: "I'm receiving too many requests right now. Please wait a moment and try again.",
+      retryable: true,
+      retryAfter,
+    };
+  }
+  
+  // Invalid API key
+  if (statusCode === 401 || errorMessage.includes("Incorrect API key") || errorMessage.includes("invalid_api_key")) {
+    return {
+      code: ChatErrorCode.API_KEY_INVALID,
+      message: errorMessage,
+      userMessage: "There's a configuration issue with the AI service. Please contact support.",
+      retryable: false,
+    };
+  }
+  
+  // Context length exceeded
+  if (errorMessage.includes("context_length_exceeded") || errorMessage.includes("maximum context length")) {
+    return {
+      code: ChatErrorCode.CONTEXT_LENGTH_EXCEEDED,
+      message: errorMessage,
+      userMessage: "This conversation has become too long. Please start a new conversation.",
+      retryable: false,
+    };
+  }
+  
+  // Content filtered
+  if (errorMessage.includes("content_filter") || errorMessage.includes("content_policy_violation")) {
+    return {
+      code: ChatErrorCode.CONTENT_FILTERED,
+      message: errorMessage,
+      userMessage: "I can't respond to that type of request. Please try asking something else.",
+      retryable: false,
+    };
+  }
+  
+  // Service unavailable
+  if (statusCode === 503 || statusCode === 502 || errorMessage.includes("overloaded")) {
+    return {
+      code: ChatErrorCode.SERVICE_UNAVAILABLE,
+      message: errorMessage,
+      userMessage: "The AI service is temporarily busy. Please try again in a moment.",
+      retryable: true,
+      retryAfter: 10,
+    };
+  }
+  
+  // Timeout
+  if (errorMessage.includes("timeout") || errorMessage.includes("ETIMEDOUT")) {
+    return {
+      code: ChatErrorCode.TIMEOUT,
+      message: errorMessage,
+      userMessage: "The request took too long. Please try again.",
+      retryable: true,
+    };
+  }
+  
+  // Network errors
+  if (errorMessage.includes("ECONNREFUSED") || errorMessage.includes("ENOTFOUND") || errorMessage.includes("network")) {
+    return {
+      code: ChatErrorCode.NETWORK_ERROR,
+      message: errorMessage,
+      userMessage: "There was a network issue. Please check your connection and try again.",
+      retryable: true,
+    };
+  }
+  
+  // Default unknown error
+  return {
+    code: ChatErrorCode.UNKNOWN_ERROR,
+    message: errorMessage,
+    userMessage: "Something went wrong. Please try again.",
+    retryable: true,
+  };
+}
+
+// Log error with context
+function logChatError(context: string, error: any, chatError: ChatError) {
+  console.error(`[Chat Error] ${context}:`, {
+    code: chatError.code,
+    message: chatError.message,
+    retryable: chatError.retryable,
+    originalError: error instanceof Error ? error.message : String(error),
+  });
+}
+
 // OpenAI Web Search using gpt-4o-search-preview model
 // This model performs live web searches when web_search_options is enabled
 async function searchWithOpenAI(query: string): Promise<SearchResult[]> {
@@ -988,8 +1108,18 @@ The user expects FRESH, CURRENT information from these search results. Deliver i
 
     yield { type: "done" };
   } catch (error: any) {
-    console.error("OpenAI streaming error:", error);
-    yield { type: "error", data: error.message };
+    const chatError = parseOpenAIError(error);
+    logChatError("streamChatCompletionWithSearch", error, chatError);
+    
+    yield { 
+      type: "error", 
+      data: {
+        code: chatError.code,
+        message: chatError.userMessage,
+        retryable: chatError.retryable,
+        retryAfter: chatError.retryAfter,
+      }
+    };
   }
 }
 

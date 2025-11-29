@@ -66,6 +66,118 @@ interface SearchState {
   results: Array<{ title: string; url: string; snippet: string }>;
 }
 
+interface ChatErrorInfo {
+  code: string;
+  message: string;
+  retryable: boolean;
+  retryAfter?: number;
+}
+
+// Error display component with retry functionality
+function ChatErrorDisplay({ 
+  error, 
+  onRetry, 
+  isRetrying 
+}: { 
+  error: ChatErrorInfo; 
+  onRetry: () => void; 
+  isRetrying: boolean;
+}) {
+  const [countdown, setCountdown] = useState(error.retryAfter || 0);
+  
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+
+  const getErrorIcon = () => {
+    switch (error.code) {
+      case "RATE_LIMITED":
+        return <Clock className="w-5 h-5 text-amber-500" />;
+      case "NETWORK_ERROR":
+        return <Globe className="w-5 h-5 text-red-500" />;
+      case "SERVICE_UNAVAILABLE":
+        return <Loader2 className="w-5 h-5 text-amber-500" />;
+      case "CONTEXT_LENGTH_EXCEEDED":
+        return <MessageSquare className="w-5 h-5 text-blue-500" />;
+      case "CONTENT_FILTERED":
+        return <Square className="w-5 h-5 text-red-500" />;
+      default:
+        return <Zap className="w-5 h-5 text-red-500" />;
+    }
+  };
+
+  const getErrorColor = () => {
+    switch (error.code) {
+      case "RATE_LIMITED":
+      case "SERVICE_UNAVAILABLE":
+        return "border-amber-500/30 bg-amber-500/10";
+      case "CONTEXT_LENGTH_EXCEEDED":
+        return "border-blue-500/30 bg-blue-500/10";
+      default:
+        return "border-red-500/30 bg-red-500/10";
+    }
+  };
+
+  return (
+    <div className={cn(
+      "flex flex-col gap-3 p-4 rounded-lg border animate-in fade-in duration-300",
+      getErrorColor()
+    )}>
+      <div className="flex items-start gap-3">
+        <div className="flex-shrink-0 mt-0.5">
+          {getErrorIcon()}
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-foreground">{error.message}</p>
+          {error.code === "CONTEXT_LENGTH_EXCEEDED" && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Try starting a new conversation or removing some messages.
+            </p>
+          )}
+          {error.code === "RATE_LIMITED" && countdown > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Please wait {countdown} seconds before retrying.
+            </p>
+          )}
+        </div>
+      </div>
+      
+      {error.retryable && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRetry}
+            disabled={isRetrying || countdown > 0}
+            className="gap-2"
+            data-testid="button-retry"
+          >
+            {isRetrying ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Retrying...
+              </>
+            ) : countdown > 0 ? (
+              <>
+                <Clock className="w-3.5 h-3.5" />
+                Wait {countdown}s
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-3.5 h-3.5" />
+                Try Again
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CopyButton({ text, className }: { text: string; className?: string }) {
   const [copied, setCopied] = useState(false);
   
@@ -525,6 +637,9 @@ export default function Chat() {
     query: "",
     results: [],
   });
+  const [chatError, setChatError] = useState<ChatErrorInfo | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [lastUserMessageForRetry, setLastUserMessageForRetry] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -738,6 +853,7 @@ export default function Chat() {
     setUploadedFile(null);
     setIsLoading(true);
     setIsStreaming(false);
+    setChatError(null);
     setSearchState({ isSearching: false, status: null, query: "", results: [] });
 
     abortControllerRef.current = new AbortController();
@@ -840,7 +956,20 @@ export default function Chat() {
                   return newMessages;
                 });
               }
-              if (parsed.error) throw new Error(parsed.error);
+              // Handle structured errors from backend
+              if (parsed.error) {
+                if (typeof parsed.error === 'object') {
+                  setChatError({
+                    code: parsed.error.code || "UNKNOWN_ERROR",
+                    message: parsed.error.message || "Something went wrong.",
+                    retryable: parsed.error.retryable !== false,
+                    retryAfter: parsed.error.retryAfter,
+                  });
+                  setLastUserMessageForRetry(messageContent);
+                } else {
+                  throw new Error(parsed.error);
+                }
+              }
             } catch (e) {}
           }
         }
@@ -848,19 +977,65 @@ export default function Chat() {
     } catch (error: any) {
       if (error.name === 'AbortError') {
         setSearchState({ isSearching: false, status: null, query: "", results: [] });
+        setChatError(null);
         return;
       }
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Sorry, I encountered an error. Please try again.", timestamp: new Date() },
-      ]);
+      
+      // Handle network errors
+      if (!navigator.onLine) {
+        setChatError({
+          code: "NETWORK_ERROR",
+          message: "You appear to be offline. Please check your internet connection and try again.",
+          retryable: true,
+        });
+      } else if (error.message?.includes("Failed to fetch")) {
+        setChatError({
+          code: "NETWORK_ERROR", 
+          message: "Unable to connect to the server. Please check your connection and try again.",
+          retryable: true,
+        });
+      } else {
+        setChatError({
+          code: "UNKNOWN_ERROR",
+          message: "Something went wrong. Please try again.",
+          retryable: true,
+        });
+      }
+      
+      // Store last message for retry
+      setLastUserMessageForRetry(messageContent);
     } finally {
       setIsLoading(false);
       setIsStreaming(false);
+      setIsRetrying(false);
       setSearchState({ isSearching: false, status: null, query: "", results: [] });
       abortControllerRef.current = null;
     }
   };
+  
+  // Retry the last failed message
+  const handleRetry = useCallback(() => {
+    if (!lastUserMessageForRetry) return;
+    
+    setChatError(null);
+    setIsRetrying(true);
+    
+    // Remove the last user message if it exists (we'll re-add it)
+    setMessages((prev) => {
+      const lastUserIdx = [...prev].reverse().findIndex(m => m.role === "user");
+      if (lastUserIdx !== -1) {
+        const actualIdx = prev.length - 1 - lastUserIdx;
+        return prev.slice(0, actualIdx);
+      }
+      return prev;
+    });
+    
+    // Re-send the message
+    setInput(lastUserMessageForRetry);
+    setTimeout(() => {
+      sendMessage();
+    }, 100);
+  }, [lastUserMessageForRetry]);
 
   const handleFeedback = (index: number, feedback: "up" | "down") => {
     setMessages((prev) => {
@@ -1480,6 +1655,29 @@ export default function Chat() {
                   </div>
                 </div>
               ) : null}
+              
+              {/* Error Display with Retry */}
+              {chatError && !isLoading && (
+                <div className="w-full py-6 px-4">
+                  <div className="max-w-3xl mx-auto flex gap-4">
+                    <Avatar className="w-8 h-8 flex-shrink-0 mt-1">
+                      <AvatarFallback className="bg-gradient-to-br from-red-500 to-orange-600">
+                        <AIIcon className="w-5 h-5" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-medium text-foreground">TypeMasterAI</span>
+                      </div>
+                      <ChatErrorDisplay 
+                        error={chatError} 
+                        onRetry={handleRetry}
+                        isRetrying={isRetrying}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
           </div>
