@@ -1134,7 +1134,44 @@ export default function CodeMode() {
                 exit={{ opacity: 0, y: -20 }}
               >
                 <Card className="mt-6 p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-                  <h3 className="text-xl font-bold text-center mb-4">Test Complete!</h3>
+                  {/* Header with title and action buttons */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
+                    <h3 className="text-xl font-bold">Test Complete!</h3>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={resetTest}
+                        disabled={isLoading}
+                        className="gap-1.5"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                        Try Again
+                        <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted hidden sm:inline">Esc</kbd>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fetchCodeSnippet(true)}
+                        disabled={isLoading}
+                        className="gap-1.5"
+                      >
+                        <Zap className="w-4 h-4" />
+                        New Snippet
+                        <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted hidden sm:inline">Tab</kbd>
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => setShareDialogOpen(true)}
+                        data-testid="button-share"
+                        className="gap-1.5"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        Share
+                      </Button>
+                    </div>
+                  </div>
                   
                   {/* Main stats grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center mb-6">
@@ -1176,39 +1213,6 @@ export default function CodeMode() {
                       <span className="text-muted-foreground">Language: </span>
                       <span className="font-medium">{PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}</span>
                     </div>
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className="flex items-center justify-center gap-3 mt-6">
-                    <Button
-                      variant="outline"
-                      onClick={resetTest}
-                      disabled={isLoading}
-                      className="gap-2"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Try Again
-                      <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted">Esc</kbd>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => fetchCodeSnippet(true)}
-                      disabled={isLoading}
-                      className="gap-2"
-                    >
-                      <Zap className="w-4 h-4" />
-                      New Snippet
-                      <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted">Tab</kbd>
-                    </Button>
-                    <Button
-                      variant="default"
-                      onClick={() => setShareDialogOpen(true)}
-                      data-testid="button-share"
-                      className="gap-2"
-                    >
-                      <Share2 className="w-4 h-4" />
-                      Share
-                    </Button>
                   </div>
                 </Card>
               </motion.div>
