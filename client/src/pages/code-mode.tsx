@@ -838,31 +838,71 @@ export default function CodeMode() {
           <Card className="p-4 mb-6">
             <div className="flex flex-wrap gap-4 items-center justify-center">
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Mode:</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-medium">Mode:</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Mode help">
+                        <HelpCircle className="w-3 h-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[250px]">
+                      <p className="font-medium mb-1">Code Generation Mode</p>
+                      <p className="text-xs text-muted-foreground">Choose between AI-generated code snippets or paste your own custom code to practice.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <div className="flex border rounded-md overflow-hidden">
-                  <Button
-                    variant={mode === "ai" ? "default" : "ghost"}
-                    className="rounded-none text-xs px-3 h-8"
-                    onClick={() => handleModeSwitch("ai")}
-                    disabled={isActive}
-                    data-testid="button-mode-ai"
-                  >
-                    AI Generated
-                  </Button>
-                  <Button
-                    variant={mode === "custom" ? "default" : "ghost"}
-                    className="rounded-none text-xs px-3 h-8"
-                    onClick={() => handleModeSwitch("custom")}
-                    disabled={isActive}
-                    data-testid="button-mode-custom"
-                  >
-                    Custom Code
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={mode === "ai" ? "default" : "ghost"}
+                        className="rounded-none text-xs px-3 h-8"
+                        onClick={() => handleModeSwitch("ai")}
+                        disabled={isActive}
+                        data-testid="button-mode-ai"
+                      >
+                        AI Generated
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[220px]">
+                      <p className="text-xs">GPT-4 generates unique code snippets tailored to your selected language and difficulty.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={mode === "custom" ? "default" : "ghost"}
+                        className="rounded-none text-xs px-3 h-8"
+                        onClick={() => handleModeSwitch("custom")}
+                        disabled={isActive}
+                        data-testid="button-mode-custom"
+                      >
+                        Custom Code
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[220px]">
+                      <p className="text-xs">Paste your own code to practice specific patterns, algorithms, or project code.</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Language:</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-medium">Language:</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Language help">
+                        <HelpCircle className="w-3 h-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[250px]">
+                      <p className="font-medium mb-1">Programming Language</p>
+                      <p className="text-xs text-muted-foreground">Select from 50+ languages. AI generates syntax-correct snippets with language-specific patterns.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <Select value={language} onValueChange={setLanguage} disabled={isActive || mode === "custom"}>
                   <SelectTrigger className="w-[140px] h-8 text-xs" data-testid="select-language">
                     <SelectValue />
@@ -889,7 +929,24 @@ export default function CodeMode() {
               </div>
 
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Difficulty:</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-medium">Difficulty:</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Difficulty help">
+                        <HelpCircle className="w-3 h-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[280px]">
+                      <p className="font-medium mb-1">Code Complexity</p>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p><span className="text-green-400">Easy:</span> Simple functions, basic syntax</p>
+                        <p><span className="text-yellow-400">Medium:</span> Loops, conditions, data structures</p>
+                        <p><span className="text-red-400">Hard:</span> Advanced algorithms, complex patterns</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <Select value={difficulty} onValueChange={(val) => setDifficulty(val as any)} disabled={isActive || mode === "custom"}>
                   <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-difficulty">
                     <SelectValue />
@@ -903,7 +960,24 @@ export default function CodeMode() {
               </div>
 
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Test Mode:</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-medium">Test Mode:</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Test mode help">
+                        <HelpCircle className="w-3 h-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[280px]">
+                      <p className="font-medium mb-1">Challenge Level</p>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p><span className="text-blue-400">Normal:</span> Standard practice, errors allowed</p>
+                        <p><span className="text-orange-400">Expert:</span> Test fails on any typing error</p>
+                        <p><span className="text-red-400">Master:</span> Perfect 100% accuracy required</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <Select value={testMode} onValueChange={(val) => setTestMode(val as any)} disabled={isActive}>
                   <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-test-mode">
                     <SelectValue />
@@ -917,7 +991,20 @@ export default function CodeMode() {
               </div>
 
               <div className="flex items-center gap-2">
-                <label className="text-sm font-medium">Time:</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-medium">Time:</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Time limit help">
+                        <HelpCircle className="w-3 h-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[250px]">
+                      <p className="font-medium mb-1">Time Limit</p>
+                      <p className="text-xs text-muted-foreground">Set a countdown timer for timed practice. "No Limit" lets you complete the full snippet at your own pace.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <Select value={timeLimit.toString()} onValueChange={(val) => setTimeLimit(parseInt(val))} disabled={isActive}>
                   <SelectTrigger className="w-[90px] h-8 text-xs" data-testid="select-time">
                     <SelectValue />
@@ -967,53 +1054,136 @@ export default function CodeMode() {
             )}
           </Card>
 
-          {/* Stats Bar - Monkeytype Style */}
+          {/* Stats Bar - Monkeytype Style with Tooltips */}
           <div className="grid grid-cols-6 gap-2 mb-6">
-            <Card className="p-3 text-center bg-card/50 border-border/50">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                {timeLimit > 0 ? "Time Left" : "Time"}
-              </div>
-              <div className={`text-2xl font-mono font-bold ${
-                timeLimit > 0 && (timeLimit - elapsedTime) <= 10 
-                  ? "text-red-500 animate-pulse" 
-                  : "text-yellow-500"
-              }`}>
-                {timeLimit > 0 
-                  ? formatTime(Math.max(0, timeLimit - elapsedTime))
-                  : formatTime(elapsedTime)
-                }
-              </div>
-            </Card>
-            <Card className="p-3 text-center bg-card/50 border-border/50">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">WPM</div>
-              <div className="text-2xl font-mono font-bold">
-                {wpm}
-              </div>
-            </Card>
-            <Card className="p-3 text-center bg-card/50 border-border/50">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Raw</div>
-              <div className="text-2xl font-mono font-bold">
-                {rawWpm}
-              </div>
-            </Card>
-            <Card className="p-3 text-center bg-card/50 border-border/50">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Accuracy</div>
-              <div className="text-2xl font-mono font-bold">
-                {accuracy}%
-              </div>
-            </Card>
-            <Card className="p-3 text-center bg-card/50 border-border/50">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Consistency</div>
-              <div className="text-2xl font-mono font-bold text-green-500">
-                {consistency}%
-              </div>
-            </Card>
-            <Card className="p-3 text-center bg-card/50 border-border/50">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Status</div>
-              <div className={`text-lg font-mono font-bold ${getStatusColor()}`}>
-                {getStatus()}
-              </div>
-            </Card>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div tabIndex={0} role="group" aria-label="Time statistic" className="focus:outline-none focus:ring-2 focus:ring-primary rounded-lg">
+                  <Card className="p-3 text-center bg-card/50 border-border/50 cursor-help hover:bg-card/70 transition-colors" data-testid="stat-time">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                      {timeLimit > 0 ? "Time Left" : "Time"}
+                    </div>
+                    <div className={`text-2xl font-mono font-bold ${
+                      timeLimit > 0 && (timeLimit - elapsedTime) <= 10 
+                        ? "text-red-500 animate-pulse" 
+                        : "text-yellow-500"
+                    }`}>
+                      {timeLimit > 0 
+                        ? formatTime(Math.max(0, timeLimit - elapsedTime))
+                        : formatTime(elapsedTime)
+                      }
+                    </div>
+                  </Card>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[220px]">
+                <p className="font-medium mb-1">Elapsed Time</p>
+                <p className="text-xs text-muted-foreground">
+                  {timeLimit > 0 
+                    ? "Countdown timer. Test ends when time runs out."
+                    : "Total time spent typing. No time pressure."
+                  }
+                </p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div tabIndex={0} role="group" aria-label="WPM statistic" className="focus:outline-none focus:ring-2 focus:ring-primary rounded-lg">
+                  <Card className="p-3 text-center bg-card/50 border-border/50 cursor-help hover:bg-card/70 transition-colors" data-testid="stat-wpm">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">WPM</div>
+                    <div className="text-2xl font-mono font-bold">
+                      {wpm}
+                    </div>
+                  </Card>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[250px]">
+                <p className="font-medium mb-1">Net Words Per Minute</p>
+                <p className="text-xs text-muted-foreground">Your effective typing speed after subtracting errors. This is your true WPM score.</p>
+                <p className="text-[10px] text-muted-foreground/70 mt-1">Formula: (characters / 5 - errors) × 60 / time</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div tabIndex={0} role="group" aria-label="Raw WPM statistic" className="focus:outline-none focus:ring-2 focus:ring-primary rounded-lg">
+                  <Card className="p-3 text-center bg-card/50 border-border/50 cursor-help hover:bg-card/70 transition-colors" data-testid="stat-raw">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Raw</div>
+                    <div className="text-2xl font-mono font-bold">
+                      {rawWpm}
+                    </div>
+                  </Card>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[250px]">
+                <p className="font-medium mb-1">Raw Words Per Minute</p>
+                <p className="text-xs text-muted-foreground">Total keystrokes per minute without error penalties. Shows your raw typing speed.</p>
+                <p className="text-[10px] text-muted-foreground/70 mt-1">Higher than WPM = errors slowing you down</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div tabIndex={0} role="group" aria-label="Accuracy statistic" className="focus:outline-none focus:ring-2 focus:ring-primary rounded-lg">
+                  <Card className="p-3 text-center bg-card/50 border-border/50 cursor-help hover:bg-card/70 transition-colors" data-testid="stat-accuracy">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Accuracy</div>
+                    <div className="text-2xl font-mono font-bold">
+                      {accuracy}%
+                    </div>
+                  </Card>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[250px]">
+                <p className="font-medium mb-1">Typing Accuracy</p>
+                <p className="text-xs text-muted-foreground">Percentage of correctly typed characters. Higher accuracy = better muscle memory.</p>
+                <div className="text-[10px] mt-1 space-y-0.5">
+                  <p className="text-green-400">98%+ = Excellent</p>
+                  <p className="text-yellow-400">95-97% = Good</p>
+                  <p className="text-red-400">&lt;95% = Needs practice</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div tabIndex={0} role="group" aria-label="Consistency statistic" className="focus:outline-none focus:ring-2 focus:ring-primary rounded-lg">
+                  <Card className="p-3 text-center bg-card/50 border-border/50 cursor-help hover:bg-card/70 transition-colors" data-testid="stat-consistency">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Consistency</div>
+                    <div className="text-2xl font-mono font-bold text-green-500">
+                      {consistency}%
+                    </div>
+                  </Card>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[250px]">
+                <p className="font-medium mb-1">Typing Consistency</p>
+                <p className="text-xs text-muted-foreground">How steady your typing speed is. Low variance = consistent rhythm, high flow state.</p>
+                <p className="text-[10px] text-muted-foreground/70 mt-1">Based on WPM standard deviation over time</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div tabIndex={0} role="group" aria-label="Status indicator" className="focus:outline-none focus:ring-2 focus:ring-primary rounded-lg">
+                  <Card className="p-3 text-center bg-card/50 border-border/50 cursor-help hover:bg-card/70 transition-colors" data-testid="stat-status">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Status</div>
+                    <div className={`text-lg font-mono font-bold ${getStatusColor()}`}>
+                      {getStatus()}
+                    </div>
+                  </Card>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[220px]">
+                <p className="font-medium mb-1">Test Status</p>
+                <p className="text-xs text-muted-foreground">
+                  {isFinished ? "Test completed successfully!" :
+                   isFailed ? "Test failed. Try again!" :
+                   isActive ? "Currently typing..." :
+                   "Ready to start. Click the code area to begin."}
+                </p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           {/* Main Typing Area - Monkeytype Style */}
@@ -1182,86 +1352,163 @@ export default function CodeMode() {
               
               {/* Main stats grid */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center my-4">
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="text-2xl sm:text-3xl font-bold text-primary">{wpm}</div>
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Net WPM</div>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="text-2xl sm:text-3xl font-bold">{rawWpm}</div>
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Raw WPM</div>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className={`text-2xl sm:text-3xl font-bold ${Number(accuracy) >= 95 ? 'text-green-500' : Number(accuracy) >= 85 ? 'text-yellow-500' : 'text-red-500'}`}>
-                    {accuracy}%
-                  </div>
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Accuracy</div>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="text-2xl sm:text-3xl font-bold text-green-500">{consistency}%</div>
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Consistency</div>
-                </div>
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <div className="text-2xl sm:text-3xl font-bold">{formatTime(elapsedTime)}</div>
-                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Time</div>
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-3 rounded-lg bg-muted/50 cursor-help hover:bg-muted/70 transition-colors">
+                      <div className="text-2xl sm:text-3xl font-bold text-primary">{wpm}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Net WPM</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <p className="text-xs">Your final typing speed after error correction. This is your official score.</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-3 rounded-lg bg-muted/50 cursor-help hover:bg-muted/70 transition-colors">
+                      <div className="text-2xl sm:text-3xl font-bold">{rawWpm}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Raw WPM</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <p className="text-xs">Total keystroke speed without error penalty. Difference from Net WPM shows error impact.</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-3 rounded-lg bg-muted/50 cursor-help hover:bg-muted/70 transition-colors">
+                      <div className={`text-2xl sm:text-3xl font-bold ${Number(accuracy) >= 95 ? 'text-green-500' : Number(accuracy) >= 85 ? 'text-yellow-500' : 'text-red-500'}`}>
+                        {accuracy}%
+                      </div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Accuracy</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <p className="text-xs">Percentage of correct keystrokes. {Number(accuracy) >= 95 ? "Excellent accuracy!" : Number(accuracy) >= 85 ? "Good, aim for 95%+" : "Practice to improve accuracy."}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-3 rounded-lg bg-muted/50 cursor-help hover:bg-muted/70 transition-colors">
+                      <div className="text-2xl sm:text-3xl font-bold text-green-500">{consistency}%</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Consistency</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <p className="text-xs">How steady your typing rhythm was. Higher = more consistent flow throughout the test.</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="p-3 rounded-lg bg-muted/50 cursor-help hover:bg-muted/70 transition-colors">
+                      <div className="text-2xl sm:text-3xl font-bold">{formatTime(elapsedTime)}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Time</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <p className="text-xs">Total time taken to complete the typing test.</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
 
               {/* Detail stats */}
               <div className="grid grid-cols-3 gap-3 text-center text-sm border-t border-border/50 pt-4">
-                <div>
-                  <span className="text-muted-foreground">Characters: </span>
-                  <span className="font-mono font-medium">{codeSnippet.length}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Errors: </span>
-                  <span className={`font-mono font-medium ${errors > 0 ? 'text-red-500' : 'text-green-500'}`}>{errors}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Language: </span>
-                  <span className="font-medium">{PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}</span>
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="cursor-help">
+                      <span className="text-muted-foreground">Characters: </span>
+                      <span className="font-mono font-medium">{codeSnippet.length}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">Total characters in the code snippet you typed</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="cursor-help">
+                      <span className="text-muted-foreground">Errors: </span>
+                      <span className={`font-mono font-medium ${errors > 0 ? 'text-red-500' : 'text-green-500'}`}>{errors}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">{errors === 0 ? "Perfect! No typing errors" : `${errors} character${errors > 1 ? 's' : ''} typed incorrectly`}</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="cursor-help">
+                      <span className="text-muted-foreground">Language: </span>
+                      <span className="font-medium">{PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">The programming language of this code snippet</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
 
               {/* Action buttons */}
               <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setCompletionDialogOpen(false);
-                    resetTest();
-                  }}
-                  disabled={isLoading}
-                  className="gap-1.5"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Try Again
-                  <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted hidden sm:inline">Esc</kbd>
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setCompletionDialogOpen(false);
-                    fetchCodeSnippet(true);
-                  }}
-                  disabled={isLoading}
-                  className="gap-1.5"
-                >
-                  <Zap className="w-4 h-4" />
-                  New Snippet
-                  <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted hidden sm:inline">Tab</kbd>
-                </Button>
-                <Button
-                  variant="default"
-                  onClick={() => {
-                    setCompletionDialogOpen(false);
-                    setShareDialogOpen(true);
-                  }}
-                  data-testid="button-share"
-                  className="gap-1.5"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Share
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setCompletionDialogOpen(false);
+                        resetTest();
+                      }}
+                      disabled={isLoading}
+                      className="gap-1.5"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Try Again
+                      <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted hidden sm:inline">Esc</kbd>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Retry the same code snippet to improve your score</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setCompletionDialogOpen(false);
+                        fetchCodeSnippet(true);
+                      }}
+                      disabled={isLoading}
+                      className="gap-1.5"
+                    >
+                      <Zap className="w-4 h-4" />
+                      New Snippet
+                      <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted hidden sm:inline">Tab</kbd>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Generate a fresh AI code snippet to practice</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="default"
+                      onClick={() => {
+                        setCompletionDialogOpen(false);
+                        setShareDialogOpen(true);
+                      }}
+                      data-testid="button-share"
+                      className="gap-1.5"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      Share
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Share your achievement with certificate, card, or link</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </DialogContent>
           </Dialog>
@@ -1291,18 +1538,39 @@ export default function CodeMode() {
             
             <Tabs defaultValue="certificate" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="certificate" className="gap-2">
-                  <Award className="w-4 h-4" />
-                  Certificate
-                </TabsTrigger>
-                <TabsTrigger value="visual" className="gap-2">
-                  <Image className="w-4 h-4" />
-                  Card
-                </TabsTrigger>
-                <TabsTrigger value="link" className="gap-2">
-                  <Link2 className="w-4 h-4" />
-                  Link
-                </TabsTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="certificate" className="gap-2" data-testid="tab-certificate">
+                      <Award className="w-4 h-4" />
+                      Certificate
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Professional 1200×675 certificate with verification ID</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="visual" className="gap-2" data-testid="tab-visual-card">
+                      <Image className="w-4 h-4" />
+                      Card
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Social media optimized image card</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="link" className="gap-2" data-testid="tab-link-sharing">
+                      <Link2 className="w-4 h-4" />
+                      Link
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Share directly to 8 social platforms</p>
+                  </TooltipContent>
+                </Tooltip>
               </TabsList>
               
               <TabsContent value="certificate" className="mt-4">
@@ -1368,74 +1636,114 @@ export default function CodeMode() {
                   <p className="text-xs text-center text-muted-foreground uppercase tracking-wide">Share on Social Media</p>
                   
                   <div className="grid grid-cols-4 gap-2">
-                    <button
-                      onClick={() => shareToSocial("twitter")}
-                      className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all"
-                      data-testid="share-twitter"
-                    >
-                      <Twitter className="w-4 h-4 text-[#1DA1F2]" />
-                      <span className="text-xs font-medium hidden sm:inline">Twitter</span>
-                    </button>
-                    <button
-                      onClick={() => shareToSocial("discord")}
-                      className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#5865F2]/10 hover:bg-[#5865F2]/25 border border-[#5865F2]/20 transition-all"
-                      data-testid="share-discord"
-                    >
-                      <svg className="w-4 h-4 text-[#5865F2]" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-                      </svg>
-                      <span className="text-xs font-medium hidden sm:inline">Discord</span>
-                    </button>
-                    <button
-                      onClick={() => shareToSocial("reddit")}
-                      className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#FF4500]/10 hover:bg-[#FF4500]/25 border border-[#FF4500]/20 transition-all"
-                      data-testid="share-reddit"
-                    >
-                      <svg className="w-4 h-4 text-[#FF4500]" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/>
-                      </svg>
-                      <span className="text-xs font-medium hidden sm:inline">Reddit</span>
-                    </button>
-                    <button
-                      onClick={() => shareToSocial("whatsapp")}
-                      className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"
-                      data-testid="share-whatsapp"
-                    >
-                      <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                      <span className="text-xs font-medium hidden sm:inline">WhatsApp</span>
-                    </button>
-                    <button
-                      onClick={() => shareToSocial("telegram")}
-                      className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 transition-all"
-                      data-testid="share-telegram"
-                    >
-                      <Send className="w-4 h-4 text-[#0088cc]" />
-                      <span className="text-xs font-medium hidden sm:inline">Telegram</span>
-                    </button>
-                    <button
-                      onClick={() => shareToSocial("linkedin")}
-                      className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all"
-                      data-testid="share-linkedin"
-                    >
-                      <Linkedin className="w-4 h-4 text-[#0A66C2]" />
-                      <span className="text-xs font-medium hidden sm:inline">LinkedIn</span>
-                    </button>
-                    <button
-                      onClick={() => shareToSocial("facebook")}
-                      className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all"
-                      data-testid="share-facebook"
-                    >
-                      <Facebook className="w-4 h-4 text-[#1877F2]" />
-                      <span className="text-xs font-medium hidden sm:inline">Facebook</span>
-                    </button>
-                    <button
-                      onClick={() => shareToSocial("email")}
-                      className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-gray-500/10 hover:bg-gray-500/25 border border-gray-500/20 transition-all"
-                      data-testid="share-email"
-                    >
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      <span className="text-xs font-medium hidden sm:inline">Email</span>
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial("twitter")}
+                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all"
+                          data-testid="share-twitter"
+                        >
+                          <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                          <span className="text-xs font-medium hidden sm:inline">Twitter</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top"><p className="text-xs">Tweet your achievement</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial("discord")}
+                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#5865F2]/10 hover:bg-[#5865F2]/25 border border-[#5865F2]/20 transition-all"
+                          data-testid="share-discord"
+                        >
+                          <svg className="w-4 h-4 text-[#5865F2]" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                          </svg>
+                          <span className="text-xs font-medium hidden sm:inline">Discord</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top"><p className="text-xs">Copy formatted message for Discord</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial("reddit")}
+                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#FF4500]/10 hover:bg-[#FF4500]/25 border border-[#FF4500]/20 transition-all"
+                          data-testid="share-reddit"
+                        >
+                          <svg className="w-4 h-4 text-[#FF4500]" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/>
+                          </svg>
+                          <span className="text-xs font-medium hidden sm:inline">Reddit</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top"><p className="text-xs">Post to Reddit</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial("whatsapp")}
+                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"
+                          data-testid="share-whatsapp"
+                        >
+                          <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                          <span className="text-xs font-medium hidden sm:inline">WhatsApp</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top"><p className="text-xs">Send via WhatsApp</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial("telegram")}
+                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 transition-all"
+                          data-testid="share-telegram"
+                        >
+                          <Send className="w-4 h-4 text-[#0088cc]" />
+                          <span className="text-xs font-medium hidden sm:inline">Telegram</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top"><p className="text-xs">Share via Telegram</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial("linkedin")}
+                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all"
+                          data-testid="share-linkedin"
+                        >
+                          <Linkedin className="w-4 h-4 text-[#0A66C2]" />
+                          <span className="text-xs font-medium hidden sm:inline">LinkedIn</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top"><p className="text-xs">Post to LinkedIn</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial("facebook")}
+                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all"
+                          data-testid="share-facebook"
+                        >
+                          <Facebook className="w-4 h-4 text-[#1877F2]" />
+                          <span className="text-xs font-medium hidden sm:inline">Facebook</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top"><p className="text-xs">Share on Facebook</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial("email")}
+                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-gray-500/10 hover:bg-gray-500/25 border border-gray-500/20 transition-all"
+                          data-testid="share-email"
+                        >
+                          <Mail className="w-4 h-4 text-gray-400" />
+                          <span className="text-xs font-medium hidden sm:inline">Email</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top"><p className="text-xs">Send via Email</p></TooltipContent>
+                    </Tooltip>
                   </div>
                   
                   {'share' in navigator && (
