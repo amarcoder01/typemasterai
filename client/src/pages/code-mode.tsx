@@ -830,8 +830,18 @@ export default function CodeMode() {
         <div className="container mx-auto py-4 sm:py-8 px-2 sm:px-4 max-w-5xl">
           {/* Header */}
           <div className="flex items-center justify-center gap-3 mb-6">
-            <Code className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold">Code Mode</h1>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-3 cursor-help">
+                  <Code className="w-8 h-8 text-primary" />
+                  <h1 className="text-2xl font-bold">Code Mode</h1>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-[280px]">
+                <p className="font-medium mb-1">Code Typing Practice</p>
+                <p className="text-xs text-muted-foreground">Master typing in 50+ programming languages with AI-generated snippets. Improve your coding speed and accuracy.</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           {/* Controls Bar */}
@@ -1038,7 +1048,20 @@ export default function CodeMode() {
 
             {mode === "custom" && !codeSnippet && (
               <div className="mt-4">
-                <label className="text-sm font-medium mb-2 block">Paste Your Code:</label>
+                <div className="flex items-center gap-1 mb-2">
+                  <span className="text-sm font-medium">Paste Your Code:</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Custom code help">
+                        <HelpCircle className="w-3 h-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-[250px]">
+                      <p className="font-medium mb-1">Custom Code Practice</p>
+                      <p className="text-xs text-muted-foreground">Paste any code snippet you want to practice. Works with any programming language or text format.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <textarea
                   value={customCode}
                   onChange={(e) => setCustomCode(e.target.value)}
@@ -1047,9 +1070,16 @@ export default function CodeMode() {
                   spellCheck={false}
                   data-testid="textarea-custom-code"
                 />
-                <Button onClick={applyCustomCode} className="mt-2" data-testid="button-apply-custom">
-                  Start Typing
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={applyCustomCode} className="mt-2" data-testid="button-apply-custom">
+                      Start Typing
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p className="text-xs">Load your code and begin the typing test</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             )}
           </Card>
@@ -1326,16 +1356,42 @@ export default function CodeMode() {
           {/* Progress indicator with keyboard shortcuts */}
           {codeSnippet && !isFinished && (
             <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-              <div className="flex items-center gap-4">
-                <span className="font-mono">{userInput.length} / {codeSnippet.length}</span>
-                <span className="text-xs">({Math.round((userInput.length / codeSnippet.length) * 100)}% complete)</span>
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-4 cursor-help">
+                    <span className="font-mono">{userInput.length} / {codeSnippet.length}</span>
+                    <span className="text-xs">({Math.round((userInput.length / codeSnippet.length) * 100)}% complete)</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[200px]">
+                  <p className="font-medium mb-1">Progress</p>
+                  <p className="text-xs text-muted-foreground">Characters typed out of total. Keep going!</p>
+                </TooltipContent>
+              </Tooltip>
               <div className="hidden sm:flex items-center gap-3 text-xs">
-                <kbd className="px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">Esc</kbd>
-                <span>restart</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1.5 cursor-help">
+                      <kbd className="px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">Esc</kbd>
+                      <span>restart</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">Press Escape to restart the same snippet</p>
+                  </TooltipContent>
+                </Tooltip>
                 <span className="text-muted-foreground/50">•</span>
-                <kbd className="px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">Tab</kbd>
-                <span>new snippet</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1.5 cursor-help">
+                      <kbd className="px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">Tab</kbd>
+                      <span>new snippet</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">Press Tab to generate a fresh code snippet</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
           )}
@@ -1515,11 +1571,19 @@ export default function CodeMode() {
 
           {/* Login prompt */}
           {!user && (
-            <Card className="p-4 mt-6 bg-primary/5 border-primary/20">
-              <p className="text-center text-sm">
-                <a href="/login" className="text-primary hover:underline">Sign in</a> to save your results and compete on the leaderboard!
-              </p>
-            </Card>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="p-4 mt-6 bg-primary/5 border-primary/20 cursor-help">
+                  <p className="text-center text-sm">
+                    <a href="/login" className="text-primary hover:underline">Sign in</a> to save your results and compete on the leaderboard!
+                  </p>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-[250px]">
+                <p className="font-medium mb-1">Create Your Profile</p>
+                <p className="text-xs text-muted-foreground">Track your progress, earn achievements, and compete with other coders on the global leaderboard.</p>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
 
