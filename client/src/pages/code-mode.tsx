@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Settings } from "lucide-react";
+import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle } from "lucide-react";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -122,7 +122,6 @@ export default function CodeMode() {
   const [shareUrl, setShareUrl] = useState("");
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -553,136 +552,129 @@ export default function CodeMode() {
       <div className="min-h-screen bg-background">
         <div className="container mx-auto py-4 sm:py-8 px-2 sm:px-4 max-w-5xl">
           {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Code className="w-6 h-6 text-primary" />
-              <h1 className="text-xl font-bold">Code Mode</h1>
-              <span className="text-sm text-muted-foreground">
-                {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}
-              </span>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowSettings(!showSettings)}
-              data-testid="button-settings"
-            >
-              <Settings className="w-4 h-4 mr-1" />
-              Settings
-            </Button>
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <Code className="w-8 h-8 text-primary" />
+            <h1 className="text-2xl font-bold">Code Mode</h1>
           </div>
 
-          {/* Settings Panel */}
-          <AnimatePresence>
-            {showSettings && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                className="mb-6 overflow-hidden"
-              >
-                <Card className="p-4">
-                  <div className="flex flex-wrap gap-4 items-center">
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm font-medium">Mode:</label>
-                      <div className="flex border rounded-md overflow-hidden">
-                        <Button
-                          variant={mode === "ai" ? "default" : "ghost"}
-                          className="rounded-none text-xs px-3 h-8"
-                          onClick={() => handleModeSwitch("ai")}
-                          disabled={isActive}
-                          data-testid="button-mode-ai"
-                        >
-                          AI Generated
-                        </Button>
-                        <Button
-                          variant={mode === "custom" ? "default" : "ghost"}
-                          className="rounded-none text-xs px-3 h-8"
-                          onClick={() => handleModeSwitch("custom")}
-                          disabled={isActive}
-                          data-testid="button-mode-custom"
-                        >
-                          Custom Code
-                        </Button>
+          {/* Controls Bar */}
+          <Card className="p-4 mb-6">
+            <div className="flex flex-wrap gap-4 items-center justify-center">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Mode:</label>
+                <div className="flex border rounded-md overflow-hidden">
+                  <Button
+                    variant={mode === "ai" ? "default" : "ghost"}
+                    className="rounded-none text-xs px-3 h-8"
+                    onClick={() => handleModeSwitch("ai")}
+                    disabled={isActive}
+                    data-testid="button-mode-ai"
+                  >
+                    AI Generated
+                  </Button>
+                  <Button
+                    variant={mode === "custom" ? "default" : "ghost"}
+                    className="rounded-none text-xs px-3 h-8"
+                    onClick={() => handleModeSwitch("custom")}
+                    disabled={isActive}
+                    data-testid="button-mode-custom"
+                  >
+                    Custom Code
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Language:</label>
+                <Select value={language} onValueChange={setLanguage} disabled={isActive || mode === "custom"}>
+                  <SelectTrigger className="w-[140px] h-8 text-xs" data-testid="select-language">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[400px]">
+                    {Object.entries(
+                      Object.entries(PROGRAMMING_LANGUAGES).reduce((acc, [key, lang]) => {
+                        if (!acc[lang.category]) acc[lang.category] = [];
+                        acc[lang.category].push({ key, ...lang });
+                        return acc;
+                      }, {} as Record<string, Array<{ key: string; name: string; prism: string; category: string }>>)
+                    ).map(([category, languages]) => (
+                      <div key={category}>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                          {category}
+                        </div>
+                        {languages.map(({ key, name }) => (
+                          <SelectItem key={key} value={key}>{name}</SelectItem>
+                        ))}
                       </div>
-                    </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm font-medium">Language:</label>
-                      <Select value={language} onValueChange={setLanguage} disabled={isActive || mode === "custom"}>
-                        <SelectTrigger className="w-[140px] h-8 text-xs" data-testid="select-language">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[400px]">
-                          {Object.entries(
-                            Object.entries(PROGRAMMING_LANGUAGES).reduce((acc, [key, lang]) => {
-                              if (!acc[lang.category]) acc[lang.category] = [];
-                              acc[lang.category].push({ key, ...lang });
-                              return acc;
-                            }, {} as Record<string, Array<{ key: string; name: string; prism: string; category: string }>>)
-                          ).map(([category, languages]) => (
-                            <div key={category}>
-                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                                {category}
-                              </div>
-                              {languages.map(({ key, name }) => (
-                                <SelectItem key={key} value={key}>{name}</SelectItem>
-                              ))}
-                            </div>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Difficulty:</label>
+                <Select value={difficulty} onValueChange={(val) => setDifficulty(val as any)} disabled={isActive || mode === "custom"}>
+                  <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-difficulty">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DIFFICULTIES.map(({ value, label }) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm font-medium">Difficulty:</label>
-                      <Select value={difficulty} onValueChange={(val) => setDifficulty(val as any)} disabled={isActive || mode === "custom"}>
-                        <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-difficulty">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {DIFFICULTIES.map(({ value, label }) => (
-                            <SelectItem key={value} value={value}>{label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Test Mode:</label>
+                <Select value={testMode} onValueChange={(val) => setTestMode(val as any)} disabled={isActive}>
+                  <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-test-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TEST_MODES.map(({ value, label }) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                    <div className="flex items-center gap-2">
-                      <label className="text-sm font-medium">Test Mode:</label>
-                      <Select value={testMode} onValueChange={(val) => setTestMode(val as any)} disabled={isActive}>
-                        <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-test-mode">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TEST_MODES.map(({ value, label }) => (
-                            <SelectItem key={value} value={value}>{label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={resetTest}
+                    disabled={isLoading}
+                    data-testid="button-restart"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-1" />
+                    {mode === "ai" ? "New Snippet" : "Restart"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Press Escape to restart</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
 
-                  {mode === "custom" && !codeSnippet && (
-                    <div className="mt-4">
-                      <label className="text-sm font-medium mb-2 block">Paste Your Code:</label>
-                      <textarea
-                        value={customCode}
-                        onChange={(e) => setCustomCode(e.target.value)}
-                        className="w-full h-32 p-3 bg-background border rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="Paste your code here..."
-                        spellCheck={false}
-                        data-testid="textarea-custom-code"
-                      />
-                      <Button onClick={applyCustomCode} className="mt-2" data-testid="button-apply-custom">
-                        Start Typing
-                      </Button>
-                    </div>
-                  )}
-                </Card>
-              </motion.div>
+            {mode === "custom" && !codeSnippet && (
+              <div className="mt-4">
+                <label className="text-sm font-medium mb-2 block">Paste Your Code:</label>
+                <textarea
+                  value={customCode}
+                  onChange={(e) => setCustomCode(e.target.value)}
+                  className="w-full h-32 p-3 bg-background border rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Paste your code here..."
+                  spellCheck={false}
+                  data-testid="textarea-custom-code"
+                />
+                <Button onClick={applyCustomCode} className="mt-2" data-testid="button-apply-custom">
+                  Start Typing
+                </Button>
+              </div>
             )}
-          </AnimatePresence>
+          </Card>
 
           {/* Stats Bar - Monkeytype Style */}
           <div className="grid grid-cols-6 gap-2 mb-6">
@@ -787,25 +779,16 @@ export default function CodeMode() {
           </div>
 
           {/* Bottom Controls */}
-          <div className="flex items-center justify-center gap-4 mt-6">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  onClick={resetTest}
-                  disabled={isLoading}
-                  data-testid="button-restart"
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  {mode === "ai" ? "New Snippet" : "Restart"}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Press Escape or Tab to restart</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {isFinished && (
+          {isFinished && (
+            <div className="flex items-center justify-center gap-4 mt-6">
+              <Button
+                variant="outline"
+                onClick={resetTest}
+                disabled={isLoading}
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Try Again
+              </Button>
               <Button
                 variant="default"
                 onClick={() => setShareDialogOpen(true)}
@@ -814,8 +797,8 @@ export default function CodeMode() {
                 <Share2 className="w-4 h-4 mr-2" />
                 Share Result
               </Button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Progress indicator */}
           {codeSnippet && !isFinished && (
