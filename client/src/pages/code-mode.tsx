@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail } from "lucide-react";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
+import { CodeShareCard } from "@/components/CodeShareCard";
 
 const PROGRAMMING_LANGUAGES = {
   javascript: { name: "JavaScript", prism: "javascript", category: "Popular" },
@@ -758,18 +761,45 @@ export default function CodeMode() {
   }, [codeSnippet, userInput, isFinished]);
 
   const shareToSocial = (platform: string) => {
-    const text = `I just typed ${codeSnippet.length} characters of ${PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language} code at ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! 🚀`;
+    const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
+    const text = `🚀 I just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! 💻 ${codeSnippet.length} characters. Can you code faster?`;
     const url = window.location.origin + "/code-mode";
     
     const urls: Record<string, string> = {
       twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`,
-      linkedin: `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent("Code Typing Result")}&summary=${encodeURIComponent(text)}`,
-      whatsapp: `https://wa.me/?text=${encodeURIComponent(text + " " + url)}`,
+      linkedin: `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(`Code Typing: ${wpm} WPM in ${langName}`)}&summary=${encodeURIComponent(text)}`,
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(text + "\n\n" + url)}`,
+      telegram: `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`,
+      email: `mailto:?subject=${encodeURIComponent(`I typed ${langName} code at ${wpm} WPM!`)}&body=${encodeURIComponent(text + "\n\nTry it yourself: " + url)}`,
     };
     
     if (urls[platform]) {
-      window.open(urls[platform], "_blank", "width=600,height=400");
+      if (platform === 'email') {
+        window.location.href = urls[platform];
+      } else {
+        window.open(urls[platform], "_blank", "width=600,height=400");
+      }
+    }
+  };
+  
+  const handleNativeShare = async () => {
+    const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
+    const text = `🚀 I just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! 💻 ${codeSnippet.length} characters. Can you code faster?`;
+    const url = window.location.origin + "/code-mode";
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `TypeMasterAI Code Mode - ${wpm} WPM`,
+          text: text,
+          url: url,
+        });
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          console.error('Native share error:', error);
+        }
+      }
     }
   };
 
@@ -1234,40 +1264,142 @@ export default function CodeMode() {
           )}
         </div>
 
-        {/* Share Dialog */}
+        {/* Share Dialog with Tabs */}
         <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Share Your Result</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                <Share2 className="w-5 h-5" />
+                Share Your Code Typing Result
+              </DialogTitle>
               <DialogDescription>
-                Share your code typing achievement with others!
+                Share your {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name} typing achievement with others!
               </DialogDescription>
             </DialogHeader>
-            <div className="py-4">
-              <div className="bg-muted/50 rounded-lg p-4 mb-4 text-center">
-                <div className="text-3xl font-bold text-primary mb-1">{wpm} WPM</div>
-                <div className="text-sm text-muted-foreground">
-                  {accuracy}% accuracy • {codeSnippet.length} characters • {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name}
+            
+            <Tabs defaultValue="visual" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="visual" className="gap-2">
+                  <Image className="w-4 h-4" />
+                  Visual Card
+                </TabsTrigger>
+                <TabsTrigger value="link" className="gap-2">
+                  <Link2 className="w-4 h-4" />
+                  Share Link
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="visual" className="mt-4">
+                <CodeShareCard
+                  wpm={wpm}
+                  rawWpm={rawWpm}
+                  accuracy={accuracy}
+                  consistency={consistency}
+                  language={language}
+                  languageName={PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}
+                  difficulty={difficulty}
+                  characters={codeSnippet.length}
+                  errors={errors}
+                  time={formatTime(elapsedTime)}
+                  username={user?.username}
+                />
+              </TabsContent>
+              
+              <TabsContent value="link" className="mt-4 space-y-4">
+                <div className="bg-muted/50 rounded-lg p-4 text-center">
+                  <div className="text-4xl font-bold text-primary mb-2">{wpm} WPM</div>
+                  <div className="text-sm text-muted-foreground">
+                    {accuracy}% accuracy • {consistency}% consistency
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {codeSnippet.length} characters • {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name}
+                  </div>
                 </div>
-              </div>
-              <div className="flex justify-center gap-3">
-                <Button variant="outline" size="icon" onClick={() => shareToSocial("twitter")} data-testid="share-twitter">
-                  <Twitter className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={() => shareToSocial("facebook")} data-testid="share-facebook">
-                  <Facebook className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={() => shareToSocial("linkedin")} data-testid="share-linkedin">
-                  <Linkedin className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={() => shareToSocial("whatsapp")} data-testid="share-whatsapp">
-                  <MessageCircle className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="icon" onClick={copyShareLink} data-testid="share-copy">
-                  <Copy className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      value={shareUrl || `${window.location.origin}/code-mode`}
+                      readOnly
+                      className="flex-1 font-mono text-sm"
+                    />
+                    <Button
+                      onClick={copyShareLink}
+                      variant="outline"
+                      size="icon"
+                      data-testid="button-copy-link"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
+                  <p className="text-xs text-center text-muted-foreground uppercase tracking-wide">Share on Social Media</p>
+                  
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => shareToSocial("twitter")}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all"
+                      data-testid="share-twitter"
+                    >
+                      <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                      <span className="text-xs font-medium">Twitter</span>
+                    </button>
+                    <button
+                      onClick={() => shareToSocial("facebook")}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all"
+                      data-testid="share-facebook"
+                    >
+                      <Facebook className="w-4 h-4 text-[#1877F2]" />
+                      <span className="text-xs font-medium">Facebook</span>
+                    </button>
+                    <button
+                      onClick={() => shareToSocial("whatsapp")}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"
+                      data-testid="share-whatsapp"
+                    >
+                      <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                      <span className="text-xs font-medium">WhatsApp</span>
+                    </button>
+                    <button
+                      onClick={() => shareToSocial("linkedin")}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all"
+                      data-testid="share-linkedin"
+                    >
+                      <Linkedin className="w-4 h-4 text-[#0A66C2]" />
+                      <span className="text-xs font-medium">LinkedIn</span>
+                    </button>
+                    <button
+                      onClick={() => shareToSocial("telegram")}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 transition-all"
+                      data-testid="share-telegram"
+                    >
+                      <Send className="w-4 h-4 text-[#0088cc]" />
+                      <span className="text-xs font-medium">Telegram</span>
+                    </button>
+                    <button
+                      onClick={() => shareToSocial("email")}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-500/10 hover:bg-gray-500/25 border border-gray-500/20 transition-all"
+                      data-testid="share-email"
+                    >
+                      <Mail className="w-4 h-4 text-gray-400" />
+                      <span className="text-xs font-medium">Email</span>
+                    </button>
+                  </div>
+                  
+                  {'share' in navigator && (
+                    <Button
+                      onClick={handleNativeShare}
+                      variant="secondary"
+                      className="w-full gap-2"
+                      data-testid="button-share-native"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      Share via...
+                    </Button>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>
