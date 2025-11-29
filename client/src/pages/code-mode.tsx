@@ -759,9 +759,15 @@ export default function CodeMode() {
                 </pre>
 
                 {/* Click to start overlay */}
-                {!isActive && !isFinished && userInput.length === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg">
-                    <div className="text-muted-foreground text-lg">
+                {!isActive && !isFinished && userInput.length === 0 && !isFocused && (
+                  <div 
+                    className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg cursor-text"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      textareaRef.current?.focus();
+                    }}
+                  >
+                    <div className="text-muted-foreground text-lg pointer-events-none">
                       Click here or start typing
                     </div>
                   </div>
