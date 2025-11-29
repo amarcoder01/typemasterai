@@ -575,33 +575,33 @@ export default function CodeMode() {
     setTimeout(() => textareaRef.current?.focus(), 0);
   }, [mode, customCode, fetchCodeSnippet]);
   
-  // Global keyboard shortcuts
+  // Global keyboard shortcuts - respects test state
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // Only handle when not focused on textarea
       if (document.activeElement === textareaRef.current) return;
       
-      // Tab to get new snippet
-      if (e.key === "Tab") {
+      // Tab to get new snippet - only when test is not active or is finished
+      if (e.key === "Tab" && (!isActive || isFinished || isFailed)) {
         e.preventDefault();
         fetchCodeSnippet(true);
       }
       
-      // Escape to reset
+      // Escape to reset - always allowed
       if (e.key === "Escape") {
         e.preventDefault();
         resetTest();
       }
       
-      // Any printable key focuses and starts typing
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Any printable key focuses and starts typing (only if test not finished)
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && !isFinished && !isFailed) {
         textareaRef.current?.focus();
       }
     };
     
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [fetchCodeSnippet, resetTest]);
+  }, [fetchCodeSnippet, resetTest, isActive, isFinished, isFailed]);
 
   const handleModeSwitch = (newMode: "ai" | "custom") => {
     if (newMode === mode) return;
