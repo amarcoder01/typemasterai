@@ -204,7 +204,9 @@ export default function CodeMode() {
   useEffect(() => {
     if (isActive && startTime && !isFinished) {
       timerRef.current = window.setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const now = Date.now();
+        const elapsedMs = now - startTime;
+        const elapsed = Math.floor(elapsedMs / 1000);
         setElapsedTime(elapsed);
         
         // Check if time limit reached
@@ -213,40 +215,57 @@ export default function CodeMode() {
           return;
         }
         
-        // Calculate real-time stats
-        const minutes = elapsed / 60;
-        if (minutes > 0) {
+        // Calculate real-time stats using industry-standard formulas
+        const minutes = elapsedMs / 60000; // Use milliseconds for precision
+        if (minutes > 0 && userInput.length > 0) {
+          // Count correct and incorrect characters
           let correctChars = 0;
+          let errorChars = 0;
           for (let i = 0; i < userInput.length; i++) {
-            if (userInput[i] === codeSnippet[i]) correctChars++;
+            if (userInput[i] === codeSnippet[i]) {
+              correctChars++;
+            } else {
+              errorChars++;
+            }
           }
           
-          const currentWpm = Math.round((correctChars / 5) / minutes);
+          // Raw WPM (Gross WPM) = (Total Characters / 5) / Minutes
+          // Industry standard: 1 word = 5 characters
           const currentRawWpm = Math.round((userInput.length / 5) / minutes);
           
-          setWpm(currentWpm);
-          setRawWpm(currentRawWpm);
+          // Net WPM = (Correct Characters / 5) / Minutes
+          // This is the effective typing speed accounting for errors
+          const currentWpm = Math.round((correctChars / 5) / minutes);
           
-          // Track WPM history for consistency
-          wpmHistoryRef.current.push(currentWpm);
-          if (wpmHistoryRef.current.length > 1) {
-            const avg = wpmHistoryRef.current.reduce((a, b) => a + b, 0) / wpmHistoryRef.current.length;
-            const variance = wpmHistoryRef.current.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / wpmHistoryRef.current.length;
-            const stdDev = Math.sqrt(variance);
-            const consistencyScore = Math.max(0, Math.min(100, 100 - (stdDev / avg) * 100));
-            setConsistency(Math.round(consistencyScore));
+          setWpm(Math.max(0, currentWpm));
+          setRawWpm(Math.max(0, currentRawWpm));
+          
+          // Accuracy = (Correct Characters / Total Characters) × 100
+          const currentAccuracy = Math.round((correctChars / userInput.length) * 100);
+          setAccuracy(currentAccuracy);
+          
+          // Track Raw WPM history for consistency calculation
+          // Sample every second (when elapsed changes)
+          if (wpmHistoryRef.current.length < elapsed) {
+            wpmHistoryRef.current.push(currentRawWpm);
+          }
+          
+          // Consistency = based on Coefficient of Variation (CV)
+          // CV = (Standard Deviation / Mean) × 100
+          // Consistency Score = 100 - CV (higher is more consistent)
+          if (wpmHistoryRef.current.length >= 2) {
+            const samples = wpmHistoryRef.current;
+            const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+            if (mean > 0) {
+              const variance = samples.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / samples.length;
+              const stdDev = Math.sqrt(variance);
+              const cv = (stdDev / mean) * 100; // Coefficient of variation
+              const consistencyScore = Math.max(0, Math.min(100, 100 - cv));
+              setConsistency(Math.round(consistencyScore));
+            }
           }
         }
-        
-        // Calculate accuracy
-        if (userInput.length > 0) {
-          let correct = 0;
-          for (let i = 0; i < userInput.length; i++) {
-            if (userInput[i] === codeSnippet[i]) correct++;
-          }
-          setAccuracy(Math.round((correct / userInput.length) * 100));
-        }
-      }, 100); // More accurate timing with 100ms intervals
+      }, 100); // 100ms intervals for smooth updates
       
       return () => {
         if (timerRef.current) clearInterval(timerRef.current);
@@ -280,9 +299,12 @@ export default function CodeMode() {
   const finishTest = () => {
     if (timerRef.current) clearInterval(timerRef.current);
     
-    const duration = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
-    const minutes = duration / 60;
+    // Use precise milliseconds for accurate calculation
+    const durationMs = startTime ? Date.now() - startTime : 0;
+    const duration = Math.floor(durationMs / 1000);
+    const minutes = durationMs / 60000; // Use milliseconds for precision
     
+    // Count correct and incorrect characters
     let correctChars = 0;
     let errorCount = 0;
     for (let i = 0; i < userInput.length; i++) {
@@ -293,13 +315,33 @@ export default function CodeMode() {
       }
     }
     
-    const finalWpm = minutes > 0 ? Math.round((correctChars / 5) / minutes) : 0;
+    // Industry-standard formulas:
+    // Raw WPM (Gross WPM) = (Total Characters / 5) / Minutes
     const finalRawWpm = minutes > 0 ? Math.round((userInput.length / 5) / minutes) : 0;
+    
+    // Net WPM = (Correct Characters / 5) / Minutes
+    const finalWpm = minutes > 0 ? Math.round((correctChars / 5) / minutes) : 0;
+    
+    // Accuracy = (Correct Characters / Total Characters) × 100
     const finalAccuracy = userInput.length > 0 ? Math.round((correctChars / userInput.length) * 100) : 100;
     
-    setWpm(finalWpm);
-    setRawWpm(finalRawWpm);
+    // Calculate final consistency from WPM history
+    let finalConsistency = 100;
+    if (wpmHistoryRef.current.length >= 2) {
+      const samples = wpmHistoryRef.current;
+      const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+      if (mean > 0) {
+        const variance = samples.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / samples.length;
+        const stdDev = Math.sqrt(variance);
+        const cv = (stdDev / mean) * 100;
+        finalConsistency = Math.max(0, Math.min(100, Math.round(100 - cv)));
+      }
+    }
+    
+    setWpm(Math.max(0, finalWpm));
+    setRawWpm(Math.max(0, finalRawWpm));
     setAccuracy(finalAccuracy);
+    setConsistency(finalConsistency);
     setErrors(errorCount);
     setIsFinished(true);
     setIsActive(false);
@@ -316,7 +358,7 @@ export default function CodeMode() {
       saveCodeTestMutation.mutate({
         codeSnippetId: snippetId,
         programmingLanguage: language,
-        wpm: finalWpm,
+        wpm: Math.max(0, finalWpm),
         accuracy: finalAccuracy,
         characters: userInput.length,
         errors: errorCount,
