@@ -34,6 +34,7 @@ import {
   Globe,
   ExternalLink,
   ChevronDown,
+  FileText,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -54,6 +55,8 @@ import {
 interface Message {
   role: "user" | "assistant";
   content: string;
+  displayContent?: string;
+  attachedFile?: { name: string; type: string };
   timestamp?: Date;
   feedback?: "up" | "down" | null;
   sources?: Array<{ title: string; url: string; snippet: string }>;
@@ -851,7 +854,13 @@ export default function Chat() {
       }
     }
 
-    const userMessage: Message = { role: "user", content: messageContent, timestamp: new Date() };
+    const userMessage: Message = { 
+      role: "user", 
+      content: messageContent, 
+      displayContent: uploadedFile ? input : undefined,
+      attachedFile: uploadedFile ? { name: uploadedFile.name, type: uploadedFile.type } : undefined,
+      timestamp: new Date() 
+    };
     
     if (!isRegenerating) {
       setMessages((prev) => [...prev, userMessage]);
@@ -1560,9 +1569,17 @@ export default function Chat() {
                           )}
                         </div>
                       ) : (
-                        <p className="whitespace-pre-wrap leading-7 text-foreground">
-                          {message.content}
-                        </p>
+                        <div>
+                          {message.attachedFile && (
+                            <div className="flex items-center gap-2 mb-2 px-3 py-2 bg-primary/10 rounded-lg border border-primary/20 w-fit">
+                              <FileText className="w-4 h-4 text-primary" />
+                              <span className="text-sm font-medium text-primary">{message.attachedFile.name}</span>
+                            </div>
+                          )}
+                          <p className="whitespace-pre-wrap leading-7 text-foreground">
+                            {message.displayContent || message.content}
+                          </p>
+                        </div>
                       )}
                       
                       {/* Message Actions */}
