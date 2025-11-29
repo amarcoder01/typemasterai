@@ -129,6 +129,7 @@ export default function CodeMode() {
   const [errors, setErrors] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
@@ -429,6 +430,7 @@ export default function CodeMode() {
     setErrors(errorCount);
     setIsFinished(true);
     setIsActive(false);
+    setCompletionDialogOpen(true);
     
     // Celebration confetti
     confetti({
@@ -552,6 +554,7 @@ export default function CodeMode() {
   };
   
   const resetTest = useCallback(() => {
+    setCompletionDialogOpen(false);
     setUserInput("");
     setStartTime(null);
     setIsActive(false);
@@ -1125,99 +1128,101 @@ export default function CodeMode() {
             </div>
           )}
 
-          {/* Results Summary */}
-          <AnimatePresence>
-            {isFinished && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-              >
-                <Card className="mt-6 p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-                  {/* Header with title and action buttons */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-                    <h3 className="text-xl font-bold">Test Complete!</h3>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={resetTest}
-                        disabled={isLoading}
-                        className="gap-1.5"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                        Try Again
-                        <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted hidden sm:inline">Esc</kbd>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => fetchCodeSnippet(true)}
-                        disabled={isLoading}
-                        className="gap-1.5"
-                      >
-                        <Zap className="w-4 h-4" />
-                        New Snippet
-                        <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted hidden sm:inline">Tab</kbd>
-                      </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => setShareDialogOpen(true)}
-                        data-testid="button-share"
-                        className="gap-1.5"
-                      >
-                        <Share2 className="w-4 h-4" />
-                        Share
-                      </Button>
-                    </div>
+          {/* Results Summary Modal */}
+          <Dialog open={completionDialogOpen} onOpenChange={setCompletionDialogOpen}>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle className="text-2xl font-bold text-center">Test Complete!</DialogTitle>
+                <DialogDescription className="text-center">
+                  Great job! Here are your results for this {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language} typing test.
+                </DialogDescription>
+              </DialogHeader>
+              
+              {/* Main stats grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center my-4">
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className="text-2xl sm:text-3xl font-bold text-primary">{wpm}</div>
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Net WPM</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className="text-2xl sm:text-3xl font-bold">{rawWpm}</div>
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Raw WPM</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className={`text-2xl sm:text-3xl font-bold ${Number(accuracy) >= 95 ? 'text-green-500' : Number(accuracy) >= 85 ? 'text-yellow-500' : 'text-red-500'}`}>
+                    {accuracy}%
                   </div>
-                  
-                  {/* Main stats grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-center mb-6">
-                    <div className="p-3 rounded-lg bg-background/50">
-                      <div className="text-3xl font-bold text-primary">{wpm}</div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Net WPM</div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-background/50">
-                      <div className="text-3xl font-bold">{rawWpm}</div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Raw WPM</div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-background/50">
-                      <div className={`text-3xl font-bold ${Number(accuracy) >= 95 ? 'text-green-500' : Number(accuracy) >= 85 ? 'text-yellow-500' : 'text-red-500'}`}>
-                        {accuracy}%
-                      </div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Accuracy</div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-background/50">
-                      <div className="text-3xl font-bold text-green-500">{consistency}%</div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Consistency</div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-background/50">
-                      <div className="text-3xl font-bold">{formatTime(elapsedTime)}</div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wide">Time</div>
-                    </div>
-                  </div>
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Accuracy</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className="text-2xl sm:text-3xl font-bold text-green-500">{consistency}%</div>
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Consistency</div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/50">
+                  <div className="text-2xl sm:text-3xl font-bold">{formatTime(elapsedTime)}</div>
+                  <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Time</div>
+                </div>
+              </div>
 
-                  {/* Detail stats */}
-                  <div className="grid grid-cols-3 gap-4 text-center text-sm border-t border-border/50 pt-4">
-                    <div>
-                      <span className="text-muted-foreground">Characters: </span>
-                      <span className="font-mono font-medium">{codeSnippet.length}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Errors: </span>
-                      <span className={`font-mono font-medium ${errors > 0 ? 'text-red-500' : 'text-green-500'}`}>{errors}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Language: </span>
-                      <span className="font-medium">{PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}</span>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            )}
-          </AnimatePresence>
+              {/* Detail stats */}
+              <div className="grid grid-cols-3 gap-3 text-center text-sm border-t border-border/50 pt-4">
+                <div>
+                  <span className="text-muted-foreground">Characters: </span>
+                  <span className="font-mono font-medium">{codeSnippet.length}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Errors: </span>
+                  <span className={`font-mono font-medium ${errors > 0 ? 'text-red-500' : 'text-green-500'}`}>{errors}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Language: </span>
+                  <span className="font-medium">{PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}</span>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCompletionDialogOpen(false);
+                    resetTest();
+                  }}
+                  disabled={isLoading}
+                  className="gap-1.5"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Try Again
+                  <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted hidden sm:inline">Esc</kbd>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCompletionDialogOpen(false);
+                    fetchCodeSnippet(true);
+                  }}
+                  disabled={isLoading}
+                  className="gap-1.5"
+                >
+                  <Zap className="w-4 h-4" />
+                  New Snippet
+                  <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted hidden sm:inline">Tab</kbd>
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    setCompletionDialogOpen(false);
+                    setShareDialogOpen(true);
+                  }}
+                  data-testid="button-share"
+                  className="gap-1.5"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Share
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Login prompt */}
           {!user && (
