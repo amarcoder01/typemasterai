@@ -1,9 +1,32 @@
 import OpenAI from "openai";
 import * as cheerio from "cheerio";
+import { AIProjectClient } from "@azure/ai-projects";
+import { ClientSecretCredential } from "@azure/identity";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+// Azure AI Foundry Client Setup
+let azureClient: AIProjectClient | null = null;
+
+function getAzureClient(): AIProjectClient {
+  if (!azureClient) {
+    const projectEndpoint = process.env.AZURE_PROJECT_ENDPOINT;
+    const tenantId = process.env.AZURE_TENANT_ID;
+    const clientId = process.env.AZURE_CLIENT_ID;
+    const clientSecret = process.env.AZURE_CLIENT_SECRET;
+
+    if (!projectEndpoint || !tenantId || !clientId || !clientSecret) {
+      throw new Error("Azure AI Foundry credentials not configured");
+    }
+
+    const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+    azureClient = new AIProjectClient(projectEndpoint, credential);
+    console.log("[Azure AI Foundry] Client initialized successfully");
+  }
+  return azureClient;
+}
 
 interface SearchResult {
   title: string;
@@ -92,50 +115,161 @@ async function scrapeWebPage(url: string): Promise<ScrapedData | null> {
 }
 
 async function searchWithBing(query: string): Promise<SearchResult[]> {
-  const apiKey = process.env.BING_GROUNDING_KEY;
-  
-  if (!apiKey) {
-    console.error("[Bing Grounding] BING_GROUNDING_KEY not configured");
-    return [];
-  }
-
-  const searchUrl = `https://api.bing.microsoft.com/v7.0/search?q=${encodeURIComponent(query)}&count=10&mkt=en-US&safeSearch=Moderate`;
-  
   try {
-    console.log(`[Bing Grounding] Searching for: "${query}"`);
-    
-    const response = await fetch(searchUrl, {
-      headers: {
-        "Ocp-Apim-Subscription-Key": apiKey,
-        "Accept": "application/json",
-      },
-      signal: AbortSignal.timeout(10000),
+    const connectionId = process.env.AZURE_BING_CONNECTION_ID;
+    const modelDeployment = process.env.AZURE_MODEL_DEPLOYMENT;
+
+    if (!connectionId || !modelDeployment) {
+      console.error("[Azure Bing Grounding] Configuration missing");
+      return [];
+    }
+
+    console.log(`[Azure Bing Grounding] Starting search for: "${query}"`);
+    const startTime = Date.now();
+
+    const client = getAzureClient();
+    const agentsClient = client.agents;
+
+    // Create agent with Bing Grounding tool
+    const agent = await agentsClient.createAgent(modelDeployment, {
+      name: "bing-search-agent",
+      instructions: `You are a web search agent. Your ONLY job is to:
+1. Use Bing search to find relevant, current information
+2. Extract and return search results in a structured format
+3. Include titles, URLs, and snippets from the search
+
+Return results as a JSON array with this exact structure:
+[{"title": "...", "url": "...", "snippet": "..."}]
+
+Be concise and focus only on factual search results.`,
+      tools: [
+        {
+          type: "bing_grounding",
+          bingGrounding: {
+            searchConfigurations: [{ connectionId }],
+          },
+        } as any,
+      ],
     });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "Unable to read error");
-      console.error(`[Bing Grounding] API error: ${response.status} - ${response.statusText}`);
-      console.error(`[Bing Grounding] Error details: ${errorText}`);
-      return [];
+    console.log(`[Azure Bing Grounding] Agent created: ${agent.id}`);
+
+    // Create thread
+    const thread = await agentsClient.threads.create();
+    console.log(`[Azure Bing Grounding] Thread created: ${thread.id}`);
+
+    // Send search message
+    await agentsClient.messages.create(
+      thread.id,
+      "user",
+      `Search for: ${query}\n\nReturn the top 10 search results as a JSON array with title, url, and snippet for each result.`
+    );
+
+    // Create and poll run
+    const runResponse = await agentsClient.runs.create(thread.id, agent.id);
+    console.log(`[Azure Bing Grounding] Run created: ${runResponse.id}`);
+
+    // Poll for completion (max 30 seconds)
+    const maxPollTime = 30000;
+    const pollInterval = 1000;
+    let pollCount = 0;
+    let run = runResponse;
+
+    while (
+      run.status === "queued" ||
+      run.status === "in_progress" ||
+      run.status === "requires_action"
+    ) {
+      if (Date.now() - startTime > maxPollTime) {
+        console.error("[Azure Bing Grounding] Timeout waiting for run completion");
+        break;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+      run = await agentsClient.runs.get(thread.id, run.id);
+      pollCount++;
+
+      if (pollCount % 5 === 0) {
+        console.log(`[Azure Bing Grounding] Run status: ${run.status} (${pollCount}s)`);
+      }
     }
 
-    const data = await response.json();
-    
-    if (!data.webPages || !data.webPages.value || data.webPages.value.length === 0) {
-      console.warn(`[Bing Grounding] No results found for query: "${query}"`);
-      return [];
+    console.log(`[Azure Bing Grounding] Final run status: ${run.status} after ${Date.now() - startTime}ms`);
+
+    if (run.status === "completed") {
+      // Retrieve messages
+      const messages = agentsClient.messages.list(thread.id);
+      const messagesArray = [];
+      
+      for await (const msg of messages) {
+        messagesArray.push(msg);
+      }
+
+      // Find assistant's response
+      const assistantMessage = messagesArray.find((m) => m.role === "assistant");
+
+      if (assistantMessage && assistantMessage.content && assistantMessage.content.length > 0) {
+        const content = assistantMessage.content[0];
+        
+        if (content.type === "text") {
+          const textContent = content as any;
+          const responseText = textContent.text?.value || "";
+          console.log(`[Azure Bing Grounding] Response received: ${responseText.substring(0, 200)}...`);
+
+          // Try to parse JSON from the response
+          try {
+            // Extract JSON array from the response (handle markdown code blocks)
+            const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+            if (jsonMatch) {
+              const results = JSON.parse(jsonMatch[0]);
+              if (Array.isArray(results)) {
+                console.log(`[Azure Bing Grounding] ✅ Parsed ${results.length} search results`);
+                
+                // Clean up
+                await agentsClient.deleteAgent(agent.id);
+                await agentsClient.threads.delete(thread.id);
+                
+                return results.slice(0, 10).map((r: any) => ({
+                  title: r.title || "",
+                  url: r.url || "",
+                  snippet: r.snippet || r.description || "",
+                }));
+              }
+            }
+          } catch (parseError) {
+            console.error("[Azure Bing Grounding] Failed to parse JSON from response");
+          }
+
+          // Fallback: create synthetic results from the response
+          console.log("[Azure Bing Grounding] Using fallback result extraction");
+          await agentsClient.deleteAgent(agent.id);
+          await agentsClient.threads.delete(thread.id);
+          
+          return [{
+            title: "Search Results",
+            url: "https://www.bing.com/search?q=" + encodeURIComponent(query),
+            snippet: responseText.substring(0, 300),
+          }];
+        }
+      }
+    } else if (run.status === "failed") {
+      console.error(`[Azure Bing Grounding] Run failed: ${run.lastError?.message || "Unknown error"}`);
     }
 
-    const results = data.webPages.value.map((r: any) => ({
-      title: r.name || "",
-      url: r.url || "",
-      snippet: r.snippet || "",
-    }));
+    // Cleanup on failure
+    try {
+      await agentsClient.deleteAgent(agent.id);
+      await agentsClient.threads.delete(thread.id);
+    } catch (cleanupError) {
+      console.error("[Azure Bing Grounding] Cleanup error:", cleanupError);
+    }
 
-    console.log(`[Bing Grounding] ✅ Successfully found ${results.length} results for: "${query}"`);
-    return results;
+    return [];
   } catch (error) {
-    console.error(`[Bing Grounding] Search error:`, error instanceof Error ? error.message : String(error));
+    console.error(`[Azure Bing Grounding] Search error:`, error instanceof Error ? error.message : String(error));
+    if (error instanceof Error && error.stack) {
+      console.error(`[Azure Bing Grounding] Stack trace:`, error.stack);
+    }
     return [];
   }
 }
