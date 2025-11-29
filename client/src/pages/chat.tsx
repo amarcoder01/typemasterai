@@ -749,6 +749,15 @@ export default function Chat() {
     scrollToBottom();
   }, [messages]);
 
+  // Auto-resize textarea as user types
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+    }
+  }, [input]);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1724,117 +1733,126 @@ export default function Chat() {
               </div>
             </div>
           )}
-          <div className="max-w-3xl mx-auto px-4 py-6">
-            <div className="relative bg-background border border-border rounded-3xl shadow-sm hover:shadow-md transition-shadow">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,.pdf,.doc,.docx,.txt"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-              {/* File Preview */}
-              {uploadedFile && (
-                <div className="px-14 pt-3">
-                  <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg border border-border">
-                    <Paperclip className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <span className="text-sm text-foreground flex-1 truncate">
-                      {uploadedFile.name}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {(uploadedFile.size / 1024).toFixed(1)} KB
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 rounded-full hover:bg-background"
-                      onClick={() => setUploadedFile(null)}
-                    >
-                      <span className="text-xs">×</span>
-                    </Button>
-                  </div>
+          <div className="max-w-2xl mx-auto px-4 py-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.pdf,.doc,.docx,.txt"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            {/* File Preview - Above input */}
+            {uploadedFile && (
+              <div className="mb-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-full border border-border text-sm">
+                  <Paperclip className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  <span className="text-foreground truncate max-w-[200px]">
+                    {uploadedFile.name}
+                  </span>
+                  <button
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setUploadedFile(null)}
+                  >
+                    <span className="text-sm">×</span>
+                  </button>
                 </div>
-              )}
+              </div>
+            )}
+            {/* Compact pill-shaped input container */}
+            <div className={cn(
+              "relative flex items-end gap-2 bg-muted/30 border border-border rounded-[26px] transition-all duration-200",
+              "focus-within:border-primary/50 focus-within:bg-muted/40 focus-within:shadow-sm",
+              input.length > 0 ? "px-3 py-2" : "px-3 py-2"
+            )}>
+              {/* Attach button */}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute left-3 bottom-3 h-10 w-10 rounded-lg hover:bg-muted text-muted-foreground"
+                  <button
+                    className={cn(
+                      "flex-shrink-0 p-1.5 rounded-full transition-colors",
+                      "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                      (isLoading || isAnalyzingFile) && "opacity-50 cursor-not-allowed"
+                    )}
                     disabled={isLoading || isAnalyzingFile}
                     onClick={() => fileInputRef.current?.click()}
                     data-testid="button-attach-file"
                   >
-                    <Paperclip className="w-5 h-5" />
-                  </Button>
+                    <Paperclip className="w-4 h-4" />
+                  </button>
                 </TooltipTrigger>
                 <TooltipContent side="top">
-                  <p>Attach image, PDF, or document</p>
+                  <p>Attach file</p>
                 </TooltipContent>
               </Tooltip>
+              
+              {/* Dynamic textarea */}
               <Textarea
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="Message TypeMasterAI..."
-                className="min-h-[56px] max-h-[200px] resize-none border-0 bg-transparent pl-14 pr-14 py-4 focus-visible:ring-0 focus-visible:ring-offset-0"
+                className={cn(
+                  "flex-1 min-h-[24px] max-h-[150px] resize-none border-0 bg-transparent p-0 text-sm",
+                  "focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/60"
+                )}
                 disabled={isLoading}
+                rows={1}
                 data-testid="input-chat-message"
               />
+              
+              {/* Send/Stop button */}
               {isStreaming ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
+                    <button
                       onClick={stopGeneration}
-                      size="icon"
-                      className="absolute right-3 bottom-3 h-10 w-10 rounded-full bg-red-500 hover:bg-red-600 text-white transition-all"
+                      className="flex-shrink-0 p-1.5 rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors"
                       data-testid="button-stop-generation"
                     >
                       <Square className="w-4 h-4 fill-current" />
-                    </Button>
+                    </button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    <p>Stop generating</p>
+                    <p>Stop</p>
                   </TooltipContent>
                 </Tooltip>
               ) : (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button
+                    <button
                       onClick={() => sendMessage()}
                       disabled={isLoading || (!input.trim() && !uploadedFile)}
-                      size="icon"
                       className={cn(
-                        "absolute right-3 bottom-3 h-10 w-10 rounded-full transition-all",
+                        "flex-shrink-0 p-1.5 rounded-full transition-all",
                         (input.trim() || uploadedFile) && !isLoading 
                           ? "bg-foreground hover:bg-foreground/90 text-background" 
-                          : "bg-muted text-muted-foreground cursor-not-allowed"
+                          : "bg-transparent text-muted-foreground/40 cursor-not-allowed"
                       )}
                       data-testid="button-send-message"
                     >
                       {isLoading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <Send className="w-5 h-5" />
+                        <Send className="w-4 h-4" />
                       )}
-                    </Button>
+                    </button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    <p>{isLoading ? 'Sending...' : 'Send message'}</p>
+                    <p>{isLoading ? 'Sending...' : 'Send'}</p>
                   </TooltipContent>
                 </Tooltip>
               )}
             </div>
-            <div className="flex items-center justify-between mt-3 px-1">
-              <span className={cn(
-                "text-xs transition-colors",
-                input.length > 4000 ? "text-red-500" : "text-muted-foreground"
-              )}>
-                {input.length > 0 && `${input.length.toLocaleString()} characters`}
-              </span>
-              <p className="text-xs text-muted-foreground">
-                AI can make mistakes. Verify important information.
+            {/* Footer info - more compact */}
+            <div className="flex items-center justify-center mt-2">
+              <p className="text-[11px] text-muted-foreground/60">
+                {input.length > 0 ? (
+                  <span className={input.length > 4000 ? "text-red-500" : ""}>
+                    {input.length.toLocaleString()} chars · 
+                  </span>
+                ) : null}
+                AI can make mistakes
               </p>
             </div>
           </div>
