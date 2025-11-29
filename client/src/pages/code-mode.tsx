@@ -8,9 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Code, Trophy, Zap, Target, RotateCcw, Check, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Keyboard } from "lucide-react";
+import { Code, Trophy, Zap, Target, RotateCcw, Check, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Keyboard, Timer, Award, TrendingUp } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import confetti from "canvas-confetti";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 const PROGRAMMING_LANGUAGES = {
   javascript: { name: "JavaScript", prism: "javascript", category: "Popular" },
@@ -158,6 +160,8 @@ export default function CodeMode() {
   } | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
+  const [showCompletionOverlay, setShowCompletionOverlay] = useState(false);
+  const [lastKeyCorrect, setLastKeyCorrect] = useState<boolean | null>(null);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -514,6 +518,7 @@ Can you beat me? Try it here: `,
   const finishTest = () => {
     setIsActive(false);
     setIsFinished(true);
+    setShowCompletionOverlay(true);
     
     // Use raw seconds for WPM calculation, rounded for display/storage
     const elapsedSeconds = startTime ? (Date.now() - startTime) / 1000 : 0;
@@ -538,11 +543,44 @@ Can you beat me? Try it here: `,
       codeContent: codeSnippet,
     });
     
+    // Enhanced celebration confetti sequence
+    const duration_ms = 3000;
+    const animationEnd = Date.now() + duration_ms;
+    const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 100 };
+
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const interval = window.setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+      if (timeLeft <= 0) {
+        clearInterval(interval);
+        return;
+      }
+      const particleCount = 50 * (timeLeft / duration_ms);
+      
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+        colors: ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'],
+      });
+      confetti({
+        ...defaults,
+        particleCount,
+        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+        colors: ['#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'],
+      });
+    }, 250);
+
+    // Fireworks burst in the center
     confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 },
-      colors: ['#FFD700', '#00FFFF', '#FF00FF']
+      particleCount: 150,
+      spread: 100,
+      origin: { x: 0.5, y: 0.5 },
+      colors: ['#FFD700', '#00FFFF', '#FF00FF', '#FF6B6B', '#4ECDC4'],
+      startVelocity: 45,
+      gravity: 0.8,
+      scalar: 1.2,
     });
 
     if (user && startTime) {
@@ -589,6 +627,16 @@ Can you beat me? Try it here: `,
     if (!isActive && value.length > 0) {
       setIsActive(true);
       setStartTime(Date.now());
+    }
+    
+    // Track correct/incorrect for the latest keystroke (for animation feedback)
+    if (value.length > userInput.length) {
+      const lastTypedChar = value[value.length - 1];
+      const expectedChar = codeSnippet[value.length - 1];
+      setLastKeyCorrect(lastTypedChar === expectedChar);
+      
+      // Reset the animation trigger after a short delay
+      setTimeout(() => setLastKeyCorrect(null), 200);
     }
     
     if (testMode === "master") {
@@ -658,6 +706,8 @@ Can you beat me? Try it here: `,
     setAccuracy(100);
     setErrors(0);
     setCompletedTestData(null);
+    setShowCompletionOverlay(false);
+    setLastKeyCorrect(null);
     
     if (mode === "ai") {
       fetchCodeSnippet();
@@ -672,15 +722,34 @@ Can you beat me? Try it here: `,
   const lines = useMemo(() => codeSnippet.split("\n"), [codeSnippet]);
   const lineCount = lines.length;
   
+  const progressPercentage = useMemo(() => {
+    if (!codeSnippet.length) return 0;
+    return Math.round((userInput.length / codeSnippet.length) * 100);
+  }, [userInput.length, codeSnippet.length]);
+
+  const currentLineIndex = useMemo(() => {
+    const typedText = userInput;
+    return typedText.split("\n").length - 1;
+  }, [userInput]);
+  
   const highlightedCode = useMemo(() => {
     return codeSnippet.split("").map((char, index) => {
-      let className = "";
+      let className = "transition-colors duration-75 ";
+      
       if (index < userInput.length) {
-        className = userInput[index] === char ? "text-green-500" : "text-red-500 bg-red-500/20";
+        const isCorrect = userInput[index] === char;
+        className += isCorrect 
+          ? "text-green-500" 
+          : "text-red-500 bg-red-500/20";
       }
+      
+      if (index === userInput.length) {
+        className += " bg-primary/20";
+      }
+      
       return (
         <span key={index} className={className}>
-          {char === "\n" ? "↵\n" : char}
+          {char}
         </span>
       );
     });
@@ -688,25 +757,53 @@ Can you beat me? Try it here: `,
 
   return (
     <TooltipProvider>
-      <div className="container mx-auto py-8 px-4 max-w-6xl">
-        <div className="mb-8 text-center">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Code className="w-10 h-10 text-primary" />
-            <h1 className="text-4xl font-bold">Code Typing Mode</h1>
+      <div className="container mx-auto py-4 sm:py-8 px-2 sm:px-4 max-w-6xl">
+        <div className="mb-4 sm:mb-8 text-center">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-4">
+            <Code className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+            <h1 className="text-2xl sm:text-4xl font-bold">Code Typing Mode</h1>
           </div>
-          <p className="text-muted-foreground text-lg">
+          <p className="text-muted-foreground text-sm sm:text-lg">
             Master coding speed and accuracy with real programming syntax
           </p>
         </div>
 
-        <Card className="p-6 mb-6">
-          <div className="flex flex-wrap gap-4 items-center justify-center mb-6">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium flex items-center gap-1">
+        {/* Progress Bar */}
+        {(isActive || userInput.length > 0) && !isFinished && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 sm:mb-6"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs sm:text-sm font-medium text-muted-foreground">Progress</span>
+              <span className="text-xs sm:text-sm font-bold text-primary">{progressPercentage}%</span>
+            </div>
+            <div className="relative">
+              <Progress value={progressPercentage} className="h-2 sm:h-3" />
+              <motion.div
+                className="absolute top-0 left-0 h-full bg-gradient-to-r from-primary/50 to-primary rounded-full"
+                style={{ width: `${progressPercentage}%` }}
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPercentage}%` }}
+                transition={{ duration: 0.3, ease: "easeOut" }}
+              />
+            </div>
+            <div className="flex justify-between mt-1 text-xs text-muted-foreground">
+              <span>{userInput.length} / {codeSnippet.length} characters</span>
+              <span>Line {currentLineIndex + 1} of {lineCount}</span>
+            </div>
+          </motion.div>
+        )}
+
+        <Card className="p-3 sm:p-6 mb-4 sm:mb-6">
+          <div className="flex flex-wrap gap-2 sm:gap-4 items-center justify-center mb-4 sm:mb-6">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <label className="text-xs sm:text-sm font-medium flex items-center gap-1">
                 Mode:
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                    <HelpCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="max-w-xs">Choose between AI-generated code snippets or paste your own custom code to practice</p>
@@ -718,7 +815,7 @@ Can you beat me? Try it here: `,
                   <TooltipTrigger asChild>
                     <Button
                       variant={mode === "ai" ? "default" : "ghost"}
-                      className="rounded-none"
+                      className="rounded-none text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10"
                       onClick={() => handleModeSwitch("ai")}
                       disabled={isActive}
                       data-testid="button-mode-ai"
@@ -734,7 +831,7 @@ Can you beat me? Try it here: `,
                   <TooltipTrigger asChild>
                     <Button
                       variant={mode === "custom" ? "default" : "ghost"}
-                      className="rounded-none"
+                      className="rounded-none text-xs sm:text-sm px-2 sm:px-4 h-8 sm:h-10"
                       onClick={() => handleModeSwitch("custom")}
                       disabled={isActive}
                       data-testid="button-mode-custom"
@@ -749,12 +846,12 @@ Can you beat me? Try it here: `,
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium flex items-center gap-1">
+            <div className="flex items-center gap-1 sm:gap-2">
+              <label className="text-xs sm:text-sm font-medium flex items-center gap-1">
                 Language:
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                    <HelpCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground cursor-help" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="max-w-xs">Select a programming language for AI-generated code snippets</p>
@@ -762,7 +859,7 @@ Can you beat me? Try it here: `,
                 </Tooltip>
               </label>
               <Select value={language} onValueChange={setLanguage} disabled={isActive || mode === "custom"}>
-                <SelectTrigger className="w-[200px]" data-testid="select-language">
+                <SelectTrigger className="w-[120px] sm:w-[200px] h-8 sm:h-10 text-xs sm:text-sm" data-testid="select-language">
                   <SelectValue />
                 </SelectTrigger>
               <SelectContent className="max-h-[400px]">
@@ -786,12 +883,12 @@ Can you beat me? Try it here: `,
             </Select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium flex items-center gap-1">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <label className="text-xs sm:text-sm font-medium flex items-center gap-1">
               Difficulty:
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  <HelpCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="max-w-xs">Control code complexity: Easy (simple syntax), Medium (common patterns), Hard (advanced features)</p>
@@ -799,7 +896,7 @@ Can you beat me? Try it here: `,
               </Tooltip>
             </label>
             <Select value={difficulty} onValueChange={(val) => setDifficulty(val as any)} disabled={isActive || mode === "custom"}>
-              <SelectTrigger className="w-[140px]" data-testid="select-difficulty">
+              <SelectTrigger className="w-[90px] sm:w-[140px] h-8 sm:h-10 text-xs sm:text-sm" data-testid="select-difficulty">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -818,9 +915,11 @@ Can you beat me? Try it here: `,
                   variant="outline" 
                   data-testid="button-restart"
                   disabled={isLoading}
+                  className="h-8 sm:h-10 text-xs sm:text-sm px-2 sm:px-4"
                 >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  New Snippet
+                  <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">New Snippet</span>
+                  <span className="sm:hidden">New</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -830,13 +929,13 @@ Can you beat me? Try it here: `,
           )}
         </div>
 
-        <div className="flex flex-wrap gap-4 items-center justify-center pb-4 border-b">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium flex items-center gap-1">
+        <div className="flex flex-wrap gap-2 sm:gap-4 items-center justify-center pb-3 sm:pb-4 border-b">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <label className="text-xs sm:text-sm font-medium flex items-center gap-1">
               Test Mode:
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  <HelpCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground cursor-help" />
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="max-w-xs">Normal: Practice freely • Expert: Test fails on any error • Master: Must type perfectly (no mistakes allowed)</p>
@@ -844,7 +943,7 @@ Can you beat me? Try it here: `,
               </Tooltip>
             </label>
             <Select value={testMode} onValueChange={(val) => setTestMode(val as any)} disabled={isActive}>
-              <SelectTrigger className="w-[140px]" data-testid="select-test-mode">
+              <SelectTrigger className="w-[90px] sm:w-[140px] h-8 sm:h-10 text-xs sm:text-sm" data-testid="select-test-mode">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -852,7 +951,7 @@ Can you beat me? Try it here: `,
                   <SelectItem key={value} value={value}>
                     <div>
                       <div>{label}</div>
-                      <div className="text-xs text-muted-foreground">{description}</div>
+                      <div className="text-xs text-muted-foreground hidden sm:block">{description}</div>
                     </div>
                   </SelectItem>
                 ))}
@@ -860,8 +959,8 @@ Can you beat me? Try it here: `,
             </Select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium flex items-center gap-1">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <label className="text-xs sm:text-sm font-medium flex items-center gap-1 hidden sm:flex">
               Font:
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -873,7 +972,7 @@ Can you beat me? Try it here: `,
               </Tooltip>
             </label>
             <Select value={fontFamily} onValueChange={setFontFamily}>
-              <SelectTrigger className="w-[160px]" data-testid="select-font">
+              <SelectTrigger className="w-[100px] sm:w-[160px] h-8 sm:h-10 text-xs sm:text-sm" data-testid="select-font">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -884,8 +983,8 @@ Can you beat me? Try it here: `,
             </Select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium flex items-center gap-1">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <label className="text-xs sm:text-sm font-medium flex items-center gap-1 hidden sm:flex">
               Size:
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -897,7 +996,7 @@ Can you beat me? Try it here: `,
               </Tooltip>
             </label>
             <Select value={fontSize} onValueChange={setFontSize}>
-              <SelectTrigger className="w-[100px]" data-testid="select-font-size">
+              <SelectTrigger className="w-[70px] sm:w-[100px] h-8 sm:h-10 text-xs sm:text-sm" data-testid="select-font-size">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -951,26 +1050,38 @@ Can you beat me? Try it here: `,
         {!isLoading ? (
           <>
             {isActive && (
-              <div className="mb-6 text-center">
-                <div className="inline-flex items-center gap-2 bg-primary/10 px-6 py-3 rounded-full border border-primary/20">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="mb-4 sm:mb-6 text-center"
+              >
+                <div className="inline-flex items-center gap-2 bg-primary/10 px-4 sm:px-6 py-2 sm:py-3 rounded-full border border-primary/20">
                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                  <span className="text-3xl font-bold font-mono text-primary">{formatTime(elapsedTime)}</span>
+                  <Timer className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                  <span className="text-2xl sm:text-3xl font-bold font-mono text-primary">{formatTime(elapsedTime)}</span>
                 </div>
-              </div>
+              </motion.div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
               <div>
-                <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Code to Type:</h3>
-              <div className="bg-muted rounded-lg overflow-x-auto max-h-96 overflow-y-auto">
+                <h3 className="text-xs sm:text-sm font-semibold mb-2 text-muted-foreground flex items-center gap-2">
+                  <Code className="w-4 h-4" />
+                  Code to Type:
+                </h3>
+              <div className="bg-muted rounded-lg overflow-x-auto max-h-64 sm:max-h-96 overflow-y-auto">
                 <div className="flex">
-                  <div className="bg-muted/50 px-3 py-4 select-none border-r border-border/50">
+                  <div className="bg-muted/50 px-2 sm:px-3 py-3 sm:py-4 select-none border-r border-border/50">
                     {Array.from({ length: lineCount }, (_, i) => (
-                      <div key={i} className="text-muted-foreground/40 text-right font-mono" style={{ fontSize: `${fontSize}px`, lineHeight: '1.5' }}>
+                      <div 
+                        key={i} 
+                        className={`text-muted-foreground/40 text-right font-mono transition-colors ${i === currentLineIndex ? 'text-primary font-bold' : ''}`} 
+                        style={{ fontSize: `${Math.max(10, parseInt(fontSize) - 4)}px`, lineHeight: '1.5' }}
+                      >
                         {i + 1}
                       </div>
                     ))}
                   </div>
-                  <pre className={`flex-1 whitespace-pre-wrap text-foreground px-4 py-4 ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }} data-testid="code-display">
+                  <pre className={`flex-1 whitespace-pre-wrap text-foreground px-3 sm:px-4 py-3 sm:py-4 ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }} data-testid="code-display">
                     {codeSnippet}
                   </pre>
                 </div>
@@ -978,12 +1089,19 @@ Can you beat me? Try it here: `,
             </div>
 
             <div>
-              <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Your Typing:</h3>
-              <div ref={scrollContainerRef} className="w-full h-96 bg-background border rounded-lg overflow-auto relative">
+              <h3 className="text-xs sm:text-sm font-semibold mb-2 text-muted-foreground flex items-center gap-2">
+                <Keyboard className="w-4 h-4" />
+                Your Typing:
+              </h3>
+              <div ref={scrollContainerRef} className="w-full h-64 sm:h-96 bg-background border rounded-lg overflow-auto relative">
                 <div className="flex min-h-full">
-                  <div className="bg-background/50 px-3 py-4 select-none border-r border-border/50 sticky left-0 z-0">
+                  <div className="bg-background/50 px-2 sm:px-3 py-3 sm:py-4 select-none border-r border-border/50 sticky left-0 z-0">
                     {Array.from({ length: lineCount }, (_, i) => (
-                      <div key={i} className="text-muted-foreground/40 text-right font-mono" style={{ fontSize: `${fontSize}px`, lineHeight: '1.5' }}>
+                      <div 
+                        key={i} 
+                        className={`text-muted-foreground/40 text-right font-mono transition-colors ${i === currentLineIndex ? 'text-primary font-bold' : ''}`} 
+                        style={{ fontSize: `${Math.max(10, parseInt(fontSize) - 4)}px`, lineHeight: '1.5' }}
+                      >
                         {i + 1}
                       </div>
                     ))}
@@ -999,7 +1117,7 @@ Can you beat me? Try it here: `,
                       onCut={handleCut}
                       onKeyDown={handleKeyDown}
                       disabled={isFinished}
-                      className={`w-full min-h-full resize-none bg-transparent focus:outline-none opacity-0 absolute top-0 left-0 right-0 z-10 px-4 py-4 overflow-hidden ${getFontClass(fontFamily)}`}
+                      className={`w-full min-h-full resize-none bg-transparent focus:outline-none opacity-0 absolute top-0 left-0 right-0 z-10 px-3 sm:px-4 py-3 sm:py-4 overflow-hidden ${getFontClass(fontFamily)}`}
                       style={{ fontSize: `${fontSize}px` }}
                       spellCheck={false}
                       autoComplete="off"
@@ -1010,7 +1128,7 @@ Can you beat me? Try it here: `,
                       role="textbox"
                       data-testid="input-code"
                     />
-                    <pre className={`whitespace-pre-wrap px-4 py-4 pointer-events-none ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }}>
+                    <pre className={`whitespace-pre-wrap px-3 sm:px-4 py-3 sm:py-4 pointer-events-none ${getFontClass(fontFamily)}`} style={{ fontSize: `${fontSize}px` }}>
                       {highlightedCode}
                     </pre>
                   </div>
@@ -1021,111 +1139,284 @@ Can you beat me? Try it here: `,
           </>
         ) : (
           <div className="animate-pulse">
-            <div className="mb-6 text-center">
-              <div className="h-8 bg-muted rounded w-64 mx-auto mb-2"></div>
-              <div className="h-4 bg-muted rounded w-48 mx-auto"></div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
               <div>
                 <div className="h-5 bg-muted rounded w-32 mb-2"></div>
-                <div className="bg-muted/50 rounded-lg p-4 h-96 space-y-3">
-                  {Array.from({ length: 15 }, (_, i) => (
-                    <div key={i} className="h-4 bg-muted rounded" style={{ width: `${Math.random() * 40 + 60}%` }}></div>
+                <div className="bg-muted/50 rounded-lg p-3 sm:p-4 h-64 sm:h-96 space-y-2 sm:space-y-3 overflow-hidden">
+                  {Array.from({ length: 20 }, (_, i) => (
+                    <div key={i} className="flex gap-2">
+                      <div className="h-3 sm:h-4 bg-muted/70 rounded w-6 sm:w-8 flex-shrink-0"></div>
+                      <div 
+                        className="h-3 sm:h-4 bg-muted rounded" 
+                        style={{ 
+                          width: `${Math.random() * 50 + 30}%`,
+                          animationDelay: `${i * 0.05}s`
+                        }}
+                      ></div>
+                    </div>
                   ))}
                 </div>
               </div>
               <div>
                 <div className="h-5 bg-muted rounded w-32 mb-2"></div>
-                <div className="bg-muted/50 rounded-lg p-4 h-96"></div>
+                <div className="bg-muted/50 rounded-lg p-3 sm:p-4 h-64 sm:h-96 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-muted-foreground text-xs sm:text-sm">Preparing your code...</p>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="mt-4 text-center">
-              <p className="text-muted-foreground text-sm flex items-center justify-center gap-2">
-                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                Generating code snippet with AI...
-              </p>
-            </div>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mt-4 sm:mt-6 text-center"
+            >
+              <div className="inline-flex items-center gap-2 bg-primary/5 px-4 sm:px-6 py-2 sm:py-3 rounded-full border border-primary/20">
+                <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  AI is generating a {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language} snippet...
+                </span>
+              </div>
+            </motion.div>
           </div>
         )}
       </Card>
 
-      <Card className="p-6">
-        <div id="typing-stats" className="grid grid-cols-2 md:grid-cols-4 gap-4" role="status" aria-live="polite">
-          <div className="text-center" data-testid="stat-wpm">
-            <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm mb-1">
-              <Zap className="w-4 h-4" /> WPM
+      <Card className="p-3 sm:p-6">
+        <div id="typing-stats" className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4" role="status" aria-live="polite">
+          <motion.div 
+            className="text-center p-2 sm:p-3 rounded-lg bg-primary/5" 
+            data-testid="stat-wpm"
+            animate={{ scale: isActive && wpm > 0 ? [1, 1.02, 1] : 1 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="flex items-center justify-center gap-1 sm:gap-2 text-muted-foreground text-xs sm:text-sm mb-1">
+              <Zap className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-500" /> WPM
             </div>
-            <div className="text-3xl font-bold font-mono text-primary">{wpm}</div>
-          </div>
-          <div className="text-center" data-testid="stat-accuracy">
-            <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm mb-1">
-              <Target className="w-4 h-4" /> Accuracy
+            <motion.div 
+              className="text-2xl sm:text-3xl font-bold font-mono text-primary"
+              key={wpm}
+              initial={{ scale: 1.1 }}
+              animate={{ scale: 1 }}
+            >
+              {wpm}
+            </motion.div>
+          </motion.div>
+          <motion.div 
+            className="text-center p-2 sm:p-3 rounded-lg bg-green-500/5" 
+            data-testid="stat-accuracy"
+          >
+            <div className="flex items-center justify-center gap-1 sm:gap-2 text-muted-foreground text-xs sm:text-sm mb-1">
+              <Target className="w-3 h-3 sm:w-4 sm:h-4 text-green-500" /> Accuracy
             </div>
-            <div className="text-3xl font-bold font-mono">{accuracy}%</div>
-          </div>
-          <div className="text-center" data-testid="stat-errors">
-            <div className="text-muted-foreground text-sm mb-1">Errors</div>
-            <div className="text-3xl font-bold font-mono text-red-500">{errors}</div>
-          </div>
-          <div className="text-center" data-testid="stat-progress">
-            <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm mb-1">
-              <Check className="w-4 h-4" /> Progress
+            <div className={`text-2xl sm:text-3xl font-bold font-mono ${accuracy >= 95 ? 'text-green-500' : accuracy >= 80 ? 'text-yellow-500' : 'text-red-500'}`}>
+              {accuracy}%
             </div>
-            <div className="text-3xl font-bold font-mono">{Math.round((userInput.length / codeSnippet.length) * 100)}%</div>
-          </div>
+          </motion.div>
+          <motion.div 
+            className="text-center p-2 sm:p-3 rounded-lg bg-red-500/5" 
+            data-testid="stat-errors"
+            animate={{ 
+              scale: lastKeyCorrect === false ? [1, 1.1, 1] : 1,
+              backgroundColor: lastKeyCorrect === false ? ['rgba(239,68,68,0.1)', 'rgba(239,68,68,0.2)', 'rgba(239,68,68,0.1)'] : 'rgba(239,68,68,0.05)'
+            }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="text-muted-foreground text-xs sm:text-sm mb-1">Errors</div>
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-red-500">{errors}</div>
+          </motion.div>
+          <motion.div 
+            className="text-center p-2 sm:p-3 rounded-lg bg-blue-500/5" 
+            data-testid="stat-progress"
+          >
+            <div className="flex items-center justify-center gap-1 sm:gap-2 text-muted-foreground text-xs sm:text-sm mb-1">
+              <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" /> Progress
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold font-mono text-blue-500">{progressPercentage}%</div>
+          </motion.div>
         </div>
 
-        {isFinished && (
-          <div className="mt-6 text-center">
-            <h3 className="text-2xl font-bold mb-4">Test Complete! 🎉</h3>
-            <div className="flex gap-4 justify-center flex-wrap">
-              <Button onClick={resetTest} data-testid="button-restart-finished">
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Try Again
-              </Button>
-              <Button variant="outline" onClick={() => window.location.href = '/code-leaderboard'} data-testid="button-leaderboard">
-                <Trophy className="w-4 h-4 mr-2" />
-                View Leaderboard
-              </Button>
-              {user && (
-                <Button variant="outline" onClick={handleShare} disabled={isSharing} data-testid="button-share">
-                  <Share2 className="w-4 h-4 mr-2" />
-                  {isSharing ? "Creating..." : "Share Result"}
+        <AnimatePresence>
+          {isFinished && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="mt-4 sm:mt-6 text-center"
+            >
+              <motion.h3 
+                className="text-xl sm:text-2xl font-bold mb-4"
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", bounce: 0.5 }}
+              >
+                Test Complete! 🎉
+              </motion.h3>
+              <div className="flex gap-2 sm:gap-4 justify-center flex-wrap">
+                <Button onClick={resetTest} data-testid="button-restart-finished" className="text-xs sm:text-sm">
+                  <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  Try Again
                 </Button>
-              )}
-            </div>
-          </div>
-        )}
+                <Button variant="outline" onClick={() => window.location.href = '/code-leaderboard'} data-testid="button-leaderboard" className="text-xs sm:text-sm">
+                  <Trophy className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  Leaderboard
+                </Button>
+                {user && (
+                  <Button variant="outline" onClick={handleShare} disabled={isSharing} data-testid="button-share" className="text-xs sm:text-sm">
+                    <Share2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    {isSharing ? "Creating..." : "Share"}
+                  </Button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Card>
+
+      {/* Completion Overlay */}
+      <AnimatePresence>
+        {showCompletionOverlay && completedTestData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowCompletionOverlay(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0, y: 50 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: 50 }}
+              transition={{ type: "spring", bounce: 0.4 }}
+              className="bg-card border-2 border-primary/20 rounded-2xl p-6 sm:p-8 max-w-md w-full shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <motion.div
+                  initial={{ rotate: -10, scale: 0 }}
+                  animate={{ rotate: 0, scale: 1 }}
+                  transition={{ delay: 0.2, type: "spring", bounce: 0.6 }}
+                  className="mb-4"
+                >
+                  <Award className="w-16 h-16 sm:w-20 sm:h-20 mx-auto text-yellow-500" />
+                </motion.div>
+                
+                <motion.h2
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="text-2xl sm:text-3xl font-bold mb-2"
+                >
+                  Excellent Work!
+                </motion.h2>
+                
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.4 }}
+                  className="text-muted-foreground mb-6"
+                >
+                  You completed the {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language} challenge
+                </motion.p>
+
+                <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="bg-primary/10 rounded-xl p-3 sm:p-4"
+                  >
+                    <Zap className="w-5 h-5 sm:w-6 sm:h-6 mx-auto text-yellow-500 mb-1" />
+                    <div className="text-xl sm:text-2xl font-bold text-primary">{completedTestData.wpm}</div>
+                    <div className="text-xs text-muted-foreground">WPM</div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.6 }}
+                    className="bg-green-500/10 rounded-xl p-3 sm:p-4"
+                  >
+                    <Target className="w-5 h-5 sm:w-6 sm:h-6 mx-auto text-green-500 mb-1" />
+                    <div className="text-xl sm:text-2xl font-bold text-green-500">{completedTestData.accuracy}%</div>
+                    <div className="text-xs text-muted-foreground">Accuracy</div>
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.7 }}
+                    className="bg-blue-500/10 rounded-xl p-3 sm:p-4"
+                  >
+                    <Timer className="w-5 h-5 sm:w-6 sm:h-6 mx-auto text-blue-500 mb-1" />
+                    <div className="text-xl sm:text-2xl font-bold text-blue-500">{formatTime(completedTestData.duration)}</div>
+                    <div className="text-xs text-muted-foreground">Time</div>
+                  </motion.div>
+                </div>
+
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.8 }}
+                  className="flex gap-2 sm:gap-3 justify-center"
+                >
+                  <Button 
+                    onClick={() => { setShowCompletionOverlay(false); resetTest(); }} 
+                    className="flex-1 text-xs sm:text-sm"
+                  >
+                    <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    Try Again
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowCompletionOverlay(false)}
+                    className="flex-1 text-xs sm:text-sm"
+                  >
+                    View Stats
+                  </Button>
+                </motion.div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Keyboard Shortcuts Help */}
-      <Card className="p-4 mt-6">
-        <div className="flex items-center gap-2 mb-3">
-          <Keyboard className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-muted-foreground">Keyboard Shortcuts</span>
+      <Card className="p-3 sm:p-4 mt-4 sm:mt-6">
+        <div className="flex items-center gap-2 mb-2 sm:mb-3">
+          <Keyboard className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground" />
+          <span className="text-xs sm:text-sm font-medium text-muted-foreground">Keyboard Shortcuts</span>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-          <div className="flex items-center gap-2">
-            <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Ctrl + Enter</kbd>
-            <span className="text-muted-foreground">New snippet</span>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 text-xs sm:text-sm">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-muted rounded text-[10px] sm:text-xs font-mono whitespace-nowrap">Ctrl+Enter</kbd>
+            <span className="text-muted-foreground text-[10px] sm:text-xs">New snippet</span>
           </div>
-          <div className="flex items-center gap-2">
-            <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
-            <span className="text-muted-foreground">Reset test</span>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-muted rounded text-[10px] sm:text-xs font-mono">Esc</kbd>
+            <span className="text-muted-foreground text-[10px] sm:text-xs">Reset test</span>
           </div>
-          <div className="flex items-center gap-2">
-            <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Tab</kbd>
-            <span className="text-muted-foreground">Insert tab</span>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <kbd className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-muted rounded text-[10px] sm:text-xs font-mono">Tab</kbd>
+            <span className="text-muted-foreground text-[10px] sm:text-xs">Insert tab</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Start typing to begin</span>
+          <div className="flex items-center gap-1 sm:gap-2 col-span-2 lg:col-span-1">
+            <span className="text-muted-foreground text-[10px] sm:text-xs">Start typing to begin</span>
           </div>
         </div>
       </Card>
 
+      {/* Shake animation for error feedback */}
+      <style>{`
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+          20%, 40%, 60%, 80% { transform: translateX(2px); }
+        }
+      `}</style>
+
       {!user && (
-        <Card className="p-4 mt-6 bg-primary/5 border-primary/20">
-          <p className="text-center text-sm">
+        <Card className="p-3 sm:p-4 mt-4 sm:mt-6 bg-primary/5 border-primary/20">
+          <p className="text-center text-xs sm:text-sm">
             <span className="text-muted-foreground">Want to save your progress and compete on leaderboards? </span>
             <a href="/login" className="text-primary hover:underline font-semibold" data-testid="link-signin">Sign in</a>
             <span className="text-muted-foreground"> or </span>
