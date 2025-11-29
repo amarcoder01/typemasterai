@@ -850,23 +850,30 @@ export async function decideIfSearchNeeded(message: string): Promise<SearchDecis
   const hasFileAnalysis = message.includes("[Attached file:") || message.includes("# File Analysis:");
   
   if (hasFileAnalysis) {
-    const researchTriggers = [
-      "research", "find more", "learn more", "what else", "related",
-      "context", "background", "explain", "details", "information about",
-      "search", "look up", "find", "more about"
+    const explicitSearchTriggers = [
+      "search this", "search the document", "search about this", 
+      "web search", "look this up", "search online", "google this",
+      "research this", "find more online"
     ];
-    const wantsResearch = researchTriggers.some(t => lowerMessage.includes(t));
+    const wantsSearch = explicitSearchTriggers.some(t => lowerMessage.includes(t));
     
-    if (wantsResearch) {
+    if (wantsSearch) {
       const topicMatch = message.match(/## (?:Document Overview|Content Summary|Key Content)[\s\S]*?(?:topic|subject|about)[:\s]*([^\n]+)/i);
       const searchQuery = topicMatch ? topicMatch[1].trim() : message.substring(0, 200);
-      console.log(`[AI Search] File analysis with research request detected`);
+      console.log(`[AI Search] Explicit search request for document detected`);
       return {
         shouldSearch: true,
         searchQuery: `${searchQuery} latest information`,
-        reason: "File analysis with research request",
+        reason: "Explicit search request for document",
       };
     }
+    
+    console.log(`[AI Search] Document analysis without search request - skipping web search`);
+    return {
+      shouldSearch: false,
+      searchQuery: "",
+      reason: "Document analysis - no explicit search requested",
+    };
   }
 
   const urlPattern = /\b(?:https?:\/\/)?(?:www\.)?[\w-]+\.(?:com|org|net|io|co|ai|dev|app|info|edu|gov)\b/i;
