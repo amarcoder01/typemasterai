@@ -1469,6 +1469,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         difficulty: z.enum(["easy", "medium", "hard"]).optional(),
         framework: z.string().max(50).optional(),
         generate: z.enum(["true", "false"]).optional(),
+        forceNew: z.enum(["true", "false"]).optional(),
       });
       
       const parsed = querySchema.safeParse(req.query);
@@ -1480,12 +1481,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const { language, difficulty, framework, generate } = parsed.data;
+      const { language, difficulty, framework, generate, forceNew } = parsed.data;
 
-      let snippet = await storage.getRandomCodeSnippet(language, difficulty, framework);
+      let snippet = null;
+      
+      // Only use cached snippets if not forcing new generation
+      if (forceNew !== "true") {
+        snippet = await storage.getRandomCodeSnippet(language, difficulty, framework);
+      }
 
-      if (!snippet && generate === "true") {
-        console.log(`🤖 Generating code snippet for ${language}/${difficulty || 'medium'}`);
+      // Generate new snippet if none found or force new is requested
+      if ((!snippet || forceNew === "true") && generate === "true") {
+        console.log(`🤖 Generating fresh code snippet for ${language}/${difficulty || 'medium'}`);
         
         try {
           const { content, description } = await generateCodeSnippet(
@@ -1510,6 +1517,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`✅ Generated and saved ${lineCount}-line ${language} code snippet`);
         } catch (error) {
           console.error("❌ Code generation failed:", error);
+          // If generation fails and we have no snippet, try to get a random one as fallback
+          if (!snippet) {
+            snippet = await storage.getRandomCodeSnippet(language, difficulty, framework);
+          }
         }
       }
 
@@ -1517,6 +1528,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "No code snippets available for these criteria" });
       }
 
+      // Disable caching for this endpoint to ensure fresh responses
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
       res.json({ snippet });
     } catch (error: any) {
       console.error("Get code snippet error:", error);

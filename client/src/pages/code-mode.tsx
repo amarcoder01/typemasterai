@@ -130,7 +130,7 @@ export default function CodeMode() {
   const timerRef = useRef<number | null>(null);
   const wpmHistoryRef = useRef<number[]>([]);
 
-  const fetchCodeSnippet = useCallback(async () => {
+  const fetchCodeSnippet = useCallback(async (forceNew = true) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -141,8 +141,8 @@ export default function CodeMode() {
     setIsLoading(true);
     try {
       const response = await fetch(
-        `/api/code/snippet?language=${encodeURIComponent(language)}&difficulty=${encodeURIComponent(difficulty)}&generate=true`,
-        { signal }
+        `/api/code/snippet?language=${encodeURIComponent(language)}&difficulty=${encodeURIComponent(difficulty)}&generate=true&forceNew=${forceNew}`,
+        { signal, cache: 'no-store' }
       );
       
       if (signal.aborted) return;
@@ -187,7 +187,7 @@ export default function CodeMode() {
 
   useEffect(() => {
     if (mode === "ai" && !codeSnippet && !isLoading) {
-      fetchCodeSnippet();
+      fetchCodeSnippet(false); // Use cached on initial load
     }
   }, [mode, codeSnippet, isLoading, fetchCodeSnippet]);
 
@@ -420,7 +420,7 @@ export default function CodeMode() {
     wpmHistoryRef.current = [];
     
     if (mode === "ai") {
-      fetchCodeSnippet();
+      fetchCodeSnippet(true); // Force new snippet
     } else if (mode === "custom" && customCode) {
       setCodeSnippet(customCode);
       setSnippetId(null);
