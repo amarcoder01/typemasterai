@@ -1692,47 +1692,8 @@ export default function Chat() {
           </div>
         )}
 
-        {/* Input Area - ChatGPT Style */}
+        {/* Input Area - Clean & Dynamic */}
         <div className="border-t border-border bg-background">
-          {/* Quick Action Chips - Show when there are messages */}
-          {messages.length > 0 && !isLoading && !isStreaming && (
-            <div className="max-w-3xl mx-auto px-4 pt-4 pb-2">
-              <div className="flex flex-wrap gap-2 justify-center">
-                <button
-                  onClick={() => setInput("Can you explain that in more detail?")}
-                  className="px-3 py-1.5 text-xs rounded-full border border-border bg-background hover:bg-muted/50 hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all flex items-center gap-1.5"
-                  data-testid="quick-action-explain"
-                >
-                  <BookOpen className="w-3 h-3" />
-                  Explain more
-                </button>
-                <button
-                  onClick={() => setInput("Give me a practical example")}
-                  className="px-3 py-1.5 text-xs rounded-full border border-border bg-background hover:bg-muted/50 hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all flex items-center gap-1.5"
-                  data-testid="quick-action-example"
-                >
-                  <Code className="w-3 h-3" />
-                  Show example
-                </button>
-                <button
-                  onClick={() => setInput("What are the next steps I should take?")}
-                  className="px-3 py-1.5 text-xs rounded-full border border-border bg-background hover:bg-muted/50 hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all flex items-center gap-1.5"
-                  data-testid="quick-action-next-steps"
-                >
-                  <ChevronRight className="w-3 h-3" />
-                  Next steps
-                </button>
-                <button
-                  onClick={() => setInput("Search the web for the latest information on this topic")}
-                  className="px-3 py-1.5 text-xs rounded-full border border-border bg-background hover:bg-muted/50 hover:border-primary/30 text-muted-foreground hover:text-foreground transition-all flex items-center gap-1.5"
-                  data-testid="quick-action-search"
-                >
-                  <Globe className="w-3 h-3" />
-                  Search web
-                </button>
-              </div>
-            </div>
-          )}
           <div className="max-w-2xl mx-auto px-4 py-3">
             <input
               ref={fileInputRef}
