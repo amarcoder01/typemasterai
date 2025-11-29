@@ -751,6 +751,13 @@ export default function Chat() {
     renameConversationMutation.mutate({ id, title: newTitle });
   };
 
+  // Disable body scroll when chat is active to prevent double scrollbars
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
 
   // Auto-resize textarea as user types
   useEffect(() => {
