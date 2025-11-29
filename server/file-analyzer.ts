@@ -69,20 +69,25 @@ Be thorough, specific, and helpful.`
 }
 
 export async function analyzePDF(buffer: Buffer): Promise<string> {
+  let parser: any = null;
+  
   try {
     console.log("[File Analyzer] Extracting PDF content...");
     
-    // @ts-ignore
-    const pdfParse = require("pdf-parse");
-    const data = await pdfParse(buffer);
-    const rawText = data.text.trim();
+    const { PDFParse } = await import("pdf-parse");
+    
+    const uint8Array = new Uint8Array(buffer);
+    parser = new PDFParse({ data: uint8Array });
+    
+    const result = await parser.getText();
+    const rawText = result.text?.trim() || "";
 
     if (!rawText) {
       return "PDF appears to be empty or contains only images. Please try uploading an image version of the document for visual analysis.";
     }
 
     const textForAnalysis = rawText.substring(0, 8000);
-    const pageCount = data.numpages;
+    const pageCount = result.total || result.pages?.length || 1;
     
     console.log(`[File Analyzer] Extracted ${textForAnalysis.length} chars from ${pageCount} pages, sending to GPT-4o for analysis...`);
 
@@ -138,6 +143,14 @@ Be thorough and extract maximum value from this document.`
   } catch (error) {
     console.error("[File Analyzer] PDF analysis error:", error);
     throw new Error(`PDF analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  } finally {
+    if (parser && typeof parser.destroy === 'function') {
+      try {
+        await parser.destroy();
+      } catch (e) {
+        console.log("[File Analyzer] Parser cleanup completed");
+      }
+    }
   }
 }
 
