@@ -1162,17 +1162,6 @@ export default function CodeMode() {
               </div>
             )}
 
-            {/* Infinite Mode Indicator */}
-            {timeLimit === 0 && isActive && (
-              <div className="flex items-center justify-center gap-2 mt-2 py-1.5 px-3 bg-primary/10 rounded-md border border-primary/20">
-                <Infinity className="w-4 h-4 text-primary animate-pulse" />
-                <span className="text-xs font-medium text-primary">Infinite Mode - Content loads as you type</span>
-                {isLoadingMore && (
-                  <span className="text-xs text-muted-foreground ml-2">(Loading more...)</span>
-                )}
-              </div>
-            )}
-
             {mode === "custom" && !codeSnippet && (
               <div className="mt-4">
                 <div className="flex items-center gap-1 mb-2">
