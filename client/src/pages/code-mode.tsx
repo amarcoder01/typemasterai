@@ -597,7 +597,22 @@ export default function CodeMode() {
   // Global keyboard shortcuts - respects test state
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Only handle when not focused on textarea
+      const target = e.target as HTMLElement;
+      
+      // Skip if typing in any input field (custom prompt, custom code, etc.)
+      if (target instanceof HTMLInputElement || 
+          target instanceof HTMLTextAreaElement ||
+          target.isContentEditable) {
+        // Only allow Escape to work in inputs
+        if (e.key === "Escape") {
+          e.preventDefault();
+          (target as HTMLElement).blur();
+          resetTest();
+        }
+        return;
+      }
+      
+      // Only handle when not focused on typing textarea
       if (document.activeElement === textareaRef.current) return;
       
       // Tab to get new snippet - only when test is not active or is finished
@@ -1101,40 +1116,6 @@ export default function CodeMode() {
                 </Select>
               </div>
 
-              {mode === "ai" && (
-                <div className="flex items-center gap-1.5">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="relative">
-                        <Sparkles className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                          type="text"
-                          value={customPrompt}
-                          onChange={(e) => setCustomPrompt(e.target.value)}
-                          placeholder="What code? (optional)"
-                          className="h-8 w-[160px] pl-8 pr-7 text-xs bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/60"
-                          disabled={isActive}
-                          data-testid="input-custom-prompt"
-                        />
-                        {customPrompt && (
-                          <button
-                            onClick={() => setCustomPrompt("")}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                            data-testid="button-clear-prompt"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-[240px]">
-                      <p className="font-medium mb-1">Custom AI Content</p>
-                      <p className="text-xs text-muted-foreground">Type what you want: "React hooks", "sorting", "API calls" - generates instantly!</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
-              )}
-
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -1153,6 +1134,68 @@ export default function CodeMode() {
                 </TooltipContent>
               </Tooltip>
             </div>
+
+            {/* AI Custom Content - Attractive Panel */}
+            {mode === "ai" && !isActive && (
+              <div className="mt-3 p-3 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 rounded-lg border border-primary/20">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                    </div>
+                    <div className="hidden sm:block">
+                      <p className="text-xs font-medium text-foreground">Custom Content</p>
+                      <p className="text-[10px] text-muted-foreground">What do you want to practice?</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={customPrompt}
+                      onChange={(e) => setCustomPrompt(e.target.value)}
+                      placeholder="e.g., React hooks, sorting algorithm, API fetch..."
+                      className="w-full h-9 px-4 pr-9 text-sm bg-background/80 border border-border/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 placeholder:text-muted-foreground/50 transition-all"
+                      disabled={isActive}
+                      data-testid="input-custom-prompt"
+                    />
+                    {customPrompt ? (
+                      <button
+                        onClick={() => setCustomPrompt("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        data-testid="button-clear-prompt"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <Zap className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-primary/40" />
+                    )}
+                  </div>
+                </div>
+                
+                {/* Quick suggestions */}
+                <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Try:</span>
+                  {["React hooks", "API calls", "Sorting", "Classes", "Async/await"].map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      onClick={() => setCustomPrompt(suggestion)}
+                      className="px-2 py-0.5 text-[11px] bg-background/60 hover:bg-primary/20 border border-border/30 hover:border-primary/40 rounded-full transition-all text-muted-foreground hover:text-foreground"
+                      data-testid={`suggestion-${suggestion.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+                
+                {isLoading && customPrompt && (
+                  <div className="flex items-center gap-2 mt-2 text-xs text-primary">
+                    <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    <span>Generating custom content...</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {mode === "custom" && !codeSnippet && (
               <div className="mt-4">
