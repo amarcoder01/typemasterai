@@ -227,6 +227,13 @@ export default function CodeMode() {
       setErrorState({ type: null, message: '', canRetry: false });
       setRetryCount(0);
       
+      // Show success notification
+      const lineCount = data.snippet.content.split('\n').length;
+      toast({
+        title: "Code Ready!",
+        description: `${lineCount} lines of ${language} code generated. Start typing!`,
+      });
+      
     } catch (error: any) {
       clearTimeout(timeoutId);
       
@@ -1174,10 +1181,21 @@ export default function CodeMode() {
                       <Button
                         size="sm"
                         onClick={() => {
+                          if (!customPrompt.trim()) {
+                            toast({
+                              title: "Enter a prompt",
+                              description: "Type what code you want, e.g., 'React hooks' or 'sorting algorithm'",
+                            });
+                            return;
+                          }
+                          toast({
+                            title: "Generating...",
+                            description: `Creating ${customPrompt} code snippet`,
+                          });
                           fetchCodeSnippet(true);
                           setShowCustomAI(false);
                         }}
-                        disabled={isLoading || !customPrompt.trim()}
+                        disabled={isLoading}
                         className="h-8 px-3 shrink-0"
                         data-testid="button-generate-custom"
                       >
