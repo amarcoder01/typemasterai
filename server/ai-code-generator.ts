@@ -84,7 +84,8 @@ export async function generateCodeSnippet(
   difficulty: "easy" | "medium" | "hard" = "medium",
   framework?: string,
   timeLimit: number = 0,
-  testMode: "normal" | "expert" | "master" = "normal"
+  testMode: "normal" | "expert" | "master" = "normal",
+  customPrompt?: string
 ): Promise<{ content: string; description: string }> {
   const lineCount = getTargetLineCount(difficulty, timeLimit);
   const charCount = getTargetCharacterCount(timeLimit);
@@ -150,7 +151,12 @@ Special guidance for ${programmingLanguage}:
     }
   }
 
-  const prompt = `Generate a realistic ${difficulty}-level ${programmingLanguage} code snippet${frameworkNote} for a typing practice test.
+  // Custom prompt from user
+  const customPromptGuidance = customPrompt 
+    ? `\n\n🎯 USER'S CUSTOM REQUEST:\nThe user specifically wants code about: "${customPrompt}"\nGenerate code that directly addresses this request while maintaining ${programmingLanguage} syntax and the specified difficulty level.`
+    : '';
+
+  const prompt = `Generate a realistic ${difficulty}-level ${programmingLanguage} code snippet${frameworkNote} for a typing practice test.${customPromptGuidance}
 
 TEST CONFIGURATION:
 - Difficulty: ${difficulty.toUpperCase()} - ${difficultyContext}

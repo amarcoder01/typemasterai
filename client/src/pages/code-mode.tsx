@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail, Award } from "lucide-react";
+import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail, Award, X, Infinity, Sparkles } from "lucide-react";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
 import { CodeShareCard } from "@/components/CodeShareCard";
@@ -152,6 +152,9 @@ export default function CodeMode() {
   }>({ type: null, message: '', canRetry: false });
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
+  const [customPrompt, setCustomPrompt] = useState("");
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [infiniteMode, setInfiniteMode] = useState(false);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -159,6 +162,7 @@ export default function CodeMode() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const timerRef = useRef<number | null>(null);
   const wpmHistoryRef = useRef<number[]>([]);
+  const infiniteAbortRef = useRef<AbortController | null>(null);
 
   const fetchCodeSnippet = useCallback(async (forceNew = true, isRetry = false) => {
     if (abortControllerRef.current) {
@@ -179,8 +183,9 @@ export default function CodeMode() {
     }, 30000);
     
     try {
+      const promptParam = customPrompt ? `&customPrompt=${encodeURIComponent(customPrompt)}` : '';
       const response = await fetch(
-        `/api/code/snippet?language=${encodeURIComponent(language)}&difficulty=${encodeURIComponent(difficulty)}&timeLimit=${timeLimit}&testMode=${testMode}&generate=true&forceNew=${forceNew}`,
+        `/api/code/snippet?language=${encodeURIComponent(language)}&difficulty=${encodeURIComponent(difficulty)}&timeLimit=${timeLimit}&testMode=${testMode}&generate=true&forceNew=${forceNew}${promptParam}`,
         { signal, cache: 'no-store' }
       );
       
@@ -637,7 +642,56 @@ export default function CodeMode() {
       setErrorState({ type: null, message: '', canRetry: false });
       setRetryCount(0);
     }
-  }, [language, difficulty, timeLimit, testMode]);
+  }, [language, difficulty, timeLimit, testMode, customPrompt]);
+
+  // Fetch more content for infinite mode
+  const fetchMoreContent = useCallback(async () => {
+    if (isLoadingMore || timeLimit !== 0) return;
+    
+    if (infiniteAbortRef.current) {
+      infiniteAbortRef.current.abort();
+    }
+    
+    infiniteAbortRef.current = new AbortController();
+    const signal = infiniteAbortRef.current.signal;
+    
+    setIsLoadingMore(true);
+    
+    try {
+      const promptParam = customPrompt ? `&customPrompt=${encodeURIComponent(customPrompt)}` : '';
+      const response = await fetch(
+        `/api/code/snippet?language=${encodeURIComponent(language)}&difficulty=${encodeURIComponent(difficulty)}&timeLimit=0&testMode=${testMode}&generate=true&forceNew=true${promptParam}`,
+        { signal, cache: 'no-store' }
+      );
+      
+      if (signal.aborted) return;
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.snippet?.content) {
+          // Append new content with a newline separator
+          setCodeSnippet(prev => prev + "\n\n" + data.snippet.content);
+        }
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        console.error("Error fetching more content:", error);
+      }
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [language, difficulty, testMode, customPrompt, isLoadingMore, timeLimit]);
+
+  // Check if user is near the end of content (for infinite mode)
+  useEffect(() => {
+    if (timeLimit !== 0 || !isActive || isFinished || isLoadingMore) return;
+    
+    const remainingChars = codeSnippet.length - userInput.length;
+    // When 100 characters or less remaining, fetch more
+    if (remainingChars < 100 && remainingChars > 0) {
+      fetchMoreContent();
+    }
+  }, [userInput.length, codeSnippet.length, timeLimit, isActive, isFinished, isLoadingMore, fetchMoreContent]);
   
   // Auto-scroll to keep current line visible
   useEffect(() => {
@@ -1052,6 +1106,72 @@ export default function CodeMode() {
                 </TooltipContent>
               </Tooltip>
             </div>
+
+            {/* Custom AI Prompt Input */}
+            {mode === "ai" && !isActive && (
+              <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border/50">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium">Custom Content:</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Custom content help">
+                        <HelpCircle className="w-3 h-3" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-[280px]">
+                      <p className="font-medium mb-1">Tell AI What You Want</p>
+                      <p className="text-xs text-muted-foreground mb-2">Describe the code you want to practice. AI will generate content matching your request.</p>
+                      <div className="text-xs text-muted-foreground space-y-0.5">
+                        <p className="text-cyan-400">Examples:</p>
+                        <p>• "React hooks with useState"</p>
+                        <p>• "Sorting algorithm"</p>
+                        <p>• "API fetch request"</p>
+                        <p>• "Database query"</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <input
+                  type="text"
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  placeholder="e.g., React hooks, sorting algorithm, API calls..."
+                  className="flex-1 h-8 px-3 text-sm bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground/50"
+                  disabled={isActive}
+                  data-testid="input-custom-prompt"
+                />
+                {customPrompt && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setCustomPrompt("")}
+                        className="h-8 px-2"
+                        data-testid="button-clear-prompt"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Clear custom prompt</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            )}
+
+            {/* Infinite Mode Indicator */}
+            {timeLimit === 0 && isActive && (
+              <div className="flex items-center justify-center gap-2 mt-2 py-1.5 px-3 bg-primary/10 rounded-md border border-primary/20">
+                <Infinity className="w-4 h-4 text-primary animate-pulse" />
+                <span className="text-xs font-medium text-primary">Infinite Mode - Content loads as you type</span>
+                {isLoadingMore && (
+                  <span className="text-xs text-muted-foreground ml-2">(Loading more...)</span>
+                )}
+              </div>
+            )}
 
             {mode === "custom" && !codeSnippet && (
               <div className="mt-4">
