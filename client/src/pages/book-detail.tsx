@@ -3,6 +3,7 @@ import { useRoute, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { BookOpen, Loader2, ArrowLeft, FileText, RefreshCw, AlertCircle, WifiOff, ChevronRight } from "lucide-react";
 import {
   Tooltip,
@@ -473,7 +474,24 @@ export default function BookDetail() {
           <div className="flex-1">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-4xl font-bold mb-2" data-testid="book-title">{displayBook.title}</h1>
+                <div className="flex items-center gap-3 mb-2">
+                  <h1 className="text-4xl font-bold" data-testid="book-title">{displayBook.title}</h1>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge 
+                          variant="outline" 
+                          className="bg-gradient-to-r from-violet-500/20 to-purple-500/20 border-violet-500/50 text-violet-400 font-semibold cursor-help"
+                        >
+                          BETA
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>This feature is in beta. We're actively improving it based on your feedback!</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
                 <p className="text-xl text-muted-foreground mb-4" data-testid="book-author">by {displayBook.author}</p>
               </div>
               {useCachedData && (

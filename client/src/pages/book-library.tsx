@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { BookOpen, Loader2, RefreshCw, AlertCircle, WifiOff, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -350,7 +351,24 @@ export default function BookLibrary() {
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
           <div>
-            <h1 className="text-4xl font-bold mb-2">Book Library</h1>
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-4xl font-bold">Book Library</h1>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant="outline" 
+                      className="bg-gradient-to-r from-violet-500/20 to-purple-500/20 border-violet-500/50 text-violet-400 font-semibold cursor-help"
+                    >
+                      BETA
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>This feature is in beta. We're actively improving it based on your feedback!</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <p className="text-muted-foreground">
               Choose a book and start typing chapter by chapter
               {useCachedData && (
