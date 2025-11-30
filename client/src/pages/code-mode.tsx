@@ -180,7 +180,7 @@ export default function CodeMode() {
     
     try {
       const response = await fetch(
-        `/api/code/snippet?language=${encodeURIComponent(language)}&difficulty=${encodeURIComponent(difficulty)}&generate=true&forceNew=${forceNew}`,
+        `/api/code/snippet?language=${encodeURIComponent(language)}&difficulty=${encodeURIComponent(difficulty)}&timeLimit=${timeLimit}&testMode=${testMode}&generate=true&forceNew=${forceNew}`,
         { signal, cache: 'no-store' }
       );
       
@@ -637,7 +637,7 @@ export default function CodeMode() {
       setErrorState({ type: null, message: '', canRetry: false });
       setRetryCount(0);
     }
-  }, [language, difficulty]);
+  }, [language, difficulty, timeLimit, testMode]);
   
   // Auto-scroll to keep current line visible
   useEffect(() => {

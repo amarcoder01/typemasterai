@@ -5,20 +5,104 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
 });
 
+interface GenerateCodeOptions {
+  programmingLanguage: string;
+  difficulty?: "easy" | "medium" | "hard";
+  framework?: string;
+  timeLimit?: number;
+  testMode?: "normal" | "expert" | "master";
+}
+
+function getTargetLineCount(
+  difficulty: "easy" | "medium" | "hard",
+  timeLimit: number
+): string {
+  // Base line counts for each difficulty
+  const baseLines = {
+    easy: { min: 4, max: 8 },
+    medium: { min: 8, max: 15 },
+    hard: { min: 12, max: 25 }
+  };
+
+  // Adjust based on time limit (0 = no limit, use default)
+  // Assume average typing speed of ~30-50 characters per minute for code
+  // Average line is ~40 characters
+  if (timeLimit === 0) {
+    // No limit - use moderate size
+    return `${baseLines[difficulty].min}-${baseLines[difficulty].max}`;
+  }
+
+  // Calculate target based on time
+  // For 15s = very short, 30s = short, 60s = medium, 120s+ = longer
+  let multiplier = 1;
+  if (timeLimit <= 15) {
+    multiplier = 0.4;
+  } else if (timeLimit <= 30) {
+    multiplier = 0.6;
+  } else if (timeLimit <= 45) {
+    multiplier = 0.8;
+  } else if (timeLimit <= 60) {
+    multiplier = 1;
+  } else if (timeLimit <= 120) {
+    multiplier = 1.3;
+  } else if (timeLimit <= 180) {
+    multiplier = 1.5;
+  } else if (timeLimit <= 300) {
+    multiplier = 1.8;
+  } else {
+    multiplier = 2.2;
+  }
+
+  const minLines = Math.max(3, Math.round(baseLines[difficulty].min * multiplier));
+  const maxLines = Math.max(5, Math.round(baseLines[difficulty].max * multiplier));
+
+  return `${minLines}-${maxLines}`;
+}
+
+function getTargetCharacterCount(timeLimit: number): string {
+  // Estimate: beginner types ~100 chars/min, intermediate ~150, advanced ~200
+  // For code typing (special characters), reduce by ~30%
+  // Target: user should be able to complete with moderate effort
+  
+  if (timeLimit === 0) {
+    return "200-400"; // No limit, moderate length
+  }
+  
+  // Calculate based on ~80 chars per minute (realistic for code)
+  const charsPerMinute = 80;
+  const targetChars = Math.round((timeLimit / 60) * charsPerMinute);
+  
+  // Give a range of ±20%
+  const minChars = Math.max(50, Math.round(targetChars * 0.8));
+  const maxChars = Math.round(targetChars * 1.2);
+  
+  return `${minChars}-${maxChars}`;
+}
+
 export async function generateCodeSnippet(
   programmingLanguage: string,
   difficulty: "easy" | "medium" | "hard" = "medium",
-  framework?: string
+  framework?: string,
+  timeLimit: number = 0,
+  testMode: "normal" | "expert" | "master" = "normal"
 ): Promise<{ content: string; description: string }> {
-  const lineCount = difficulty === "easy" ? "5-8" : difficulty === "medium" ? "10-15" : "15-25";
+  const lineCount = getTargetLineCount(difficulty, timeLimit);
+  const charCount = getTargetCharacterCount(timeLimit);
 
   const frameworkNote = framework ? ` using the ${framework} framework` : '';
   
   const difficultyContext = {
-    easy: "Basic syntax, simple logic, beginner-friendly concepts",
-    medium: "Moderate complexity with common patterns, intermediate concepts",
-    hard: "Advanced patterns, complex logic, best practices, and optimization"
+    easy: "Basic syntax, simple logic, beginner-friendly concepts. Use common keywords and straightforward patterns.",
+    medium: "Moderate complexity with common patterns, intermediate concepts. Include loops, conditions, and function calls.",
+    hard: "Advanced patterns, complex logic, algorithms, and optimization. Include nested structures, callbacks, or async patterns."
   }[difficulty];
+
+  // Test mode affects code quality requirements
+  const testModeContext = {
+    normal: "Standard code with typical patterns. Minor complexity is acceptable.",
+    expert: "Clean, well-structured code. Every character must be intentional. No ambiguous syntax.",
+    master: "Perfect, production-ready code. Crystal clear syntax, optimal formatting. Zero room for typing ambiguity."
+  }[testMode];
 
   const markupLanguages = ["HTML", "XML", "Markdown", "markup"];
   const dataFormats = ["JSON", "YAML", "TOML", "json", "yaml", "toml"];
@@ -52,16 +136,36 @@ Special guidance for ${programmingLanguage}:
 - Create cohesive styling for a realistic component`;
   }
 
-  const prompt = `Generate a realistic ${difficulty}-level ${programmingLanguage} code snippet${frameworkNote} for typing practice.
+  // Time-specific guidance
+  let timingGuidance = "";
+  if (timeLimit > 0) {
+    if (timeLimit <= 30) {
+      timingGuidance = `\nIMPORTANT: This is a SHORT ${timeLimit}-second test. Keep code VERY concise (${charCount} characters). Focus on a single, clear concept.`;
+    } else if (timeLimit <= 60) {
+      timingGuidance = `\nThis is a ${timeLimit}-second test. Target ${charCount} characters. Keep it focused but complete.`;
+    } else if (timeLimit <= 180) {
+      timingGuidance = `\nThis is a ${Math.round(timeLimit/60)}-minute test. Target ${charCount} characters. Include a complete, functional code segment.`;
+    } else {
+      timingGuidance = `\nThis is a longer ${Math.round(timeLimit/60)}-minute test. Target ${charCount} characters. Create a comprehensive code example with multiple concepts.`;
+    }
+  }
 
-Requirements:
+  const prompt = `Generate a realistic ${difficulty}-level ${programmingLanguage} code snippet${frameworkNote} for a typing practice test.
+
+TEST CONFIGURATION:
+- Difficulty: ${difficulty.toUpperCase()} - ${difficultyContext}
+- Test Mode: ${testMode.toUpperCase()} - ${testModeContext}
+- Time Limit: ${timeLimit > 0 ? `${timeLimit} seconds` : 'No limit'}
+- Target Length: ${lineCount} lines, approximately ${charCount} characters
+${timingGuidance}
+
+CODE REQUIREMENTS:
 1. Write ${lineCount} lines of actual, functional ${programmingLanguage} code${frameworkNote}
-2. Include proper syntax, indentation (2 spaces), and common code patterns
-3. Difficulty: ${difficultyContext}
-4. Make it realistic code that a ${programmingLanguage} developer would actually write
-5. Include a mix of keywords, operators, function calls, and typical constructs
-6. Use meaningful variable names and follow ${programmingLanguage} naming conventions
-7. Include comments where appropriate (1-2 brief comments)
+2. Target approximately ${charCount} total characters
+3. Use proper syntax, consistent 2-space indentation
+4. Include realistic variable names following ${programmingLanguage} conventions
+5. Balance special characters (brackets, operators) appropriate for difficulty level
+6. ${testMode === 'master' ? 'CRITICAL: Every character must be precise. No unusual formatting.' : testMode === 'expert' ? 'Ensure clean, unambiguous syntax throughout.' : 'Use standard code patterns.'}
 ${languageSpecificGuidance}
 
 ${framework ? `Framework-specific requirements:
@@ -70,10 +174,10 @@ ${framework ? `Framework-specific requirements:
 - Follow ${framework} best practices and conventions
 ` : ''}
 
-Examples of good code snippets:
-- Easy: Variable declarations, simple functions, basic control flow
-- Medium: Class definitions, array/object operations, API calls
-- Hard: Complex algorithms, design patterns, async/await logic
+DIFFICULTY EXAMPLES:
+- Easy: Variable declarations, simple functions, basic loops
+- Medium: Class methods, array operations, conditionals, error handling
+- Hard: Algorithms, design patterns, async/await, complex data transformations
 
 Return the code snippet in this JSON format:
 {
@@ -84,13 +188,13 @@ Return the code snippet in this JSON format:
 Return ONLY valid JSON, no markdown formatting or extra text.`;
 
   try {
-    console.log(`🔧 Generating ${difficulty} ${programmingLanguage} code snippet${frameworkNote}`);
+    console.log(`🔧 Generating ${difficulty} ${programmingLanguage} snippet (${timeLimit}s, ${testMode} mode)`);
     
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 1000,
-      temperature: 0.8,
+      max_tokens: 1500,
+      temperature: 0.7,
       response_format: { type: "json_object" }
     });
 
@@ -108,7 +212,9 @@ Return ONLY valid JSON, no markdown formatting or extra text.`;
       throw new Error("No code in AI response");
     }
 
-    console.log(`✅ Generated ${code.split('\n').length} lines of ${programmingLanguage} code`);
+    const generatedLines = code.split('\n').length;
+    const generatedChars = code.length;
+    console.log(`✅ Generated ${generatedLines} lines, ${generatedChars} chars of ${programmingLanguage} code`);
     
     return {
       content: code,

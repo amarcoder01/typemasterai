@@ -1470,6 +1470,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         framework: z.string().max(50).optional(),
         generate: z.enum(["true", "false"]).optional(),
         forceNew: z.enum(["true", "false"]).optional(),
+        timeLimit: z.string().regex(/^\d+$/).optional(),
+        testMode: z.enum(["normal", "expert", "master"]).optional(),
       });
       
       const parsed = querySchema.safeParse(req.query);
@@ -1481,7 +1483,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const { language, difficulty, framework, generate, forceNew } = parsed.data;
+      const { language, difficulty, framework, generate, forceNew, timeLimit, testMode } = parsed.data;
+      const timeLimitNum = timeLimit ? parseInt(timeLimit, 10) : 0;
 
       let snippet = null;
       
@@ -1492,13 +1495,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate new snippet if none found or force new is requested
       if ((!snippet || forceNew === "true") && generate === "true") {
-        console.log(`🤖 Generating fresh code snippet for ${language}/${difficulty || 'medium'}`);
+        console.log(`🤖 Generating fresh code snippet for ${language}/${difficulty || 'medium'} (${timeLimitNum}s, ${testMode || 'normal'} mode)`);
         
         try {
           const { content, description } = await generateCodeSnippet(
             language,
             difficulty || "medium",
-            framework
+            framework,
+            timeLimitNum,
+            testMode || "normal"
           );
           
           const lineCount = content.split('\n').length;
