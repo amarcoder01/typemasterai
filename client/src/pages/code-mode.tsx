@@ -981,7 +981,7 @@ export default function CodeMode() {
           )}
           
           {/* Line content */}
-          <span className="flex-1 whitespace-pre">
+          <span className="flex-1 whitespace-pre-wrap break-words">
             {lineContent}
             {isCursorAtNewline && !isFinished && !isFailed && lineIndex < lines.length - 1 && (
               <span className="relative">
@@ -1859,11 +1859,12 @@ export default function CodeMode() {
                   
                   {/* Displayed code with highlighting and line numbers */}
                   <div 
-                    className="font-mono text-[15px] leading-[1.65] select-none overflow-auto max-h-[400px] scroll-smooth scrollbar-thin scrollbar-thumb-muted/30 scrollbar-track-transparent"
+                    className="font-mono text-[15px] leading-[1.65] select-none overflow-y-auto overflow-x-hidden max-h-[400px] scroll-smooth scrollbar-thin scrollbar-thumb-muted/30 scrollbar-track-transparent"
                     ref={codeDisplayRef}
                     role="textbox"
                     aria-readonly="true"
                     aria-label="Code display area"
+                    style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(100,100,100,0.3) transparent' }}
                   >
                     {highlightedCode}
                   </div>
