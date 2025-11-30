@@ -364,23 +364,37 @@ export default function CodeMode() {
           const currentAccuracy = Math.round((correctChars / userInput.length) * 100);
           setAccuracy(currentAccuracy);
           
-          // Track Raw WPM history for consistency calculation
-          // Sample every second (when elapsed changes)
-          if (wpmHistoryRef.current.length < elapsed) {
-            wpmHistoryRef.current.push(currentRawWpm);
+          // Track Net WPM history for consistency calculation (more accurate than Raw WPM)
+          // Sample every 500ms for better granularity
+          const sampleIndex = Math.floor(elapsedMs / 500);
+          if (wpmHistoryRef.current.length < sampleIndex && currentWpm > 0) {
+            wpmHistoryRef.current.push(currentWpm);
           }
           
           // Consistency = based on Coefficient of Variation (CV)
           // CV = (Standard Deviation / Mean) × 100
           // Consistency Score = 100 - CV (higher is more consistent)
-          if (wpmHistoryRef.current.length >= 2) {
-            const samples = wpmHistoryRef.current;
+          // Skip first 2 samples (first second) for warm-up period
+          if (wpmHistoryRef.current.length >= 4) {
+            const samples = wpmHistoryRef.current.slice(2); // Skip warm-up
             const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
             if (mean > 0) {
               const variance = samples.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / samples.length;
               const stdDev = Math.sqrt(variance);
               const cv = (stdDev / mean) * 100; // Coefficient of variation
-              const consistencyScore = Math.max(0, Math.min(100, 100 - cv));
+              // Scale CV to be more meaningful - typical typing CV is 10-30%
+              const consistencyScore = Math.max(0, Math.min(100, 100 - (cv * 1.5)));
+              setConsistency(Math.round(consistencyScore));
+            }
+          } else if (wpmHistoryRef.current.length >= 2) {
+            // Fallback for shorter tests
+            const samples = wpmHistoryRef.current;
+            const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+            if (mean > 0) {
+              const variance = samples.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / samples.length;
+              const stdDev = Math.sqrt(variance);
+              const cv = (stdDev / mean) * 100;
+              const consistencyScore = Math.max(0, Math.min(100, 100 - (cv * 1.5)));
               setConsistency(Math.round(consistencyScore));
             }
           }
@@ -446,15 +460,28 @@ export default function CodeMode() {
     const finalAccuracy = userInput.length > 0 ? Math.round((correctChars / userInput.length) * 100) : 100;
     
     // Calculate final consistency from WPM history
+    // Uses Net WPM samples, skipping warm-up period for accuracy
     let finalConsistency = 100;
-    if (wpmHistoryRef.current.length >= 2) {
+    if (wpmHistoryRef.current.length >= 4) {
+      // Skip first 2 samples (first second) for warm-up
+      const samples = wpmHistoryRef.current.slice(2);
+      const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
+      if (mean > 0) {
+        const variance = samples.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / samples.length;
+        const stdDev = Math.sqrt(variance);
+        const cv = (stdDev / mean) * 100;
+        // Scale CV to be more meaningful
+        finalConsistency = Math.max(0, Math.min(100, Math.round(100 - (cv * 1.5))));
+      }
+    } else if (wpmHistoryRef.current.length >= 2) {
+      // Fallback for shorter tests
       const samples = wpmHistoryRef.current;
       const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
       if (mean > 0) {
         const variance = samples.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / samples.length;
         const stdDev = Math.sqrt(variance);
         const cv = (stdDev / mean) * 100;
-        finalConsistency = Math.max(0, Math.min(100, Math.round(100 - cv)));
+        finalConsistency = Math.max(0, Math.min(100, Math.round(100 - (cv * 1.5))));
       }
     }
     
