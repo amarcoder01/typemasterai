@@ -775,6 +775,59 @@ export default function BookMode() {
   
   const hasFilters = filters.topic !== '' || filters.difficulty !== 'medium' || filters.durationMode !== 60;
 
+  const highlightedText = useMemo(() => {
+    if (!normalizedText) return [];
+    
+    const expectedWords = normalizedText.split(" ");
+    const typedWords = userInput.split(" ");
+    const result: React.ReactNode[] = [];
+    let charIndex = 0;
+
+    expectedWords.forEach((expectedWord, wordIndex) => {
+      const typedWord = typedWords[wordIndex];
+      const isCurrentWord = wordIndex === typedWords.length - 1;
+      const isTypedWord = wordIndex < typedWords.length;
+
+      for (let i = 0; i < expectedWord.length; i++) {
+        const expectedChar = expectedWord[i];
+        let className = "text-muted-foreground";
+
+        if (isTypedWord && typedWord !== undefined) {
+          if (i < typedWord.length) {
+            className = typedWord[i] === expectedChar 
+              ? "text-green-500" 
+              : "text-red-500 bg-red-500/20";
+          } else if (!isCurrentWord) {
+            className = "text-red-500 bg-red-500/20";
+          }
+        }
+
+        result.push(
+          <span key={charIndex} className={className}>
+            {expectedChar}
+          </span>
+        );
+        charIndex++;
+      }
+
+      if (wordIndex < expectedWords.length - 1) {
+        let spaceClassName = "text-muted-foreground";
+        if (isTypedWord && !isCurrentWord) {
+          const typedHasSpace = typedWords.length > wordIndex + 1;
+          spaceClassName = typedHasSpace ? "text-green-500" : "text-red-500 bg-red-500/20";
+        }
+        result.push(
+          <span key={`space-${charIndex}`} className={spaceClassName}>
+            {" "}
+          </span>
+        );
+        charIndex++;
+      }
+    });
+
+    return result;
+  }, [normalizedText, userInput]);
+
   if (!currentParagraph && isLoading) {
     return <LoadingSkeleton />;
   }
@@ -802,18 +855,6 @@ export default function BookMode() {
       />
     );
   }
-
-  const highlightedText = normalizedText.split("").map((char, index) => {
-    let className = "text-muted-foreground";
-    if (index < userInput.length) {
-      className = userInput[index] === char ? "text-green-500" : "text-red-500 bg-red-500/20";
-    }
-    return (
-      <span key={index} className={className}>
-        {char}
-      </span>
-    );
-  });
 
   return (
     <TooltipProvider>
