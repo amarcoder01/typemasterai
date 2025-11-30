@@ -1299,99 +1299,156 @@ export default function CodeMode() {
                           
                           {/* Caret Style */}
                           <div className="space-y-2">
-                            <Label className="text-xs text-muted-foreground">Caret Style</Label>
+                            <div className="flex items-center gap-1">
+                              <Label className="text-xs text-muted-foreground">Caret Style</Label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button type="button" className="text-muted-foreground/50 hover:text-muted-foreground">
+                                    <HelpCircle className="w-3 h-3" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="right" className="max-w-[180px]">
+                                  <p className="text-xs">Choose cursor style: thin line, solid block, or underline</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
                             <div className="flex gap-1">
                               {(["line", "block", "underline"] as const).map((style) => (
-                                <button
-                                  key={style}
-                                  onClick={() => setCaretStyle(style)}
-                                  className={`flex-1 py-1.5 px-2 text-xs rounded-md border transition-colors ${
-                                    caretStyle === style 
-                                      ? "bg-primary text-primary-foreground border-primary" 
-                                      : "bg-muted/50 border-border hover:bg-muted"
-                                  }`}
-                                  data-testid={`button-caret-${style}`}
-                                >
-                                  {style.charAt(0).toUpperCase() + style.slice(1)}
-                                </button>
+                                <Tooltip key={style}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={() => setCaretStyle(style)}
+                                      className={`flex-1 py-1.5 px-2 text-xs rounded-md border transition-colors ${
+                                        caretStyle === style 
+                                          ? "bg-primary text-primary-foreground border-primary" 
+                                          : "bg-muted/50 border-border hover:bg-muted"
+                                      }`}
+                                      data-testid={`button-caret-${style}`}
+                                    >
+                                      {style.charAt(0).toUpperCase() + style.slice(1)}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">
+                                      {style === "line" && "Thin vertical line cursor"}
+                                      {style === "block" && "Solid block cursor like terminals"}
+                                      {style === "underline" && "Underline cursor style"}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
                               ))}
                             </div>
                           </div>
                           
                           {/* Toggles */}
                           <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="smooth-caret" className="text-xs flex items-center gap-2">
-                                <Eye className="w-3.5 h-3.5" />
-                                Smooth Caret
-                              </Label>
-                              <Switch 
-                                id="smooth-caret" 
-                                checked={smoothCaret} 
-                                onCheckedChange={setSmoothCaret}
-                                data-testid="switch-smooth-caret"
-                              />
-                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-between cursor-help">
+                                  <Label htmlFor="smooth-caret" className="text-xs flex items-center gap-2 cursor-pointer">
+                                    <Eye className="w-3.5 h-3.5" />
+                                    Smooth Caret
+                                  </Label>
+                                  <Switch 
+                                    id="smooth-caret" 
+                                    checked={smoothCaret} 
+                                    onCheckedChange={setSmoothCaret}
+                                    data-testid="switch-smooth-caret"
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="left">
+                                <p className="text-xs">Smooth glowing animation instead of blinking</p>
+                              </TooltipContent>
+                            </Tooltip>
                             
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="line-numbers" className="text-xs flex items-center gap-2">
-                                <Code className="w-3.5 h-3.5" />
-                                Line Numbers
-                              </Label>
-                              <Switch 
-                                id="line-numbers" 
-                                checked={showLineNumbers} 
-                                onCheckedChange={setShowLineNumbers}
-                                data-testid="switch-line-numbers"
-                              />
-                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-between cursor-help">
+                                  <Label htmlFor="line-numbers" className="text-xs flex items-center gap-2 cursor-pointer">
+                                    <Code className="w-3.5 h-3.5" />
+                                    Line Numbers
+                                  </Label>
+                                  <Switch 
+                                    id="line-numbers" 
+                                    checked={showLineNumbers} 
+                                    onCheckedChange={setShowLineNumbers}
+                                    data-testid="switch-line-numbers"
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="left">
+                                <p className="text-xs">Show line numbers in the code gutter</p>
+                              </TooltipContent>
+                            </Tooltip>
                             
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="indent-guides" className="text-xs flex items-center gap-2">
-                                <Code className="w-3.5 h-3.5" />
-                                Indent Guides
-                              </Label>
-                              <Switch 
-                                id="indent-guides" 
-                                checked={showIndentGuides} 
-                                onCheckedChange={setShowIndentGuides}
-                                data-testid="switch-indent-guides"
-                              />
-                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-between cursor-help">
+                                  <Label htmlFor="indent-guides" className="text-xs flex items-center gap-2 cursor-pointer">
+                                    <Code className="w-3.5 h-3.5" />
+                                    Indent Guides
+                                  </Label>
+                                  <Switch 
+                                    id="indent-guides" 
+                                    checked={showIndentGuides} 
+                                    onCheckedChange={setShowIndentGuides}
+                                    data-testid="switch-indent-guides"
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="left">
+                                <p className="text-xs">Vertical lines showing indentation levels</p>
+                              </TooltipContent>
+                            </Tooltip>
                             
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="focus-mode" className="text-xs flex items-center gap-2">
-                                {focusMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                Focus Mode
-                              </Label>
-                              <Switch 
-                                id="focus-mode" 
-                                checked={focusMode} 
-                                onCheckedChange={setFocusMode}
-                                data-testid="switch-focus-mode"
-                              />
-                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-between cursor-help">
+                                  <Label htmlFor="focus-mode" className="text-xs flex items-center gap-2 cursor-pointer">
+                                    {focusMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                    Focus Mode
+                                  </Label>
+                                  <Switch 
+                                    id="focus-mode" 
+                                    checked={focusMode} 
+                                    onCheckedChange={setFocusMode}
+                                    data-testid="switch-focus-mode"
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="left">
+                                <p className="text-xs">Dim untyped code for better concentration</p>
+                              </TooltipContent>
+                            </Tooltip>
                             
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor="sound-enabled" className="text-xs flex items-center gap-2">
-                                {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-                                Typing Sounds
-                              </Label>
-                              <Switch 
-                                id="sound-enabled" 
-                                checked={soundEnabled} 
-                                onCheckedChange={(enabled) => {
-                                  setSoundEnabled(enabled);
-                                  keyboardSound.setEnabled(enabled);
-                                  if (enabled) keyboardSound.play();
-                                }}
-                                data-testid="switch-sound"
-                              />
-                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-between cursor-help">
+                                  <Label htmlFor="sound-enabled" className="text-xs flex items-center gap-2 cursor-pointer">
+                                    {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                                    Typing Sounds
+                                  </Label>
+                                  <Switch 
+                                    id="sound-enabled" 
+                                    checked={soundEnabled} 
+                                    onCheckedChange={(enabled) => {
+                                      setSoundEnabled(enabled);
+                                      keyboardSound.setEnabled(enabled);
+                                      if (enabled) keyboardSound.play();
+                                    }}
+                                    data-testid="switch-sound"
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="left">
+                                <p className="text-xs">Play keyboard sounds while typing</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
                           
                           <p className="text-[10px] text-muted-foreground/60 text-center">
-                            Sound syncs with global Settings
+                            Sound type can be changed in global Settings
                           </p>
                         </div>
                       </PopoverContent>
@@ -1426,62 +1483,89 @@ export default function CodeMode() {
                         autoFocus
                         data-testid="input-custom-prompt"
                       />
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          if (!customPrompt.trim()) {
-                            toast({
-                              title: "Enter a prompt",
-                              description: "Type what code you want, e.g., 'React hooks' or 'sorting algorithm'",
-                            });
-                            return;
-                          }
-                          toast({
-                            title: "Generating...",
-                            description: `Creating ${customPrompt} code snippet`,
-                          });
-                          fetchCodeSnippet(true);
-                          setShowCustomAI(false);
-                          setCustomPrompt("");
-                        }}
-                        disabled={isLoading}
-                        className="h-8 px-3 shrink-0"
-                        data-testid="button-generate-custom"
-                      >
-                        {isLoading ? (
-                          <div className="w-3.5 h-3.5 border-2 border-background/30 border-t-background rounded-full animate-spin" />
-                        ) : (
-                          <Zap className="w-3.5 h-3.5" />
-                        )}
-                      </Button>
-                      <button
-                        onClick={() => {
-                          setShowCustomAI(false);
-                          setCustomPrompt("");
-                        }}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                        data-testid="button-close-custom-ai"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                      {["Hooks", "API", "Sort", "Class", "Async"].map((suggestion) => (
-                        <button
-                          key={suggestion}
-                          onClick={() => {
-                            setCustomPrompt(suggestion);
-                            setTimeout(() => {
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              if (!customPrompt.trim()) {
+                                toast({
+                                  title: "Enter a prompt",
+                                  description: "Type what code you want, e.g., 'React hooks' or 'sorting algorithm'",
+                                });
+                                return;
+                              }
+                              toast({
+                                title: "Generating...",
+                                description: `Creating ${customPrompt} code snippet`,
+                              });
                               fetchCodeSnippet(true);
                               setShowCustomAI(false);
-                            }, 50);
-                          }}
-                          disabled={isLoading}
-                          className="px-2 py-0.5 text-[10px] bg-background hover:bg-primary/10 border border-border/40 hover:border-primary/40 rounded transition-all text-muted-foreground hover:text-foreground disabled:opacity-50"
-                          data-testid={`suggestion-${suggestion.toLowerCase()}`}
-                        >
-                          {suggestion}
-                        </button>
+                              setCustomPrompt("");
+                            }}
+                            disabled={isLoading}
+                            className="h-8 px-3 shrink-0"
+                            data-testid="button-generate-custom"
+                          >
+                            {isLoading ? (
+                              <div className="w-3.5 h-3.5 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                            ) : (
+                              <Zap className="w-3.5 h-3.5" />
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Generate code with AI (Enter)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => {
+                              setShowCustomAI(false);
+                              setCustomPrompt("");
+                            }}
+                            className="text-muted-foreground hover:text-foreground transition-colors"
+                            data-testid="button-close-custom-ai"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Close (Esc)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground/60 mr-1">Quick:</span>
+                      {[
+                        { label: "Hooks", tip: "React useState, useEffect patterns" },
+                        { label: "API", tip: "REST API calls and fetch examples" },
+                        { label: "Sort", tip: "Sorting algorithms (bubble, quick, merge)" },
+                        { label: "Class", tip: "Object-oriented class definitions" },
+                        { label: "Async", tip: "Async/await and Promise patterns" }
+                      ].map(({ label, tip }) => (
+                        <Tooltip key={label}>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={() => {
+                                setCustomPrompt(label);
+                                setTimeout(() => {
+                                  fetchCodeSnippet(true);
+                                  setShowCustomAI(false);
+                                }, 50);
+                              }}
+                              disabled={isLoading}
+                              className="px-2 py-0.5 text-[10px] bg-background hover:bg-primary/10 border border-border/40 hover:border-primary/40 rounded transition-all text-muted-foreground hover:text-foreground disabled:opacity-50"
+                              data-testid={`suggestion-${label.toLowerCase()}`}
+                            >
+                              {label}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">{tip}</p>
+                          </TooltipContent>
+                        </Tooltip>
                       ))}
                     </div>
                   </div>
