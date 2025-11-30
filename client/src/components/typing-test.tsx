@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { generateText, calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award, Share2, Twitter, Facebook, MessageCircle, Copy, Check, Link2, Linkedin, Mail, Send, AlertCircle, Loader2 } from "lucide-react";
+import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award, Share2, Twitter, Facebook, MessageCircle, Copy, Check, Link2, Linkedin, Mail, Send, AlertCircle, Loader2, HelpCircle, Timer, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
@@ -1261,100 +1261,161 @@ Can you beat my score? Try it here: `,
           zenMode && isActive && "opacity-0 h-0 overflow-hidden"
         )}>
           <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="relative">
-                  <SearchableSelect
-                    value={language}
-                    onValueChange={setLanguage}
-                    options={availableLanguages.map((lang: string) => ({
-                      value: lang,
-                      label: LANGUAGE_NAMES[lang] || lang,
-                    }))}
-                    placeholder="Select language"
-                    searchPlaceholder="Search languages..."
-                    emptyText="No language found."
-                    icon={<Globe className="w-4 h-4" />}
-                  />
-                  {languagesError && !languagesFetching && !languagesData && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" title="Failed to load languages" />
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs bg-popover text-popover-foreground border shadow-lg p-3">
-                <p className="font-medium mb-1">Language Selection</p>
-                <p className="text-xs opacity-80">Practice typing in your preferred language. Supports 23+ languages including English, Spanish, Hindi, Japanese, Arabic, and more. Great for learning new languages!</p>
-              </TooltipContent>
-            </Tooltip>
+            <div className="flex items-center gap-1.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="relative">
+                    <SearchableSelect
+                      value={language}
+                      onValueChange={setLanguage}
+                      options={availableLanguages.map((lang: string) => ({
+                        value: lang,
+                        label: LANGUAGE_NAMES[lang] || lang,
+                      }))}
+                      placeholder="Select language"
+                      searchPlaceholder="Search languages..."
+                      emptyText="No language found."
+                      icon={<Globe className="w-4 h-4" />}
+                    />
+                    {languagesError && !languagesFetching && !languagesData && (
+                      <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" title="Failed to load languages" />
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs bg-popover text-popover-foreground border shadow-lg p-3">
+                  <p className="font-medium mb-1">Language Selection</p>
+                  <p className="text-xs opacity-80">Practice typing in your preferred language. Supports 23+ languages including English, Spanish, Hindi, Japanese, Arabic, and more. Great for learning new languages!</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors" aria-label="Language help">
+                    <HelpCircle className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px]">
+                  <p className="font-medium mb-1">Typing Language</p>
+                  <p className="text-xs text-muted-foreground">Select from 23+ languages with native script support. Perfect for practicing multilingual typing or learning new languages through muscle memory!</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="relative">
-                  <SearchableSelect
-                    value={paragraphMode}
-                    onValueChange={setParagraphMode}
-                    options={availableModes.map((m: string) => ({
-                      value: m,
-                      label: MODE_NAMES[m] || m,
-                    }))}
-                    placeholder="Select mode"
-                    searchPlaceholder="Search modes..."
-                    emptyText="No mode found."
-                    icon={<BookOpen className="w-4 h-4" />}
-                  />
-                  {modesError && !modesFetching && !modesData && (
-                    <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" title="Failed to load modes" />
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs bg-popover text-popover-foreground border shadow-lg p-3">
-                <p className="font-medium mb-1">Paragraph Topic</p>
-                <p className="text-xs opacity-80">Choose what you want to type about. General for everyday text, Programming for code terms, Business for professional vocabulary, News for current events style, and more!</p>
-              </TooltipContent>
-            </Tooltip>
+            <div className="flex items-center gap-1.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="relative">
+                    <SearchableSelect
+                      value={paragraphMode}
+                      onValueChange={setParagraphMode}
+                      options={availableModes.map((m: string) => ({
+                        value: m,
+                        label: MODE_NAMES[m] || m,
+                      }))}
+                      placeholder="Select mode"
+                      searchPlaceholder="Search modes..."
+                      emptyText="No mode found."
+                      icon={<BookOpen className="w-4 h-4" />}
+                    />
+                    {modesError && !modesFetching && !modesData && (
+                      <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" title="Failed to load modes" />
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs bg-popover text-popover-foreground border shadow-lg p-3">
+                  <p className="font-medium mb-1">Paragraph Topic</p>
+                  <p className="text-xs opacity-80">Choose what you want to type about. General for everyday text, Programming for code terms, Business for professional vocabulary, News for current events style, and more!</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors" aria-label="Topic help">
+                    <HelpCircle className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px]">
+                  <p className="font-medium mb-1">Content Topic</p>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p><span className="text-blue-400">General:</span> Everyday topics and common text</p>
+                    <p><span className="text-green-400">Programming:</span> Code-related terminology</p>
+                    <p><span className="text-purple-400">Business:</span> Professional vocabulary</p>
+                    <p><span className="text-orange-400">News:</span> Current events style</p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </div>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <SearchableSelect
-                    value={difficulty}
-                    onValueChange={(val) => setDifficulty(val as "easy" | "medium" | "hard")}
-                    options={[
-                      { value: "easy", label: "Easy" },
-                      { value: "medium", label: "Medium" },
-                      { value: "hard", label: "Hard" },
-                    ]}
-                    placeholder="Select difficulty"
-                    searchPlaceholder="Search difficulty..."
-                    emptyText="No difficulty found."
-                    icon={<Target className="w-4 h-4" />}
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs bg-popover text-popover-foreground border shadow-lg p-3">
-                <p className="font-medium mb-2">Difficulty Level</p>
-                <p className="text-xs opacity-90 mb-1"><span className="text-green-400 font-semibold">Easy:</span> Short sentences, common words - perfect for beginners</p>
-                <p className="text-xs opacity-90 mb-1"><span className="text-yellow-400 font-semibold">Medium:</span> Standard paragraphs with varied vocabulary</p>
-                <p className="text-xs opacity-90"><span className="text-orange-400 font-semibold">Hard:</span> Complex sentences, advanced vocabulary, punctuation</p>
-              </TooltipContent>
-            </Tooltip>
+            <div className="flex items-center gap-1.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <SearchableSelect
+                      value={difficulty}
+                      onValueChange={(val) => setDifficulty(val as "easy" | "medium" | "hard")}
+                      options={[
+                        { value: "easy", label: "Easy" },
+                        { value: "medium", label: "Medium" },
+                        { value: "hard", label: "Hard" },
+                      ]}
+                      placeholder="Select difficulty"
+                      searchPlaceholder="Search difficulty..."
+                      emptyText="No difficulty found."
+                      icon={<Target className="w-4 h-4" />}
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs bg-popover text-popover-foreground border shadow-lg p-3">
+                  <p className="font-medium mb-2">Difficulty Level</p>
+                  <p className="text-xs opacity-90 mb-1"><span className="text-green-400 font-semibold">Easy:</span> Short sentences, common words - perfect for beginners</p>
+                  <p className="text-xs opacity-90 mb-1"><span className="text-yellow-400 font-semibold">Medium:</span> Standard paragraphs with varied vocabulary</p>
+                  <p className="text-xs opacity-90"><span className="text-orange-400 font-semibold">Hard:</span> Complex sentences, advanced vocabulary, punctuation</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors" aria-label="Difficulty help">
+                    <HelpCircle className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px]">
+                  <p className="font-medium mb-1">Text Complexity</p>
+                  <p className="text-xs text-muted-foreground">Controls word length, sentence complexity, and punctuation frequency. Start with Easy and gradually increase as your speed improves!</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-help">
                   <Sparkles className="w-3 h-3" />
                   <span>AI-powered</span>
                 </div>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>AI automatically generates paragraphs for unsupported combinations and saves them</p>
+              <TooltipContent className="max-w-[240px]">
+                <p className="font-medium mb-1">GPT-4 Powered</p>
+                <p className="text-xs text-muted-foreground">AI automatically generates fresh, unique paragraphs when needed. Every practice session is different!</p>
               </TooltipContent>
             </Tooltip>
           </div>
 
         {/* Time Mode Selector */}
         <div className="flex flex-col gap-3">
-          <div className="flex justify-center gap-2 flex-wrap">
+          <div className="flex justify-center items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 mr-1">
+              <Timer className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium">Duration:</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors" aria-label="Duration help">
+                    <HelpCircle className="w-3.5 h-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[280px]">
+                  <p className="font-medium mb-1">Test Duration</p>
+                  <p className="text-xs text-muted-foreground mb-2">Choose how long you want to type. Shorter tests (15-30s) measure burst speed, while longer tests (1-5 min) measure sustained speed and endurance.</p>
+                  <p className="text-xs text-muted-foreground"><span className="text-blue-400">Tip:</span> Use Custom for marathon sessions up to 4 hours!</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             {TIME_PRESETS.map((preset) => (
               <Tooltip key={preset.value}>
                 <TooltipTrigger asChild>
@@ -1640,8 +1701,9 @@ Can you beat my score? Try it here: `,
                <span className="text-2xl md:text-3xl font-mono font-bold text-primary" data-testid="text-time-left">{formatTime(timeLeft)}</span>
              </div>
            </TooltipTrigger>
-           <TooltipContent>
-             <p>Time remaining in this test</p>
+           <TooltipContent className="max-w-[220px]">
+             <p className="font-medium mb-1">Time Remaining</p>
+             <p className="text-xs text-muted-foreground">Countdown timer showing how much time is left in your test. Timer starts when you begin typing.</p>
            </TooltipContent>
          </Tooltip>
          <Tooltip>
@@ -1651,8 +1713,10 @@ Can you beat my score? Try it here: `,
                <span className="text-2xl md:text-3xl font-mono font-bold" data-testid="text-wpm">{wpm}</span>
              </div>
            </TooltipTrigger>
-           <TooltipContent>
-             <p>Net WPM - Adjusted typing speed (correct chars only)</p>
+           <TooltipContent className="max-w-[260px]">
+             <p className="font-medium mb-1">Words Per Minute (Net)</p>
+             <p className="text-xs text-muted-foreground mb-1">Your effective typing speed accounting for errors. This is the standard WPM used in typing tests.</p>
+             <p className="text-xs text-muted-foreground"><span className="text-green-400">40+ WPM:</span> Good | <span className="text-blue-400">60+ WPM:</span> Fast | <span className="text-purple-400">80+ WPM:</span> Expert</p>
            </TooltipContent>
          </Tooltip>
          <Tooltip>
@@ -1662,8 +1726,9 @@ Can you beat my score? Try it here: `,
                <span className="text-2xl md:text-3xl font-mono font-bold text-muted-foreground" data-testid="text-raw-wpm">{rawWpm}</span>
              </div>
            </TooltipTrigger>
-           <TooltipContent>
-             <p>Raw WPM - Pure typing speed without error adjustment</p>
+           <TooltipContent className="max-w-[260px]">
+             <p className="font-medium mb-1">Raw Speed (Uncorrected)</p>
+             <p className="text-xs text-muted-foreground">Your total typing speed including errors. Compare Raw with WPM to see how much mistakes affect your final score.</p>
            </TooltipContent>
          </Tooltip>
          <Tooltip>
@@ -1673,8 +1738,10 @@ Can you beat my score? Try it here: `,
                <span className="text-2xl md:text-3xl font-mono font-bold" data-testid="text-accuracy">{accuracy}%</span>
              </div>
            </TooltipTrigger>
-           <TooltipContent>
-             <p>Percentage of correctly typed characters</p>
+           <TooltipContent className="max-w-[240px]">
+             <p className="font-medium mb-1">Typing Accuracy</p>
+             <p className="text-xs text-muted-foreground mb-1">Percentage of characters typed correctly. Higher accuracy = fewer mistakes.</p>
+             <p className="text-xs text-muted-foreground"><span className="text-yellow-400">Tip:</span> Aim for 95%+ accuracy before focusing on speed!</p>
            </TooltipContent>
          </Tooltip>
          <Tooltip>
@@ -1686,8 +1753,10 @@ Can you beat my score? Try it here: `,
                )} data-testid="text-consistency">{consistency}%</span>
              </div>
            </TooltipTrigger>
-           <TooltipContent>
-             <p>Typing rhythm stability - Higher = more consistent pace</p>
+           <TooltipContent className="max-w-[260px]">
+             <p className="font-medium mb-1">Typing Consistency</p>
+             <p className="text-xs text-muted-foreground mb-1">Measures how steady your typing rhythm is. Higher = more uniform keystrokes.</p>
+             <p className="text-xs text-muted-foreground"><span className="text-green-400">80%+:</span> Excellent | <span className="text-yellow-400">60-79%:</span> Good | <span className="text-orange-400">&lt;60%:</span> Practice rhythm</p>
            </TooltipContent>
          </Tooltip>
          <Tooltip>
@@ -1699,8 +1768,13 @@ Can you beat my score? Try it here: `,
                </span>
              </div>
            </TooltipTrigger>
-           <TooltipContent>
-             <p>Test status: READY → Click to start | GO → Test running | DONE → Test complete</p>
+           <TooltipContent className="max-w-[220px]">
+             <p className="font-medium mb-1">Test Status</p>
+             <div className="text-xs text-muted-foreground space-y-1">
+               <p><span className="text-muted-foreground">READY:</span> Waiting for you to start typing</p>
+               <p><span className="text-green-400">GO:</span> Test in progress, keep typing!</p>
+               <p><span className="text-blue-400">DONE:</span> Test complete, results displayed</p>
+             </div>
            </TooltipContent>
          </Tooltip>
       </div>

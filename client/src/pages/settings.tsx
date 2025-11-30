@@ -4,7 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Moon, Volume2, Keyboard, Shield, Trash2, Eye, EyeOff, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Moon, Volume2, Keyboard, Shield, Trash2, Eye, EyeOff, CheckCircle2, XCircle, AlertCircle, HelpCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { useState, useEffect } from "react";
@@ -13,6 +13,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { keyboardSound, type SoundType } from "@/lib/keyboard-sounds";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -297,6 +303,7 @@ export default function Settings() {
   };
 
   return (
+    <TooltipProvider delayDuration={300}>
       <div className="max-w-2xl mx-auto space-y-8">
         <div className="space-y-2">
            <h1 className="text-3xl font-bold">Settings</h1>
@@ -318,11 +325,29 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <Label htmlFor="theme" className="flex flex-col gap-1">
-                  <span>Theme</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Theme</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[280px]">
+                        <p className="font-medium mb-1">Color Theme</p>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <p><span className="text-blue-400">Focus Flow:</span> Dark theme optimized for typing</p>
+                          <p><span className="text-yellow-400">Light:</span> Bright theme for well-lit environments</p>
+                          <p><span className="text-purple-400">Cyberpunk:</span> Neon-inspired futuristic look</p>
+                          <p><span className="text-orange-400">Retro:</span> Classic vintage terminal style</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <span className="font-normal text-xs text-muted-foreground">Select your preferred color scheme</span>
                 </Label>
                 <Select value={theme} onValueChange={(value) => setTheme(value as any)}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-[180px]" data-testid="select-theme">
                     <SelectValue placeholder="Select theme" />
                   </SelectTrigger>
                   <SelectContent>
@@ -336,10 +361,23 @@ export default function Settings() {
               
               <div className="flex items-center justify-between">
                  <Label htmlFor="blur" className="flex flex-col gap-1">
-                  <span>Blur Effects</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Blur Effects</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[240px]">
+                        <p className="font-medium mb-1">Glassmorphism Effects</p>
+                        <p className="text-xs text-muted-foreground">Adds a frosted glass blur effect to cards and backgrounds. Disable for better performance on older devices.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <span className="font-normal text-xs text-muted-foreground">Enable glassmorphism blur</span>
                 </Label>
-                <Switch id="blur" defaultChecked />
+                <Switch id="blur" defaultChecked data-testid="switch-blur" />
               </div>
             </CardContent>
           </Card>
@@ -355,7 +393,20 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <Label htmlFor="sound-enabled" className="flex flex-col gap-1">
-                  <span>Keyboard Sounds</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Keyboard Sounds</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[240px]">
+                        <p className="font-medium mb-1">Typing Audio Feedback</p>
+                        <p className="text-xs text-muted-foreground">Plays realistic keyboard sounds as you type. Great for improving rhythm and making practice more satisfying!</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <span className="font-normal text-xs text-muted-foreground">Play sound when typing</span>
                 </Label>
                 <Switch
@@ -368,7 +419,25 @@ export default function Settings() {
               
                <div className="flex items-center justify-between">
                 <Label htmlFor="sound-type" className="flex flex-col gap-1">
-                  <span>Sound Type</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Sound Type</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[280px]">
+                        <p className="font-medium mb-1">Keyboard Switch Type</p>
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <p><span className="text-blue-400">Mechanical:</span> Classic clicky switch sound</p>
+                          <p><span className="text-green-400">Linear:</span> Smooth thock sound, no click</p>
+                          <p><span className="text-yellow-400">Typewriter:</span> Vintage typewriter bell</p>
+                          <p><span className="text-purple-400">Cherry MX Blue:</span> Premium tactile switch</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <span className="font-normal text-xs text-muted-foreground">Choose switch type</span>
                 </Label>
                 <Select
@@ -390,7 +459,19 @@ export default function Settings() {
 
               <div className="flex items-center justify-between">
                 <Label className="flex flex-col gap-1">
-                  <span>Test Sound</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Test Sound</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[200px]">
+                        <p className="text-xs">Click to hear a preview of the currently selected keyboard sound.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <span className="font-normal text-xs text-muted-foreground">Preview the selected sound</span>
                 </Label>
                 <Button
@@ -418,7 +499,20 @@ export default function Settings() {
             <CardContent className="space-y-6">
                <div className="flex items-center justify-between">
                  <Label htmlFor="smooth-caret" className="flex flex-col gap-1">
-                  <span>Smooth Caret</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Smooth Caret</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[240px]">
+                        <p className="font-medium mb-1">Cursor Animation</p>
+                        <p className="text-xs text-muted-foreground">When enabled, the typing cursor glides smoothly between characters. Disable for instant cursor movement.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <span className="font-normal text-xs text-muted-foreground">Animate cursor movement</span>
                 </Label>
                 <Switch
@@ -431,7 +525,20 @@ export default function Settings() {
 
               <div className="flex items-center justify-between">
                  <Label htmlFor="quick-restart" className="flex flex-col gap-1">
-                  <span>Quick Restart</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Quick Restart</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[240px]">
+                        <p className="font-medium mb-1">Keyboard Shortcut</p>
+                        <p className="text-xs text-muted-foreground">Press the Tab key anytime during a test to instantly restart with a fresh paragraph. Perfect for quick practice sessions!</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <span className="font-normal text-xs text-muted-foreground">Press 'Tab' to restart test</span>
                 </Label>
                 <Switch
@@ -444,7 +551,20 @@ export default function Settings() {
 
               <div className="flex items-center justify-between">
                  <Label htmlFor="zen-mode" className="flex flex-col gap-1">
-                  <span>Zen Mode</span>
+                  <div className="flex items-center gap-1.5">
+                    <span>Zen Mode</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[260px]">
+                        <p className="font-medium mb-1">Distraction-Free Mode</p>
+                        <p className="text-xs text-muted-foreground">Hides WPM, accuracy, timer, and controls while typing. Only the text remains visible so you can focus purely on typing without distractions.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <span className="font-normal text-xs text-muted-foreground">Minimalist UI - hides stats and controls during typing</span>
                 </Label>
                 <Switch
@@ -641,5 +761,6 @@ export default function Settings() {
           )}
         </div>
       </div>
+    </TooltipProvider>
   );
 }
