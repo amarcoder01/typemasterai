@@ -117,6 +117,7 @@ export function CodeCertificate({
     if (!ctx) return;
 
     const langIcon = getLanguageIcon(language);
+    const displayName = username || "Code Enthusiast";
 
     canvas.width = 1200;
     canvas.height = 675;
@@ -133,13 +134,13 @@ export function CodeCertificate({
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Subtle pattern overlay
-    ctx.globalAlpha = 0.03;
-    for (let i = 0; i < canvas.width; i += 30) {
-      for (let j = 0; j < canvas.height; j += 30) {
-        if ((i + j) % 60 === 0) {
+    ctx.globalAlpha = 0.02;
+    for (let i = 0; i < canvas.width; i += 40) {
+      for (let j = 0; j < canvas.height; j += 40) {
+        if ((i + j) % 80 === 0) {
           ctx.fillStyle = "#ffffff";
           ctx.beginPath();
-          ctx.arc(i, j, 1, 0, Math.PI * 2);
+          ctx.arc(i, j, 1.5, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -147,7 +148,7 @@ export function CodeCertificate({
     ctx.globalAlpha = 1;
 
     // Elegant outer border with tier color
-    const borderWidth = 8;
+    const borderWidth = 6;
     const borderGradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
     borderGradient.addColorStop(0, tierVisuals.borderGradient[0]);
     borderGradient.addColorStop(0.5, tierVisuals.borderGradient[1]);
@@ -158,54 +159,57 @@ export function CodeCertificate({
     ctx.strokeRect(borderWidth / 2, borderWidth / 2, canvas.width - borderWidth, canvas.height - borderWidth);
 
     // Inner decorative border
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
     ctx.lineWidth = 1;
-    ctx.strokeRect(25, 25, canvas.width - 50, canvas.height - 50);
+    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
 
     // Corner decorations
-    const cornerSize = 40;
-    const cornerOffset = 20;
+    const cornerSize = 35;
+    const cornerOffset = 15;
     ctx.strokeStyle = tierVisuals.primaryColor;
     ctx.lineWidth = 2;
     
-    // Top-left corner
+    // Top-left
     ctx.beginPath();
     ctx.moveTo(cornerOffset, cornerOffset + cornerSize);
     ctx.lineTo(cornerOffset, cornerOffset);
     ctx.lineTo(cornerOffset + cornerSize, cornerOffset);
     ctx.stroke();
     
-    // Top-right corner
+    // Top-right
     ctx.beginPath();
     ctx.moveTo(canvas.width - cornerOffset - cornerSize, cornerOffset);
     ctx.lineTo(canvas.width - cornerOffset, cornerOffset);
     ctx.lineTo(canvas.width - cornerOffset, cornerOffset + cornerSize);
     ctx.stroke();
     
-    // Bottom-left corner
+    // Bottom-left
     ctx.beginPath();
     ctx.moveTo(cornerOffset, canvas.height - cornerOffset - cornerSize);
     ctx.lineTo(cornerOffset, canvas.height - cornerOffset);
     ctx.lineTo(cornerOffset + cornerSize, canvas.height - cornerOffset);
     ctx.stroke();
     
-    // Bottom-right corner
+    // Bottom-right
     ctx.beginPath();
     ctx.moveTo(canvas.width - cornerOffset - cornerSize, canvas.height - cornerOffset);
     ctx.lineTo(canvas.width - cornerOffset, canvas.height - cornerOffset);
     ctx.lineTo(canvas.width - cornerOffset, canvas.height - cornerOffset - cornerSize);
     ctx.stroke();
 
-    // Header section with elegant line
+    // Header: </> CODE TYPING CERTIFICATE
     ctx.fillStyle = tierVisuals.primaryColor;
-    ctx.font = "600 14px 'DM Sans', system-ui, sans-serif";
+    ctx.font = "bold 16px 'JetBrains Mono', monospace";
     ctx.textAlign = "center";
-    ctx.letterSpacing = "8px";
-    ctx.fillText("CERTIFICATE OF ACHIEVEMENT", canvas.width / 2, 70);
+    ctx.fillText("</>", canvas.width / 2 - 180, 65);
+    
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 28px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("CODE TYPING CERTIFICATE", canvas.width / 2 + 20, 68);
 
     // Decorative line under header
-    const lineWidth = 300;
-    const lineY = 85;
+    const lineWidth = 500;
+    const lineY = 90;
     const lineGradient = ctx.createLinearGradient(
       canvas.width / 2 - lineWidth / 2, lineY,
       canvas.width / 2 + lineWidth / 2, lineY
@@ -223,168 +227,191 @@ export function CodeCertificate({
     ctx.lineTo(canvas.width / 2 + lineWidth / 2, lineY);
     ctx.stroke();
 
-    // Main title - Code Typing Mastery
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 42px 'DM Sans', system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("Code Typing Excellence", canvas.width / 2, 135);
-
-    // Subtitle with language
+    // "This certifies that"
     ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-    ctx.font = "400 18px 'DM Sans', system-ui, sans-serif";
-    ctx.fillText(`${langIcon} ${languageName} Programming`, canvas.width / 2, 165);
-
-    // Central WPM display with glow effect
-    ctx.save();
-    ctx.shadowColor = tierVisuals.glowColor;
-    ctx.shadowBlur = 40;
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 140px 'JetBrains Mono', monospace";
-    ctx.textAlign = "center";
-    ctx.fillText(`${wpm}`, canvas.width / 2, 290);
-    ctx.restore();
-
-    // WPM label
-    ctx.fillStyle = tierVisuals.primaryColor;
-    ctx.font = "bold 24px 'DM Sans', system-ui, sans-serif";
-    ctx.fillText("WORDS PER MINUTE", canvas.width / 2, 325);
-
-    // Performance badge/seal
-    const sealX = canvas.width / 2;
-    const sealY = 385;
-    const sealRadius = 45;
-    
-    // Seal outer ring
-    ctx.save();
-    ctx.shadowColor = tierVisuals.glowColor;
-    ctx.shadowBlur = 20;
-    
-    const sealGradient = ctx.createRadialGradient(sealX, sealY, 0, sealX, sealY, sealRadius);
-    sealGradient.addColorStop(0, tierVisuals.secondaryColor);
-    sealGradient.addColorStop(0.7, tierVisuals.primaryColor);
-    sealGradient.addColorStop(1, tierVisuals.borderGradient[0]);
-    
-    ctx.fillStyle = sealGradient;
-    ctx.beginPath();
-    ctx.arc(sealX, sealY, sealRadius, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Seal inner circle
-    ctx.fillStyle = "#1a1a2e";
-    ctx.beginPath();
-    ctx.arc(sealX, sealY, sealRadius - 8, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.restore();
-    
-    // Badge text inside seal
-    ctx.fillStyle = tierVisuals.primaryColor;
-    ctx.font = "bold 16px 'DM Sans', system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(rating.badge.toUpperCase(), sealX, sealY - 5);
-    
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "12px 'DM Sans', system-ui, sans-serif";
-    ctx.fillText("TIER", sealX, sealY + 12);
-
-    // Rating title below seal
-    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
     ctx.font = "italic 20px 'DM Sans', system-ui, sans-serif";
-    ctx.fillText(`"${rating.title}"`, canvas.width / 2, 455);
+    ctx.textAlign = "center";
+    ctx.fillText("This certifies that", canvas.width / 2, 140);
 
-    // Stats section with elegant cards
-    const statsY = 490;
-    const statCardWidth = 140;
-    const statCardHeight = 65;
-    const statsGap = 20;
-    const totalStatsWidth = (statCardWidth * 6) + (statsGap * 5);
-    const statsStartX = (canvas.width - totalStatsWidth) / 2;
+    // User Name - Large and prominent with glow
+    ctx.save();
+    ctx.shadowColor = tierVisuals.glowColor;
+    ctx.shadowBlur = 30;
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 48px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText(displayName, canvas.width / 2, 195);
+    ctx.restore();
 
-    const stats = [
-      { label: "ACCURACY", value: `${accuracy}%`, color: "#4ade80" },
-      { label: "RAW WPM", value: `${rawWpm}`, color: "#c084fc" },
-      { label: "CONSISTENCY", value: `${consistency}%`, color: "#60a5fa" },
-      { label: "ERRORS", value: `${errors}`, color: errors > 0 ? "#f87171" : "#4ade80" },
-      { label: "CHARACTERS", value: `${characters}`, color: "#fbbf24" },
-      { label: "TIME", value: time, color: "#22d3ee" },
-    ];
+    // "has successfully completed a Code Mode test"
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+    ctx.font = "italic 18px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("has successfully completed a Code Mode test", canvas.width / 2, 235);
 
-    stats.forEach((stat, i) => {
-      const x = statsStartX + (i * (statCardWidth + statsGap));
-      
-      // Card background
-      ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
-      ctx.beginPath();
-      ctx.roundRect(x, statsY, statCardWidth, statCardHeight, 8);
-      ctx.fill();
-      
-      // Card border
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.roundRect(x, statsY, statCardWidth, statCardHeight, 8);
-      ctx.stroke();
-      
-      // Stat value
-      ctx.fillStyle = stat.color;
-      ctx.font = "bold 24px 'JetBrains Mono', monospace";
-      ctx.textAlign = "center";
-      ctx.fillText(stat.value, x + statCardWidth / 2, statsY + 30);
-      
-      // Stat label
-      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-      ctx.font = "10px 'DM Sans', system-ui, sans-serif";
-      ctx.fillText(stat.label, x + statCardWidth / 2, statsY + 50);
-    });
+    // Language info
+    ctx.fillStyle = tierVisuals.primaryColor;
+    ctx.font = "600 16px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText(`${langIcon} ${languageName} Programming  •  ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} Difficulty`, canvas.width / 2, 265);
 
-    // Footer section
-    const footerY = canvas.height - 55;
+    // "with the following results:"
+    ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+    ctx.font = "16px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("with the following results:", canvas.width / 2, 300);
+
+    // Stats box background
+    const statsBoxX = 200;
+    const statsBoxY = 320;
+    const statsBoxWidth = 800;
+    const statsBoxHeight = 100;
     
-    // Decorative line above footer
+    ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+    ctx.beginPath();
+    ctx.roundRect(statsBoxX, statsBoxY, statsBoxWidth, statsBoxHeight, 12);
+    ctx.fill();
+    
     ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(60, footerY - 10);
-    ctx.lineTo(canvas.width - 60, footerY - 10);
+    ctx.roundRect(statsBoxX, statsBoxY, statsBoxWidth, statsBoxHeight, 12);
     ctx.stroke();
 
-    // Left side - Brand
-    ctx.fillStyle = tierVisuals.primaryColor;
-    ctx.font = "bold 16px 'DM Sans', system-ui, sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText("TypeMasterAI", 60, footerY + 15);
-    
+    // Stats Row 1: WPM | Accuracy | Consistency
+    const row1Y = statsBoxY + 40;
+    const statsStartX = statsBoxX + 80;
+    const statSpacing = 250;
+
+    // WPM
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 32px 'JetBrains Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(`${wpm}`, statsStartX, row1Y);
     ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
     ctx.font = "12px 'DM Sans', system-ui, sans-serif";
-    ctx.fillText("typemasterai.com/code-mode", 60, footerY + 35);
+    ctx.fillText("WPM", statsStartX, row1Y + 20);
 
-    // Center - Certificate details
-    ctx.textAlign = "center";
+    // Divider
+    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.fillText("|", statsStartX + statSpacing / 2, row1Y);
+
+    // Accuracy
+    ctx.fillStyle = "#4ade80";
+    ctx.font = "bold 32px 'JetBrains Mono', monospace";
+    ctx.fillText(`${accuracy}%`, statsStartX + statSpacing, row1Y);
     ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-    ctx.font = "11px 'JetBrains Mono', monospace";
+    ctx.font = "12px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("ACCURACY", statsStartX + statSpacing, row1Y + 20);
+
+    // Divider
+    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.fillText("|", statsStartX + statSpacing * 1.5, row1Y);
+
+    // Raw WPM
+    ctx.fillStyle = "#c084fc";
+    ctx.font = "bold 32px 'JetBrains Mono', monospace";
+    ctx.fillText(`${rawWpm}`, statsStartX + statSpacing * 2, row1Y);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.font = "12px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("RAW WPM", statsStartX + statSpacing * 2, row1Y + 20);
+
+    // Divider
+    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.fillText("|", statsStartX + statSpacing * 2.5, row1Y);
+
+    // Time
+    ctx.fillStyle = "#22d3ee";
+    ctx.font = "bold 32px 'JetBrains Mono', monospace";
+    ctx.fillText(time, statsStartX + statSpacing * 3, row1Y);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.font = "12px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("TIME", statsStartX + statSpacing * 3, row1Y + 20);
+
+    // Performance tier badge (on right side)
+    const badgeX = canvas.width - 120;
+    const badgeY = statsBoxY + statsBoxHeight / 2;
+    const badgeRadius = 35;
     
-    const difficultyText = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
-    ctx.fillText(`${difficultyText} Difficulty  •  ${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`, canvas.width / 2, footerY + 15);
+    ctx.save();
+    ctx.shadowColor = tierVisuals.glowColor;
+    ctx.shadowBlur = 15;
+    
+    const badgeGradient = ctx.createRadialGradient(badgeX, badgeY, 0, badgeX, badgeY, badgeRadius);
+    badgeGradient.addColorStop(0, tierVisuals.secondaryColor);
+    badgeGradient.addColorStop(0.7, tierVisuals.primaryColor);
+    badgeGradient.addColorStop(1, tierVisuals.borderGradient[0]);
+    
+    ctx.fillStyle = badgeGradient;
+    ctx.beginPath();
+    ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.fillStyle = "#1a1a2e";
+    ctx.beginPath();
+    ctx.arc(badgeX, badgeY, badgeRadius - 6, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.restore();
     
     ctx.fillStyle = tierVisuals.primaryColor;
-    ctx.font = "bold 12px 'JetBrains Mono', monospace";
-    ctx.fillText(`ID: ${certificateId}`, canvas.width / 2, footerY + 35);
+    ctx.font = "bold 12px 'DM Sans', system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(rating.badge.toUpperCase(), badgeX, badgeY - 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "9px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("TIER", badgeX, badgeY + 12);
 
-    // Right side - Username or challenge text
+    // Earned on date
+    const formattedDate = date.toLocaleDateString('en-GB', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    });
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+    ctx.font = "16px 'DM Sans', system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`Earned on: ${formattedDate}`, canvas.width / 2, 465);
+
+    // Motivational quote
+    ctx.fillStyle = tierVisuals.primaryColor;
+    ctx.font = "italic 22px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText(`"${rating.title}"`, canvas.width / 2, 510);
+
+    // Additional stats line
+    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.font = "13px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText(`${characters} characters  •  ${errors} error${errors !== 1 ? 's' : ''}  •  ${consistency}% consistency`, canvas.width / 2, 545);
+
+    // Signature section
+    const sigY = 595;
+    
+    // Signature line
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(canvas.width / 2 - 150, sigY);
+    ctx.lineTo(canvas.width / 2 + 150, sigY);
+    ctx.stroke();
+
+    // AI Coach signature
+    ctx.fillStyle = tierVisuals.primaryColor;
+    ctx.font = "italic 18px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("TypeMasterAI Coach", canvas.width / 2, sigY - 10);
+    
+    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.font = "11px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("AI Typing Coach & Certification Authority", canvas.width / 2, sigY + 18);
+
+    // Footer with certificate ID and URL
+    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.font = "10px 'JetBrains Mono', monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(`ID: ${certificateId}`, 50, canvas.height - 25);
+
+    ctx.textAlign = "center";
+    ctx.fillText("typemasterai.com/code-mode", canvas.width / 2, canvas.height - 25);
+
     ctx.textAlign = "right";
-    if (username) {
-      ctx.fillStyle = tierVisuals.primaryColor;
-      ctx.font = "bold 14px 'DM Sans', system-ui, sans-serif";
-      ctx.fillText(`@${username}`, canvas.width - 60, footerY + 15);
-      
-      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-      ctx.font = "11px 'DM Sans', system-ui, sans-serif";
-      ctx.fillText("Certified Developer", canvas.width - 60, footerY + 35);
-    } else {
-      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-      ctx.font = "12px 'DM Sans', system-ui, sans-serif";
-      ctx.fillText("Can you type faster?", canvas.width - 60, footerY + 25);
-    }
+    ctx.fillStyle = tierVisuals.primaryColor;
+    ctx.font = "bold 10px 'JetBrains Mono', monospace";
+    ctx.fillText(`${rating.emoji} ${rating.badge} CERTIFIED`, canvas.width - 50, canvas.height - 25);
   };
 
   const downloadCertificate = () => {
