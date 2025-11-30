@@ -9,7 +9,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail, Award, X, Infinity, Sparkles } from "lucide-react";
+import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail, Award, X, Infinity, Sparkles, Settings, Volume2, VolumeX, Eye, EyeOff } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
 import { CodeShareCard } from "@/components/CodeShareCard";
@@ -156,6 +159,14 @@ export default function CodeMode() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [infiniteMode, setInfiniteMode] = useState(false);
   const [showCustomAI, setShowCustomAI] = useState(false);
+  
+  // Advanced settings
+  const [caretStyle, setCaretStyle] = useState<"line" | "block" | "underline">("line");
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [showLineNumbers, setShowLineNumbers] = useState(true);
+  const [showIndentGuides, setShowIndentGuides] = useState(true);
+  const [smoothCaret, setSmoothCaret] = useState(true);
+  const [focusMode, setFocusMode] = useState(false);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -769,6 +780,33 @@ export default function CodeMode() {
     return "text-muted-foreground";
   };
 
+  // Calculate current cursor line for active line highlighting
+  const currentCursorLine = useMemo(() => {
+    if (!codeSnippet) return 0;
+    const textBeforeCursor = codeSnippet.substring(0, userInput.length);
+    return textBeforeCursor.split('\n').length;
+  }, [codeSnippet, userInput.length]);
+
+  // Caret component based on style setting
+  const renderCaret = (style: "line" | "block" | "underline") => {
+    const baseClass = smoothCaret ? "animate-caret-smooth" : "animate-caret-blink";
+    
+    if (style === "block") {
+      return (
+        <span className={`absolute left-0 top-0 w-[0.6em] h-[1.2em] bg-primary/30 rounded-sm ${baseClass}`} />
+      );
+    }
+    if (style === "underline") {
+      return (
+        <span className={`absolute left-0 bottom-0 w-[0.6em] h-[2px] bg-primary rounded-full ${baseClass} shadow-[0_0_6px_rgba(var(--primary),0.5)]`} />
+      );
+    }
+    // Default: line
+    return (
+      <span className={`absolute left-0 top-0 w-[2px] h-[1.2em] bg-primary rounded-full ${baseClass} shadow-[0_0_8px_rgba(var(--primary),0.5)]`} />
+    );
+  };
+
   const highlightedCode = useMemo(() => {
     if (!codeSnippet) return null;
     
@@ -776,39 +814,58 @@ export default function CodeMode() {
     let charIndex = 0;
     
     return lines.map((line, lineIndex) => {
+      const isActiveLine = lineIndex + 1 === currentCursorLine;
+      
+      // Calculate indentation level for guides
+      const indentMatch = line.match(/^(\s*)/);
+      const indentLevel = indentMatch ? Math.floor(indentMatch[1].length / 2) : 0;
+      
       const lineContent = line.split("").map((char, i) => {
         const currentCharIndex = charIndex + i;
-        let className = "";
         const isCurrent = currentCharIndex === userInput.length;
+        const isTyped = currentCharIndex < userInput.length;
+        const isCorrect = isTyped && userInput[currentCharIndex] === char;
+        const isError = isTyped && !isCorrect;
         
-        if (currentCharIndex < userInput.length) {
-          const isCorrect = userInput[currentCharIndex] === char;
-          className = isCorrect 
-            ? "text-green-500" 
-            : "text-red-500 bg-red-500/20";
+        // Enhanced character styling
+        let charClassName = "transition-all duration-75 ";
+        
+        if (isError) {
+          // Error: red text with underline instead of background
+          charClassName += "text-red-400 decoration-red-500 underline decoration-wavy decoration-2 ";
+        } else if (isTyped) {
+          // Correct: bright text with subtle glow
+          charClassName += "text-foreground ";
         } else if (isCurrent) {
-          className = "relative";
+          // Current position
+          charClassName += "relative text-muted-foreground/80 ";
         } else {
-          className = "text-muted-foreground/60";
+          // Untyped: dimmed
+          charClassName += focusMode ? "text-muted-foreground/20" : "text-muted-foreground/40 ";
         }
         
-        // Handle tabs - show visible indicator
+        // Handle spaces with visible dots for untyped
+        if (char === " " && !isTyped && !isCurrent) {
+          return (
+            <span key={currentCharIndex} className={charClassName + "relative"}>
+              <span className="opacity-20">·</span>
+            </span>
+          );
+        }
+        
+        // Handle tabs
         if (char === "\t") {
           return (
-            <span key={currentCharIndex} className={className}>
+            <span key={currentCharIndex} className={charClassName}>
               {"    "}
-              {isCurrent && !isFinished && (
-                <span className="absolute left-0 top-0 w-0.5 h-full bg-primary animate-pulse" />
-              )}
+              {isCurrent && !isFinished && !isFailed && renderCaret(caretStyle)}
             </span>
           );
         }
         
         return (
-          <span key={currentCharIndex} className={className}>
-            {isCurrent && !isFinished && (
-              <span className="absolute left-0 top-0 w-0.5 h-full bg-primary animate-pulse" />
-            )}
+          <span key={currentCharIndex} className={charClassName}>
+            {isCurrent && !isFinished && !isFailed && renderCaret(caretStyle)}
             {char}
           </span>
         );
@@ -818,33 +875,64 @@ export default function CodeMode() {
       const newlineIndex = charIndex + line.length;
       const isCursorAtNewline = newlineIndex === userInput.length;
       
-      // Update charIndex for next line (add line content + newline char)
+      // Update charIndex for next line
       charIndex += line.length + 1;
       
       return (
-        <div key={lineIndex} className="flex" data-line={lineIndex + 1}>
-          <span className="select-none w-8 text-right pr-4 text-muted-foreground/40 text-sm">
-            {lineIndex + 1}
-          </span>
-          <span className="flex-1">
+        <div 
+          key={lineIndex} 
+          className={`flex group transition-colors duration-150 ${
+            isActiveLine && !focusMode ? "bg-primary/5 -mx-2 px-2 rounded" : ""
+          }`} 
+          data-line={lineIndex + 1}
+        >
+          {/* Line number gutter */}
+          {showLineNumbers && (
+            <span className={`select-none w-10 text-right pr-3 text-xs font-mono transition-colors ${
+              isActiveLine 
+                ? "text-primary font-medium" 
+                : "text-muted-foreground/30 group-hover:text-muted-foreground/50"
+            }`}>
+              {lineIndex + 1}
+            </span>
+          )}
+          
+          {/* Indentation guides */}
+          {showIndentGuides && (
+            <span className="relative">
+              {indentLevel > 0 && Array.from({ length: indentLevel }).map((_, idx) => (
+                <span 
+                  key={idx}
+                  className={`absolute top-0 bottom-0 w-px ${
+                    isActiveLine ? "bg-primary/20" : "bg-muted-foreground/10"
+                  }`}
+                  style={{ left: `${idx * 16}px` }}
+                />
+              ))}
+            </span>
+          )}
+          
+          {/* Line content */}
+          <span className="flex-1 whitespace-pre">
             {lineContent}
-            {isCursorAtNewline && !isFinished && lineIndex < lines.length - 1 && (
+            {isCursorAtNewline && !isFinished && !isFailed && lineIndex < lines.length - 1 && (
               <span className="relative">
-                <span className="absolute left-0 top-0 w-0.5 h-full bg-primary animate-pulse" />
+                {renderCaret(caretStyle)}
               </span>
             )}
-            {lineIndex < lines.length - 1 && (
-              <span className={
+            {/* Newline indicator */}
+            {lineIndex < lines.length - 1 && !focusMode && (
+              <span className={`ml-1 text-xs ${
                 newlineIndex < userInput.length 
-                  ? "text-green-500/30" 
-                  : "text-muted-foreground/20"
-              }>↵</span>
+                  ? "text-green-500/40" 
+                  : "text-muted-foreground/15"
+              }`}>↵</span>
             )}
           </span>
         </div>
       );
     });
-  }, [codeSnippet, userInput, isFinished]);
+  }, [codeSnippet, userInput, isFinished, isFailed, currentCursorLine, caretStyle, smoothCaret, showLineNumbers, showIndentGuides, focusMode]);
 
   const shareToSocial = (platform: string) => {
     const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
@@ -1131,11 +1219,11 @@ export default function CodeMode() {
               </Tooltip>
             </div>
 
-            {/* AI Custom Content Button & Panel */}
+            {/* AI Custom Content & Settings Row */}
             {mode === "ai" && !isActive && (
               <>
                 {!showCustomAI ? (
-                  <div className="mt-2 flex justify-center">
+                  <div className="mt-2 flex justify-center items-center gap-2">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -1153,6 +1241,124 @@ export default function CodeMode() {
                         <p className="text-xs">Request specific code like "React hooks" or "sorting algorithm"</p>
                       </TooltipContent>
                     </Tooltip>
+                    
+                    <span className="text-muted-foreground/30">|</span>
+                    
+                    {/* Settings Popover */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5 px-2 h-7 text-xs text-muted-foreground hover:text-primary"
+                          data-testid="button-settings"
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Settings</span>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72 p-4" align="center">
+                        <div className="space-y-4">
+                          <h4 className="font-medium text-sm flex items-center gap-2">
+                            <Settings className="w-4 h-4" />
+                            Typing Settings
+                          </h4>
+                          
+                          {/* Caret Style */}
+                          <div className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Caret Style</Label>
+                            <div className="flex gap-1">
+                              {(["line", "block", "underline"] as const).map((style) => (
+                                <button
+                                  key={style}
+                                  onClick={() => setCaretStyle(style)}
+                                  className={`flex-1 py-1.5 px-2 text-xs rounded-md border transition-colors ${
+                                    caretStyle === style 
+                                      ? "bg-primary text-primary-foreground border-primary" 
+                                      : "bg-muted/50 border-border hover:bg-muted"
+                                  }`}
+                                  data-testid={`button-caret-${style}`}
+                                >
+                                  {style.charAt(0).toUpperCase() + style.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          {/* Toggles */}
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="smooth-caret" className="text-xs flex items-center gap-2">
+                                <Eye className="w-3.5 h-3.5" />
+                                Smooth Caret
+                              </Label>
+                              <Switch 
+                                id="smooth-caret" 
+                                checked={smoothCaret} 
+                                onCheckedChange={setSmoothCaret}
+                                data-testid="switch-smooth-caret"
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="line-numbers" className="text-xs flex items-center gap-2">
+                                <Code className="w-3.5 h-3.5" />
+                                Line Numbers
+                              </Label>
+                              <Switch 
+                                id="line-numbers" 
+                                checked={showLineNumbers} 
+                                onCheckedChange={setShowLineNumbers}
+                                data-testid="switch-line-numbers"
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="indent-guides" className="text-xs flex items-center gap-2">
+                                <Code className="w-3.5 h-3.5" />
+                                Indent Guides
+                              </Label>
+                              <Switch 
+                                id="indent-guides" 
+                                checked={showIndentGuides} 
+                                onCheckedChange={setShowIndentGuides}
+                                data-testid="switch-indent-guides"
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="focus-mode" className="text-xs flex items-center gap-2">
+                                {focusMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                Focus Mode
+                              </Label>
+                              <Switch 
+                                id="focus-mode" 
+                                checked={focusMode} 
+                                onCheckedChange={setFocusMode}
+                                data-testid="switch-focus-mode"
+                              />
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <Label htmlFor="sound-enabled" className="text-xs flex items-center gap-2">
+                                {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                                Typing Sounds
+                              </Label>
+                              <Switch 
+                                id="sound-enabled" 
+                                checked={soundEnabled} 
+                                onCheckedChange={setSoundEnabled}
+                                data-testid="switch-sound"
+                              />
+                            </div>
+                          </div>
+                          
+                          <p className="text-[10px] text-muted-foreground/60 text-center">
+                            Settings apply immediately
+                          </p>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 ) : (
                   <div className="mt-2 p-2 bg-card/50 rounded-lg border border-border/50 animate-in fade-in duration-150">
@@ -1420,77 +1626,132 @@ export default function CodeMode() {
           <div
             ref={containerRef}
             onClick={handleContainerClick}
-            className={`relative bg-card/30 rounded-lg p-6 min-h-[300px] cursor-text transition-all ${
-              isFocused ? "ring-2 ring-primary/20" : ""
+            className={`relative rounded-xl min-h-[300px] cursor-text transition-all duration-300 overflow-hidden ${
+              isFocused 
+                ? "ring-2 ring-primary/30 shadow-lg shadow-primary/5" 
+                : "ring-1 ring-border/30 hover:ring-border/50"
             }`}
             data-testid="typing-container"
+            style={{
+              background: 'linear-gradient(180deg, hsl(var(--card)/0.6) 0%, hsl(var(--card)/0.3) 100%)'
+            }}
           >
-            {isLoading ? (
-              <div className="h-64 p-4 space-y-3">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-3 h-3 rounded-full bg-red-500/50 animate-pulse" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/50 animate-pulse" style={{ animationDelay: '0.2s' }} />
-                  <div className="w-3 h-3 rounded-full bg-green-500/50 animate-pulse" style={{ animationDelay: '0.4s' }} />
-                  <span className="text-xs text-muted-foreground ml-2">
-                    Generating {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name} snippet...
-                  </span>
+            {/* Code editor header bar */}
+            <div className="flex items-center justify-between px-4 py-2 border-b border-border/20 bg-card/40">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-red-500/70 hover:bg-red-500 transition-colors" />
+                  <div className="w-3 h-3 rounded-full bg-yellow-500/70 hover:bg-yellow-500 transition-colors" />
+                  <div className="w-3 h-3 rounded-full bg-green-500/70 hover:bg-green-500 transition-colors" />
                 </div>
-                <div className="space-y-2">
-                  <div className="h-4 bg-muted/30 rounded animate-pulse w-3/4" />
-                  <div className="h-4 bg-muted/30 rounded animate-pulse w-1/2" style={{ animationDelay: '0.1s' }} />
-                  <div className="h-4 bg-muted/30 rounded animate-pulse w-5/6" style={{ animationDelay: '0.2s' }} />
-                  <div className="h-4 bg-muted/30 rounded animate-pulse w-2/3" style={{ animationDelay: '0.3s' }} />
-                  <div className="h-4 bg-muted/30 rounded animate-pulse w-4/5" style={{ animationDelay: '0.4s' }} />
-                  <div className="h-4 bg-muted/30 rounded animate-pulse w-1/3" style={{ animationDelay: '0.5s' }} />
-                  <div className="h-4 bg-muted/30 rounded animate-pulse w-3/5" style={{ animationDelay: '0.6s' }} />
-                </div>
+                <span className="text-xs text-muted-foreground/60 ml-3 font-mono">
+                  {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}
+                  {!isLoading && codeSnippet && (
+                    <span className="ml-2 text-muted-foreground/40">
+                      • {codeSnippet.split('\n').length} lines • {codeSnippet.length} chars
+                    </span>
+                  )}
+                </span>
               </div>
-            ) : codeSnippet ? (
-              <>
-                {/* Hidden textarea for input capture */}
-                <textarea
-                  ref={textareaRef}
-                  value={userInput}
-                  onChange={handleInput}
-                  onKeyDown={handleKeyDown}
-                  onPaste={handlePaste}
-                  onCompositionStart={handleCompositionStart}
-                  onCompositionEnd={handleCompositionEnd}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
-                  className="absolute opacity-0 w-full h-full top-0 left-0 resize-none cursor-text"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                  data-testid="input-code-typing"
-                  disabled={isFinished || isFailed}
-                />
-                
-                {/* Displayed code with highlighting and line numbers */}
-                <div 
-                  className="font-mono text-lg leading-relaxed select-none overflow-auto max-h-[400px] scroll-smooth"
-                  ref={codeDisplayRef}
-                >
-                  {highlightedCode}
+              {isActive && (
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-xs text-green-500/80 font-mono">typing</span>
                 </div>
+              )}
+            </div>
 
-                {/* Click to start overlay */}
-                {!isActive && !isFinished && userInput.length === 0 && !isFocused && (
-                  <div 
-                    className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm rounded-lg cursor-text"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      textareaRef.current?.focus();
-                    }}
-                  >
-                    <div className="text-muted-foreground text-lg pointer-events-none">
-                      Click here or start typing
-                    </div>
+            <div className="p-5">
+              {isLoading ? (
+                <div className="h-64 space-y-3">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    <span className="text-xs text-muted-foreground">
+                      Generating {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name} snippet...
+                    </span>
                   </div>
-                )}
-              </>
-            ) : errorState.type ? (
+                  <div className="space-y-2.5">
+                    {[3/4, 1/2, 5/6, 2/3, 4/5, 1/3, 3/5].map((w, i) => (
+                      <div 
+                        key={i}
+                        className="h-5 bg-gradient-to-r from-muted/40 to-muted/20 rounded-md animate-pulse" 
+                        style={{ width: `${w * 100}%`, animationDelay: `${i * 0.08}s` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : codeSnippet ? (
+                <>
+                  {/* Hidden textarea for input capture */}
+                  <textarea
+                    ref={textareaRef}
+                    value={userInput}
+                    onChange={handleInput}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
+                    onCompositionStart={handleCompositionStart}
+                    onCompositionEnd={handleCompositionEnd}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    className="absolute opacity-0 w-0 h-0 top-0 left-0 resize-none"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    data-testid="input-code-typing"
+                    disabled={isFinished || isFailed}
+                    aria-label="Code typing input"
+                  />
+                  
+                  {/* Displayed code with highlighting and line numbers */}
+                  <div 
+                    className="font-mono text-[15px] leading-[1.65] select-none overflow-auto max-h-[400px] scroll-smooth scrollbar-thin scrollbar-thumb-muted/30 scrollbar-track-transparent"
+                    ref={codeDisplayRef}
+                    role="textbox"
+                    aria-readonly="true"
+                    aria-label="Code display area"
+                  >
+                    {highlightedCode}
+                  </div>
+
+                  {/* Progress indicator at bottom */}
+                  {isActive && codeSnippet && (
+                    <div className="mt-4 pt-3 border-t border-border/10">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground/60 mb-1.5">
+                        <span>{userInput.length} / {codeSnippet.length} characters</span>
+                        <span>{Math.round((userInput.length / codeSnippet.length) * 100)}%</span>
+                      </div>
+                      <div className="h-1 bg-muted/20 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-primary/80 to-primary rounded-full transition-all duration-150 ease-out"
+                          style={{ width: `${Math.min((userInput.length / codeSnippet.length) * 100, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Click to start overlay */}
+                  {!isActive && !isFinished && userInput.length === 0 && !isFocused && (
+                    <div 
+                      className="absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm cursor-text transition-opacity duration-200"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        textareaRef.current?.focus();
+                      }}
+                    >
+                      <div className="text-center pointer-events-none">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/20 mb-2">
+                          <span className="text-primary text-lg">⌨️</span>
+                          <span className="text-muted-foreground">Click or press any key to start</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground/50">
+                          {timeLimit === 0 ? "Infinite mode - type until you want to stop" : `${timeLimit}s time limit`}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : errorState.type ? (
               <div className="flex flex-col items-center justify-center h-64 gap-4">
                 <div className={`text-center p-4 rounded-lg ${
                   errorState.type === 'network' ? 'bg-yellow-500/10 border border-yellow-500/30' :
@@ -1551,6 +1812,7 @@ export default function CodeMode() {
                 </Button>
               </div>
             )}
+            </div>
           </div>
 
           {/* Progress indicator with keyboard shortcuts */}
