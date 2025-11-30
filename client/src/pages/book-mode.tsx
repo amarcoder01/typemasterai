@@ -380,6 +380,7 @@ export default function BookMode() {
   const [retryCount, setRetryCount] = useState(0);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const hasInitiallyLoaded = useRef(false);
 
   const { 
     data: topicsData,
@@ -417,10 +418,15 @@ export default function BookMode() {
       setCurrentParagraph(paragraph);
       resetTestState();
       setRetryCount(0);
-      toast({
-        title: "Paragraph Loaded",
-        description: `${paragraph.source} - ${paragraph.lengthWords} words`,
-      });
+      
+      if (hasInitiallyLoaded.current) {
+        toast({
+          title: "Paragraph Loaded",
+          description: `${paragraph.source} - ${paragraph.lengthWords} words`,
+        });
+      } else {
+        hasInitiallyLoaded.current = true;
+      }
     } catch (error: any) {
       console.error("Error fetching paragraph:", error);
       setLoadError(error.message);
