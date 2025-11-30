@@ -562,13 +562,17 @@ export default function BookMode() {
     fetchParagraph();
   }, []);
 
+  const normalizedText = useMemo(() => {
+    return (currentParagraph?.text || "").replace(/\n/g, " ").replace(/\s+/g, " ");
+  }, [currentParagraph]);
+
   const stats = useMemo(() => {
     if (!isActive || !startTime || !currentParagraph) {
       return { wpm: 0, accuracy: 100, errors: 0 };
     }
     
     const chars = userInput.length;
-    const errorCount = userInput.split("").filter((char, i) => char !== currentParagraph.text[i]).length;
+    const errorCount = userInput.split("").filter((char, i) => char !== normalizedText[i]).length;
     const correctChars = chars - errorCount;
     const timeElapsed = (Date.now() - startTime) / 1000;
     
@@ -577,7 +581,7 @@ export default function BookMode() {
       accuracy: calculateAccuracy(correctChars, chars),
       errors: errorCount,
     };
-  }, [userInput, isActive, startTime, currentParagraph]);
+  }, [userInput, isActive, startTime, currentParagraph, normalizedText]);
 
   useEffect(() => {
     if (!isActive || isFinished) return;
@@ -592,10 +596,10 @@ export default function BookMode() {
   }, [stats, isActive, isFinished]);
 
   useEffect(() => {
-    if (isActive && currentParagraph && userInput === currentParagraph.text) {
+    if (isActive && currentParagraph && userInput === normalizedText) {
       finishTest();
     }
-  }, [userInput, isActive, currentParagraph]);
+  }, [userInput, isActive, currentParagraph, normalizedText]);
 
   useEffect(() => {
     const handleKeyboard = (e: KeyboardEvent) => {
@@ -654,7 +658,7 @@ export default function BookMode() {
     const duration = Math.round(elapsedSeconds);
     
     const chars = userInput.length;
-    const errorCount = userInput.split("").filter((char, i) => char !== currentParagraph.text[i]).length;
+    const errorCount = userInput.split("").filter((char, i) => char !== normalizedText[i]).length;
     const correctChars = chars - errorCount;
     const finalWpm = calculateWPM(correctChars, elapsedSeconds);
     const finalAccuracy = calculateAccuracy(correctChars, chars);
@@ -689,7 +693,7 @@ export default function BookMode() {
       setPendingResult(result);
       saveTestMutation.mutate(result);
     }
-  }, [currentParagraph, startTime, userInput, user, saveTestMutation]);
+  }, [currentParagraph, startTime, userInput, user, saveTestMutation, normalizedText]);
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (isComposing) return;
@@ -712,7 +716,7 @@ export default function BookMode() {
   const processInput = (value: string) => {
     if (!currentParagraph || isFinished) return;
     
-    if (value.length > currentParagraph.text.length) {
+    if (value.length > normalizedText.length) {
       if (textareaRef.current) textareaRef.current.value = userInput;
       return;
     }
@@ -799,8 +803,7 @@ export default function BookMode() {
     );
   }
 
-  const paragraphText = currentParagraph?.text || "";
-  const highlightedText = paragraphText.split("").map((char, index) => {
+  const highlightedText = normalizedText.split("").map((char, index) => {
     let className = "text-muted-foreground";
     if (index < userInput.length) {
       className = userInput[index] === char ? "text-green-500" : "text-red-500 bg-red-500/20";
