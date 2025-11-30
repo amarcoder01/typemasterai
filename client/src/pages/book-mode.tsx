@@ -791,22 +791,38 @@ export default function BookMode() {
       for (let i = 0; i < expectedWord.length; i++) {
         const expectedChar = expectedWord[i];
         let className = "text-muted-foreground";
+        let displayChar = expectedChar;
+        let showTypedChar = false;
+        let typedChar = "";
 
         if (isTypedWord && typedWord !== undefined) {
           if (i < typedWord.length) {
-            className = typedWord[i] === expectedChar 
-              ? "text-green-500" 
-              : "text-red-500 bg-red-500/20";
+            if (typedWord[i] === expectedChar) {
+              className = "text-green-500";
+            } else {
+              className = "text-red-500 line-through opacity-70";
+              showTypedChar = true;
+              typedChar = typedWord[i];
+            }
           } else if (!isCurrentWord) {
             className = "text-red-500 bg-red-500/20";
           }
         }
 
-        result.push(
-          <span key={charIndex} className={className}>
-            {expectedChar}
-          </span>
-        );
+        if (showTypedChar) {
+          result.push(
+            <span key={charIndex} className="relative">
+              <span className={className}>{expectedChar}</span>
+              <span className="text-yellow-400 font-bold">{typedChar}</span>
+            </span>
+          );
+        } else {
+          result.push(
+            <span key={charIndex} className={className}>
+              {displayChar}
+            </span>
+          );
+        }
         charIndex++;
       }
 
