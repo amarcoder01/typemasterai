@@ -17,65 +17,60 @@ function getTargetLineCount(
   difficulty: "easy" | "medium" | "hard",
   timeLimit: number
 ): string {
-  // Increased base line counts for more substantial initial content
+  // Large base line counts for substantial initial content
   const baseLines = {
-    easy: { min: 10, max: 18 },
-    medium: { min: 15, max: 25 },
-    hard: { min: 20, max: 35 }
+    easy: { min: 20, max: 30 },
+    medium: { min: 25, max: 40 },
+    hard: { min: 35, max: 55 }
   };
 
   // Adjust based on time limit (0 = no limit, use default)
-  // Assume average typing speed of ~30-50 characters per minute for code
-  // Average line is ~40 characters
   if (timeLimit === 0) {
     // No limit - use generous size for continuous typing
     return `${baseLines[difficulty].min}-${baseLines[difficulty].max}`;
   }
 
-  // Calculate target based on time - increased multipliers for more content
-  // For 15s = moderate, 30s = good amount, 60s = plenty, 120s+ = lots
+  // Calculate target based on time - high multipliers for lots of content
   let multiplier = 1;
   if (timeLimit <= 15) {
-    multiplier = 0.7; // Increased from 0.4
+    multiplier = 0.8;
   } else if (timeLimit <= 30) {
-    multiplier = 0.9; // Increased from 0.6
+    multiplier = 1.0;
   } else if (timeLimit <= 45) {
-    multiplier = 1.0; // Increased from 0.8
+    multiplier = 1.2;
   } else if (timeLimit <= 60) {
-    multiplier = 1.2; // Increased from 1
+    multiplier = 1.4;
   } else if (timeLimit <= 120) {
-    multiplier = 1.5; // Increased from 1.3
+    multiplier = 1.8;
   } else if (timeLimit <= 180) {
-    multiplier = 1.8; // Increased from 1.5
+    multiplier = 2.2;
   } else if (timeLimit <= 300) {
-    multiplier = 2.2; // Increased from 1.8
+    multiplier = 2.8;
   } else {
-    multiplier = 2.8; // Increased from 2.2
+    multiplier = 3.5;
   }
 
-  const minLines = Math.max(8, Math.round(baseLines[difficulty].min * multiplier));
-  const maxLines = Math.max(12, Math.round(baseLines[difficulty].max * multiplier));
+  const minLines = Math.max(15, Math.round(baseLines[difficulty].min * multiplier));
+  const maxLines = Math.max(20, Math.round(baseLines[difficulty].max * multiplier));
 
   return `${minLines}-${maxLines}`;
 }
 
 function getTargetCharacterCount(timeLimit: number): string {
-  // Estimate: beginner types ~100 chars/min, intermediate ~150, advanced ~200
-  // For code typing (special characters), reduce by ~30%
-  // Target: provide plenty of content so continuous typing feels smooth
+  // Provide lots of content so users always have plenty to type
   
   if (timeLimit === 0) {
-    return "400-700"; // No limit, generous length for continuous typing
+    return "800-1200"; // No limit, lots of content for continuous typing
   }
   
-  // Calculate based on ~100 chars per minute (increased for more content)
+  // Calculate based on ~180 chars per minute (plenty of content)
   // We want MORE content than user can type so they always have something
-  const charsPerMinute = 120; // Increased from 80
+  const charsPerMinute = 180;
   const targetChars = Math.round((timeLimit / 60) * charsPerMinute);
   
-  // Give a range of ±25% with higher minimum
-  const minChars = Math.max(150, Math.round(targetChars * 0.9)); // Increased minimum
-  const maxChars = Math.round(targetChars * 1.4); // Increased upper range
+  // Give a generous range with high minimum
+  const minChars = Math.max(300, Math.round(targetChars * 1.0));
+  const maxChars = Math.max(500, Math.round(targetChars * 1.6));
   
   return `${minChars}-${maxChars}`;
 }
