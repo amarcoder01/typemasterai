@@ -1026,7 +1026,7 @@ export default function CodeMode() {
                   <SelectTrigger className="w-[90px] h-8 text-xs" data-testid="select-time">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[200px]">
                     {TIME_OPTIONS.map(({ value, label }) => (
                       <SelectItem key={value} value={value.toString()}>{label}</SelectItem>
                     ))}
