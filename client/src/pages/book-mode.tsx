@@ -863,6 +863,19 @@ export default function BookMode() {
           <div className="flex items-center justify-center gap-3 mb-4">
             <BookOpen className="w-10 h-10 text-primary" />
             <h1 className="text-4xl font-bold">Book Typing Mode</h1>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge 
+                  variant="outline" 
+                  className="bg-gradient-to-r from-violet-500/20 to-purple-500/20 border-violet-500/50 text-violet-400 font-semibold cursor-help"
+                >
+                  BETA
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>This feature is in beta. We're actively improving it based on your feedback!</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
           <p className="text-muted-foreground text-lg">
             Improve your typing speed by reading classic literature
