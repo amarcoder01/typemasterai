@@ -155,6 +155,7 @@ export default function CodeMode() {
   const [customPrompt, setCustomPrompt] = useState("");
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [infiniteMode, setInfiniteMode] = useState(false);
+  const [showCustomAI, setShowCustomAI] = useState(false);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1123,83 +1124,119 @@ export default function CodeMode() {
               </Tooltip>
             </div>
 
-            {/* AI Custom Content - Attractive Panel */}
+            {/* AI Custom Content Button & Panel */}
             {mode === "ai" && !isActive && (
-              <div className="mt-3 p-3 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 rounded-lg border border-primary/20">
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+              <>
+                {!showCustomAI ? (
+                  <div className="mt-3 flex justify-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCustomAI(true)}
+                      className="gap-2 px-4 h-9 border-dashed border-primary/40 hover:border-primary hover:bg-primary/5"
+                      data-testid="button-open-custom-ai"
+                    >
                       <Sparkles className="w-4 h-4 text-primary" />
-                    </div>
-                    <div className="hidden sm:block">
-                      <p className="text-xs font-medium text-foreground">Custom Content</p>
-                      <p className="text-[10px] text-muted-foreground">What do you want to practice?</p>
-                    </div>
+                      <span>Custom AI Content</span>
+                    </Button>
                   </div>
-                  
-                  <div className="flex-1 relative">
-                    <input
-                      type="text"
-                      value={customPrompt}
-                      onChange={(e) => setCustomPrompt(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && customPrompt.trim()) {
+                ) : (
+                  <div className="mt-3 p-3 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 rounded-lg border border-primary/20 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="hidden sm:block">
+                          <p className="text-xs font-medium text-foreground">Custom Content</p>
+                          <p className="text-[10px] text-muted-foreground">What do you want to practice?</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          value={customPrompt}
+                          onChange={(e) => setCustomPrompt(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && customPrompt.trim()) {
+                              fetchCodeSnippet(true);
+                              setShowCustomAI(false);
+                            }
+                          }}
+                          placeholder="e.g., React hooks, sorting algorithm, API fetch..."
+                          className="w-full h-9 px-4 pr-9 text-sm bg-background/80 border border-border/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 placeholder:text-muted-foreground/50 transition-all"
+                          disabled={isActive}
+                          autoFocus
+                          data-testid="input-custom-prompt"
+                        />
+                        {customPrompt && (
+                          <button
+                            onClick={() => setCustomPrompt("")}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            data-testid="button-clear-prompt"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      <Button
+                        size="sm"
+                        onClick={() => {
                           fetchCodeSnippet(true);
-                        }
-                      }}
-                      placeholder="e.g., React hooks, sorting algorithm, API fetch..."
-                      className="w-full h-9 px-4 pr-9 text-sm bg-background/80 border border-border/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 placeholder:text-muted-foreground/50 transition-all"
-                      disabled={isActive}
-                      data-testid="input-custom-prompt"
-                    />
-                    {customPrompt && (
+                          setShowCustomAI(false);
+                        }}
+                        disabled={isLoading}
+                        className="h-9 px-4 shrink-0"
+                        data-testid="button-generate-custom"
+                      >
+                        {isLoading ? (
+                          <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <Zap className="w-4 h-4 mr-1.5" />
+                            Generate
+                          </>
+                        )}
+                      </Button>
+                      
                       <button
-                        onClick={() => setCustomPrompt("")}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        data-testid="button-clear-prompt"
+                        onClick={() => {
+                          setShowCustomAI(false);
+                          setCustomPrompt("");
+                        }}
+                        className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                        data-testid="button-close-custom-ai"
                       >
                         <X className="w-4 h-4" />
                       </button>
-                    )}
+                    </div>
+                    
+                    {/* Quick suggestions */}
+                    <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Quick:</span>
+                      {["React hooks", "API calls", "Sorting", "Classes", "Async/await"].map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          onClick={() => {
+                            setCustomPrompt(suggestion);
+                            setTimeout(() => {
+                              fetchCodeSnippet(true);
+                              setShowCustomAI(false);
+                            }, 50);
+                          }}
+                          disabled={isLoading}
+                          className="px-2.5 py-1 text-[11px] bg-background/60 hover:bg-primary/20 border border-border/30 hover:border-primary/40 rounded-full transition-all text-muted-foreground hover:text-foreground disabled:opacity-50"
+                          data-testid={`suggestion-${suggestion.toLowerCase().replace(/\s+/g, '-')}`}
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  
-                  <Button
-                    size="sm"
-                    onClick={() => fetchCodeSnippet(true)}
-                    disabled={isLoading}
-                    className="h-9 px-4 shrink-0"
-                    data-testid="button-generate-custom"
-                  >
-                    {isLoading ? (
-                      <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <Zap className="w-4 h-4 mr-1.5" />
-                        Generate
-                      </>
-                    )}
-                  </Button>
-                </div>
-                
-                {/* Quick suggestions */}
-                <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Quick:</span>
-                  {["React hooks", "API calls", "Sorting", "Classes", "Async/await"].map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      onClick={() => {
-                        setCustomPrompt(suggestion);
-                        setTimeout(() => fetchCodeSnippet(true), 50);
-                      }}
-                      disabled={isLoading}
-                      className="px-2.5 py-1 text-[11px] bg-background/60 hover:bg-primary/20 border border-border/30 hover:border-primary/40 rounded-full transition-all text-muted-foreground hover:text-foreground disabled:opacity-50"
-                      data-testid={`suggestion-${suggestion.toLowerCase().replace(/\s+/g, '-')}`}
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                )}
+              </>
             )}
 
             {mode === "custom" && !codeSnippet && (
