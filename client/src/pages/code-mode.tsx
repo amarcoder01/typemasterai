@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail, Award, X, Infinity, Sparkles, Settings, Volume2, VolumeX, Eye, EyeOff } from "lucide-react";
+import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail, Award, X, Infinity, Sparkles, Settings, Volume2, VolumeX, Eye, EyeOff, Terminal } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -1639,12 +1639,10 @@ export default function CodeMode() {
             {/* Code editor header bar */}
             <div className="flex items-center justify-between px-4 py-2 border-b border-border/20 bg-card/40">
               <div className="flex items-center gap-2">
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-500/70 hover:bg-red-500 transition-colors" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/70 hover:bg-yellow-500 transition-colors" />
-                  <div className="w-3 h-3 rounded-full bg-green-500/70 hover:bg-green-500 transition-colors" />
+                <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50">
+                  <Terminal className="w-3.5 h-3.5 text-primary/70" />
                 </div>
-                <span className="text-xs text-muted-foreground/60 ml-3 font-mono">
+                <span className="text-xs text-muted-foreground/60 font-mono">
                   {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}
                   {!isLoading && codeSnippet && (
                     <span className="ml-2 text-muted-foreground/40">
