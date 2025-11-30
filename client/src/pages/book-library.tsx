@@ -299,9 +299,17 @@ export default function BookLibrary() {
     }
   }, [cachedBooks, queryClient]);
   
-  const handleRefresh = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['books'] });
-  }, [queryClient]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      setUseCachedData(false);
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetch]);
   
   if (isLoading && !useCachedData) {
     return <LoadingState />;
@@ -320,7 +328,7 @@ export default function BookLibrary() {
   }
   
   if (displayBooks.length === 0) {
-    return <EmptyState onRefresh={handleRefresh} isRefreshing={isFetching} />;
+    return <EmptyState onRefresh={handleRefresh} isRefreshing={isRefreshing} />;
   }
 
   return (
@@ -341,20 +349,25 @@ export default function BookLibrary() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRefresh}
-                  disabled={isFetching}
-                  className="self-start md:self-center"
-                  data-testid="button-refresh"
-                >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-                  {isFetching ? 'Refreshing...' : 'Refresh'}
-                </Button>
+                <span className="inline-flex self-start md:self-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    data-testid="button-refresh"
+                  >
+                    {isRefreshing ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                  </Button>
+                </span>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Refresh book list from server</p>
+                <p>{isRefreshing ? 'Fetching latest books...' : 'Refresh book list from server'}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
