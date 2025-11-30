@@ -152,21 +152,26 @@ Special guidance for ${programmingLanguage}:
     ? `\n\n🎯 USER'S CUSTOM REQUEST:\nThe user specifically wants code about: "${customPrompt}"\nGenerate code that directly addresses this request while maintaining ${programmingLanguage} syntax and the specified difficulty level.`
     : '';
 
-  const prompt = `Generate a realistic ${difficulty}-level ${programmingLanguage} code snippet${frameworkNote} for a typing practice test.${customPromptGuidance}
+  const prompt = `Generate a ${difficulty}-level ${programmingLanguage} code snippet${frameworkNote} for typing practice.${customPromptGuidance}
+
+⚠️ CRITICAL LENGTH REQUIREMENT - THIS IS MANDATORY:
+- You MUST generate AT LEAST ${charCount} characters of code
+- You MUST generate AT LEAST ${lineCount} lines of code
+- DO NOT generate less than the minimum. If unsure, generate MORE.
+- This is a typing test - users need LOTS of code to practice with.
 
 TEST CONFIGURATION:
 - Difficulty: ${difficulty.toUpperCase()} - ${difficultyContext}
 - Test Mode: ${testMode.toUpperCase()} - ${testModeContext}
-- Time Limit: ${timeLimit > 0 ? `${timeLimit} seconds` : 'No limit'}
-- Target Length: ${lineCount} lines, approximately ${charCount} characters
+- MINIMUM Length: ${lineCount} lines, ${charCount} characters (generate AT LEAST this much)
 ${timingGuidance}
 
 CODE REQUIREMENTS:
-1. Write ${lineCount} lines of actual, functional ${programmingLanguage} code${frameworkNote}
-2. Target approximately ${charCount} total characters
+1. Write AT LEAST ${lineCount} lines of actual, functional ${programmingLanguage} code${frameworkNote}
+2. Generate AT LEAST ${charCount} total characters - this is the MINIMUM
 3. Use proper syntax, consistent 2-space indentation
 4. Include realistic variable names following ${programmingLanguage} conventions
-5. Balance special characters (brackets, operators) appropriate for difficulty level
+5. Create a complete, realistic code example (not just a tiny snippet)
 6. ${testMode === 'master' ? 'CRITICAL: Every character must be precise. No unusual formatting.' : testMode === 'expert' ? 'Ensure clean, unambiguous syntax throughout.' : 'Use standard code patterns.'}
 ${languageSpecificGuidance}
 
@@ -176,10 +181,11 @@ ${framework ? `Framework-specific requirements:
 - Follow ${framework} best practices and conventions
 ` : ''}
 
-DIFFICULTY EXAMPLES:
-- Easy: Variable declarations, simple functions, basic loops
-- Medium: Class methods, array operations, conditionals, error handling
-- Hard: Algorithms, design patterns, async/await, complex data transformations
+GENERATE A COMPLETE CODE EXAMPLE such as:
+- A complete function with multiple operations
+- A class with several methods
+- Multiple related functions working together
+- An algorithm implementation with helper functions
 
 Return the code snippet in this JSON format:
 {
@@ -187,15 +193,15 @@ Return the code snippet in this JSON format:
   "description": "brief 1-sentence description of what this code does"
 }
 
-Return ONLY valid JSON, no markdown formatting or extra text.`;
+Return ONLY valid JSON. Remember: MINIMUM ${charCount} characters!`;
 
   try {
-    console.log(`🔧 Generating ${difficulty} ${programmingLanguage} snippet (${timeLimit}s, ${testMode} mode)`);
+    console.log(`🔧 Generating ${difficulty} ${programmingLanguage} snippet (${timeLimit}s, ${testMode} mode) - Target: ${charCount} chars, ${lineCount} lines`);
     
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 1500,
+      max_tokens: 4000, // Increased for longer code snippets
       temperature: 0.7,
       response_format: { type: "json_object" }
     });
