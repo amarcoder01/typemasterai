@@ -417,6 +417,10 @@ export default function BookMode() {
       setCurrentParagraph(paragraph);
       resetTestState();
       setRetryCount(0);
+      toast({
+        title: "Paragraph Loaded",
+        description: `${paragraph.source} - ${paragraph.lengthWords} words`,
+      });
     } catch (error: any) {
       console.error("Error fetching paragraph:", error);
       setLoadError(error.message);
@@ -600,10 +604,6 @@ export default function BookMode() {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !isActive) {
         e.preventDefault();
         fetchParagraph();
-        toast({
-          title: "New Paragraph",
-          description: "Loading a random paragraph...",
-        });
       }
 
       if (e.key === "Tab" && isFinished) {
