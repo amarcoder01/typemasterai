@@ -1733,18 +1733,18 @@ export default function CodeMode() {
                   {/* Click to start overlay */}
                   {!isActive && !isFinished && userInput.length === 0 && !isFocused && (
                     <div 
-                      className="absolute inset-0 flex items-center justify-center bg-card/95 backdrop-blur-md cursor-text transition-opacity duration-200"
+                      className="absolute inset-0 flex items-center justify-center bg-background/40 backdrop-blur-[2px] cursor-text transition-opacity duration-200"
                       onClick={(e) => {
                         e.stopPropagation();
                         textareaRef.current?.focus();
                       }}
                     >
                       <div className="text-center pointer-events-none">
-                        <div className="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-muted/80 border border-border/50 shadow-lg mb-3">
-                          <span className="text-xl opacity-70">⌨️</span>
-                          <span className="text-foreground/80 font-medium">Click or press any key to start</span>
+                        <div className="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-card/95 border border-border shadow-xl mb-3">
+                          <span className="text-xl">⌨️</span>
+                          <span className="text-foreground font-medium">Click or press any key to start</span>
                         </div>
-                        <p className="text-xs text-muted-foreground/60">
+                        <p className="text-xs text-muted-foreground bg-card/80 px-3 py-1 rounded-full">
                           {timeLimit === 0 ? "Infinite mode - type until you want to stop" : `${timeLimit}s time limit`}
                         </p>
                       </div>
