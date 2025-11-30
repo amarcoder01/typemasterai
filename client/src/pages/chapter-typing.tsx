@@ -9,6 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { BookOpen, Trophy, Zap, Target, ArrowLeft, ArrowRight, Loader2, RefreshCw, AlertCircle, WifiOff } from "lucide-react";
 import confetti from "canvas-confetti";
 import type { Book, BookParagraph, InsertBookTypingTest } from "@shared/schema";
@@ -898,25 +904,54 @@ export default function ChapterTyping() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl">
       <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => setLocation(`/books/${slug}`)}
-          className="mb-4"
-          data-testid="button-back-to-book"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to {displayBook.title}
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                onClick={() => setLocation(`/books/${slug}`)}
+                className="mb-4"
+                data-testid="button-back-to-book"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to {displayBook.title}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Return to book chapters list</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
 
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <BookOpen className="w-8 h-8 text-primary" />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="cursor-help">
+                      <BookOpen className="w-8 h-8 text-primary" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Book chapter typing practice</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <h1 className="text-3xl font-bold" data-testid="text-chapter-title">{chapterTitle}</h1>
               {useCachedData && (
-                <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-600 dark:text-yellow-500">
-                  Offline
-                </span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-600 dark:text-yellow-500 cursor-help">
+                        Offline
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Using cached data - progress may not be saved</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
             <p className="text-muted-foreground">
@@ -924,92 +959,159 @@ export default function ChapterTyping() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={goToPreviousChapter}
-              disabled={chapterNum <= 1}
-              data-testid="button-previous-chapter"
-            >
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Previous
-            </Button>
-            <Badge variant="outline" className="text-sm">
-              Chapter {chapterNum} of {displayBook.totalChapters}
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={goToNextChapter}
-              disabled={chapterNum >= displayBook.totalChapters}
-              data-testid="button-next-chapter"
-            >
-              Next
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={goToPreviousChapter}
+                      disabled={chapterNum <= 1}
+                      data-testid="button-previous-chapter"
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-1" />
+                      Previous
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{chapterNum <= 1 ? 'This is the first chapter' : `Go to Chapter ${chapterNum - 1}`}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="text-sm cursor-help">
+                    Chapter {chapterNum} of {displayBook.totalChapters}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Your current progress in the book</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={goToNextChapter}
+                      disabled={chapterNum >= displayBook.totalChapters}
+                      data-testid="button-next-chapter"
+                    >
+                      Next
+                      <ArrowRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{chapterNum >= displayBook.totalChapters ? 'This is the last chapter' : `Go to Chapter ${chapterNum + 1}`}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4 mb-6" role="region" aria-label="Typing statistics">
-        <Card className="p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Zap className="w-4 h-4 text-yellow-500" aria-hidden="true" />
-            <span className="text-sm text-muted-foreground">WPM</span>
-          </div>
-          <div 
-            className="text-3xl font-bold text-yellow-500" 
-            data-testid="text-wpm"
-            role="status"
-            aria-live="polite"
-            aria-label={`Words per minute: ${wpm}`}
-          >
-            {wpm}
-          </div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Target className="w-4 h-4 text-green-500" aria-hidden="true" />
-            <span className="text-sm text-muted-foreground">Accuracy</span>
-          </div>
-          <div 
-            className="text-3xl font-bold text-green-500" 
-            data-testid="text-accuracy"
-            role="status"
-            aria-live="polite"
-            aria-label={`Accuracy: ${accuracy} percent`}
-          >
-            {accuracy}%
-          </div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="text-sm text-muted-foreground">Errors</span>
-          </div>
-          <div 
-            className="text-3xl font-bold text-red-500" 
-            data-testid="text-errors"
-            role="status"
-            aria-live="polite"
-            aria-label={`Errors: ${errors}`}
-          >
-            {errors}
-          </div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="text-sm text-muted-foreground">Time</span>
-          </div>
-          <div 
-            className="text-3xl font-bold" 
-            data-testid="text-timer"
-            role="timer"
-            aria-live="off"
-            aria-label={`Elapsed time: ${formatTime(elapsedTime)}`}
-          >
-            {formatTime(elapsedTime)}
-          </div>
-        </Card>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="p-4 text-center cursor-help">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Zap className="w-4 h-4 text-yellow-500" aria-hidden="true" />
+                  <span className="text-sm text-muted-foreground">WPM</span>
+                </div>
+                <div 
+                  className="text-3xl font-bold text-yellow-500" 
+                  data-testid="text-wpm"
+                  role="status"
+                  aria-live="polite"
+                  aria-label={`Words per minute: ${wpm}`}
+                >
+                  {wpm}
+                </div>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Words Per Minute - your typing speed</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="p-4 text-center cursor-help">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Target className="w-4 h-4 text-green-500" aria-hidden="true" />
+                  <span className="text-sm text-muted-foreground">Accuracy</span>
+                </div>
+                <div 
+                  className="text-3xl font-bold text-green-500" 
+                  data-testid="text-accuracy"
+                  role="status"
+                  aria-live="polite"
+                  aria-label={`Accuracy: ${accuracy} percent`}
+                >
+                  {accuracy}%
+                </div>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Percentage of correctly typed characters</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="p-4 text-center cursor-help">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <span className="text-sm text-muted-foreground">Errors</span>
+                </div>
+                <div 
+                  className="text-3xl font-bold text-red-500" 
+                  data-testid="text-errors"
+                  role="status"
+                  aria-live="polite"
+                  aria-label={`Errors: ${errors}`}
+                >
+                  {errors}
+                </div>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Number of incorrect characters typed</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="p-4 text-center cursor-help">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <span className="text-sm text-muted-foreground">Time</span>
+                </div>
+                <div 
+                  className="text-3xl font-bold" 
+                  data-testid="text-timer"
+                  role="timer"
+                  aria-live="off"
+                  aria-label={`Elapsed time: ${formatTime(elapsedTime)}`}
+                >
+                  {formatTime(elapsedTime)}
+                </div>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Total time spent typing this chapter</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <Card className="p-6 mb-6 relative">
@@ -1057,65 +1159,101 @@ export default function ChapterTyping() {
         {isFinished && (
           <div className="mt-4 flex gap-3 justify-center flex-wrap">
             {chapterNum < displayBook.totalChapters && (
-              <Button
-                onClick={goToNextChapter}
-                size="lg"
-                className="gap-2"
-                data-testid="button-next-chapter-complete"
-              >
-                Next Chapter
-                <ArrowRight className="w-5 h-5" />
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={goToNextChapter}
+                      size="lg"
+                      className="gap-2"
+                      data-testid="button-next-chapter-complete"
+                    >
+                      Next Chapter
+                      <ArrowRight className="w-5 h-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Continue to Chapter {chapterNum + 1}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
-            <Button
-              onClick={resetTestState}
-              variant="outline"
-              size="lg"
-              className="gap-2"
-              data-testid="button-retry"
-            >
-              Retry Chapter
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={resetTestState}
+                    variant="outline"
+                    size="lg"
+                    className="gap-2"
+                    data-testid="button-retry"
+                  >
+                    Retry Chapter
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Practice this chapter again to improve your score</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             {pendingResult && saveTestMutation.isError && (
-              <Button
-                onClick={handleRetrySave}
-                variant="outline"
-                size="lg"
-                className="gap-2"
-                disabled={saveTestMutation.isPending}
-                data-testid="button-retry-save"
-              >
-                {saveTestMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4" />
-                )}
-                Retry Save
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleRetrySave}
+                      variant="outline"
+                      size="lg"
+                      className="gap-2"
+                      disabled={saveTestMutation.isPending}
+                      data-testid="button-retry-save"
+                    >
+                      {saveTestMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                      Retry Save
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Try saving your results again</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             )}
           </div>
         )}
       </Card>
 
-      <Card className="p-4 bg-muted/50" role="complementary" aria-label="Keyboard shortcuts">
-        <div className="text-sm text-muted-foreground">
-          <div className="font-semibold mb-2 text-center">Keyboard Shortcuts</div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-center">
-            <div>
-              <kbd className="px-2 py-1 bg-background rounded border text-xs">Esc</kbd>
-              <span className="ml-2">Reset test</span>
-            </div>
-            <div>
-              <kbd className="px-2 py-1 bg-background rounded border text-xs">←</kbd>
-              <span className="ml-2">Previous chapter</span>
-            </div>
-            <div>
-              <kbd className="px-2 py-1 bg-background rounded border text-xs">→</kbd>
-              <span className="ml-2">Next chapter</span>
-            </div>
-          </div>
-        </div>
-      </Card>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Card className="p-4 bg-muted/50 cursor-help" role="complementary" aria-label="Keyboard shortcuts">
+              <div className="text-sm text-muted-foreground">
+                <div className="font-semibold mb-2 text-center">Keyboard Shortcuts</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-center">
+                  <div>
+                    <kbd className="px-2 py-1 bg-background rounded border text-xs">Esc</kbd>
+                    <span className="ml-2">Reset test</span>
+                  </div>
+                  <div>
+                    <kbd className="px-2 py-1 bg-background rounded border text-xs">←</kbd>
+                    <span className="ml-2">Previous chapter</span>
+                  </div>
+                  <div>
+                    <kbd className="px-2 py-1 bg-background rounded border text-xs">→</kbd>
+                    <span className="ml-2">Next chapter</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Use these shortcuts while typing for quick navigation</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <Dialog open={isFinished} onOpenChange={(open) => !open && resetTestState()}>
         <DialogContent data-testid="dialog-results">

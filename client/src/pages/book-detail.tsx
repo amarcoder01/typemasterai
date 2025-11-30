@@ -4,6 +4,12 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookOpen, Loader2, ArrowLeft, FileText, RefreshCw, AlertCircle, WifiOff, ChevronRight } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useCallback, useEffect, useState } from "react";
 import type { Book } from "@shared/schema";
 
@@ -407,21 +413,39 @@ export default function BookDetail() {
 
   return (
     <div className="container py-8 max-w-4xl">
-      <Button
-        variant="ghost"
-        onClick={handleGoBack}
-        className="mb-6"
-        data-testid="back-to-library"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Library
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              onClick={handleGoBack}
+              className="mb-6"
+              data-testid="back-to-library"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Library
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Return to the book collection</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <div className="mb-8">
         <div className="flex items-start gap-4 mb-4">
-          <div className="p-4 rounded-lg bg-primary/10">
-            <BookOpen className="w-12 h-12 text-primary" />
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="p-4 rounded-lg bg-primary/10 cursor-help">
+                  <BookOpen className="w-12 h-12 text-primary" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Classic literature for typing practice</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <div className="flex-1">
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -429,24 +453,73 @@ export default function BookDetail() {
                 <p className="text-xl text-muted-foreground mb-4" data-testid="book-author">by {displayBook.author}</p>
               </div>
               {useCachedData && (
-                <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-600 dark:text-yellow-500">
-                  Offline
-                </span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-600 dark:text-yellow-500 cursor-help">
+                        Offline
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Using locally cached data - some features may be limited</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
             <div className="flex items-center gap-3 flex-wrap">
-              <span className={`text-sm px-3 py-1 rounded-full ${
-                displayBook.difficulty === 'easy' ? 'bg-green-500/20 text-green-500' :
-                displayBook.difficulty === 'medium' ? 'bg-yellow-500/20 text-yellow-500' :
-                'bg-red-500/20 text-red-500'
-              }`} data-testid="book-difficulty">
-                {displayBook.difficulty}
-              </span>
-              <span className="text-sm px-3 py-1 rounded-full bg-primary/20 text-primary capitalize" data-testid="book-topic">
-                {displayBook.topic}
-              </span>
-              <span className="text-sm text-muted-foreground">{displayBook.totalChapters} chapters</span>
-              <span className="text-sm text-muted-foreground">{displayBook.totalParagraphs} paragraphs</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className={`text-sm px-3 py-1 rounded-full cursor-help ${
+                      displayBook.difficulty === 'easy' ? 'bg-green-500/20 text-green-500' :
+                      displayBook.difficulty === 'medium' ? 'bg-yellow-500/20 text-yellow-500' :
+                      'bg-red-500/20 text-red-500'
+                    }`} data-testid="book-difficulty">
+                      {displayBook.difficulty}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      {displayBook.difficulty === 'easy' ? 'Beginner-friendly with simpler vocabulary' :
+                       displayBook.difficulty === 'medium' ? 'Moderate complexity for intermediate typists' :
+                       'Challenging text for advanced typists'}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-sm px-3 py-1 rounded-full bg-primary/20 text-primary capitalize cursor-help" data-testid="book-topic">
+                      {displayBook.topic}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Book genre/category</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-sm text-muted-foreground cursor-help">{displayBook.totalChapters} chapters</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Total number of chapters in this book</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-sm text-muted-foreground cursor-help">{displayBook.totalParagraphs} paragraphs</span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Total paragraphs available for typing practice</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>
@@ -456,16 +529,25 @@ export default function BookDetail() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-semibold">Chapters</h2>
           {!useCachedData && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => refetchChapters()}
-              disabled={chaptersFetching}
-              data-testid="button-refresh-chapters"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${chaptersFetching ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => refetchChapters()}
+                    disabled={chaptersFetching}
+                    data-testid="button-refresh-chapters"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${chaptersFetching ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Reload chapter list from server</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
         
@@ -527,15 +609,24 @@ export default function BookDetail() {
                       {chapter.paragraphCount} paragraph{chapter.paragraphCount !== 1 ? 's' : ''}
                     </p>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="group-hover:bg-primary/10"
-                    data-testid={`start-chapter-${chapter.chapter}`}
-                  >
-                    Start Typing
-                    <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="group-hover:bg-primary/10"
+                          data-testid={`start-chapter-${chapter.chapter}`}
+                        >
+                          Start Typing
+                          <ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Begin typing practice for this chapter</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </Card>
             ))}

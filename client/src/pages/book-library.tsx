@@ -5,6 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookOpen, Loader2, RefreshCw, AlertCircle, WifiOff, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useState, useMemo, useCallback, useEffect } from "react";
 import type { Book } from "@shared/schema";
 
@@ -332,30 +338,48 @@ export default function BookLibrary() {
               )}
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isFetching}
-            className="self-start md:self-center"
-            data-testid="button-refresh"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-            {isFetching ? 'Refreshing...' : 'Refresh'}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isFetching}
+                  className="self-start md:self-center"
+                  data-testid="button-refresh"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+                  {isFetching ? 'Refreshing...' : 'Refresh'}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Refresh book list from server</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search by title, author, or topic..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-            data-testid="input-search-books"
-          />
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search by title, author, or topic..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                  data-testid="input-search-books"
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Filter books by title, author name, or topic</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {filteredBooks.length === 0 && searchQuery ? (
@@ -418,16 +442,38 @@ export default function BookLibrary() {
                   </div>
                   
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      book.difficulty === 'easy' ? 'bg-green-500/20 text-green-500' :
-                      book.difficulty === 'medium' ? 'bg-yellow-500/20 text-yellow-500' :
-                      'bg-red-500/20 text-red-500'
-                    }`} data-testid={`book-difficulty-${book.id}`}>
-                      {book.difficulty}
-                    </span>
-                    <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary capitalize" data-testid={`book-topic-${book.id}`}>
-                      {book.topic}
-                    </span>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={`text-xs px-2 py-1 rounded-full cursor-help ${
+                            book.difficulty === 'easy' ? 'bg-green-500/20 text-green-500' :
+                            book.difficulty === 'medium' ? 'bg-yellow-500/20 text-yellow-500' :
+                            'bg-red-500/20 text-red-500'
+                          }`} data-testid={`book-difficulty-${book.id}`}>
+                            {book.difficulty}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            {book.difficulty === 'easy' ? 'Beginner-friendly with simpler vocabulary' :
+                             book.difficulty === 'medium' ? 'Moderate complexity for intermediate typists' :
+                             'Challenging text for advanced typists'}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary capitalize cursor-help" data-testid={`book-topic-${book.id}`}>
+                            {book.topic}
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Book genre/category: {book.topic}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 </div>
               </Card>

@@ -963,64 +963,131 @@ export default function BookMode() {
         <Card className="p-4 mb-6 border-primary/50">
           <div className="flex flex-wrap items-center gap-3 justify-between">
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-primary" />
-                <span className="font-semibold" data-testid="text-book-source">
-                  {currentParagraph.source}
-                </span>
-              </div>
-              <Badge variant="outline" className="capitalize">
-                {currentParagraph.topic.replace(/-/g, ' ')}
-              </Badge>
-              <Badge variant="outline" className={getDifficultyColor(currentParagraph.difficulty)}>
-                {currentParagraph.difficulty}
-              </Badge>
-              <span className="text-sm text-muted-foreground" data-testid="text-paragraph-progress">
-                Paragraph {currentParagraph.paragraphIndex + 1}
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2 cursor-help">
+                    <BookOpen className="w-5 h-5 text-primary" />
+                    <span className="font-semibold" data-testid="text-book-source">
+                      {currentParagraph.source}
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Current book title from the library</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className="capitalize cursor-help">
+                    {currentParagraph.topic.replace(/-/g, ' ')}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Book genre/category</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className={`cursor-help ${getDifficultyColor(currentParagraph.difficulty)}`}>
+                    {currentParagraph.difficulty}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {currentParagraph.difficulty === 'easy' ? 'Beginner-friendly text' :
+                     currentParagraph.difficulty === 'medium' ? 'Standard literary complexity' :
+                     'Advanced vocabulary and structure'}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-sm text-muted-foreground cursor-help" data-testid="text-paragraph-progress">
+                    Paragraph {currentParagraph.paragraphIndex + 1}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Your position in the current book</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {currentParagraph.lengthWords} words
-            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="text-sm text-muted-foreground cursor-help">
+                  {currentParagraph.lengthWords} words
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Total words in this paragraph</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </Card>
       )}
 
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <Card className="p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Zap className="w-4 h-4 text-yellow-500" />
-            <span className="text-sm text-muted-foreground">WPM</span>
-          </div>
-          <div className="text-3xl font-bold text-yellow-500" data-testid="text-wpm">
-            {wpm}
-          </div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <Target className="w-4 h-4 text-green-500" />
-            <span className="text-sm text-muted-foreground">Accuracy</span>
-          </div>
-          <div className="text-3xl font-bold text-green-500" data-testid="text-accuracy">
-            {accuracy}%
-          </div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="text-sm text-muted-foreground">Errors</span>
-          </div>
-          <div className="text-3xl font-bold text-red-500" data-testid="text-errors">
-            {errors}
-          </div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="text-sm text-muted-foreground">Time</span>
-          </div>
-          <div className="text-3xl font-bold" data-testid="text-timer">
-            {formatTime(elapsedTime)}
-          </div>
-        </Card>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Card className="p-4 text-center cursor-help">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <Zap className="w-4 h-4 text-yellow-500" />
+                <span className="text-sm text-muted-foreground">WPM</span>
+              </div>
+              <div className="text-3xl font-bold text-yellow-500" data-testid="text-wpm">
+                {wpm}
+              </div>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Words Per Minute - your typing speed</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Card className="p-4 text-center cursor-help">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <Target className="w-4 h-4 text-green-500" />
+                <span className="text-sm text-muted-foreground">Accuracy</span>
+              </div>
+              <div className="text-3xl font-bold text-green-500" data-testid="text-accuracy">
+                {accuracy}%
+              </div>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Percentage of correctly typed characters</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Card className="p-4 text-center cursor-help">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <span className="text-sm text-muted-foreground">Errors</span>
+              </div>
+              <div className="text-3xl font-bold text-red-500" data-testid="text-errors">
+                {errors}
+              </div>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Number of incorrect characters typed</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Card className="p-4 text-center cursor-help">
+              <div className="flex items-center justify-center gap-2 mb-1">
+                <span className="text-sm text-muted-foreground">Time</span>
+              </div>
+              <div className="text-3xl font-bold" data-testid="text-timer">
+                {formatTime(elapsedTime)}
+              </div>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Total time spent typing</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       <Card className="p-6 mb-6 relative">
@@ -1091,34 +1158,48 @@ export default function BookMode() {
               </TooltipContent>
             </Tooltip>
             {pendingResult && saveTestMutation.isError && (
-              <Button
-                onClick={handleRetrySave}
-                variant="outline"
-                size="lg"
-                className="gap-2"
-                disabled={saveTestMutation.isPending}
-                data-testid="button-retry-save"
-              >
-                {saveTestMutation.isPending ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-5 h-5" />
-                )}
-                Retry Save
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={handleRetrySave}
+                    variant="outline"
+                    size="lg"
+                    className="gap-2"
+                    disabled={saveTestMutation.isPending}
+                    data-testid="button-retry-save"
+                  >
+                    {saveTestMutation.isPending ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-5 h-5" />
+                    )}
+                    Retry Save
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Try saving your results again</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
         )}
       </Card>
 
-      <Card className="p-4 bg-muted/50">
-        <div className="text-sm text-muted-foreground text-center">
-          <span className="font-semibold">Shortcuts:</span>{" "}
-          <kbd className="px-2 py-1 bg-background rounded text-xs">Esc</kbd> Reset • {" "}
-          <kbd className="px-2 py-1 bg-background rounded text-xs">Ctrl+Enter</kbd> New Paragraph • {" "}
-          <kbd className="px-2 py-1 bg-background rounded text-xs">Tab</kbd> Continue Reading (when finished)
-        </div>
-      </Card>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Card className="p-4 bg-muted/50 cursor-help">
+            <div className="text-sm text-muted-foreground text-center">
+              <span className="font-semibold">Shortcuts:</span>{" "}
+              <kbd className="px-2 py-1 bg-background rounded text-xs">Esc</kbd> Reset • {" "}
+              <kbd className="px-2 py-1 bg-background rounded text-xs">Ctrl+Enter</kbd> New Paragraph • {" "}
+              <kbd className="px-2 py-1 bg-background rounded text-xs">Tab</kbd> Continue Reading (when finished)
+            </div>
+          </Card>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Use these keyboard shortcuts for quick actions while typing</p>
+        </TooltipContent>
+      </Tooltip>
 
       <Dialog open={isFinished} onOpenChange={(open) => !open && resetTestState()}>
         <DialogContent data-testid="dialog-results">
