@@ -1933,11 +1933,11 @@ export default function CodeMode() {
                   <TooltipTrigger asChild>
                     <div className="cursor-help">
                       <span className="text-muted-foreground">Characters: </span>
-                      <span className="font-mono font-medium">{codeSnippet.length}</span>
+                      <span className="font-mono font-medium">{userInput.length}</span>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    <p className="text-xs">Total characters in the code snippet you typed</p>
+                    <p className="text-xs">Total characters you typed accurately</p>
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -2106,7 +2106,7 @@ export default function CodeMode() {
                   language={language}
                   languageName={PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}
                   difficulty={difficulty}
-                  characters={codeSnippet.length}
+                  characters={userInput.length}
                   errors={errors}
                   time={formatTime(elapsedTime)}
                   username={user?.username}
@@ -2122,7 +2122,7 @@ export default function CodeMode() {
                   language={language}
                   languageName={PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}
                   difficulty={difficulty}
-                  characters={codeSnippet.length}
+                  characters={userInput.length}
                   errors={errors}
                   time={formatTime(elapsedTime)}
                   username={user?.username}
@@ -2136,7 +2136,7 @@ export default function CodeMode() {
                     {accuracy}% accuracy • {consistency}% consistency
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">
-                    {codeSnippet.length} characters • {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name}
+                    {userInput.length} characters • {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name}
                   </div>
                 </div>
                 
