@@ -119,6 +119,11 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+// Normalize code snippets: remove Windows line endings and trailing whitespace
+function normalizeCodeSnippet(code: string): string {
+  return code.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
+}
+
 export default function CodeMode() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -234,13 +239,15 @@ export default function CodeMode() {
       }
       
       // Success - clear error state and retry count
-      setCodeSnippet(data.snippet.content);
+      // Normalize snippet to remove Windows line endings and trailing whitespace
+      setCodeSnippet(normalizeCodeSnippet(data.snippet.content));
       setSnippetId(data.snippet.id);
       setErrorState({ type: null, message: '', canRetry: false });
       setRetryCount(0);
       
       // Show success notification
-      const lineCount = data.snippet.content.split('\n').length;
+      const normalizedContent = normalizeCodeSnippet(data.snippet.content);
+      const lineCount = normalizedContent.split('\n').length;
       toast({
         title: "Code Ready!",
         description: `${lineCount} lines of ${language} code generated. Start typing!`,
@@ -408,11 +415,34 @@ export default function CodeMode() {
     }
   }, [isActive, startTime, isFinished, userInput, codeSnippet, timeLimit]);
 
+  // Completion logic:
+  // - For timed tests (timeLimit > 0): ONLY finish when timer expires (handled in timer effect)
+  //   When user completes current snippet, fetchMoreContent() is called to add more code
+  // - For "No Limit" mode (timeLimit === 0): Finish when user completes the snippet
   useEffect(() => {
-    if (isActive && startTime && userInput === codeSnippet && codeSnippet.length > 0) {
-      finishTest();
+    if (isActive && startTime && codeSnippet.length > 0) {
+      // For "No Limit" mode only
+      if (timeLimit === 0) {
+        // Master mode requires exact match (100% accuracy)
+        if (testMode === "master") {
+          if (userInput === codeSnippet) {
+            finishTest();
+          }
+        } else {
+          // Normal/Expert mode: finish when user types to the end (regardless of accuracy)
+          // This allows the test to complete and show accuracy results
+          // Handle snippets with trailing whitespace by comparing trimmed lengths
+          const trimmedSnippetLength = codeSnippet.trimEnd().length;
+          if (userInput.length >= codeSnippet.length || 
+              (userInput.length >= trimmedSnippetLength && trimmedSnippetLength > 0)) {
+            finishTest();
+          }
+        }
+      }
+      // For timed tests, the continuous fetching effect will handle adding more content
+      // If we're loading more content, just wait; timer will finish the test
     }
-  }, [userInput, isActive, startTime, codeSnippet]);
+  }, [userInput, isActive, startTime, codeSnippet, timeLimit, testMode]);
 
   const saveCodeTestMutation = useMutation({
     mutationFn: async (testData: any) => {
@@ -639,7 +669,7 @@ export default function CodeMode() {
     if (mode === "ai") {
       fetchCodeSnippet(true); // Force new snippet
     } else if (mode === "custom" && customCode) {
-      setCodeSnippet(customCode);
+      setCodeSnippet(normalizeCodeSnippet(customCode));
       setSnippetId(null);
     }
     
@@ -712,9 +742,10 @@ export default function CodeMode() {
   }, [language, difficulty, timeLimit, testMode]);
 
   
-  // Fetch more content for infinite mode
+  // Fetch more content for continuous typing (works for both timed and unlimited modes)
   const fetchMoreContent = useCallback(async () => {
-    if (isLoadingMore || timeLimit !== 0) return;
+    // Prevent duplicate fetches
+    if (isLoadingMore) return;
     
     if (infiniteAbortRef.current) {
       infiniteAbortRef.current.abort();
@@ -737,8 +768,9 @@ export default function CodeMode() {
       if (response.ok) {
         const data = await response.json();
         if (data.snippet?.content) {
-          // Append new content with a newline separator
-          setCodeSnippet(prev => prev + "\n\n" + data.snippet.content);
+          // Append new content with a newline separator (normalized)
+          const normalizedContent = normalizeCodeSnippet(data.snippet.content);
+          setCodeSnippet(prev => prev + "\n\n" + normalizedContent);
         }
       }
     } catch (error: any) {
@@ -748,18 +780,21 @@ export default function CodeMode() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [language, difficulty, testMode, customPrompt, isLoadingMore, timeLimit]);
+  }, [language, difficulty, testMode, customPrompt, isLoadingMore]);
 
-  // Check if user is near the end of content (for infinite mode)
+  // Check if user is near the end of content - fetch more for continuous typing
+  // ONLY for timed tests (timeLimit > 0) - keeps content flowing until timer ends
+  // For "No Limit" mode (timeLimit === 0), the completion effect handles finishing
   useEffect(() => {
-    if (timeLimit !== 0 || !isActive || isFinished || isLoadingMore) return;
+    // Only fetch more content for timed tests
+    if (timeLimit === 0 || !isActive || isFinished || isLoadingMore) return;
     
     const remainingChars = codeSnippet.length - userInput.length;
-    // When 100 characters or less remaining, fetch more
-    if (remainingChars < 100 && remainingChars > 0) {
+    // When 100 characters or less remaining, fetch more code for timed tests
+    if (remainingChars <= 100 && codeSnippet.length > 0) {
       fetchMoreContent();
     }
-  }, [userInput.length, codeSnippet.length, timeLimit, isActive, isFinished, isLoadingMore, fetchMoreContent]);
+  }, [userInput.length, codeSnippet.length, isActive, isFinished, isLoadingMore, fetchMoreContent, timeLimit]);
   
   // Auto-scroll to keep current line visible
   useEffect(() => {
@@ -785,7 +820,7 @@ export default function CodeMode() {
       });
       return;
     }
-    setCodeSnippet(customCode);
+    setCodeSnippet(normalizeCodeSnippet(customCode));
     setSnippetId(null);
     setUserInput("");
     setIsActive(false);
