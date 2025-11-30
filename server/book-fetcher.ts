@@ -622,6 +622,18 @@ export function detectChapters(text: string): ChapterInfo[] {
           }
         }
       }
+      
+      // If we found a chapter but no title, check next line for title
+      if (chapterNumber !== null && !title && i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim();
+        // Next line should be short (title), not empty, and start with uppercase
+        if (nextLine.length > 0 && nextLine.length <= 80 && /^[A-Z]/.test(nextLine)) {
+          // Don't use next line if it starts with CHAPTER (next chapter)
+          if (!nextLine.toUpperCase().startsWith('CHAPTER')) {
+            title = nextLine;
+          }
+        }
+      }
     }
     
     // Add chapter if found
