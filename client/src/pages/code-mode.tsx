@@ -125,10 +125,10 @@ export default function CodeMode() {
   const queryClient = useQueryClient();
   
   const [language, setLanguage] = useState("javascript");
-  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("medium");
+  const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("easy");
   const [mode, setMode] = useState<"ai" | "custom">("ai");
   const [testMode, setTestMode] = useState<"normal" | "expert" | "master">("normal");
-  const [timeLimit, setTimeLimit] = useState(0); // 0 = no limit
+  const [timeLimit, setTimeLimit] = useState(60); // Default 1 minute
   const [customCode, setCustomCode] = useState("");
   const [codeSnippet, setCodeSnippet] = useState("");
   const [snippetId, setSnippetId] = useState<number | null>(null);
