@@ -6,17 +6,276 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { BookOpen, Trophy, Zap, Target, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import { BookOpen, Trophy, Zap, Target, ArrowLeft, ArrowRight, Loader2, RefreshCw, AlertCircle, WifiOff } from "lucide-react";
 import confetti from "canvas-confetti";
-import type { BookParagraph, InsertBookTypingTest } from "@shared/schema";
+import type { Book, BookParagraph, InsertBookTypingTest } from "@shared/schema";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
+
+interface CachedChapterData {
+  book: Book;
+  paragraphs: BookParagraph[];
+  timestamp: number;
+}
+
+const CHAPTER_CACHE_TTL = 30 * 60 * 1000;
+
+function getChapterCache(slug: string, chapterNum: number): CachedChapterData | null {
+  try {
+    const cached = localStorage.getItem(`chapter_cache_${slug}_${chapterNum}`);
+    if (!cached) return null;
+    
+    const parsed: CachedChapterData = JSON.parse(cached);
+    const age = Date.now() - parsed.timestamp;
+    
+    if (age < CHAPTER_CACHE_TTL) {
+      return parsed;
+    }
+    
+    localStorage.removeItem(`chapter_cache_${slug}_${chapterNum}`);
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function setChapterCache(slug: string, chapterNum: number, book: Book, paragraphs: BookParagraph[]): void {
+  try {
+    const cached: CachedChapterData = {
+      book,
+      paragraphs,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(`chapter_cache_${slug}_${chapterNum}`, JSON.stringify(cached));
+  } catch {
+  }
+}
+
+async function fetchBook(slug: string): Promise<Book> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  
+  try {
+    const res = await fetch(`/api/books/${slug}`, {
+      signal: controller.signal,
+      credentials: 'include',
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error('BOOK_NOT_FOUND');
+      }
+      if (res.status >= 500) {
+        throw new Error('SERVER_ERROR');
+      }
+      throw new Error(`HTTP_${res.status}`);
+    }
+    
+    return res.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    
+    if (error.message === 'Failed to fetch' || error.message.includes('NetworkError')) {
+      throw new Error('NETWORK_ERROR');
+    }
+    
+    throw error;
+  }
+}
+
+async function fetchChapterParagraphs(bookId: number, chapter: number): Promise<BookParagraph[]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  
+  try {
+    const res = await fetch(`/api/books/${bookId}/chapters/${chapter}`, {
+      signal: controller.signal,
+      credentials: 'include',
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error('CHAPTER_NOT_FOUND');
+      }
+      if (res.status >= 500) {
+        throw new Error('SERVER_ERROR');
+      }
+      throw new Error(`HTTP_${res.status}`);
+    }
+    
+    return res.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    
+    if (error.message === 'Failed to fetch' || error.message.includes('NetworkError')) {
+      throw new Error('NETWORK_ERROR');
+    }
+    
+    throw error;
+  }
+}
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="container mx-auto py-8 px-4 max-w-6xl">
+      <div className="mb-6">
+        <Skeleton className="h-9 w-40 mb-4" />
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-9 w-64" />
+            <Skeleton className="h-5 w-48" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-24" />
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-9 w-24" />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="p-4 text-center">
+            <Skeleton className="h-4 w-16 mx-auto mb-2" />
+            <Skeleton className="h-10 w-20 mx-auto" />
+          </Card>
+        ))}
+      </div>
+
+      <Card className="p-6 mb-6">
+        <div className="space-y-3">
+          <Skeleton className="h-6 w-full" />
+          <Skeleton className="h-6 w-full" />
+          <Skeleton className="h-6 w-3/4" />
+          <Skeleton className="h-6 w-full" />
+          <Skeleton className="h-6 w-5/6" />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+interface ErrorStateProps {
+  error: Error;
+  onRetry: () => void;
+  isRetrying: boolean;
+  onGoBack: () => void;
+  cachedData: CachedChapterData | null;
+  onUseCached: () => void;
+  slug: string;
+}
+
+function ErrorState({ error, onRetry, isRetrying, onGoBack, cachedData, onUseCached, slug }: ErrorStateProps) {
+  const errorType = error.message;
+  
+  let icon = <AlertCircle className="w-16 h-16 text-destructive" />;
+  let title = "Unable to Load Chapter";
+  let description = "Something went wrong while loading the chapter.";
+  let canRetry = true;
+  
+  switch (errorType) {
+    case 'NETWORK_ERROR':
+      icon = <WifiOff className="w-16 h-16 text-muted-foreground" />;
+      title = "No Internet Connection";
+      description = "Please check your internet connection and try again.";
+      break;
+    case 'TIMEOUT':
+      title = "Request Timed Out";
+      description = "The server took too long to respond. Please try again.";
+      break;
+    case 'SERVER_ERROR':
+      title = "Server Error";
+      description = "The server encountered an error. Please try again later.";
+      break;
+    case 'BOOK_NOT_FOUND':
+      icon = <BookOpen className="w-16 h-16 text-muted-foreground" />;
+      title = "Book Not Found";
+      description = "This book doesn't exist or may have been removed.";
+      canRetry = false;
+      break;
+    case 'CHAPTER_NOT_FOUND':
+      title = "Chapter Not Found";
+      description = "This chapter doesn't exist or hasn't been loaded yet.";
+      canRetry = false;
+      break;
+  }
+  
+  return (
+    <div className="container mx-auto py-8 px-4 max-w-6xl">
+      <Button
+        variant="ghost"
+        onClick={onGoBack}
+        className="mb-6"
+        data-testid="button-back-error"
+      >
+        <ArrowLeft className="w-4 h-4 mr-2" />
+        Back to Book
+      </Button>
+      
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-6 p-4">
+        {icon}
+        <div className="text-center max-w-md">
+          <h2 className="text-2xl font-semibold mb-2">{title}</h2>
+          <p className="text-muted-foreground">{description}</p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          {canRetry && (
+            <Button
+              onClick={onRetry}
+              disabled={isRetrying}
+              data-testid="button-retry-chapter"
+            >
+              {isRetrying ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Retrying...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </>
+              )}
+            </Button>
+          )}
+          {cachedData && (
+            <Button
+              variant="outline"
+              onClick={onUseCached}
+              data-testid="button-use-cached-chapter"
+            >
+              <BookOpen className="w-4 h-4 mr-2" />
+              Use Offline Data
+            </Button>
+          )}
+          <Button variant="outline" onClick={onGoBack} data-testid="button-go-back-chapter">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Book
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ChapterTyping() {
@@ -47,116 +306,159 @@ export default function ChapterTyping() {
   } | null>(null);
   const [paragraphs, setParagraphs] = useState<BookParagraph[]>([]);
   const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
+  const [useCachedData, setUseCachedData] = useState(false);
+  const [cachedData, setCachedData] = useState<CachedChapterData | null>(null);
+  const [saveRetryCount, setSaveRetryCount] = useState(0);
+  const [pendingResult, setPendingResult] = useState<Omit<InsertBookTypingTest, 'userId'> | null>(null);
   
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const correctSpanRef = useRef<HTMLSpanElement>(null);
   const incorrectSpanRef = useRef<HTMLSpanElement>(null);
 
-  // Fetch book by slug to get bookId
-  const { data: book, isLoading: bookLoading } = useQuery({
-    queryKey: ['book', slug],
-    queryFn: async () => {
-      const res = await fetch(`/api/books/${slug}`);
-      if (!res.ok) throw new Error('Failed to fetch book');
-      return res.json();
-    },
-    enabled: !!slug,
-  });
-
-  // Fetch chapter paragraphs
-  const { data: chapterParagraphs = [], isLoading: chaptersLoading } = useQuery({
-    queryKey: ['chapter', book?.id, chapterNum],
-    queryFn: async () => {
-      const res = await fetch(`/api/books/${book!.id}/chapters/${chapterNum}`);
-      if (!res.ok) throw new Error('Failed to fetch chapter');
-      return res.json() as Promise<BookParagraph[]>;
-    },
-    enabled: !!book && chapterNum > 0,
-  });
-
-  // Set chapter text when paragraphs load
   useEffect(() => {
-    if (chapterParagraphs.length > 0) {
-      const text = chapterParagraphs.map(p => p.text).join('\n\n');
+    if (slug && chapterNum) {
+      const cached = getChapterCache(slug, chapterNum);
+      setCachedData(cached);
+    }
+  }, [slug, chapterNum]);
+
+  const { 
+    data: book, 
+    isLoading: bookLoading,
+    isError: bookError,
+    error: bookErrorData,
+    isFetching: bookFetching,
+    refetch: refetchBook
+  } = useQuery<Book, Error>({
+    queryKey: ['book', slug],
+    queryFn: () => fetchBook(slug),
+    enabled: !!slug && !useCachedData,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: (failureCount, error) => {
+      if (error.message === 'BOOK_NOT_FOUND') return false;
+      return failureCount < 2;
+    },
+    retryDelay: 1000,
+  });
+
+  const { 
+    data: chapterParagraphs = [], 
+    isLoading: chaptersLoading,
+    isError: chaptersError,
+    error: chaptersErrorData,
+    isFetching: chaptersFetching,
+    refetch: refetchChapter
+  } = useQuery<BookParagraph[], Error>({
+    queryKey: ['chapter', book?.id, chapterNum],
+    queryFn: () => fetchChapterParagraphs(book!.id, chapterNum),
+    enabled: !!book && chapterNum > 0 && !useCachedData,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: (failureCount, error) => {
+      if (error.message === 'CHAPTER_NOT_FOUND') return false;
+      return failureCount < 2;
+    },
+    retryDelay: 1000,
+  });
+  
+  const displayBook = useCachedData && cachedData ? cachedData.book : book;
+  const displayParagraphs = useCachedData && cachedData ? cachedData.paragraphs : chapterParagraphs;
+  
+  useEffect(() => {
+    if (book && chapterParagraphs.length > 0 && slug && chapterNum && !useCachedData) {
+      setChapterCache(slug, chapterNum, book, chapterParagraphs);
+    }
+  }, [book, chapterParagraphs, slug, chapterNum, useCachedData]);
+
+  useEffect(() => {
+    if (displayParagraphs.length > 0) {
+      const text = displayParagraphs.map(p => p.text).join('\n\n');
       setChapterText(text);
-      setParagraphs(chapterParagraphs);
+      setParagraphs(displayParagraphs);
       
-      // Try to restore progress from localStorage
       const progressKey = `chapter-progress-${slug}-${chapterNum}`;
       let progressRestored = false;
       
       try {
         const savedProgress = localStorage.getItem(progressKey);
         if (savedProgress) {
-          const { userInput: savedInput, timestamp } = JSON.parse(savedProgress);
-          // Only restore if saved within last 24 hours
+          const { userInput: savedInput, timestamp, elapsedSeconds } = JSON.parse(savedProgress);
           const age = Date.now() - timestamp;
           if (age < 24 * 60 * 60 * 1000 && savedInput.length > 0 && savedInput.length < text.length) {
             setUserInput(savedInput);
             setIsActive(true);
-            setStartTime(Date.now() - 1000); // Add 1s buffer
+            const resumeTime = elapsedSeconds ? Date.now() - (elapsedSeconds * 1000) : Date.now() - 1000;
+            setStartTime(resumeTime);
             progressRestored = true;
             toast({
               title: "Progress Restored",
-              description: "Your previous typing progress has been restored.",
+              description: `Resuming from where you left off (${Math.round((savedInput.length / text.length) * 100)}% complete).`,
             });
           } else {
             localStorage.removeItem(progressKey);
           }
         }
       } catch (e) {
-        // Ignore localStorage errors
       }
       
-      // Only reset if no progress was restored
       if (!progressRestored) {
         resetTestState();
       }
     }
-  }, [chapterParagraphs]);
+  }, [displayParagraphs, slug, chapterNum]);
 
-  // Save progress to localStorage
   useEffect(() => {
-    if (userInput && chapterText && !isFinished && slug && chapterNum) {
+    if (userInput && chapterText && !isFinished && slug && chapterNum && startTime) {
       const progressKey = `chapter-progress-${slug}-${chapterNum}`;
+      const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
       try {
         localStorage.setItem(progressKey, JSON.stringify({
           userInput,
           timestamp: Date.now(),
+          elapsedSeconds,
         }));
       } catch (e) {
-        // Ignore localStorage errors (quota exceeded, etc.)
       }
     }
-  }, [userInput, chapterText, isFinished, slug, chapterNum]);
+  }, [userInput, chapterText, isFinished, slug, chapterNum, startTime]);
 
-  // Clear progress on test completion
   useEffect(() => {
     if (isFinished && slug && chapterNum) {
       const progressKey = `chapter-progress-${slug}-${chapterNum}`;
       try {
         localStorage.removeItem(progressKey);
       } catch (e) {
-        // Ignore errors
       }
     }
   }, [isFinished, slug, chapterNum]);
 
-  // Save test result
   const saveTestMutation = useMutation({
     mutationFn: async (result: Omit<InsertBookTypingTest, 'userId'>) => {
-      const res = await fetch('/api/book-tests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(result),
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP ${res.status}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      try {
+        const res = await fetch('/api/book-tests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(result),
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.message || `HTTP ${res.status}`);
+        }
+        return res.json();
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        throw error;
       }
-      return res.json();
     },
     onSuccess: () => {
       toast({
@@ -164,19 +466,34 @@ export default function ChapterTyping() {
         description: "Your progress has been saved.",
       });
       queryClient.invalidateQueries({ queryKey: ["bookStats"] });
+      setPendingResult(null);
+      setSaveRetryCount(0);
     },
     onError: (error: any) => {
-      toast({
-        title: "Failed to Save Progress",
-        description: error.message?.includes("401")
-          ? "Please log in to save your progress."
-          : "Could not save your progress. Your stats are still visible above.",
-        variant: "destructive",
-      });
+      const isNetworkError = error.message === 'Failed to fetch' || 
+                             error.name === 'AbortError' ||
+                             error.message.includes('NetworkError');
+      
+      if (isNetworkError && saveRetryCount < 3) {
+        setSaveRetryCount(prev => prev + 1);
+        toast({
+          title: "Save Failed",
+          description: `Retrying... (${saveRetryCount + 1}/3)`,
+        });
+      } else {
+        toast({
+          title: "Failed to Save Progress",
+          description: error.message?.includes("401")
+            ? "Please log in to save your progress."
+            : "Could not save your progress. Your stats are still visible above.",
+          variant: "destructive",
+        });
+      }
     },
+    retry: 2,
+    retryDelay: 1000,
   });
 
-  // Memoize stats calculation for performance
   const stats = useMemo(() => {
     if (!isActive || !startTime || !chapterText) {
       return { wpm: 0, accuracy: 100, errors: 0 };
@@ -194,7 +511,6 @@ export default function ChapterTyping() {
     };
   }, [userInput, isActive, startTime, chapterText]);
 
-  // Update stats with debouncing (only while active and not finished)
   useEffect(() => {
     if (!isActive || isFinished) return;
     
@@ -202,19 +518,17 @@ export default function ChapterTyping() {
       setWpm(stats.wpm);
       setAccuracy(stats.accuracy);
       setErrors(stats.errors);
-    }, 50); // 50ms debounce for smooth updates
+    }, 50);
     
     return () => clearTimeout(timer);
   }, [stats, isActive, isFinished]);
 
-  // Auto-focus input
   useEffect(() => {
     if (chapterText && !isActive && !isFinished && inputRef.current) {
       inputRef.current.focus();
     }
   }, [chapterText, isActive, isFinished]);
 
-  // Update cursor position using document.createRange() for performance
   const updateCursorPosition = useCallback(() => {
     requestAnimationFrame(() => {
       if (!containerRef.current) return;
@@ -224,7 +538,6 @@ export default function ChapterTyping() {
         let targetSpan: HTMLSpanElement | null = null;
         let offsetInSpan = 0;
         
-        // Determine which span contains the cursor
         if (correctSpanRef.current && userInput.length <= (correctSpanRef.current.textContent?.length || 0)) {
           targetSpan = correctSpanRef.current;
           offsetInSpan = userInput.length;
@@ -250,11 +563,9 @@ export default function ChapterTyping() {
           
           setCursorPosition({ left: relativeLeft, top: relativeTop, height });
         } else {
-          // Fallback to start position
           setCursorPosition({ left: 0, top: 0, height: 40 });
         }
       } catch (error) {
-        // Fallback on error
         setCursorPosition({ left: 0, top: 0, height: 40 });
       }
     });
@@ -264,12 +575,10 @@ export default function ChapterTyping() {
     updateCursorPosition();
   }, [updateCursorPosition]);
 
-  // Recalculate cursor on window resize and font load
   useEffect(() => {
     const handleResize = () => updateCursorPosition();
     window.addEventListener('resize', handleResize);
     
-    // Recalculate after fonts load
     if (document.fonts) {
       document.fonts.ready.then(() => updateCursorPosition());
     }
@@ -277,10 +586,8 @@ export default function ChapterTyping() {
     return () => window.removeEventListener('resize', handleResize);
   }, [updateCursorPosition]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Escape to reset test
       if (e.key === 'Escape' && isActive && !isFinished) {
         e.preventDefault();
         resetTestState();
@@ -290,12 +597,11 @@ export default function ChapterTyping() {
         });
       }
       
-      // Arrow keys for chapter navigation (when not typing)
       if (!isActive && !isFinished) {
         if (e.key === 'ArrowLeft' && chapterNum > 1) {
           e.preventDefault();
           goToPreviousChapter();
-        } else if (e.key === 'ArrowRight' && book && chapterNum < book.totalChapters) {
+        } else if (e.key === 'ArrowRight' && displayBook && chapterNum < displayBook.totalChapters) {
           e.preventDefault();
           goToNextChapter();
         }
@@ -304,9 +610,8 @@ export default function ChapterTyping() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isActive, isFinished, chapterNum, book]);
+  }, [isActive, isFinished, chapterNum, displayBook]);
 
-  // Timer
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     
@@ -326,12 +631,11 @@ export default function ChapterTyping() {
   const finishTest = useCallback(() => {
     if (!chapterText || !startTime || paragraphs.length === 0) return;
 
-    // Calculate final stats synchronously for accuracy
     const chars = userInput.length;
     const errorCount = userInput.split("").filter((char, i) => char !== chapterText[i]).length;
     const correctChars = chars - errorCount;
-    const elapsedSeconds = (Date.now() - startTime) / 1000; // Raw seconds for WPM calculation
-    const duration = Math.round(elapsedSeconds); // Rounded for display/storage
+    const elapsedSeconds = (Date.now() - startTime) / 1000;
+    const duration = Math.round(elapsedSeconds);
     
     const finalWpm = calculateWPM(correctChars, elapsedSeconds);
     const finalAccuracy = calculateAccuracy(correctChars, chars);
@@ -340,7 +644,6 @@ export default function ChapterTyping() {
     setIsActive(false);
     setIsFinished(true);
     
-    // Set final stats immediately (bypass debounce)
     setWpm(finalWpm);
     setAccuracy(finalAccuracy);
     setErrors(finalErrors);
@@ -359,20 +662,20 @@ export default function ChapterTyping() {
       colors: ['#FFD700', '#00FFFF', '#FF00FF']
     });
 
-    // Save result for the first paragraph (representing the chapter)
     if (user) {
-      saveTestMutation.mutate({
+      const result = {
         paragraphId: paragraphs[0].id,
         wpm: finalWpm,
         accuracy: finalAccuracy,
         characters: chars,
         errors: finalErrors,
         duration,
-      });
+      };
+      setPendingResult(result);
+      saveTestMutation.mutate(result);
     }
   }, [chapterText, startTime, paragraphs, userInput, user, saveTestMutation]);
 
-  // Check for test completion (moved after finishTest definition)
   useEffect(() => {
     if (isActive && userInput === chapterText && chapterText) {
       finishTest();
@@ -441,13 +744,15 @@ export default function ChapterTyping() {
     setErrors(0);
     setCompletedTestData(null);
     setElapsedTime(0);
+    setPendingResult(null);
+    setSaveRetryCount(0);
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const goToNextChapter = () => {
-    if (!book) return;
+    if (!displayBook) return;
     const nextChapter = chapterNum + 1;
-    if (nextChapter <= book.totalChapters) {
+    if (nextChapter <= displayBook.totalChapters) {
       setLocation(`/books/${slug}/chapter/${nextChapter}`);
     } else {
       toast({
@@ -466,25 +771,86 @@ export default function ChapterTyping() {
       setLocation(`/books/${slug}`);
     }
   };
+  
+  const handleRetry = useCallback(() => {
+    setUseCachedData(false);
+    refetchBook();
+    if (book) {
+      refetchChapter();
+    }
+  }, [refetchBook, refetchChapter, book]);
+  
+  const handleUseCached = useCallback(() => {
+    if (cachedData && cachedData.paragraphs.length > 0) {
+      queryClient.setQueryData(['book', slug], cachedData.book);
+      queryClient.setQueryData(['chapter', cachedData.book.id, chapterNum], cachedData.paragraphs);
+      
+      setUseCachedData(true);
+      const text = cachedData.paragraphs.map(p => p.text).join('\n\n');
+      setChapterText(text);
+      setParagraphs(cachedData.paragraphs);
+      resetTestState();
+      
+      toast({
+        title: "Using Offline Data",
+        description: "Loaded cached chapter content. Some features may be limited.",
+      });
+    }
+  }, [cachedData, queryClient, slug, chapterNum, toast]);
+  
+  const handleGoBack = useCallback(() => {
+    setLocation(`/books/${slug}`);
+  }, [setLocation, slug]);
+  
+  const handleRetrySave = useCallback(() => {
+    if (pendingResult) {
+      saveTestMutation.mutate(pendingResult);
+    }
+  }, [pendingResult, saveTestMutation]);
 
-  if (bookLoading || chaptersLoading) {
+  const isLoading = bookLoading || (book && chaptersLoading);
+  const hasError = (bookError || chaptersError) && !useCachedData;
+  const error = bookErrorData || chaptersErrorData;
+  const isFetching = bookFetching || chaptersFetching;
+
+  if (isLoading && !useCachedData) {
+    return <LoadingSkeleton />;
+  }
+
+  if (hasError && error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <ErrorState
+        error={error}
+        onRetry={handleRetry}
+        isRetrying={isFetching}
+        onGoBack={handleGoBack}
+        cachedData={cachedData}
+        onUseCached={handleUseCached}
+        slug={slug}
+      />
     );
   }
 
-  if (!book || chapterParagraphs.length === 0) {
+  if (!displayBook || displayParagraphs.length === 0) {
     return (
       <div className="container mx-auto py-8 px-4 max-w-6xl">
-        <div className="text-center">
-          <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Chapter Not Found</h2>
-          <p className="text-muted-foreground mb-4">
+        <Button
+          variant="ghost"
+          onClick={handleGoBack}
+          className="mb-6"
+          data-testid="button-back-empty"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Book
+        </Button>
+        
+        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+          <BookOpen className="w-16 h-16 text-muted-foreground" />
+          <h2 className="text-2xl font-bold">Chapter Not Found</h2>
+          <p className="text-muted-foreground text-center max-w-md">
             This chapter doesn't exist or hasn't been loaded yet.
           </p>
-          <Button onClick={() => setLocation(`/books/${slug}`)} data-testid="button-back">
+          <Button onClick={handleGoBack} data-testid="button-back">
             Back to Book
           </Button>
         </div>
@@ -492,9 +858,7 @@ export default function ChapterTyping() {
     );
   }
 
-  // 3-segment rendering for optimal performance with range-based cursor
   const renderText = () => {
-    // Find where correct typing ends and incorrect begins
     let correctUpTo = 0;
     for (let i = 0; i < userInput.length && i < chapterText.length; i++) {
       if (userInput[i] === chapterText[i]) {
@@ -541,7 +905,7 @@ export default function ChapterTyping() {
           data-testid="button-back-to-book"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to {book.title}
+          Back to {displayBook.title}
         </Button>
 
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -549,9 +913,14 @@ export default function ChapterTyping() {
             <div className="flex items-center gap-3 mb-2">
               <BookOpen className="w-8 h-8 text-primary" />
               <h1 className="text-3xl font-bold" data-testid="text-chapter-title">{chapterTitle}</h1>
+              {useCachedData && (
+                <span className="text-xs px-2 py-1 rounded bg-yellow-500/20 text-yellow-600 dark:text-yellow-500">
+                  Offline
+                </span>
+              )}
             </div>
             <p className="text-muted-foreground">
-              {book.title} by {book.author}
+              {displayBook.title} by {displayBook.author}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -566,13 +935,13 @@ export default function ChapterTyping() {
               Previous
             </Button>
             <Badge variant="outline" className="text-sm">
-              Chapter {chapterNum} of {book.totalChapters}
+              Chapter {chapterNum} of {displayBook.totalChapters}
             </Badge>
             <Button
               variant="outline"
               size="sm"
               onClick={goToNextChapter}
-              disabled={chapterNum >= book.totalChapters}
+              disabled={chapterNum >= displayBook.totalChapters}
               data-testid="button-next-chapter"
             >
               Next
@@ -582,7 +951,6 @@ export default function ChapterTyping() {
         </div>
       </div>
 
-      {/* Stats Display */}
       <div className="grid grid-cols-4 gap-4 mb-6" role="region" aria-label="Typing statistics">
         <Card className="p-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-1">
@@ -644,7 +1012,6 @@ export default function ChapterTyping() {
         </Card>
       </div>
 
-      {/* Typing Interface - typelit.io style */}
       <Card className="p-6 mb-6 relative">
         <div 
           ref={containerRef}
@@ -654,7 +1021,6 @@ export default function ChapterTyping() {
           role="application"
           aria-label="Chapter typing practice area"
         >
-          {/* Hidden Textarea for multi-line support */}
           <Textarea
             ref={inputRef}
             value={userInput}
@@ -669,12 +1035,10 @@ export default function ChapterTyping() {
             data-testid="hidden-input"
           />
           
-          {/* Text Display */}
           <div className="relative z-10 whitespace-pre-wrap pointer-events-none select-none">
             {renderText()}
           </div>
           
-          {/* Visual Cursor */}
           {!isFinished && (
             <div
               className="absolute pointer-events-none z-20 bg-primary/60 animate-pulse"
@@ -691,8 +1055,8 @@ export default function ChapterTyping() {
         </div>
 
         {isFinished && (
-          <div className="mt-4 flex gap-3 justify-center">
-            {chapterNum < book.totalChapters && (
+          <div className="mt-4 flex gap-3 justify-center flex-wrap">
+            {chapterNum < displayBook.totalChapters && (
               <Button
                 onClick={goToNextChapter}
                 size="lg"
@@ -712,11 +1076,27 @@ export default function ChapterTyping() {
             >
               Retry Chapter
             </Button>
+            {pendingResult && saveTestMutation.isError && (
+              <Button
+                onClick={handleRetrySave}
+                variant="outline"
+                size="lg"
+                className="gap-2"
+                disabled={saveTestMutation.isPending}
+                data-testid="button-retry-save"
+              >
+                {saveTestMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                Retry Save
+              </Button>
+            )}
           </div>
         )}
       </Card>
 
-      {/* Keyboard Shortcuts */}
       <Card className="p-4 bg-muted/50" role="complementary" aria-label="Keyboard shortcuts">
         <div className="text-sm text-muted-foreground">
           <div className="font-semibold mb-2 text-center">Keyboard Shortcuts</div>
@@ -737,7 +1117,6 @@ export default function ChapterTyping() {
         </div>
       </Card>
 
-      {/* Results Dialog */}
       <Dialog open={isFinished} onOpenChange={(open) => !open && resetTestState()}>
         <DialogContent data-testid="dialog-results">
           <DialogHeader>
@@ -769,8 +1148,29 @@ export default function ChapterTyping() {
                   <div className="text-3xl font-bold">{formatTime(completedTestData.duration)}</div>
                 </div>
               </div>
+              
+              {saveTestMutation.isError && (
+                <div className="p-3 bg-destructive/10 rounded-lg text-center">
+                  <p className="text-sm text-destructive mb-2">Failed to save your progress</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRetrySave}
+                    disabled={saveTestMutation.isPending}
+                    data-testid="button-dialog-retry-save"
+                  >
+                    {saveTestMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    Retry Save
+                  </Button>
+                </div>
+              )}
+              
               <div className="flex gap-3">
-                {chapterNum < book.totalChapters && (
+                {chapterNum < displayBook.totalChapters && (
                   <Button
                     onClick={goToNextChapter}
                     className="flex-1 gap-2"

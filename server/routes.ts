@@ -1710,6 +1710,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const durationMode = req.query.durationMode ? parseInt(req.query.durationMode as string) : undefined;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       
+      if (difficulty && !['easy', 'medium', 'hard'].includes(difficulty)) {
+        return res.status(400).json({ 
+          message: "Invalid difficulty", 
+          code: "INVALID_DIFFICULTY",
+          validValues: ['easy', 'medium', 'hard'] 
+        });
+      }
+      
+      if (durationMode && ![30, 60, 90, 120].includes(durationMode)) {
+        return res.status(400).json({ 
+          message: "Invalid duration mode",
+          code: "INVALID_DURATION",
+          validValues: [30, 60, 90, 120]
+        });
+      }
+      
+      if (limit < 1 || limit > 100) {
+        return res.status(400).json({ 
+          message: "Limit must be between 1 and 100",
+          code: "INVALID_LIMIT"
+        });
+      }
+      
       const paragraphs = await storage.getBookParagraphs({
         difficulty,
         topic,
@@ -1720,7 +1743,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ paragraphs });
     } catch (error: any) {
       console.error("Get book paragraphs error:", error);
-      res.status(500).json({ message: "Failed to fetch book paragraphs" });
+      res.status(500).json({ 
+        message: "Failed to fetch book paragraphs",
+        code: "SERVER_ERROR"
+      });
     }
   });
 
@@ -1730,6 +1756,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const topic = req.query.topic as string | undefined;
       const durationMode = req.query.durationMode ? parseInt(req.query.durationMode as string) : undefined;
       
+      if (difficulty && !['easy', 'medium', 'hard'].includes(difficulty)) {
+        return res.status(400).json({ 
+          message: "Invalid difficulty",
+          code: "INVALID_DIFFICULTY",
+          validValues: ['easy', 'medium', 'hard']
+        });
+      }
+      
       const paragraph = await storage.getRandomBookParagraph({
         difficulty,
         topic,
@@ -1737,13 +1771,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       if (!paragraph) {
-        return res.status(404).json({ message: "No book paragraph found" });
+        return res.status(404).json({ 
+          message: "No paragraphs found matching your filters. Try different settings.",
+          code: "NO_PARAGRAPHS",
+          filters: { difficulty, topic, durationMode }
+        });
       }
       
-      res.json({ paragraph });
+      res.json(paragraph);
     } catch (error: any) {
       console.error("Get random book paragraph error:", error);
-      res.status(500).json({ message: "Failed to fetch random book paragraph" });
+      res.status(500).json({ 
+        message: "Failed to fetch random book paragraph",
+        code: "SERVER_ERROR"
+      });
     }
   });
 
@@ -1751,20 +1792,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid paragraph ID" });
+      if (isNaN(id) || id < 1) {
+        return res.status(400).json({ 
+          message: "Invalid paragraph ID. Must be a positive integer.",
+          code: "INVALID_ID"
+        });
       }
       
       const paragraph = await storage.getBookParagraphById(id);
       
       if (!paragraph) {
-        return res.status(404).json({ message: "Book paragraph not found" });
+        return res.status(404).json({ 
+          message: "Book paragraph not found",
+          code: "NOT_FOUND",
+          id
+        });
       }
       
       res.json({ paragraph });
     } catch (error: any) {
       console.error("Get book paragraph by ID error:", error);
-      res.status(500).json({ message: "Failed to fetch book paragraph" });
+      res.status(500).json({ 
+        message: "Failed to fetch book paragraph",
+        code: "SERVER_ERROR"
+      });
     }
   });
 
@@ -1773,65 +1824,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bookId = parseInt(req.params.bookId);
       const paragraphIndex = parseInt(req.params.paragraphIndex);
       
-      if (isNaN(bookId) || isNaN(paragraphIndex)) {
-        return res.status(400).json({ message: "Invalid bookId or paragraphIndex" });
+      if (isNaN(bookId) || bookId < 1) {
+        return res.status(400).json({ 
+          message: "Invalid book ID. Must be a positive integer.",
+          code: "INVALID_BOOK_ID"
+        });
+      }
+      
+      if (isNaN(paragraphIndex) || paragraphIndex < 0) {
+        return res.status(400).json({ 
+          message: "Invalid paragraph index. Must be a non-negative integer.",
+          code: "INVALID_PARAGRAPH_INDEX"
+        });
       }
       
       const nextParagraph = await storage.getNextBookParagraph(bookId, paragraphIndex);
       
       if (!nextParagraph) {
-        return res.status(404).json({ message: "Next paragraph not found" });
+        return res.status(404).json({ 
+          message: "No more paragraphs available in this book",
+          code: "END_OF_BOOK",
+          bookId,
+          lastIndex: paragraphIndex
+        });
       }
       
-      res.json({ paragraph: nextParagraph });
+      res.json(nextParagraph);
     } catch (error: any) {
       console.error("Get next book paragraph error:", error);
-      res.status(500).json({ message: "Failed to fetch next book paragraph" });
+      res.status(500).json({ 
+        message: "Failed to fetch next book paragraph",
+        code: "SERVER_ERROR"
+      });
     }
   });
 
   app.get("/api/book-topics", async (req, res) => {
     try {
       const topics = await storage.getBookTopics();
+      
+      res.set('Cache-Control', 'public, max-age=300');
       res.json({ topics });
     } catch (error: any) {
       console.error("Get book topics error:", error);
-      res.status(500).json({ message: "Failed to fetch book topics" });
+      res.status(500).json({ 
+        message: "Failed to fetch book topics",
+        code: "SERVER_ERROR"
+      });
     }
   });
 
-  // Book Library endpoints
   app.get("/api/books", async (req, res) => {
     try {
       const books = await storage.getAllBooks();
+      
+      res.set('Cache-Control', 'public, max-age=60');
       res.json(books);
     } catch (error: any) {
       console.error("Get all books error:", error);
-      res.status(500).json({ message: "Failed to fetch books" });
+      res.status(500).json({ 
+        message: "Failed to fetch books",
+        code: "SERVER_ERROR"
+      });
     }
   });
 
   app.get("/api/books/:slug", async (req, res) => {
     try {
-      const book = await storage.getBookBySlug(req.params.slug);
-      if (!book) {
-        return res.status(404).json({ message: "Book not found" });
+      const { slug } = req.params;
+      
+      if (!slug || slug.length < 1 || slug.length > 200) {
+        return res.status(400).json({ 
+          message: "Invalid book slug",
+          code: "INVALID_SLUG"
+        });
       }
+      
+      const book = await storage.getBookBySlug(slug);
+      
+      if (!book) {
+        return res.status(404).json({ 
+          message: "Book not found",
+          code: "NOT_FOUND",
+          slug
+        });
+      }
+      
+      res.set('Cache-Control', 'public, max-age=300');
       res.json(book);
     } catch (error: any) {
       console.error("Get book by slug error:", error);
-      res.status(500).json({ message: "Failed to fetch book" });
+      res.status(500).json({ 
+        message: "Failed to fetch book",
+        code: "SERVER_ERROR"
+      });
     }
   });
 
   app.get("/api/books/:bookId/chapters", async (req, res) => {
     try {
       const bookId = parseInt(req.params.bookId);
+      
+      if (isNaN(bookId) || bookId < 1) {
+        return res.status(400).json({ 
+          message: "Invalid book ID. Must be a positive integer.",
+          code: "INVALID_BOOK_ID"
+        });
+      }
+      
       const chapters = await storage.getBookChapters(bookId);
+      
+      if (chapters.length === 0) {
+        const bookExists = await storage.getBookById(bookId);
+        if (!bookExists) {
+          return res.status(404).json({ 
+            message: "Book not found",
+            code: "BOOK_NOT_FOUND",
+            bookId
+          });
+        }
+      }
+      
+      res.set('Cache-Control', 'public, max-age=300');
       res.json(chapters);
     } catch (error: any) {
       console.error("Get book chapters error:", error);
-      res.status(500).json({ message: "Failed to fetch chapters" });
+      res.status(500).json({ 
+        message: "Failed to fetch chapters",
+        code: "SERVER_ERROR"
+      });
     }
   });
 
@@ -1839,14 +1960,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const bookId = parseInt(req.params.bookId);
       const chapter = parseInt(req.params.chapter);
-      const paragraphs = await storage.getChapterParagraphs(bookId, chapter);
-      if (paragraphs.length === 0) {
-        return res.status(404).json({ message: "Chapter not found" });
+      
+      if (isNaN(bookId) || bookId < 1) {
+        return res.status(400).json({ 
+          message: "Invalid book ID. Must be a positive integer.",
+          code: "INVALID_BOOK_ID"
+        });
       }
+      
+      if (isNaN(chapter) || chapter < 1) {
+        return res.status(400).json({ 
+          message: "Invalid chapter number. Must be a positive integer.",
+          code: "INVALID_CHAPTER"
+        });
+      }
+      
+      const paragraphs = await storage.getChapterParagraphs(bookId, chapter);
+      
+      if (paragraphs.length === 0) {
+        const bookExists = await storage.getBookById(bookId);
+        if (!bookExists) {
+          return res.status(404).json({ 
+            message: "Book not found",
+            code: "BOOK_NOT_FOUND",
+            bookId
+          });
+        }
+        return res.status(404).json({ 
+          message: "Chapter not found",
+          code: "CHAPTER_NOT_FOUND",
+          bookId,
+          chapter
+        });
+      }
+      
+      res.set('Cache-Control', 'public, max-age=300');
       res.json(paragraphs);
     } catch (error: any) {
       console.error("Get chapter paragraphs error:", error);
-      res.status(500).json({ message: "Failed to fetch chapter paragraphs" });
+      res.status(500).json({ 
+        message: "Failed to fetch chapter paragraphs",
+        code: "SERVER_ERROR"
+      });
     }
   });
 
@@ -1860,26 +2015,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!parsed.success) {
         return res.status(400).json({
           message: "Validation failed",
+          code: "VALIDATION_ERROR",
           errors: fromError(parsed.error).toString(),
         });
       }
 
+      if (parsed.data.wpm < 0 || parsed.data.wpm > 500) {
+        return res.status(400).json({
+          message: "Invalid WPM value. Must be between 0 and 500.",
+          code: "INVALID_WPM"
+        });
+      }
+      
+      if (parsed.data.accuracy < 0 || parsed.data.accuracy > 100) {
+        return res.status(400).json({
+          message: "Invalid accuracy value. Must be between 0 and 100.",
+          code: "INVALID_ACCURACY"
+        });
+      }
+
       const result = await storage.createBookTestResult(parsed.data);
-      res.status(201).json({ message: "Book test result saved", result });
+      res.status(201).json({ 
+        message: "Book test result saved", 
+        result 
+      });
     } catch (error: any) {
       console.error("Save book test result error:", error);
-      res.status(500).json({ message: "Failed to save book test result" });
+      
+      if (error.code === '23503') {
+        return res.status(400).json({ 
+          message: "Invalid paragraph ID",
+          code: "INVALID_PARAGRAPH_ID"
+        });
+      }
+      
+      res.status(500).json({ 
+        message: "Failed to save book test result",
+        code: "SERVER_ERROR"
+      });
     }
   });
 
   app.get("/api/book-tests", isAuthenticated, async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      
+      if (limit < 1 || limit > 100) {
+        return res.status(400).json({ 
+          message: "Limit must be between 1 and 100",
+          code: "INVALID_LIMIT"
+        });
+      }
+      
       const results = await storage.getBookTestResults(req.user!.id, limit);
       res.json({ results });
     } catch (error: any) {
       console.error("Get book test results error:", error);
-      res.status(500).json({ message: "Failed to fetch book test results" });
+      res.status(500).json({ 
+        message: "Failed to fetch book test results",
+        code: "SERVER_ERROR"
+      });
     }
   });
 

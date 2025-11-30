@@ -1,20 +1,85 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/searchable-select";
-import { BookOpen, Trophy, Zap, Target, RotateCcw, ArrowRight, Sparkles, Loader2, HelpCircle } from "lucide-react";
+import { BookOpen, Trophy, Zap, Target, RotateCcw, ArrowRight, Sparkles, Loader2, HelpCircle, RefreshCw, AlertCircle, WifiOff } from "lucide-react";
 import confetti from "canvas-confetti";
 import type { BookParagraph, InsertBookTypingTest } from "@shared/schema";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
+
+interface CachedTopics {
+  topics: string[];
+  timestamp: number;
+}
+
+interface CachedParagraph {
+  paragraph: BookParagraph;
+  filters: { topic: string; difficulty: string; durationMode: number };
+  timestamp: number;
+}
+
+const TOPICS_CACHE_KEY = 'book_topics_cache';
+const PARAGRAPH_CACHE_KEY = 'book_paragraph_cache';
+const TOPICS_CACHE_TTL = 30 * 60 * 1000;
+const PARAGRAPH_CACHE_TTL = 10 * 60 * 1000;
+
+function getTopicsCache(): string[] | null {
+  try {
+    const cached = localStorage.getItem(TOPICS_CACHE_KEY);
+    if (!cached) return null;
+    
+    const parsed: CachedTopics = JSON.parse(cached);
+    if (Date.now() - parsed.timestamp < TOPICS_CACHE_TTL) {
+      return parsed.topics;
+    }
+    localStorage.removeItem(TOPICS_CACHE_KEY);
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function setTopicsCache(topics: string[]): void {
+  try {
+    const cached: CachedTopics = { topics, timestamp: Date.now() };
+    localStorage.setItem(TOPICS_CACHE_KEY, JSON.stringify(cached));
+  } catch {}
+}
+
+function getParagraphCache(filters: { topic: string; difficulty: string; durationMode: number }): BookParagraph | null {
+  try {
+    const cached = localStorage.getItem(PARAGRAPH_CACHE_KEY);
+    if (!cached) return null;
+    
+    const parsed: CachedParagraph = JSON.parse(cached);
+    if (Date.now() - parsed.timestamp < PARAGRAPH_CACHE_TTL &&
+        parsed.filters.topic === filters.topic &&
+        parsed.filters.difficulty === filters.difficulty &&
+        parsed.filters.durationMode === filters.durationMode) {
+      return parsed.paragraph;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function setParagraphCache(paragraph: BookParagraph, filters: { topic: string; difficulty: string; durationMode: number }): void {
+  try {
+    const cached: CachedParagraph = { paragraph, filters, timestamp: Date.now() };
+    localStorage.setItem(PARAGRAPH_CACHE_KEY, JSON.stringify(cached));
+  } catch {}
+}
 
 const DURATION_MODES = [
   { value: 30, label: "30s" },
@@ -38,6 +103,255 @@ function getDifficultyColor(difficulty: string): string {
   return colors[difficulty] || colors.medium;
 }
 
+async function fetchTopics(): Promise<{ topics: string[] }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  
+  try {
+    const res = await fetch('/api/book-topics', {
+      signal: controller.signal,
+      credentials: 'include',
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      throw new Error(`HTTP_${res.status}`);
+    }
+    
+    const data = await res.json();
+    setTopicsCache(data.topics || []);
+    return data;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    if (error.message === 'Failed to fetch') {
+      throw new Error('NETWORK_ERROR');
+    }
+    throw error;
+  }
+}
+
+async function fetchRandomParagraph(filters: { topic: string; difficulty: string; durationMode: number }): Promise<BookParagraph> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  
+  try {
+    const params = new URLSearchParams();
+    if (filters.topic) params.append('topic', filters.topic);
+    if (filters.difficulty) params.append('difficulty', filters.difficulty);
+    if (filters.durationMode) params.append('durationMode', filters.durationMode.toString());
+    
+    const res = await fetch(`/api/book-paragraphs/random?${params}`, {
+      signal: controller.signal,
+      credentials: 'include',
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error('NO_PARAGRAPHS');
+      }
+      throw new Error(`HTTP_${res.status}`);
+    }
+    
+    const paragraph = await res.json();
+    setParagraphCache(paragraph, filters);
+    return paragraph;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    if (error.message === 'Failed to fetch') {
+      throw new Error('NETWORK_ERROR');
+    }
+    throw error;
+  }
+}
+
+async function fetchNextParagraph(bookId: number, paragraphIndex: number): Promise<BookParagraph | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  
+  try {
+    const res = await fetch(`/api/book-paragraphs/next/${bookId}/${paragraphIndex}`, {
+      signal: controller.signal,
+      credentials: 'include',
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (res.status === 404) {
+      return null;
+    }
+    
+    if (!res.ok) {
+      throw new Error(`HTTP_${res.status}`);
+    }
+    
+    return res.json();
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    if (error.message === 'Failed to fetch') {
+      throw new Error('NETWORK_ERROR');
+    }
+    throw error;
+  }
+}
+
+function LoadingSkeleton() {
+  return (
+    <TooltipProvider>
+      <div className="container mx-auto py-8 px-4 max-w-6xl">
+        <div className="mb-8 text-center">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <BookOpen className="w-10 h-10 text-primary" />
+            <h1 className="text-4xl font-bold">Book Typing Mode</h1>
+          </div>
+          <p className="text-muted-foreground text-lg">
+            Improve your typing speed by reading classic literature
+          </p>
+        </div>
+
+        <Card className="p-6 mb-6">
+          <div className="flex flex-wrap gap-4 items-center justify-center">
+            <Skeleton className="h-10 w-40" />
+            <Skeleton className="h-10 w-64" />
+            <Skeleton className="h-10 w-48" />
+            <Skeleton className="h-10 w-28" />
+          </div>
+        </Card>
+
+        <Card className="p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-5 w-5" />
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <Skeleton className="h-6 w-16 rounded-full" />
+          </div>
+        </Card>
+
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="p-4 text-center">
+              <Skeleton className="h-4 w-16 mx-auto mb-2" />
+              <Skeleton className="h-10 w-20 mx-auto" />
+            </Card>
+          ))}
+        </div>
+
+        <Card className="p-6 mb-6">
+          <div className="space-y-3 mb-4">
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-3/4" />
+          </div>
+          <Skeleton className="h-[150px] w-full" />
+        </Card>
+      </div>
+    </TooltipProvider>
+  );
+}
+
+interface ErrorStateProps {
+  error: string;
+  onRetry: () => void;
+  isRetrying: boolean;
+  hasFilters: boolean;
+  onResetFilters: () => void;
+}
+
+function ErrorState({ error, onRetry, isRetrying, hasFilters, onResetFilters }: ErrorStateProps) {
+  let icon = <AlertCircle className="w-16 h-16 text-destructive" />;
+  let title = "Unable to Load Paragraph";
+  let description = "Something went wrong while loading the book paragraph.";
+  let showRetry = true;
+  let showResetFilters = false;
+  
+  switch (error) {
+    case 'NETWORK_ERROR':
+      icon = <WifiOff className="w-16 h-16 text-muted-foreground" />;
+      title = "No Internet Connection";
+      description = "Please check your internet connection and try again.";
+      break;
+    case 'TIMEOUT':
+      title = "Request Timed Out";
+      description = "The server took too long to respond. Please try again.";
+      break;
+    case 'NO_PARAGRAPHS':
+      icon = <BookOpen className="w-16 h-16 text-muted-foreground" />;
+      title = "No Paragraphs Found";
+      description = hasFilters 
+        ? "No paragraphs match your current filters. Try different settings."
+        : "The book library is still being populated. Please check back later.";
+      showRetry = !hasFilters;
+      showResetFilters = hasFilters;
+      break;
+  }
+  
+  return (
+    <TooltipProvider>
+      <div className="container mx-auto py-8 px-4 max-w-6xl">
+        <div className="mb-8 text-center">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <BookOpen className="w-10 h-10 text-primary" />
+            <h1 className="text-4xl font-bold">Book Typing Mode</h1>
+          </div>
+        </div>
+        
+        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-6 p-4">
+          {icon}
+          <div className="text-center max-w-md">
+            <h2 className="text-2xl font-semibold mb-2">{title}</h2>
+            <p className="text-muted-foreground">{description}</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            {showRetry && (
+              <Button
+                onClick={onRetry}
+                disabled={isRetrying}
+                data-testid="button-retry-paragraph"
+              >
+                {isRetrying ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Try Again
+                  </>
+                )}
+              </Button>
+            )}
+            {showResetFilters && (
+              <Button
+                onClick={onResetFilters}
+                variant="outline"
+                data-testid="button-reset-filters"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Reset Filters
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </TooltipProvider>
+  );
+}
+
 export default function BookMode() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -53,6 +367,7 @@ export default function BookMode() {
   const [accuracy, setAccuracy] = useState(100);
   const [errors, setErrors] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
   const [completedTestData, setCompletedTestData] = useState<{
@@ -61,67 +376,89 @@ export default function BookMode() {
     accuracy: number;
     errors: number;
   } | null>(null);
+  const [pendingResult, setPendingResult] = useState<Omit<InsertBookTypingTest, 'userId'> | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Fetch topics for filter dropdown
-  const { data: topicsData } = useQuery({
+  const { 
+    data: topicsData,
+    isLoading: topicsLoading,
+    isError: topicsError,
+    refetch: refetchTopics
+  } = useQuery({
     queryKey: ['bookTopics'],
-    queryFn: async () => {
-      const res = await fetch('/api/book-topics');
-      if (!res.ok) throw new Error('Failed to fetch topics');
-      return res.json();
+    queryFn: fetchTopics,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    retry: 2,
+    retryDelay: 1000,
+    placeholderData: () => {
+      const cached = getTopicsCache();
+      return cached ? { topics: cached } : undefined;
     },
   });
 
   const topics = topicsData?.topics || [];
-  const topicOptions = [
+  const topicOptions = useMemo(() => [
     { value: '', label: 'All Topics' },
-    ...topics.map((topic: string) => ({ value: topic, label: topic.charAt(0).toUpperCase() + topic.slice(1) }))
-  ];
+    ...topics.map((topic: string) => ({ 
+      value: topic, 
+      label: topic.charAt(0).toUpperCase() + topic.slice(1).replace(/-/g, ' ')
+    }))
+  ], [topics]);
 
-  // Fetch random paragraph based on filters
   const fetchParagraph = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
+    
     try {
-      const params = new URLSearchParams();
-      if (filters.topic) params.append('topic', filters.topic);
-      if (filters.difficulty) params.append('difficulty', filters.difficulty);
-      if (filters.durationMode) params.append('durationMode', filters.durationMode.toString());
-      
-      const res = await fetch(`/api/book-paragraphs/random?${params}`);
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || `Server error: ${res.status}`);
-      }
-      const paragraph = await res.json();
+      const paragraph = await fetchRandomParagraph(filters);
       setCurrentParagraph(paragraph);
       resetTestState();
+      setRetryCount(0);
     } catch (error: any) {
       console.error("Error fetching paragraph:", error);
-      toast({
-        title: "Failed to Load Paragraph",
-        description: error.message?.includes("No paragraphs found")
-          ? "No paragraphs match your current filters. Try different settings."
-          : error.message?.includes("Network")
-          ? "Network error. Please check your connection and try again."
-          : "Unable to load paragraph. Press Ctrl+Enter to retry.",
-        variant: "destructive",
-      });
+      setLoadError(error.message);
+      
+      const cachedParagraph = getParagraphCache(filters);
+      if (cachedParagraph && !currentParagraph) {
+        setCurrentParagraph(cachedParagraph);
+        toast({
+          title: "Using Cached Data",
+          description: "Loaded a previously cached paragraph due to network issues.",
+        });
+      } else {
+        let description = "Unable to load paragraph. Press Ctrl+Enter to retry.";
+        if (error.message === 'NETWORK_ERROR') {
+          description = "Network error. Please check your connection and try again.";
+        } else if (error.message === 'TIMEOUT') {
+          description = "Request timed out. Please try again.";
+        } else if (error.message === 'NO_PARAGRAPHS') {
+          description = "No paragraphs match your current filters. Try different settings.";
+        }
+        
+        toast({
+          title: "Failed to Load Paragraph",
+          description,
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [filters, toast]);
+  }, [filters, toast, currentParagraph]);
 
-  // Continue reading - fetch next paragraph from same book
-  const continueReading = async () => {
+  const continueReading = useCallback(async () => {
     if (!currentParagraph) return;
     
     setIsLoading(true);
+    setLoadError(null);
+    
     try {
-      const res = await fetch(`/api/book-paragraphs/next/${currentParagraph.bookId}/${currentParagraph.paragraphIndex}`);
-      if (res.ok) {
-        const nextParagraph = await res.json();
+      const nextParagraph = await fetchNextParagraph(currentParagraph.bookId, currentParagraph.paragraphIndex);
+      
+      if (nextParagraph) {
         setCurrentParagraph(nextParagraph);
         resetTestState();
         toast({
@@ -137,31 +474,51 @@ export default function BookMode() {
       }
     } catch (error: any) {
       console.error("Error loading next paragraph:", error);
+      
+      let description = "Loading a new book instead.";
+      if (error.message === 'NETWORK_ERROR') {
+        description = "Network error. Loading a new book...";
+      } else if (error.message === 'TIMEOUT') {
+        description = "Request timed out. Loading a new book...";
+      }
+      
       toast({
         title: "Failed to Load Next Paragraph",
-        description: "Loading a new book instead.",
+        description,
         variant: "destructive",
       });
+      
       await fetchParagraph();
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentParagraph, fetchParagraph, toast]);
 
-  // Save test result
   const saveTestMutation = useMutation({
     mutationFn: async (result: Omit<InsertBookTypingTest, 'userId'>) => {
-      const res = await fetch('/api/book-tests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(result),
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP ${res.status}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      try {
+        const res = await fetch('/api/book-tests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(result),
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.message || `HTTP ${res.status}`);
+        }
+        return res.json();
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        throw error;
       }
-      return res.json();
     },
     onSuccess: () => {
       toast({
@@ -170,44 +527,66 @@ export default function BookMode() {
       });
       queryClient.invalidateQueries({ queryKey: ["bookStats"] });
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+      setPendingResult(null);
     },
     onError: (error: any) => {
+      const isNetworkError = error.message === 'Failed to fetch' || 
+                             error.name === 'AbortError' ||
+                             error.message.includes('NetworkError');
+      
       toast({
         title: "Failed to Save Test",
         description: error.message?.includes("401")
           ? "Please log in to save your test results."
-          : error.message?.includes("Network")
-          ? "Network error. Your result wasn't saved. Please check your connection."
+          : isNetworkError
+          ? "Network error. Your result wasn't saved. You can retry below."
           : "Could not save your test result. Your stats are still visible above.",
         variant: "destructive",
       });
     },
+    retry: 2,
+    retryDelay: 1000,
   });
 
-  // Load initial paragraph
   useEffect(() => {
     fetchParagraph();
   }, []);
 
-  // Calculate stats in real-time
-  useEffect(() => {
-    if (isActive && startTime && currentParagraph) {
-      const chars = userInput.length;
-      const errorCount = userInput.split("").filter((char, i) => char !== currentParagraph.text[i]).length;
-      const correctChars = chars - errorCount;
-      const timeElapsed = (Date.now() - startTime) / 1000;
-      
-      setWpm(calculateWPM(correctChars, timeElapsed));
-      setAccuracy(calculateAccuracy(correctChars, chars));
-      setErrors(errorCount);
-      
-      if (userInput === currentParagraph.text) {
-        finishTest();
-      }
+  const stats = useMemo(() => {
+    if (!isActive || !startTime || !currentParagraph) {
+      return { wpm: 0, accuracy: 100, errors: 0 };
     }
+    
+    const chars = userInput.length;
+    const errorCount = userInput.split("").filter((char, i) => char !== currentParagraph.text[i]).length;
+    const correctChars = chars - errorCount;
+    const timeElapsed = (Date.now() - startTime) / 1000;
+    
+    return {
+      wpm: calculateWPM(correctChars, timeElapsed),
+      accuracy: calculateAccuracy(correctChars, chars),
+      errors: errorCount,
+    };
   }, [userInput, isActive, startTime, currentParagraph]);
 
-  // Keyboard shortcuts
+  useEffect(() => {
+    if (!isActive || isFinished) return;
+    
+    const timer = setTimeout(() => {
+      setWpm(stats.wpm);
+      setAccuracy(stats.accuracy);
+      setErrors(stats.errors);
+    }, 50);
+    
+    return () => clearTimeout(timer);
+  }, [stats, isActive, isFinished]);
+
+  useEffect(() => {
+    if (isActive && currentParagraph && userInput === currentParagraph.text) {
+      finishTest();
+    }
+  }, [userInput, isActive, currentParagraph]);
+
   useEffect(() => {
     const handleKeyboard = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !isActive && !isFinished) {
@@ -235,16 +614,14 @@ export default function BookMode() {
 
     window.addEventListener("keydown", handleKeyboard);
     return () => window.removeEventListener("keydown", handleKeyboard);
-  }, [isActive, isFinished, fetchParagraph]);
+  }, [isActive, isFinished, fetchParagraph, continueReading, toast]);
 
-  // Auto-focus textarea
   useEffect(() => {
     if (currentParagraph && !isActive && !isFinished && textareaRef.current) {
       textareaRef.current.focus();
     }
   }, [currentParagraph, isActive, isFinished]);
 
-  // Timer
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     
@@ -261,17 +638,15 @@ export default function BookMode() {
     };
   }, [isActive, startTime]);
 
-  const finishTest = () => {
+  const finishTest = useCallback(() => {
     if (!currentParagraph || !startTime) return;
 
     setIsActive(false);
     setIsFinished(true);
     
-    // Use raw seconds for WPM calculation, rounded for display/storage
     const elapsedSeconds = (Date.now() - startTime) / 1000;
     const duration = Math.round(elapsedSeconds);
     
-    // Recalculate final WPM with precise elapsed time
     const chars = userInput.length;
     const errorCount = userInput.split("").filter((char, i) => char !== currentParagraph.text[i]).length;
     const correctChars = chars - errorCount;
@@ -297,16 +672,18 @@ export default function BookMode() {
     });
 
     if (user) {
-      saveTestMutation.mutate({
+      const result = {
         paragraphId: currentParagraph.id,
         wpm: finalWpm,
         accuracy: finalAccuracy,
-        characters: userInput.length,
+        characters: chars,
         errors: errorCount,
         duration,
-      });
+      };
+      setPendingResult(result);
+      saveTestMutation.mutate(result);
     }
-  };
+  }, [currentParagraph, startTime, userInput, user, saveTestMutation]);
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (isComposing) return;
@@ -321,8 +698,7 @@ export default function BookMode() {
     setIsComposing(false);
     setTimeout(() => {
       if (textareaRef.current) {
-        const value = textareaRef.current.value;
-        processInput(value);
+        processInput(textareaRef.current.value);
       }
     }, 0);
   };
@@ -366,6 +742,7 @@ export default function BookMode() {
     setErrors(0);
     setCompletedTestData(null);
     setElapsedTime(0);
+    setPendingResult(null);
     setTimeout(() => textareaRef.current?.focus(), 0);
   };
 
@@ -373,21 +750,46 @@ export default function BookMode() {
     resetTestState();
     fetchParagraph();
   };
+  
+  const handleResetFilters = () => {
+    setFilters({ topic: '', difficulty: 'medium', durationMode: 60 });
+    setLoadError(null);
+    setTimeout(() => fetchParagraph(), 100);
+  };
+  
+  const handleRetrySave = () => {
+    if (pendingResult) {
+      saveTestMutation.mutate(pendingResult);
+    }
+  };
+  
+  const hasFilters = filters.topic !== '' || filters.difficulty !== 'medium' || filters.durationMode !== 60;
+
+  if (!currentParagraph && isLoading) {
+    return <LoadingSkeleton />;
+  }
+
+  if (!currentParagraph && loadError) {
+    return (
+      <ErrorState
+        error={loadError}
+        onRetry={fetchParagraph}
+        isRetrying={isLoading}
+        hasFilters={hasFilters}
+        onResetFilters={handleResetFilters}
+      />
+    );
+  }
 
   if (!currentParagraph && !isLoading) {
     return (
-      <div className="container mx-auto py-8 px-4 max-w-6xl">
-        <div className="text-center">
-          <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-2">No Paragraphs Available</h2>
-          <p className="text-muted-foreground mb-4">
-            Try adjusting your filters or check back later.
-          </p>
-          <Button onClick={fetchParagraph} data-testid="button-retry">
-            Try Again
-          </Button>
-        </div>
-      </div>
+      <ErrorState
+        error="NO_PARAGRAPHS"
+        onRetry={fetchParagraph}
+        isRetrying={isLoading}
+        hasFilters={hasFilters}
+        onResetFilters={handleResetFilters}
+      />
     );
   }
 
@@ -417,7 +819,6 @@ export default function BookMode() {
           </p>
         </div>
 
-        {/* Filters */}
         <Card className="p-6 mb-6">
           <div className="flex flex-wrap gap-4 items-center justify-center">
             <div className="flex items-center gap-2">
@@ -558,7 +959,6 @@ export default function BookMode() {
           </div>
         </Card>
 
-      {/* Book Metadata */}
       {currentParagraph && (
         <Card className="p-4 mb-6 border-primary/50">
           <div className="flex flex-wrap items-center gap-3 justify-between">
@@ -570,7 +970,7 @@ export default function BookMode() {
                 </span>
               </div>
               <Badge variant="outline" className="capitalize">
-                {currentParagraph.topic}
+                {currentParagraph.topic.replace(/-/g, ' ')}
               </Badge>
               <Badge variant="outline" className={getDifficultyColor(currentParagraph.difficulty)}>
                 {currentParagraph.difficulty}
@@ -586,7 +986,6 @@ export default function BookMode() {
         </Card>
       )}
 
-      {/* Stats Display */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         <Card className="p-4 text-center">
           <div className="flex items-center justify-center gap-2 mb-1">
@@ -624,11 +1023,13 @@ export default function BookMode() {
         </Card>
       </div>
 
-      {/* Typing Interface */}
       <Card className="p-6 mb-6 relative">
         {isLoading && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground">Loading paragraph...</span>
+            </div>
           </div>
         )}
 
@@ -653,13 +1054,14 @@ export default function BookMode() {
         />
 
         {isFinished && (
-          <div className="mt-4 flex gap-3 justify-center">
+          <div className="mt-4 flex gap-3 justify-center flex-wrap">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   onClick={continueReading}
                   size="lg"
                   className="gap-2"
+                  disabled={isLoading}
                   data-testid="button-continue-reading"
                 >
                   <ArrowRight className="w-5 h-5" />
@@ -677,6 +1079,7 @@ export default function BookMode() {
                   variant="outline"
                   size="lg"
                   className="gap-2"
+                  disabled={isLoading}
                   data-testid="button-new-paragraph"
                 >
                   <RotateCcw className="w-5 h-5" />
@@ -687,11 +1090,27 @@ export default function BookMode() {
                 <p>Get a random paragraph from a different book based on your filters</p>
               </TooltipContent>
             </Tooltip>
+            {pendingResult && saveTestMutation.isError && (
+              <Button
+                onClick={handleRetrySave}
+                variant="outline"
+                size="lg"
+                className="gap-2"
+                disabled={saveTestMutation.isPending}
+                data-testid="button-retry-save"
+              >
+                {saveTestMutation.isPending ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-5 h-5" />
+                )}
+                Retry Save
+              </Button>
+            )}
           </div>
         )}
       </Card>
 
-      {/* Keyboard Shortcuts */}
       <Card className="p-4 bg-muted/50">
         <div className="text-sm text-muted-foreground text-center">
           <span className="font-semibold">Shortcuts:</span>{" "}
@@ -701,7 +1120,6 @@ export default function BookMode() {
         </div>
       </Card>
 
-      {/* Results Dialog */}
       <Dialog open={isFinished} onOpenChange={(open) => !open && resetTestState()}>
         <DialogContent data-testid="dialog-results">
           <DialogHeader>
@@ -733,10 +1151,32 @@ export default function BookMode() {
                   <div className="text-3xl font-bold">{formatTime(completedTestData.duration)}</div>
                 </div>
               </div>
+              
+              {saveTestMutation.isError && (
+                <div className="p-3 bg-destructive/10 rounded-lg text-center">
+                  <p className="text-sm text-destructive mb-2">Failed to save your result</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRetrySave}
+                    disabled={saveTestMutation.isPending}
+                    data-testid="button-dialog-retry-save"
+                  >
+                    {saveTestMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                    )}
+                    Retry Save
+                  </Button>
+                </div>
+              )}
+              
               <div className="flex gap-3">
                 <Button
                   onClick={continueReading}
                   className="flex-1 gap-2"
+                  disabled={isLoading}
                   data-testid="button-dialog-continue"
                 >
                   <ArrowRight className="w-4 h-4" />
@@ -746,6 +1186,7 @@ export default function BookMode() {
                   onClick={resetTest}
                   variant="outline"
                   className="flex-1 gap-2"
+                  disabled={isLoading}
                   data-testid="button-dialog-new"
                 >
                   <RotateCcw className="w-4 h-4" />

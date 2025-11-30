@@ -304,6 +304,7 @@ export interface IStorage {
   insertBook(book: InsertBook): Promise<void>;
   insertBookParagraphs(paragraphs: InsertBookParagraph[]): Promise<void>;
   getAllBooks(): Promise<Book[]>;
+  getBookById(id: number): Promise<Book | null>;
   getBookBySlug(slug: string): Promise<Book | null>;
   getBookChapters(bookId: number): Promise<Array<{ chapter: number; title: string | null; paragraphCount: number }>>;
   getChapterParagraphs(bookId: number, chapter: number): Promise<BookParagraph[]>;
@@ -1821,6 +1822,11 @@ export class DatabaseStorage implements IStorage {
 
   async getAllBooks(): Promise<Book[]> {
     return await db.select().from(books).orderBy(books.title);
+  }
+
+  async getBookById(id: number): Promise<Book | null> {
+    const result = await db.select().from(books).where(eq(books.id, id)).limit(1);
+    return result[0] || null;
   }
 
   async getBookBySlug(slug: string): Promise<Book | null> {
