@@ -12,6 +12,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 import type { Book } from "@shared/schema";
 
 const CACHE_KEY = 'book_library_cache';
@@ -251,6 +252,7 @@ function EmptyState({ onRefresh, isRefreshing }: { onRefresh: () => void; isRefr
 export default function BookLibrary() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [useCachedData, setUseCachedData] = useState(false);
   const [cachedBooks, setCachedBooks] = useState<Book[] | null>(null);
@@ -305,11 +307,23 @@ export default function BookLibrary() {
     setIsRefreshing(true);
     try {
       setUseCachedData(false);
-      await refetch();
+      const result = await refetch();
+      if (result.data) {
+        toast({
+          title: "Books Refreshed",
+          description: `Successfully loaded ${result.data.length} books`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Refresh Failed",
+        description: "Could not refresh book list. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetch]);
+  }, [refetch, toast]);
   
   if (isLoading && !useCachedData) {
     return <LoadingState />;

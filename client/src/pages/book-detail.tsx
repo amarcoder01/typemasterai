@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useCallback, useEffect, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import type { Book } from "@shared/schema";
 
 interface Chapter {
@@ -284,10 +285,12 @@ export default function BookDetail() {
   const [, params] = useRoute("/books/:slug");
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const slug = params?.slug || '';
   
   const [useCachedData, setUseCachedData] = useState(false);
   const [cachedData, setCachedData] = useState<CachedBookData | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   useEffect(() => {
     if (slug) {
@@ -361,6 +364,27 @@ export default function BookDetail() {
   const handleGoBack = useCallback(() => {
     setLocation('/books');
   }, [setLocation]);
+  
+  const handleRefreshChapters = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const result = await refetchChapters();
+      if (result.data) {
+        toast({
+          title: "Chapters Refreshed",
+          description: `Successfully loaded ${result.data.length} chapters`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Refresh Failed",
+        description: "Could not refresh chapters. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchChapters, toast]);
 
   const isLoading = bookLoading || (book && chaptersLoading);
   const hasError = (bookError || chaptersError) && !useCachedData;
@@ -532,19 +556,25 @@ export default function BookDetail() {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => refetchChapters()}
-                    disabled={chaptersFetching}
-                    data-testid="button-refresh-chapters"
-                  >
-                    <RefreshCw className={`w-4 h-4 mr-2 ${chaptersFetching ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </Button>
+                  <span className="inline-flex">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRefreshChapters}
+                      disabled={isRefreshing}
+                      data-testid="button-refresh-chapters"
+                    >
+                      {isRefreshing ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                      )}
+                      {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                    </Button>
+                  </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Reload chapter list from server</p>
+                  <p>{isRefreshing ? 'Fetching latest chapters...' : 'Reload chapter list from server'}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -561,14 +591,14 @@ export default function BookDetail() {
             <Button
               variant="outline"
               className="mt-4"
-              onClick={() => refetchChapters()}
-              disabled={chaptersFetching}
+              onClick={handleRefreshChapters}
+              disabled={isRefreshing}
               data-testid="button-retry-chapters"
             >
-              {chaptersFetching ? (
+              {isRefreshing ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Loading...
+                  Checking...
                 </>
               ) : (
                 <>
