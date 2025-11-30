@@ -1164,8 +1164,13 @@ export default function CodeMode() {
                         onChange={(e) => setCustomPrompt(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && customPrompt.trim()) {
+                            toast({
+                              title: "Generating...",
+                              description: `Creating ${customPrompt} code snippet`,
+                            });
                             fetchCodeSnippet(true);
                             setShowCustomAI(false);
+                            setCustomPrompt("");
                           }
                           if (e.key === "Escape") {
                             setShowCustomAI(false);
@@ -1194,6 +1199,7 @@ export default function CodeMode() {
                           });
                           fetchCodeSnippet(true);
                           setShowCustomAI(false);
+                          setCustomPrompt("");
                         }}
                         disabled={isLoading}
                         className="h-8 px-3 shrink-0"
