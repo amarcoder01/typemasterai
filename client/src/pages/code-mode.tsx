@@ -97,9 +97,16 @@ const TIME_OPTIONS = [
   { value: 0, label: "No Limit" },
   { value: 15, label: "15s" },
   { value: 30, label: "30s" },
+  { value: 45, label: "45s" },
   { value: 60, label: "1:00" },
+  { value: 90, label: "1:30" },
   { value: 120, label: "2:00" },
+  { value: 180, label: "3:00" },
   { value: 300, label: "5:00" },
+  { value: 600, label: "10:00" },
+  { value: 900, label: "15:00" },
+  { value: 1200, label: "20:00" },
+  { value: 1800, label: "30:00" },
 ];
 
 function formatTime(seconds: number): string {
