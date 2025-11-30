@@ -1835,20 +1835,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBookChapters(bookId: number): Promise<Array<{ chapter: number; title: string | null; paragraphCount: number }>> {
+    // Group only by chapter number, and get the first non-null title using MIN
+    // This prevents duplicates when different paragraphs have different titles
     const result = await db
       .select({
         chapter: bookParagraphs.chapter,
-        title: bookParagraphs.chapterTitle,
+        title: sql<string | null>`MIN(${bookParagraphs.chapterTitle})`,
         paragraphCount: sql<number>`count(*)::int`,
       })
       .from(bookParagraphs)
       .where(eq(bookParagraphs.bookId, bookId))
-      .groupBy(bookParagraphs.chapter, bookParagraphs.chapterTitle)
+      .groupBy(bookParagraphs.chapter)
       .orderBy(bookParagraphs.chapter);
+    
+    // Clean up noisy titles that look like content snippets instead of real chapter titles
+    const isValidTitle = (title: string | null): boolean => {
+      if (!title) return false;
+      // Reject titles that look like dialogue or content (start with lowercase, contain quotes, etc.)
+      if (/^[a-z]/.test(title)) return false; // Starts with lowercase
+      if (/^["']/.test(title)) return false; // Starts with quote
+      if (title.length > 80) return false; // Too long to be a chapter title
+      return true;
+    };
     
     return result.map(r => ({
       chapter: r.chapter || 1,
-      title: r.title,
+      title: isValidTitle(r.title) ? r.title : null,
       paragraphCount: r.paragraphCount,
     }));
   }
