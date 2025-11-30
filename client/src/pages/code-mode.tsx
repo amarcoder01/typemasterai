@@ -659,19 +659,7 @@ export default function CodeMode() {
     }
   }, [language, difficulty, timeLimit, testMode]);
 
-  // Auto-generate when custom prompt changes (with debounce)
-  useEffect(() => {
-    if (mode !== "ai" || isActive) return;
-    
-    const timer = setTimeout(() => {
-      if (customPrompt.trim().length >= 2) {
-        fetchCodeSnippet(true);
-      }
-    }, 600); // 600ms debounce - fast enough to feel instant
-    
-    return () => clearTimeout(timer);
-  }, [customPrompt, mode, isActive]);
-
+  
   // Fetch more content for infinite mode
   const fetchMoreContent = useCallback(async () => {
     if (isLoadingMore || timeLimit !== 0) return;
@@ -1154,12 +1142,17 @@ export default function CodeMode() {
                       type="text"
                       value={customPrompt}
                       onChange={(e) => setCustomPrompt(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && customPrompt.trim()) {
+                          fetchCodeSnippet(true);
+                        }
+                      }}
                       placeholder="e.g., React hooks, sorting algorithm, API fetch..."
                       className="w-full h-9 px-4 pr-9 text-sm bg-background/80 border border-border/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 placeholder:text-muted-foreground/50 transition-all"
                       disabled={isActive}
                       data-testid="input-custom-prompt"
                     />
-                    {customPrompt ? (
+                    {customPrompt && (
                       <button
                         onClick={() => setCustomPrompt("")}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
@@ -1167,33 +1160,45 @@ export default function CodeMode() {
                       >
                         <X className="w-4 h-4" />
                       </button>
-                    ) : (
-                      <Zap className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-primary/40" />
                     )}
                   </div>
+                  
+                  <Button
+                    size="sm"
+                    onClick={() => fetchCodeSnippet(true)}
+                    disabled={isLoading}
+                    className="h-9 px-4 shrink-0"
+                    data-testid="button-generate-custom"
+                  >
+                    {isLoading ? (
+                      <div className="w-4 h-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4 mr-1.5" />
+                        Generate
+                      </>
+                    )}
+                  </Button>
                 </div>
                 
                 {/* Quick suggestions */}
                 <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Try:</span>
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Quick:</span>
                   {["React hooks", "API calls", "Sorting", "Classes", "Async/await"].map((suggestion) => (
                     <button
                       key={suggestion}
-                      onClick={() => setCustomPrompt(suggestion)}
-                      className="px-2 py-0.5 text-[11px] bg-background/60 hover:bg-primary/20 border border-border/30 hover:border-primary/40 rounded-full transition-all text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        setCustomPrompt(suggestion);
+                        setTimeout(() => fetchCodeSnippet(true), 50);
+                      }}
+                      disabled={isLoading}
+                      className="px-2.5 py-1 text-[11px] bg-background/60 hover:bg-primary/20 border border-border/30 hover:border-primary/40 rounded-full transition-all text-muted-foreground hover:text-foreground disabled:opacity-50"
                       data-testid={`suggestion-${suggestion.toLowerCase().replace(/\s+/g, '-')}`}
                     >
                       {suggestion}
                     </button>
                   ))}
                 </div>
-                
-                {isLoading && customPrompt && (
-                  <div className="flex items-center gap-2 mt-2 text-xs text-primary">
-                    <div className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                    <span>Generating custom content...</span>
-                  </div>
-                )}
               </div>
             )}
 
