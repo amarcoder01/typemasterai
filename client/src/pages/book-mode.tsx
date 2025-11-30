@@ -1169,6 +1169,21 @@ export default function BookMode() {
         </Tooltip>
       </div>
 
+      <Card className="p-4 mb-4 bg-muted/30 border-dashed">
+        <div className="flex items-start gap-3">
+          <HelpCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-muted-foreground">
+            <p className="font-medium text-foreground mb-1">How highlighting works:</p>
+            <ul className="space-y-1 list-disc list-inside">
+              <li><span className="text-green-500">Green</span> = Correct character</li>
+              <li><span className="text-red-500 line-through">Red strikethrough</span> + <span className="text-yellow-400 font-bold">Yellow</span> = Wrong character (shows expected vs what you typed)</li>
+              <li><span className="text-muted-foreground">Gray</span> = Not typed yet</li>
+            </ul>
+            <p className="mt-2 text-xs">Tip: Use <kbd className="px-1.5 py-0.5 bg-background rounded text-xs">Backspace</kbd> to fix mistakes before continuing.</p>
+          </div>
+        </div>
+      </Card>
+
       <Card className="p-6 mb-6 relative">
         {isLoading && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
