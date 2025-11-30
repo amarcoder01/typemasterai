@@ -540,8 +540,9 @@ export function generateSlug(title: string): string {
 }
 
 /**
- * Detect chapters in book text
- * Scans for common chapter markers and extracts chapter information
+ * Detect chapters in book text - STRICT MODE
+ * Only detects lines that explicitly start with "CHAPTER" followed by a number.
+ * This ensures we only get actual chapters, not letters, prologues, or other sections.
  * @param text The cleaned book text
  * @returns Array of ChapterInfo objects
  */
@@ -549,19 +550,13 @@ export function detectChapters(text: string): ChapterInfo[] {
   const chapters: ChapterInfo[] = [];
   const lines = text.split('\n');
   
-  // Roman numeral mapping for chapter detection
+  // Roman numeral mapping
   const romanNumerals = [
     'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X',
     'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX',
     'XXI', 'XXII', 'XXIII', 'XXIV', 'XXV', 'XXVI', 'XXVII', 'XXVIII', 'XXIX', 'XXX',
     'XXXI', 'XXXII', 'XXXIII', 'XXXIV', 'XXXV', 'XXXVI', 'XXXVII', 'XXXVIII', 'XXXIX', 'XL',
     'XLI', 'XLII', 'XLIII', 'XLIV', 'XLV', 'XLVI', 'XLVII', 'XLVIII', 'XLIX', 'L'
-  ];
-  
-  const wordNumbers = [
-    'ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN', 'EIGHT', 'NINE', 'TEN',
-    'ELEVEN', 'TWELVE', 'THIRTEEN', 'FOURTEEN', 'FIFTEEN', 'SIXTEEN', 'SEVENTEEN', 
-    'EIGHTEEN', 'NINETEEN', 'TWENTY'
   ];
   
   // Ordinal word numbers (for "CHAPTER THE FIRST" style)
@@ -571,234 +566,65 @@ export function detectChapters(text: string): ChapterInfo[] {
     'EIGHTEENTH', 'NINETEENTH', 'TWENTIETH'
   ];
   
-  // Special section types that should be treated as chapters
-  const specialSections = ['PROLOGUE', 'EPILOGUE', 'PREFACE', 'INTRODUCTION', 'FOREWORD', 'AFTERWORD'];
-  
-  // Division types (BOOK, PART, VOLUME, etc.)
-  const divisionTypes = ['BOOK', 'PART', 'VOLUME', 'SECTION'];
-  
-  // Chapter keyword variants
-  const chapterKeywords = ['CHAPTER', 'CHAP', 'CHAP.', 'ADVENTURE', 'CANTO'];
-  
   let currentPosition = 0;
-  let specialSectionCounter = 0; // Counter for special sections like PROLOGUE
   
   for (let i = 0; i < lines.length; i++) {
-    const originalLine = lines[i]; // Keep original line with whitespace
+    const originalLine = lines[i];
     const line = originalLine.trim();
     const upperLine = line.toUpperCase();
     
-    // Skip empty lines - use original line length for position tracking
     if (line.length === 0) {
-      currentPosition += originalLine.length + 1; // +1 for newline
+      currentPosition += originalLine.length + 1;
       continue;
     }
     
     let chapterNumber: number | null = null;
     let title: string | undefined = undefined;
     
-    // Pattern 1: Check for special sections (PROLOGUE, EPILOGUE, etc.)
-    for (const section of specialSections) {
-      if (upperLine === section || upperLine.startsWith(section + ' ') || 
-          upperLine.startsWith(section + ':') || upperLine.startsWith(section + '.')) {
-        const prevLineEmpty = i === 0 || lines[i - 1].trim().length === 0;
-        const nextLineEmpty = i === lines.length - 1 || lines[i + 1].trim().length === 0;
-        
-        if (prevLineEmpty || nextLineEmpty) {
-          specialSectionCounter++;
-          chapterNumber = specialSectionCounter;
-          title = section;
-          // Extract additional title if present
-          const match = line.match(new RegExp(`^${section}[\\s.:—-]+(.+)`, 'i'));
-          if (match && match[1].trim()) {
-            title = `${section}: ${match[1].trim()}`;
-          }
-          break;
-        }
-      }
-    }
-    
-    // Pattern 2: Division types (BOOK, PART, VOLUME)
-    if (chapterNumber === null) {
-      for (const division of divisionTypes) {
-        if (upperLine.startsWith(division)) {
-          const afterDivision = line.substring(division.length).trim();
-          
-          // Try to match "THE FIRST/SECOND/etc" pattern
-          const ordinalThePattern = new RegExp(`^THE\\s+(${ordinalNumbers.join('|')})`, 'i');
-          const ordinalTheMatch = afterDivision.toUpperCase().match(ordinalThePattern);
-          if (ordinalTheMatch) {
-            const ordinalIndex = ordinalNumbers.indexOf(ordinalTheMatch[1]);
-            if (ordinalIndex >= 0) {
-              chapterNumber = ordinalIndex + 1;
-              // Extract title after ordinal
-              const titleMatch = afterDivision.match(new RegExp(`^THE\\s+${ordinalNumbers[ordinalIndex]}[\\s.:—-]+(.+)`, 'i'));
-              if (titleMatch && titleMatch[1].trim()) {
-                title = titleMatch[1].trim();
-              } else {
-                title = `${division} THE ${ordinalNumbers[ordinalIndex]}`;
-              }
-              break;
-            }
-          }
-          
-          // Try to match Roman numeral
-          for (let j = 0; j < romanNumerals.length; j++) {
-            const roman = romanNumerals[j];
-            const romanPattern = new RegExp(`^${roman}[\\s.:—-]`, 'i');
-            if (romanPattern.test(afterDivision.toUpperCase())) {
-              chapterNumber = j + 1;
-              const titleMatch = afterDivision.match(new RegExp(`^${roman}[\\s.:—-]+(.+)`, 'i'));
-              if (titleMatch && titleMatch[1].trim()) {
-                title = titleMatch[1].trim();
-              }
-              break;
-            }
-          }
-          
-          if (chapterNumber !== null) break;
-          
-          // Try to match Arabic numeral
-          const arabicMatch = afterDivision.match(/^(\d+)[.\s:—-]*(.*)/);
-          if (arabicMatch) {
-            chapterNumber = parseInt(arabicMatch[1], 10);
-            if (arabicMatch[2].trim()) {
-              title = arabicMatch[2].trim();
-            }
-            break;
-          }
-          
-          // Try to match word number
-          for (let j = 0; j < wordNumbers.length; j++) {
-            const wordNum = wordNumbers[j];
-            const wordPattern = new RegExp(`^${wordNum}[\\s.:—-]`, 'i');
-            if (wordPattern.test(afterDivision.toUpperCase())) {
-              chapterNumber = j + 1;
-              const titleMatch = afterDivision.match(new RegExp(`^${wordNum}[\\s.:—-]+(.+)`, 'i'));
-              if (titleMatch && titleMatch[1].trim()) {
-                title = titleMatch[1].trim();
-              }
-              break;
-            }
-          }
-          
-          if (chapterNumber !== null) break;
-        }
-      }
-    }
-    
-    // Pattern 3: Chapter keywords (CHAPTER, CHAP., ADVENTURE, CANTO)
-    if (chapterNumber === null) {
-      for (const keyword of chapterKeywords) {
-        if (upperLine.startsWith(keyword)) {
-          const afterKeyword = line.substring(keyword.length).trim();
-          
-          // Try to match "THE FIRST/SECOND/etc" pattern
-          const ordinalThePattern = new RegExp(`^THE\\s+(${ordinalNumbers.join('|')})`, 'i');
-          const ordinalTheMatch = afterKeyword.toUpperCase().match(ordinalThePattern);
-          if (ordinalTheMatch) {
-            const ordinalIndex = ordinalNumbers.indexOf(ordinalTheMatch[1]);
-            if (ordinalIndex >= 0) {
-              chapterNumber = ordinalIndex + 1;
-              // Extract title after ordinal
-              const titleMatch = afterKeyword.match(new RegExp(`^THE\\s+${ordinalNumbers[ordinalIndex]}[\\s.:—-]+(.+)`, 'i'));
-              if (titleMatch && titleMatch[1].trim()) {
-                title = titleMatch[1].trim();
-              }
-              break;
-            }
-          }
-          
-          // Try to match Roman numeral
-          for (let j = 0; j < romanNumerals.length; j++) {
-            const roman = romanNumerals[j];
-            const romanPattern = new RegExp(`^${roman}[\\s.:—-]`, 'i');
-            if (romanPattern.test(afterKeyword.toUpperCase())) {
-              chapterNumber = j + 1;
-              const titleMatch = afterKeyword.match(new RegExp(`^${roman}[\\s.:—-]+(.+)`, 'i'));
-              if (titleMatch && titleMatch[1].trim()) {
-                title = titleMatch[1].trim();
-              }
-              break;
-            }
-          }
-          
-          if (chapterNumber !== null) break;
-          
-          // Try to match Arabic numeral
-          const arabicMatch = afterKeyword.match(/^(\d+)[.\s:—-]*(.*)/);
-          if (arabicMatch) {
-            chapterNumber = parseInt(arabicMatch[1], 10);
-            if (arabicMatch[2].trim()) {
-              title = arabicMatch[2].trim();
-            }
-            break;
-          }
-          
-          // Try to match word number
-          for (let j = 0; j < wordNumbers.length; j++) {
-            const wordNum = wordNumbers[j];
-            const wordPattern = new RegExp(`^${wordNum}[\\s.:—-]`, 'i');
-            if (wordPattern.test(afterKeyword.toUpperCase())) {
-              chapterNumber = j + 1;
-              const titleMatch = afterKeyword.match(new RegExp(`^${wordNum}[\\s.:—-]+(.+)`, 'i'));
-              if (titleMatch && titleMatch[1].trim()) {
-                title = titleMatch[1].trim();
-              }
-              break;
-            }
-          }
-          
-          if (chapterNumber !== null) break;
-        }
-      }
-    }
-    
-    // Pattern 4: Roman numeral at start of line (with optional period/separator)
-    // Examples: "I.", "II. The Journey", "III - The Adventure"
-    if (chapterNumber === null && line.length <= 50) {
-      for (let j = 0; j < romanNumerals.length; j++) {
-        const roman = romanNumerals[j];
-        const romanPattern = new RegExp(`^${roman}[\\s.:—-]`, 'i');
-        if (romanPattern.test(upperLine)) {
-          const prevLineEmpty = i === 0 || lines[i - 1].trim().length === 0;
-          const nextLineEmpty = i === lines.length - 1 || lines[i + 1].trim().length === 0;
-          
-          if (prevLineEmpty || nextLineEmpty) {
-            chapterNumber = j + 1;
-            const titleMatch = line.match(new RegExp(`^${roman}[\\s.:—-]+(.+)`, 'i'));
-            if (titleMatch && titleMatch[1].trim()) {
-              title = titleMatch[1].trim();
-            }
-            break;
-          }
-        }
-      }
-    }
-    
-    // Pattern 5: Arabic numeral at start of line
-    // Examples: "1.", "2. The Beginning", "3 - Adventure"
-    if (chapterNumber === null && line.length <= 50) {
-      const arabicPattern = /^(\d+)[.\s:—-]/;
-      const arabicMatch = line.match(arabicPattern);
+    // ONLY detect lines starting with "CHAPTER" (strict mode)
+    if (upperLine.startsWith('CHAPTER')) {
+      const afterChapter = line.substring(7).trim(); // 7 = length of "CHAPTER"
+      const upperAfter = afterChapter.toUpperCase();
+      
+      // Try Arabic numeral: "CHAPTER 1", "CHAPTER 23", etc.
+      const arabicMatch = afterChapter.match(/^(\d+)[\s.:—-]*(.*)/);
       if (arabicMatch) {
-        const num = parseInt(arabicMatch[1], 10);
-        if (num >= 1 && num <= 100) {
-          const prevLineEmpty = i === 0 || lines[i - 1].trim().length === 0;
-          const nextLineEmpty = i === lines.length - 1 || lines[i + 1].trim().length === 0;
-          
-          if (prevLineEmpty || nextLineEmpty) {
-            chapterNumber = num;
-            const titleMatch = line.match(/^\d+[.\s:—-]+(.+)/);
+        chapterNumber = parseInt(arabicMatch[1], 10);
+        if (arabicMatch[2].trim()) {
+          title = arabicMatch[2].trim();
+        }
+      }
+      
+      // Try Roman numeral: "CHAPTER I", "CHAPTER XIV", etc.
+      if (chapterNumber === null) {
+        for (let j = romanNumerals.length - 1; j >= 0; j--) { // Check longer ones first
+          const roman = romanNumerals[j];
+          const romanPattern = new RegExp(`^${roman}(?:[\\s.:—-]|$)`, 'i');
+          if (romanPattern.test(upperAfter)) {
+            chapterNumber = j + 1;
+            const titleMatch = afterChapter.match(new RegExp(`^${roman}[\\s.:—-]+(.+)`, 'i'));
             if (titleMatch && titleMatch[1].trim()) {
               title = titleMatch[1].trim();
             }
+            break;
+          }
+        }
+      }
+      
+      // Try ordinal: "CHAPTER THE FIRST", "CHAPTER THE SECOND", etc.
+      if (chapterNumber === null) {
+        const ordinalPattern = new RegExp(`^THE\\s+(${ordinalNumbers.join('|')})`, 'i');
+        const ordinalMatch = upperAfter.match(ordinalPattern);
+        if (ordinalMatch) {
+          const ordinalIndex = ordinalNumbers.indexOf(ordinalMatch[1]);
+          if (ordinalIndex >= 0) {
+            chapterNumber = ordinalIndex + 1;
           }
         }
       }
     }
     
-    // If we found a chapter, add it to the list
+    // Add chapter if found
     if (chapterNumber !== null) {
       chapters.push({
         chapterNumber,
@@ -807,11 +633,10 @@ export function detectChapters(text: string): ChapterInfo[] {
       });
     }
     
-    // Use original line length for accurate position tracking
-    currentPosition += originalLine.length + 1; // +1 for newline
+    currentPosition += originalLine.length + 1;
   }
   
-  // If no chapters detected, return single chapter for entire book
+  // If no chapters detected, treat entire book as single chapter
   if (chapters.length === 0) {
     return [{
       chapterNumber: 1,
@@ -820,8 +645,13 @@ export function detectChapters(text: string): ChapterInfo[] {
     }];
   }
   
-  // Sort chapters by position (in case we detected them out of order)
+  // Sort by position and renumber sequentially
   chapters.sort((a, b) => a.startIndex - b.startIndex);
+  
+  // Renumber chapters sequentially (1, 2, 3...) to ensure clean numbering
+  for (let i = 0; i < chapters.length; i++) {
+    chapters[i].chapterNumber = i + 1;
+  }
   
   return chapters;
 }
@@ -860,10 +690,13 @@ export async function processBook(book: GutendexBook): Promise<ProcessedParagrap
     
     console.log(`Book "${book.title}": detected ${chapters.length} chapter(s)`);
     
+    // Get the position of the first chapter - we'll exclude everything before it
+    const firstChapterPosition = chapters.length > 0 ? chapters[0].startIndex : 0;
+    
     // Split into paragraphs
     const paragraphs = splitIntoParagraphs(cleanedText);
     
-    console.log(`Book "${book.title}": extracted ${paragraphs.length} paragraphs`);
+    console.log(`Book "${book.title}": extracted ${paragraphs.length} raw paragraphs`);
     
     // Extract topic
     const topic = extractTopic(book.subjects, book.bookshelves);
@@ -873,15 +706,18 @@ export async function processBook(book: GutendexBook): Promise<ProcessedParagrap
     const source = `${book.title} by ${authorNames || 'Unknown'}`;
     
     // Helper function to find which chapter a paragraph belongs to
-    const findChapterForPosition = (position: number): ChapterInfo => {
+    const findChapterForPosition = (position: number): ChapterInfo | null => {
+      // If position is before first chapter, return null (exclude this paragraph)
+      if (position < firstChapterPosition) {
+        return null;
+      }
       // Find the last chapter that starts before or at this position
       for (let i = chapters.length - 1; i >= 0; i--) {
         if (chapters[i].startIndex <= position) {
           return chapters[i];
         }
       }
-      // Fallback to first chapter
-      return chapters[0];
+      return null;
     };
     
     // Helper function to count paragraphs in a chapter
@@ -889,11 +725,26 @@ export async function processBook(book: GutendexBook): Promise<ProcessedParagrap
     
     // Track current position in the text
     let currentTextPosition = 0;
+    let paragraphIndex = 0;
     
-    // Process each paragraph
-    const processedParagraphs: ProcessedParagraph[] = paragraphs.map((text, index) => {
+    // Process each paragraph, filtering out those before first chapter
+    const processedParagraphs: ProcessedParagraph[] = [];
+    
+    for (const text of paragraphs) {
       const words = text.split(/\s+/).filter(w => w.length > 0);
       const lengthWords = words.length;
+      
+      // Find the position of this paragraph in the original text
+      const paragraphPosition = cleanedText.indexOf(text, currentTextPosition);
+      currentTextPosition = paragraphPosition >= 0 ? paragraphPosition + text.length : currentTextPosition;
+      
+      // Determine which chapter this paragraph belongs to
+      const chapter = findChapterForPosition(paragraphPosition >= 0 ? paragraphPosition : currentTextPosition);
+      
+      // Skip paragraphs that are before the first chapter (front matter)
+      if (chapter === null) {
+        continue;
+      }
       
       // Calculate difficulty
       const difficulty = calculateDifficulty(text);
@@ -910,19 +761,12 @@ export async function processBook(book: GutendexBook): Promise<ProcessedParagrap
         durationMode = 120;
       }
       
-      // Find the position of this paragraph in the original text
-      const paragraphPosition = cleanedText.indexOf(text, currentTextPosition);
-      currentTextPosition = paragraphPosition >= 0 ? paragraphPosition + text.length : currentTextPosition;
-      
-      // Determine which chapter this paragraph belongs to
-      const chapter = findChapterForPosition(paragraphPosition >= 0 ? paragraphPosition : currentTextPosition);
-      
       // Calculate section index within the chapter
       const currentCount = chapterParagraphCounts.get(chapter.chapterNumber) || 0;
       chapterParagraphCounts.set(chapter.chapterNumber, currentCount + 1);
       const sectionIndex = currentCount;
       
-      return {
+      processedParagraphs.push({
         text,
         difficulty,
         topic,
@@ -930,13 +774,29 @@ export async function processBook(book: GutendexBook): Promise<ProcessedParagrap
         lengthWords,
         source,
         bookId: book.id,
-        paragraphIndex: index,
+        paragraphIndex: paragraphIndex++,
         language: 'en',
         chapter: chapter.chapterNumber,
         sectionIndex,
         chapterTitle: chapter.title
-      };
-    });
+      });
+    }
+    
+    console.log(`Book "${book.title}": kept ${processedParagraphs.length} paragraphs (excluded front matter)`);
+    
+    // Renumber chapters sequentially starting from 1 after excluding front matter
+    const usedChapters = Array.from(new Set(processedParagraphs.map(p => p.chapter).filter((c): c is number => c !== undefined))).sort((a, b) => a - b);
+    const chapterRemap = new Map<number, number>();
+    usedChapters.forEach((oldNum, idx) => chapterRemap.set(oldNum, idx + 1));
+    
+    // Apply the remapping
+    for (const para of processedParagraphs) {
+      if (para.chapter !== undefined) {
+        para.chapter = chapterRemap.get(para.chapter) || para.chapter;
+      }
+    }
+    
+    console.log(`Book "${book.title}": renumbered to ${usedChapters.length} chapters`);
     
     return processedParagraphs;
   } catch (error) {
