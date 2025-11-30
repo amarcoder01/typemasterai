@@ -17,6 +17,7 @@ import confetti from "canvas-confetti";
 import { motion, AnimatePresence } from "framer-motion";
 import { CodeShareCard } from "@/components/CodeShareCard";
 import { CodeCertificate } from "@/components/CodeCertificate";
+import { keyboardSound } from "@/lib/keyboard-sounds";
 
 const PROGRAMMING_LANGUAGES = {
   javascript: { name: "JavaScript", prism: "javascript", category: "Popular" },
@@ -162,11 +163,11 @@ export default function CodeMode() {
   
   // Advanced settings
   const [caretStyle, setCaretStyle] = useState<"line" | "block" | "underline">("line");
-  const [soundEnabled, setSoundEnabled] = useState(false);
   const [showLineNumbers, setShowLineNumbers] = useState(true);
   const [showIndentGuides, setShowIndentGuides] = useState(true);
   const [smoothCaret, setSmoothCaret] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => keyboardSound.getSettings().enabled);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -540,6 +541,11 @@ export default function CodeMode() {
     if (value.length > codeSnippet.length) {
       if (textareaRef.current) textareaRef.current.value = userInput;
       return;
+    }
+    
+    // Play keyboard sound when typing (uses global sound settings)
+    if (value.length > userInput.length) {
+      keyboardSound.play();
     }
     
     if (!isActive && value.length > 0) {
@@ -1374,14 +1380,18 @@ export default function CodeMode() {
                               <Switch 
                                 id="sound-enabled" 
                                 checked={soundEnabled} 
-                                onCheckedChange={setSoundEnabled}
+                                onCheckedChange={(enabled) => {
+                                  setSoundEnabled(enabled);
+                                  keyboardSound.setEnabled(enabled);
+                                  if (enabled) keyboardSound.play();
+                                }}
                                 data-testid="switch-sound"
                               />
                             </div>
                           </div>
                           
                           <p className="text-[10px] text-muted-foreground/60 text-center">
-                            Settings apply immediately
+                            Sound syncs with global Settings
                           </p>
                         </div>
                       </PopoverContent>
