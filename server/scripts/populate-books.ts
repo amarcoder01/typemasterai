@@ -2,11 +2,14 @@ import { fetchBooksFromGutendex, processBook, getBookMetadata } from '../book-fe
 import { storage } from '../storage';
 
 async function populateBooks() {
+  // Get book limit from command line args (default 50)
+  const bookLimit = parseInt(process.argv[2]) || 50;
+  
   console.log('📚 Starting book population from Gutendex API...\n');
   
   try {
-    console.log('Fetching books from Gutendex...');
-    const books = await fetchBooksFromGutendex(50);
+    console.log(`Fetching ${bookLimit} books from Gutendex...`);
+    const books = await fetchBooksFromGutendex(bookLimit);
     console.log(`✓ Found ${books.length} books\n`);
     
     let totalParagraphs = 0;

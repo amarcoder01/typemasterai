@@ -225,6 +225,60 @@ export function cleanBookText(rawText: string): string {
 }
 
 /**
+ * Check if a paragraph should be excluded (non-content sections)
+ */
+function shouldExcludeParagraph(text: string): boolean {
+  const upperText = text.toUpperCase().trim();
+  
+  // Exclude illustration references
+  if (/\[ILLUSTRATION/i.test(text)) return true;
+  if (/\[IMAGE/i.test(text)) return true;
+  if (/\[FIGURE/i.test(text)) return true;
+  if (/\[PLATE/i.test(text)) return true;
+  if (/\[PICTURE/i.test(text)) return true;
+  if (/\[PORTRAIT/i.test(text)) return true;
+  if (/\[MAP/i.test(text)) return true;
+  if (/\[DIAGRAM/i.test(text)) return true;
+  
+  // Exclude lines that are just section markers (short lines with specific keywords)
+  const words = text.split(/\s+/).filter(w => w.length > 0);
+  if (words.length <= 5) {
+    // Short text - check if it's a section header to exclude
+    const excludePatterns = [
+      /^ILLUSTRATION/i,
+      /^INTRODUCTION$/i,
+      /^PREFACE$/i,
+      /^FOREWORD$/i,
+      /^CONTENTS$/i,
+      /^TABLE OF CONTENTS$/i,
+      /^INDEX$/i,
+      /^APPENDIX$/i,
+      /^GLOSSARY$/i,
+      /^BIBLIOGRAPHY$/i,
+      /^FOOTNOTE/i,
+      /^NOTE:/i,
+      /^EDITOR'S NOTE/i,
+      /^TRANSLATOR'S NOTE/i,
+      /^\[.*\]$/i, // Text entirely in brackets
+      /^_+$/i, // Just underscores
+      /^\*+$/i, // Just asterisks
+      /^-+$/i, // Just dashes
+    ];
+    
+    for (const pattern of excludePatterns) {
+      if (pattern.test(upperText)) return true;
+    }
+  }
+  
+  // Exclude paragraphs that are mostly numbers/punctuation (likely tables or indices)
+  const alphaChars = text.replace(/[^a-zA-Z]/g, '').length;
+  const totalChars = text.length;
+  if (totalChars > 0 && alphaChars / totalChars < 0.5) return true;
+  
+  return false;
+}
+
+/**
  * Split text into paragraphs with target word count
  * Target: 120-280 words per paragraph
  * Minimum: 50 words, Maximum: 500 words
@@ -233,7 +287,8 @@ export function cleanBookText(rawText: string): string {
  */
 export function splitIntoParagraphs(text: string): string[] {
   // Split on double newlines (paragraph breaks)
-  const rawParagraphs = text.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0);
+  const rawParagraphs = text.split(/\n\n+/).map(p => p.trim()).filter(p => p.length > 0)
+    .filter(p => !shouldExcludeParagraph(p)); // Filter out non-content sections
   
   const paragraphs: string[] = [];
   let buffer = '';
