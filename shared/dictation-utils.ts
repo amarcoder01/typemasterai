@@ -132,6 +132,11 @@ export function getSpeedRate(speedLevel: string): number {
     return rates[randomLevel];
   }
   
+  const numericRate = parseFloat(speedLevel);
+  if (!isNaN(numericRate) && numericRate >= 0.5 && numericRate <= 2.0) {
+    return numericRate;
+  }
+  
   return rates[speedLevel] || 1.0;
 }
 

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Slider } from '@/components/ui/slider';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { calculateDictationAccuracy, calculateDictationWPM, getSpeedRate, getSpeedLevelName, getAccuracyGrade, type CharacterDiff } from '@shared/dictation-utils';
 import { useToast } from '@/hooks/use-toast';
@@ -36,7 +37,7 @@ const PRACTICE_MODES: Record<PracticeMode, PracticeModeConfig> = {
     autoAdvance: true,
     hintsAllowed: true,
     timerPressure: false,
-    defaultSpeed: 'medium',
+    defaultSpeed: '1.0',
     defaultDifficulty: 'medium',
   },
   focus: {
@@ -46,7 +47,7 @@ const PRACTICE_MODES: Record<PracticeMode, PracticeModeConfig> = {
     autoAdvance: false,
     hintsAllowed: true,
     timerPressure: false,
-    defaultSpeed: 'slow',
+    defaultSpeed: '0.8',
     defaultDifficulty: 'easy',
   },
   challenge: {
@@ -56,7 +57,7 @@ const PRACTICE_MODES: Record<PracticeMode, PracticeModeConfig> = {
     autoAdvance: true,
     hintsAllowed: false,
     timerPressure: true,
-    defaultSpeed: 'fast',
+    defaultSpeed: '1.3',
     defaultDifficulty: 'hard',
   },
 };
@@ -291,7 +292,7 @@ export default function DictationTest() {
   const [practiceMode, setPracticeMode] = useState<PracticeMode>('quick');
   const [showModeSelector, setShowModeSelector] = useState(true);
   const [difficulty, setDifficulty] = useState<string>('medium');
-  const [speedLevel, setSpeedLevel] = useState<string>('medium');
+  const [speedLevel, setSpeedLevel] = useState<string>('1.0');
   const [category, setCategory] = useState<string>('all');
   const [sessionLength, setSessionLength] = useState<number>(10);
   const [sessionHistory, setSessionHistory] = useState<SessionHistoryItem[]>([]);
@@ -1371,29 +1372,41 @@ export default function DictationTest() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Card 
-                  className="focus-within:ring-2 focus-within:ring-primary/50"
+                  className="focus-within:ring-2 focus-within:ring-primary/50 col-span-2"
                   tabIndex={0}
                   role="group"
-                  aria-label="Speed selector"
+                  aria-label="Speech speed control"
                 >
                   <CardContent className="pt-6">
-                    <Select value={speedLevel} onValueChange={setSpeedLevel} disabled={isLoading || isSpeaking}>
-                      <SelectTrigger data-testid="select-speed">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="slow">Slow (0.7x)</SelectItem>
-                        <SelectItem value="medium">Medium (1.0x)</SelectItem>
-                        <SelectItem value="fast">Fast (1.5x)</SelectItem>
-                        <SelectItem value="random">Random</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="text-xs text-muted-foreground mt-1">Speed</div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Speech Speed</span>
+                        <Badge variant="secondary" className="font-mono">
+                          {currentRate.toFixed(1)}x
+                        </Badge>
+                      </div>
+                      <Slider
+                        value={[parseFloat(speedLevel) || 1.0]}
+                        onValueChange={(value) => setSpeedLevel(value[0].toString())}
+                        min={0.5}
+                        max={2.0}
+                        step={0.1}
+                        disabled={isLoading || isSpeaking}
+                        className="w-full"
+                        data-testid="slider-speed"
+                        aria-label="Adjust speech speed from 0.5x to 2.0x"
+                      />
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>0.5x Slower</span>
+                        <span>1.0x Normal</span>
+                        <span>2.0x Faster</span>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </TooltipTrigger>
               <TooltipContent>
-                <p className="max-w-xs">Control speech speed: Slow (0.7x) for beginners, Medium (1.0x) for practice, Fast (1.5x) for challenge, Random for variety</p>
+                <p className="max-w-xs">Drag the slider to adjust how fast the AI speaks. Lower values are easier to follow, higher values provide more challenge.</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
