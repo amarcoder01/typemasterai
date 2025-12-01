@@ -340,74 +340,179 @@ export default function DictationTest() {
     const avgAccuracy = sessionStats.count > 0 ? Math.round(sessionStats.totalAccuracy / sessionStats.count) : 0;
 
     return (
-      <div className="container max-w-4xl mx-auto p-6">
-        <div className="mb-6">
-          <Link href="/">
-            <Button variant="ghost" size="sm" data-testid="button-back">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </Link>
+      <TooltipProvider delayDuration={300}>
+        <div className="container max-w-4xl mx-auto p-6">
+          <div className="mb-6">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/">
+                  <Button variant="ghost" size="sm" data-testid="button-back">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Return to home page</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          <Card>
+            <CardContent className="pt-8 pb-8">
+              <div className="text-center mb-6">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h2 
+                      className="text-3xl font-bold mb-2 cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg px-2 inline-block"
+                      tabIndex={0}
+                      role="heading"
+                      aria-label="Session complete - congratulations"
+                    >
+                      Session Complete! 🎉
+                    </h2>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Congratulations! You've finished all {SENTENCES_PER_SESSION} dictation exercises</p>
+                  </TooltipContent>
+                </Tooltip>
+                <p className="text-muted-foreground">You've completed {SENTENCES_PER_SESSION} dictation tests</p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="text-center p-4 bg-primary/10 rounded-lg cursor-help transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      tabIndex={0}
+                      role="group"
+                      aria-label="Average words per minute statistic"
+                    >
+                      <div className="text-3xl font-bold text-primary" data-testid="text-session-avg-wpm">{avgWpm}</div>
+                      <div className="text-sm text-muted-foreground">Avg WPM</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium mb-1">Average Words Per Minute</p>
+                    <p className="text-xs opacity-90">Your average typing speed across all {sessionStats.count} sentences. Higher is better!</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="text-center p-4 bg-green-500/10 rounded-lg cursor-help transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                      tabIndex={0}
+                      role="group"
+                      aria-label="Average accuracy statistic"
+                    >
+                      <div className="text-3xl font-bold text-green-600" data-testid="text-session-avg-accuracy">{avgAccuracy}%</div>
+                      <div className="text-sm text-muted-foreground">Avg Accuracy</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium mb-1">Average Accuracy Score</p>
+                    <p className="text-xs opacity-90">How closely your typing matched the spoken sentences. 100% means perfect transcription.</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="text-center p-4 bg-orange-500/10 rounded-lg cursor-help transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                      tabIndex={0}
+                      role="group"
+                      aria-label="Total errors statistic"
+                    >
+                      <div className="text-3xl font-bold text-orange-600" data-testid="text-session-total-errors">{sessionStats.totalErrors}</div>
+                      <div className="text-sm text-muted-foreground">Total Errors</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium mb-1">Total Character Errors</p>
+                    <p className="text-xs opacity-90">Sum of all incorrect, missing, or extra characters across the session. Lower is better!</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              <div className="flex gap-3 justify-center flex-wrap">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button onClick={resetSession} size="lg" data-testid="button-new-session">
+                      Start New Session
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Begin a fresh session with {SENTENCES_PER_SESSION} new sentences</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      onClick={() => setShowShareModal(true)} 
+                      variant="secondary" 
+                      size="lg"
+                      data-testid="button-share-result"
+                    >
+                      <Share2 className="w-4 h-4 mr-2" />
+                      Share Result
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Share your session results with friends or on social media</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link href="/">
+                      <Button variant="outline" size="lg" data-testid="button-home">
+                        Back to Home
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Return to the main menu</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-
-        <Card>
-          <CardContent className="pt-8 pb-8">
-            <div className="text-center mb-6">
-              <h2 className="text-3xl font-bold mb-2">Session Complete! 🎉</h2>
-              <p className="text-muted-foreground">You've completed {SENTENCES_PER_SESSION} dictation tests</p>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-              <div className="text-center p-4 bg-primary/10 rounded-lg">
-                <div className="text-3xl font-bold text-primary" data-testid="text-session-avg-wpm">{avgWpm}</div>
-                <div className="text-sm text-muted-foreground">Avg WPM</div>
-              </div>
-              <div className="text-center p-4 bg-green-500/10 rounded-lg">
-                <div className="text-3xl font-bold text-green-600" data-testid="text-session-avg-accuracy">{avgAccuracy}%</div>
-                <div className="text-sm text-muted-foreground">Avg Accuracy</div>
-              </div>
-              <div className="text-center p-4 bg-orange-500/10 rounded-lg">
-                <div className="text-3xl font-bold text-orange-600" data-testid="text-session-total-errors">{sessionStats.totalErrors}</div>
-                <div className="text-sm text-muted-foreground">Total Errors</div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 justify-center flex-wrap">
-              <Button onClick={resetSession} size="lg" data-testid="button-new-session">
-                Start New Session
-              </Button>
-              <Button 
-                onClick={() => setShowShareModal(true)} 
-                variant="secondary" 
-                size="lg"
-                data-testid="button-share-result"
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                Share Result
-              </Button>
-              <Link href="/">
-                <Button variant="outline" size="lg" data-testid="button-home">
-                  Back to Home
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      </TooltipProvider>
     );
   }
 
   return (
-    <TooltipProvider>
+    <TooltipProvider delayDuration={300}>
       <div className="container max-w-4xl mx-auto p-6">
         <div className="mb-6 flex items-center justify-between">
-          <Link href="/">
-            <Button variant="ghost" size="sm" data-testid="button-back">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <h1 className="text-3xl font-bold">Dictation Mode 🎧</h1>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/">
+                <Button variant="ghost" size="sm" data-testid="button-back">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Return to home page</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <h1 
+                className="text-3xl font-bold cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg px-2"
+                tabIndex={0}
+                role="heading"
+                aria-label="Dictation Mode - practice listening and typing"
+              >
+                Dictation Mode 🎧
+              </h1>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-sm">
+              <p className="font-medium mb-1">Dictation Practice Mode</p>
+              <p className="text-xs opacity-90">Listen to spoken sentences and type them accurately. Improve your listening and typing skills!</p>
+            </TooltipContent>
+          </Tooltip>
           <div className="w-20" />
         </div>
 
@@ -418,7 +523,14 @@ export default function DictationTest() {
                 Progress
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                    <span
+                      className="inline-flex cursor-help focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-full"
+                      tabIndex={0}
+                      role="button"
+                      aria-label="Progress information"
+                    >
+                      <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Complete {SENTENCES_PER_SESSION} dictation tests to finish the session</p>
@@ -436,15 +548,33 @@ export default function DictationTest() {
       {!testState.isComplete ? (
         <>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold" data-testid="text-replay-count">{testState.replayCount}</div>
-                <div className="text-sm text-muted-foreground">Replays</div>
-              </CardContent>
-            </Card>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Card>
+                <Card 
+                  className="cursor-help transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  tabIndex={0}
+                  role="group"
+                  aria-label="Replay count statistic"
+                >
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold" data-testid="text-replay-count">{testState.replayCount}</div>
+                    <div className="text-sm text-muted-foreground">Replays</div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="font-medium mb-1">Replay Count</p>
+                <p className="text-xs opacity-90">Number of times you've replayed the audio for this sentence. Fewer replays = better listening skills!</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card 
+                  className="focus-within:ring-2 focus-within:ring-primary/50"
+                  tabIndex={0}
+                  role="group"
+                  aria-label="Difficulty selector"
+                >
                   <CardContent className="pt-6">
                     <Select value={difficulty} onValueChange={setDifficulty} disabled={isLoading || isSpeaking}>
                       <SelectTrigger data-testid="select-difficulty">
@@ -466,7 +596,12 @@ export default function DictationTest() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Card>
+                <Card 
+                  className="focus-within:ring-2 focus-within:ring-primary/50"
+                  tabIndex={0}
+                  role="group"
+                  aria-label="Speed selector"
+                >
                   <CardContent className="pt-6">
                     <Select value={speedLevel} onValueChange={setSpeedLevel} disabled={isLoading || isSpeaking}>
                       <SelectTrigger data-testid="select-speed">
@@ -489,7 +624,12 @@ export default function DictationTest() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Card>
+                <Card 
+                  className="focus-within:ring-2 focus-within:ring-primary/50"
+                  tabIndex={0}
+                  role="group"
+                  aria-label="Voice selector"
+                >
                   <CardContent className="pt-6">
                     <Select 
                       value={currentVoice?.voiceURI || ''} 
@@ -515,45 +655,113 @@ export default function DictationTest() {
                 <p>Choose the voice accent and tone you prefer for dictation</p>
               </TooltipContent>
             </Tooltip>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold" data-testid="text-speed-label">
-                  {getSpeedLevelName(currentRate)}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">{currentRate}x Rate</div>
-              </CardContent>
-            </Card>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card 
+                  className="cursor-help transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  tabIndex={0}
+                  role="group"
+                  aria-label="Current speech rate display"
+                >
+                  <CardContent className="pt-6">
+                    <div className="text-2xl font-bold" data-testid="text-speed-label">
+                      {getSpeedLevelName(currentRate)}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">{currentRate}x Rate</div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="font-medium mb-1">Current Speech Rate</p>
+                <p className="text-xs opacity-90">The speed at which sentences are spoken. Adjust using the Speed selector above.</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           <Card className="mb-6">
             <CardContent className="pt-8 pb-8">
               <div className="text-center space-y-4">
                 {isSpeaking ? (
-                  <div className="flex flex-col items-center justify-center space-y-4">
-                    <Mic className="w-16 h-16 text-primary animate-pulse" />
-                    <p className="text-xl font-semibold" data-testid="text-speaking">🔊 Listening...</p>
-                    <p className="text-sm text-muted-foreground">
-                      The sentence is being read aloud
-                    </p>
-                  </div>
-                ) : testState.startTime ? (
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <Volume2 className="w-12 h-12 text-green-600" />
-                    <p className="text-lg font-semibold text-green-600" data-testid="text-ready">✓ Ready! Type what you heard</p>
-                    {testState.showHint && testState.sentence && (
-                      <div className="mt-4 p-4 bg-primary/10 rounded-lg max-w-2xl">
-                        <p className="text-sm font-medium mb-2">Hint:</p>
-                        <p className="text-base font-mono text-primary" data-testid="text-hint">
-                          {testState.sentence.sentence}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="flex flex-col items-center justify-center space-y-4 cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg p-2"
+                        tabIndex={0}
+                        role="status"
+                        aria-label="Audio is playing"
+                        aria-live="polite"
+                      >
+                        <Mic className="w-16 h-16 text-primary animate-pulse" />
+                        <p className="text-xl font-semibold" data-testid="text-speaking">🔊 Listening...</p>
+                        <p className="text-sm text-muted-foreground">
+                          The sentence is being read aloud
                         </p>
                       </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-medium mb-1">Audio Playing</p>
+                      <p className="text-xs opacity-90">Listen carefully to the sentence. You can replay it after it finishes.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : testState.startTime ? (
+                  <div className="flex flex-col items-center justify-center space-y-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div 
+                          className="flex flex-col items-center cursor-default focus:outline-none focus:ring-2 focus:ring-green-500/50 rounded-lg p-2"
+                          tabIndex={0}
+                          role="status"
+                          aria-label="Ready to type"
+                        >
+                          <Volume2 className="w-12 h-12 text-green-600" />
+                          <p className="text-lg font-semibold text-green-600 mt-2" data-testid="text-ready">✓ Ready! Type what you heard</p>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="font-medium mb-1">Ready to Type</p>
+                        <p className="text-xs opacity-90">The audio has finished. Type what you heard in the text area below.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    {testState.showHint && testState.sentence && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div 
+                            className="mt-4 p-4 bg-primary/10 rounded-lg max-w-2xl cursor-help focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            tabIndex={0}
+                            role="note"
+                            aria-label="Hint showing the target sentence"
+                          >
+                            <p className="text-sm font-medium mb-2">Hint:</p>
+                            <p className="text-base font-mono text-primary" data-testid="text-hint">
+                              {testState.sentence.sentence}
+                            </p>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="font-medium mb-1">Sentence Hint</p>
+                          <p className="text-xs opacity-90">This is the actual sentence. Using hints may affect your practice score.</p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                    <p className="text-lg text-muted-foreground">Loading...</p>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="flex flex-col items-center justify-center space-y-2 cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg p-2"
+                        tabIndex={0}
+                        role="status"
+                        aria-label="Loading next sentence"
+                        aria-live="polite"
+                      >
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                        <p className="text-lg text-muted-foreground">Loading...</p>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Preparing the next sentence...</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             </CardContent>
@@ -562,35 +770,99 @@ export default function DictationTest() {
           <Card className="mb-6">
             <CardContent className="pt-6">
               <label className="text-sm font-medium mb-3 block flex items-center gap-2">
-                <span>Type what you heard:</span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span 
+                      className="cursor-help flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
+                      tabIndex={0}
+                      role="button"
+                      aria-label="Typing area help information"
+                    >
+                      Type what you heard:
+                      <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium mb-1">Typing Area</p>
+                    <p className="text-xs opacity-90">Type the sentence exactly as you heard it. Punctuation and capitalization matter for accuracy!</p>
+                  </TooltipContent>
+                </Tooltip>
                 {testState.startTime && !isSpeaking && (
-                  <span className="text-xs text-green-600 flex items-center gap-1">
-                    <span className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></span>
-                    Recording
-                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs text-green-600 flex items-center gap-1 cursor-help">
+                        <span className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></span>
+                        Recording
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Timer is running. Type your answer now!</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </label>
-              <Textarea
-                ref={inputRef}
-                value={testState.typedText}
-                onChange={(e) => setTestState(prev => ({ ...prev, typedText: e.target.value }))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.ctrlKey && !isSpeaking && testState.startTime) {
-                    e.preventDefault();
-                    handleSubmit();
-                  }
-                }}
-                placeholder="Type here... (Ctrl+Enter to submit)"
-                className="text-lg p-4 min-h-[120px] resize-none"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck="false"
-                data-testid="input-typed-text"
-              />
-              <p className="text-xs text-muted-foreground mt-2">
-                {testState.typedText.length} characters • Press Ctrl+Enter to submit
-              </p>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="relative">
+                    <Textarea
+                      ref={inputRef}
+                      value={testState.typedText}
+                      onChange={(e) => setTestState(prev => ({ ...prev, typedText: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.ctrlKey && !isSpeaking && testState.startTime) {
+                          e.preventDefault();
+                          handleSubmit();
+                        }
+                      }}
+                      placeholder="Type here... (Ctrl+Enter to submit)"
+                      className="text-lg p-4 min-h-[120px] resize-none"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck="false"
+                      data-testid="input-typed-text"
+                    />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs">
+                  <p className="text-xs">Auto-correct and spell-check are disabled for accurate practice</p>
+                </TooltipContent>
+              </Tooltip>
+              <div className="flex items-center justify-between mt-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span 
+                      className="text-xs text-muted-foreground cursor-help focus:outline-none focus:ring-1 focus:ring-primary/50 rounded px-1"
+                      tabIndex={0}
+                      role="status"
+                      aria-label={`${testState.typedText.length} characters typed`}
+                    >
+                      {testState.typedText.length} characters
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Total characters you've typed so far</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span 
+                      className="text-xs text-muted-foreground cursor-help flex items-center gap-1 focus:outline-none focus:ring-1 focus:ring-primary/50 rounded px-1"
+                      tabIndex={0}
+                      role="note"
+                      aria-label="Press Control plus Enter to submit"
+                    >
+                      <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">Ctrl</kbd>
+                      <span>+</span>
+                      <kbd className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono">Enter</kbd>
+                      <span>to submit</span>
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Keyboard shortcut to quickly submit your answer</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             </CardContent>
           </Card>
 
@@ -663,16 +935,57 @@ export default function DictationTest() {
           {showKeyboardGuide && (
             <Card className="mt-4">
               <CardContent className="pt-6">
-                <h3 className="font-semibold mb-3">Keyboard Shortcuts</h3>
+                <div className="flex items-center gap-2 mb-3">
+                  <h3 className="font-semibold">Keyboard Shortcuts</h3>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className="inline-flex cursor-help focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-full"
+                        tabIndex={0}
+                        role="button"
+                        aria-label="Keyboard shortcuts help"
+                      >
+                        <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-xs">Use these shortcuts to navigate faster without using your mouse</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
-                    <span>Submit Answer</span>
-                    <kbd className="px-2 py-1 bg-background border rounded text-xs">Ctrl + Enter</kbd>
-                  </div>
-                  <div className="flex items-center justify-between p-2 bg-muted/30 rounded">
-                    <span>Focus Text Box</span>
-                    <kbd className="px-2 py-1 bg-background border rounded text-xs">Tab</kbd>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="flex items-center justify-between p-2 bg-muted/30 rounded cursor-help hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        tabIndex={0}
+                        role="listitem"
+                        aria-label="Submit answer shortcut: Control plus Enter"
+                      >
+                        <span>Submit Answer</span>
+                        <kbd className="px-2 py-1 bg-background border rounded text-xs font-mono">Ctrl + Enter</kbd>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Hold Ctrl and press Enter to submit your answer quickly</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="flex items-center justify-between p-2 bg-muted/30 rounded cursor-help hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        tabIndex={0}
+                        role="listitem"
+                        aria-label="Focus text box shortcut: Tab"
+                      >
+                        <span>Focus Text Box</span>
+                        <kbd className="px-2 py-1 bg-background border rounded text-xs font-mono">Tab</kbd>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Press Tab to quickly jump to the typing area</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </CardContent>
             </Card>
@@ -691,133 +1004,340 @@ export default function DictationTest() {
           <Card>
             <CardContent className="pt-8 pb-8">
               <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold mb-2">
-                  {testState.result && testState.result.accuracy >= 90 ? '🎉 Excellent!' : 
-                   testState.result && testState.result.accuracy >= 70 ? '👍 Good Job!' : '💪 Keep Practicing!'}
-                </h2>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <h2 
+                      className="text-2xl font-bold mb-2 cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg px-2 inline-block"
+                      tabIndex={0}
+                      role="heading"
+                      aria-label="Test result feedback"
+                    >
+                      {testState.result && testState.result.accuracy >= 90 ? '🎉 Excellent!' : 
+                       testState.result && testState.result.accuracy >= 70 ? '👍 Good Job!' : '💪 Keep Practicing!'}
+                    </h2>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="text-xs">
+                      {testState.result && testState.result.accuracy >= 90 
+                        ? 'Outstanding performance! You have excellent listening and typing skills.' 
+                        : testState.result && testState.result.accuracy >= 70 
+                        ? 'Good work! Keep practicing to improve further.' 
+                        : 'Practice makes perfect! Try again to improve your accuracy.'}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-primary" data-testid="text-result-wpm">
-                    {testState.result?.wpm}
-                  </div>
-                  <div className="text-sm text-muted-foreground">WPM</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-green-600" data-testid="text-result-accuracy">
-                    {testState.result?.accuracy}%
-                  </div>
-                  <div className="text-sm text-muted-foreground">Accuracy</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-orange-600" data-testid="text-result-errors">
-                    {testState.result?.errors}
-                  </div>
-                  <div className="text-sm text-muted-foreground">Errors</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-3xl font-bold" data-testid="text-result-duration">
-                    {testState.result?.duration}s
-                  </div>
-                  <div className="text-sm text-muted-foreground">Time</div>
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="text-center cursor-help p-2 rounded-lg transition-colors hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      tabIndex={0}
+                      role="group"
+                      aria-label={`Words per minute: ${testState.result?.wpm}`}
+                    >
+                      <div className="text-3xl font-bold text-primary" data-testid="text-result-wpm">
+                        {testState.result?.wpm}
+                      </div>
+                      <div className="text-sm text-muted-foreground">WPM</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium mb-1">Words Per Minute</p>
+                    <p className="text-xs opacity-90">Your typing speed calculated from characters typed. Average typists achieve 40-60 WPM.</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="text-center cursor-help p-2 rounded-lg transition-colors hover:bg-green-500/5 focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                      tabIndex={0}
+                      role="group"
+                      aria-label={`Accuracy: ${testState.result?.accuracy} percent`}
+                    >
+                      <div className="text-3xl font-bold text-green-600" data-testid="text-result-accuracy">
+                        {testState.result?.accuracy}%
+                      </div>
+                      <div className="text-sm text-muted-foreground">Accuracy</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium mb-1">Transcription Accuracy</p>
+                    <p className="text-xs opacity-90">Percentage of characters you typed correctly. 95%+ is excellent!</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="text-center cursor-help p-2 rounded-lg transition-colors hover:bg-orange-500/5 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+                      tabIndex={0}
+                      role="group"
+                      aria-label={`Errors: ${testState.result?.errors}`}
+                    >
+                      <div className="text-3xl font-bold text-orange-600" data-testid="text-result-errors">
+                        {testState.result?.errors}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Errors</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium mb-1">Character Errors</p>
+                    <p className="text-xs opacity-90">Total number of incorrect, missing, or extra characters. Lower is better!</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div 
+                      className="text-center cursor-help p-2 rounded-lg transition-colors hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      tabIndex={0}
+                      role="group"
+                      aria-label={`Time taken: ${testState.result?.duration} seconds`}
+                    >
+                      <div className="text-3xl font-bold" data-testid="text-result-duration">
+                        {testState.result?.duration}s
+                      </div>
+                      <div className="text-sm text-muted-foreground">Time</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium mb-1">Time Taken</p>
+                    <p className="text-xs opacity-90">Total seconds from when the audio finished to when you submitted.</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
 
               <div className="space-y-4">
                 {testState.result && testState.result.characterDiff && (
                   <div>
-                    <p className="text-sm font-medium mb-2">Character-by-Character Analysis:</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span 
+                          className="text-sm font-medium mb-2 cursor-help inline-flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
+                          tabIndex={0}
+                          role="button"
+                          aria-label="Character analysis help"
+                        >
+                          Character-by-Character Analysis:
+                          <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="font-medium mb-1">Detailed Breakdown</p>
+                        <p className="text-xs opacity-90">Each character is color-coded to show exactly what you typed correctly and where you made mistakes.</p>
+                      </TooltipContent>
+                    </Tooltip>
                     <div className="p-4 bg-muted/30 rounded-md">
                       <div className="font-mono text-base leading-relaxed flex flex-wrap gap-0.5">
                         {testState.result.characterDiff.map((diff, idx) => (
-                          <span
-                            key={idx}
-                            className={`${
-                              diff.status === 'correct' 
-                                ? 'bg-green-500/20 text-green-700 dark:text-green-400' 
-                                : diff.status === 'incorrect'
-                                ? 'bg-red-500/20 text-red-700 dark:text-red-400 underline decoration-wavy'
-                                : diff.status === 'missing'
-                                ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
-                                : 'bg-orange-500/20 text-orange-700 dark:text-orange-400 line-through'
-                            } px-0.5 rounded`}
-                            title={
-                              diff.status === 'correct' ? 'Correct' :
-                              diff.status === 'incorrect' ? 'Wrong character' :
-                              diff.status === 'missing' ? 'You missed this' :
-                              'Extra character you added'
-                            }
-                          >
-                            {diff.char === ' ' ? '·' : diff.char}
-                          </span>
+                          <Tooltip key={idx}>
+                            <TooltipTrigger asChild>
+                              <span
+                                className={`${
+                                  diff.status === 'correct' 
+                                    ? 'bg-green-500/20 text-green-700 dark:text-green-400' 
+                                    : diff.status === 'incorrect'
+                                    ? 'bg-red-500/20 text-red-700 dark:text-red-400 underline decoration-wavy'
+                                    : diff.status === 'missing'
+                                    ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
+                                    : 'bg-orange-500/20 text-orange-700 dark:text-orange-400 line-through'
+                                } px-0.5 rounded cursor-help`}
+                              >
+                                {diff.char === ' ' ? '·' : diff.char}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">
+                                {diff.status === 'correct' ? 'Correct character' :
+                                 diff.status === 'incorrect' ? 'Wrong character typed' :
+                                 diff.status === 'missing' ? 'You missed this character' :
+                                 'Extra character you added'}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
                         ))}
                       </div>
-                      <div className="mt-4 flex gap-4 text-xs">
-                        <div className="flex items-center gap-1">
-                          <span className="w-3 h-3 bg-green-500/20 rounded"></span>
-                          <span className="text-muted-foreground">Correct</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="w-3 h-3 bg-red-500/20 rounded"></span>
-                          <span className="text-muted-foreground">Wrong</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="w-3 h-3 bg-yellow-500/20 rounded"></span>
-                          <span className="text-muted-foreground">Missing</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <span className="w-3 h-3 bg-orange-500/20 rounded"></span>
-                          <span className="text-muted-foreground">Extra</span>
-                        </div>
+                      <div className="mt-4 flex gap-4 text-xs flex-wrap" role="list" aria-label="Color legend for character analysis">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div 
+                              className="flex items-center gap-1 cursor-help focus:outline-none focus:ring-1 focus:ring-green-500/50 rounded px-1"
+                              tabIndex={0}
+                              role="listitem"
+                              aria-label="Green indicates correct characters"
+                            >
+                              <span className="w-3 h-3 bg-green-500/20 rounded border border-green-500/30"></span>
+                              <span className="text-muted-foreground">Correct</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Characters you typed correctly</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div 
+                              className="flex items-center gap-1 cursor-help focus:outline-none focus:ring-1 focus:ring-red-500/50 rounded px-1"
+                              tabIndex={0}
+                              role="listitem"
+                              aria-label="Red indicates wrong characters"
+                            >
+                              <span className="w-3 h-3 bg-red-500/20 rounded border border-red-500/30"></span>
+                              <span className="text-muted-foreground">Wrong</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Characters where you typed the wrong letter</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div 
+                              className="flex items-center gap-1 cursor-help focus:outline-none focus:ring-1 focus:ring-yellow-500/50 rounded px-1"
+                              tabIndex={0}
+                              role="listitem"
+                              aria-label="Yellow indicates missing characters"
+                            >
+                              <span className="w-3 h-3 bg-yellow-500/20 rounded border border-yellow-500/30"></span>
+                              <span className="text-muted-foreground">Missing</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Characters you skipped or forgot to type</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div 
+                              className="flex items-center gap-1 cursor-help focus:outline-none focus:ring-1 focus:ring-orange-500/50 rounded px-1"
+                              tabIndex={0}
+                              role="listitem"
+                              aria-label="Orange indicates extra characters"
+                            >
+                              <span className="w-3 h-3 bg-orange-500/20 rounded border border-orange-500/30"></span>
+                              <span className="text-muted-foreground">Extra</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Extra characters you typed that weren't in the original</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium mb-2">Original sentence:</p>
-                    <div className="p-4 bg-green-500/10 rounded-md">
-                      <p className="font-mono text-sm" data-testid="text-correct-sentence">
-                        {testState.sentence?.sentence}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium mb-2">Your typing:</p>
-                    <div className="p-4 bg-blue-500/10 rounded-md">
-                      <p className="font-mono text-sm" data-testid="text-your-typing">
-                        {testState.typedText}
-                      </p>
-                    </div>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="cursor-help focus:outline-none focus:ring-2 focus:ring-green-500/50 rounded-lg"
+                        tabIndex={0}
+                        role="group"
+                        aria-label="Original sentence that was spoken"
+                      >
+                        <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                          Original sentence:
+                          <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
+                        </p>
+                        <div className="p-4 bg-green-500/10 rounded-md border border-green-500/20">
+                          <p className="font-mono text-sm" data-testid="text-correct-sentence">
+                            {testState.sentence?.sentence}
+                          </p>
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-medium mb-1">Target Sentence</p>
+                      <p className="text-xs opacity-90">The exact sentence that was spoken. Compare this to what you typed.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="cursor-help focus:outline-none focus:ring-2 focus:ring-blue-500/50 rounded-lg"
+                        tabIndex={0}
+                        role="group"
+                        aria-label="Your typed transcription"
+                      >
+                        <p className="text-sm font-medium mb-2 flex items-center gap-1">
+                          Your typing:
+                          <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
+                        </p>
+                        <div className="p-4 bg-blue-500/10 rounded-md border border-blue-500/20">
+                          <p className="font-mono text-sm" data-testid="text-your-typing">
+                            {testState.typedText}
+                          </p>
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-medium mb-1">Your Transcription</p>
+                      <p className="text-xs opacity-90">What you typed based on what you heard. Compare to the original above.</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
 
                 {testState.result && (
-                  <div className="text-center p-4 bg-primary/5 rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-1">Accuracy Grade</p>
-                    <p className={`text-4xl font-bold ${getAccuracyGrade(testState.result.accuracy).color}`}>
-                      {getAccuracyGrade(testState.result.accuracy).grade}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {getAccuracyGrade(testState.result.accuracy).message}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {testState.result.correctChars} / {testState.result.totalChars} characters correct
-                    </p>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="text-center p-4 bg-primary/5 rounded-lg cursor-help transition-all hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        tabIndex={0}
+                        role="group"
+                        aria-label={`Accuracy grade: ${getAccuracyGrade(testState.result.accuracy).grade}`}
+                      >
+                        <p className="text-sm text-muted-foreground mb-1">Accuracy Grade</p>
+                        <p className={`text-4xl font-bold ${getAccuracyGrade(testState.result.accuracy).color}`}>
+                          {getAccuracyGrade(testState.result.accuracy).grade}
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {getAccuracyGrade(testState.result.accuracy).message}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {testState.result.correctChars} / {testState.result.totalChars} characters correct
+                        </p>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-medium mb-1">Performance Grade</p>
+                      <p className="text-xs opacity-90">
+                        A+ (95%+) = Excellent | A (90%+) = Great | B (80%+) = Good | C (70%+) = Fair | D (60%+) = Needs Work | F (&lt;60%) = Keep Practicing
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
               </div>
 
               <div className="mt-6 text-center">
-                <p className="text-sm text-muted-foreground mb-4">
-                  Next sentence in 3 seconds, or click to continue now
-                </p>
-                <Button onClick={handleNextManual} data-testid="button-next">
-                  <ChevronRight className="w-4 h-4 mr-2" />
-                  Continue to Next
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p 
+                      className="text-sm text-muted-foreground mb-4 cursor-help inline-block focus:outline-none focus:ring-1 focus:ring-primary/50 rounded px-2"
+                      tabIndex={0}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      Next sentence in 3 seconds, or click to continue now
+                    </p>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Auto-advancing to the next sentence</p>
+                  </TooltipContent>
+                </Tooltip>
+                <div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button onClick={handleNextManual} data-testid="button-next">
+                        <ChevronRight className="w-4 h-4 mr-2" />
+                        Continue to Next
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Skip the countdown and go to the next sentence immediately</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
             </CardContent>
           </Card>
