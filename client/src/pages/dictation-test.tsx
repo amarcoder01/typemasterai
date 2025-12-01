@@ -1,18 +1,97 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, Volume2, RotateCcw, Eye, EyeOff, Check, ChevronRight, Mic, Share2, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Volume2, RotateCcw, Eye, EyeOff, Check, ChevronRight, Mic, Share2, HelpCircle, Flame, Trophy, Target, Zap, Clock, History, TrendingUp, Award, Sparkles, AlertCircle, Lightbulb, X, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
 import { calculateDictationAccuracy, calculateDictationWPM, getSpeedRate, getSpeedLevelName, getAccuracyGrade, type CharacterDiff } from '@shared/dictation-utils';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { DictationSentence } from '@shared/schema';
 import { ShareModal } from '@/components/ShareModal';
+
+type PracticeMode = 'quick' | 'focus' | 'challenge';
+
+interface PracticeModeConfig {
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+  autoAdvance: boolean;
+  hintsAllowed: boolean;
+  timerPressure: boolean;
+  defaultSpeed: string;
+  defaultDifficulty: string;
+}
+
+const PRACTICE_MODES: Record<PracticeMode, PracticeModeConfig> = {
+  quick: {
+    name: 'Quick Practice',
+    description: 'Fast-paced sessions with auto-advance',
+    icon: <Zap className="w-5 h-5" />,
+    autoAdvance: true,
+    hintsAllowed: true,
+    timerPressure: false,
+    defaultSpeed: 'medium',
+    defaultDifficulty: 'medium',
+  },
+  focus: {
+    name: 'Focus Mode',
+    description: 'Distraction-free practice at your pace',
+    icon: <Target className="w-5 h-5" />,
+    autoAdvance: false,
+    hintsAllowed: true,
+    timerPressure: false,
+    defaultSpeed: 'slow',
+    defaultDifficulty: 'easy',
+  },
+  challenge: {
+    name: 'Challenge Mode',
+    description: 'No hints, harder difficulty, prove your skills',
+    icon: <Trophy className="w-5 h-5" />,
+    autoAdvance: true,
+    hintsAllowed: false,
+    timerPressure: true,
+    defaultSpeed: 'fast',
+    defaultDifficulty: 'hard',
+  },
+};
+
+interface ErrorCategory {
+  type: 'spelling' | 'punctuation' | 'capitalization' | 'missing' | 'extra' | 'word_order';
+  count: number;
+  examples: string[];
+}
+
+interface SessionHistoryItem {
+  sentence: string;
+  typedText: string;
+  accuracy: number;
+  wpm: number;
+  errors: number;
+  timestamp: number;
+  errorCategories: ErrorCategory[];
+}
+
+interface CoachingTip {
+  type: 'encouragement' | 'improvement' | 'warning' | 'achievement';
+  message: string;
+  icon: React.ReactNode;
+}
+
+interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+  unlocked: boolean;
+  progress?: number;
+  target?: number;
+}
 
 interface DictationTestState {
   sentence: DictationSentence | null;
@@ -54,12 +133,171 @@ const CATEGORIES = [
   { value: 'education', label: 'Education' },
 ];
 
+function categorizeErrors(characterDiff: CharacterDiff[], original: string, typed: string): ErrorCategory[] {
+  const categories: Map<string, ErrorCategory> = new Map();
+  
+  const addError = (type: ErrorCategory['type'], example: string) => {
+    const existing = categories.get(type);
+    if (existing) {
+      existing.count++;
+      if (existing.examples.length < 3) existing.examples.push(example);
+    } else {
+      categories.set(type, { type, count: 1, examples: [example] });
+    }
+  };
+
+  let lastType: 'correct' | 'incorrect' | 'missing' | 'extra' | null = null;
+  let buffer = '';
+  
+  for (let i = 0; i < characterDiff.length; i++) {
+    const diff = characterDiff[i];
+    
+    if (diff.status === 'incorrect') {
+      const origChar = original[i] || '';
+      const typedChar = typed[i] || '';
+      
+      if (/[.,!?;:'"-]/.test(origChar) || /[.,!?;:'"-]/.test(typedChar)) {
+        addError('punctuation', `'${origChar}' → '${typedChar}'`);
+      } else if (origChar.toLowerCase() === typedChar.toLowerCase()) {
+        addError('capitalization', `'${origChar}' → '${typedChar}'`);
+      } else {
+        addError('spelling', `'${origChar}' → '${typedChar}'`);
+      }
+    } else if (diff.status === 'missing') {
+      addError('missing', `'${diff.char}' missing`);
+    } else if (diff.status === 'extra') {
+      addError('extra', `extra '${diff.char}'`);
+    }
+  }
+
+  return Array.from(categories.values()).sort((a, b) => b.count - a.count);
+}
+
+function generateCoachingTip(
+  accuracy: number,
+  wpm: number,
+  errorCategories: ErrorCategory[],
+  sessionStats: { count: number; totalAccuracy: number; totalWpm: number },
+  hintUsed: boolean,
+  replayCount: number
+): CoachingTip {
+  if (accuracy >= 100) {
+    return {
+      type: 'achievement',
+      message: 'Perfect transcription! You have excellent listening skills.',
+      icon: <Sparkles className="w-5 h-5 text-yellow-500" />,
+    };
+  }
+  
+  if (accuracy >= 95) {
+    return {
+      type: 'encouragement',
+      message: 'Excellent work! Just minor adjustments needed.',
+      icon: <Award className="w-5 h-5 text-green-500" />,
+    };
+  }
+
+  if (errorCategories.length > 0) {
+    const topError = errorCategories[0];
+    const tips: Record<string, string> = {
+      spelling: 'Focus on letter accuracy. Try listening more carefully to each word.',
+      punctuation: 'Pay attention to pauses and tone changes for punctuation cues.',
+      capitalization: 'Listen for sentence beginnings and proper nouns for capitals.',
+      missing: 'Slow down and make sure you catch every word.',
+      extra: 'Double-check before submitting - you may be adding extra characters.',
+      word_order: 'Listen to the sentence flow and word sequence carefully.',
+    };
+
+    return {
+      type: 'improvement',
+      message: tips[topError.type] || 'Keep practicing to improve!',
+      icon: <Lightbulb className="w-5 h-5 text-blue-500" />,
+    };
+  }
+
+  if (hintUsed) {
+    return {
+      type: 'improvement',
+      message: 'Try completing the next sentence without using hints!',
+      icon: <Target className="w-5 h-5 text-orange-500" />,
+    };
+  }
+
+  if (replayCount > 2) {
+    return {
+      type: 'improvement',
+      message: 'Challenge yourself to use fewer replays next time.',
+      icon: <TrendingUp className="w-5 h-5 text-purple-500" />,
+    };
+  }
+
+  return {
+    type: 'encouragement',
+    message: 'Good effort! Keep practicing to build your skills.',
+    icon: <Flame className="w-5 h-5 text-orange-500" />,
+  };
+}
+
+function calculateAchievements(
+  sessionStats: { count: number; totalAccuracy: number; totalWpm: number; totalErrors: number },
+  sessionHistory: SessionHistoryItem[]
+): Achievement[] {
+  const avgAccuracy = sessionStats.count > 0 ? sessionStats.totalAccuracy / sessionStats.count : 0;
+  const avgWpm = sessionStats.count > 0 ? sessionStats.totalWpm / sessionStats.count : 0;
+  const perfectCount = sessionHistory.filter(h => h.accuracy === 100).length;
+
+  return [
+    {
+      id: 'speed_demon',
+      name: 'Speed Demon',
+      description: 'Average 50+ WPM in a session',
+      icon: <Zap className="w-4 h-4" />,
+      unlocked: avgWpm >= 50,
+      progress: Math.min(avgWpm, 50),
+      target: 50,
+    },
+    {
+      id: 'perfectionist',
+      name: 'Perfectionist',
+      description: 'Get 3 perfect scores in one session',
+      icon: <Trophy className="w-4 h-4" />,
+      unlocked: perfectCount >= 3,
+      progress: perfectCount,
+      target: 3,
+    },
+    {
+      id: 'accuracy_ace',
+      name: 'Accuracy Ace',
+      description: 'Maintain 95%+ average accuracy',
+      icon: <Target className="w-4 h-4" />,
+      unlocked: avgAccuracy >= 95 && sessionStats.count >= 3,
+      progress: Math.min(avgAccuracy, 95),
+      target: 95,
+    },
+    {
+      id: 'marathon',
+      name: 'Marathon Runner',
+      description: 'Complete 10+ sentences in one session',
+      icon: <Flame className="w-4 h-4" />,
+      unlocked: sessionStats.count >= 10,
+      progress: sessionStats.count,
+      target: 10,
+    },
+  ];
+}
+
 export default function DictationTest() {
   const { toast } = useToast();
+  const [practiceMode, setPracticeMode] = useState<PracticeMode>('quick');
+  const [showModeSelector, setShowModeSelector] = useState(true);
   const [difficulty, setDifficulty] = useState<string>('medium');
   const [speedLevel, setSpeedLevel] = useState<string>('medium');
   const [category, setCategory] = useState<string>('all');
   const [sessionLength, setSessionLength] = useState<number>(10);
+  const [sessionHistory, setSessionHistory] = useState<SessionHistoryItem[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [currentCoachingTip, setCurrentCoachingTip] = useState<CoachingTip | null>(null);
   const [testState, setTestState] = useState<DictationTestState>({
     sentence: null,
     typedText: '',
@@ -211,8 +449,10 @@ export default function DictationTest() {
   }, [cancel, fetchNewSentence, speak, sessionProgress, sessionLength, toast]);
 
   useEffect(() => {
-    startNewTest();
-  }, []);
+    if (!showModeSelector) {
+      startNewTest();
+    }
+  }, [showModeSelector]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -238,7 +478,7 @@ export default function DictationTest() {
         }, 200);
       }
       
-      if (key === 'h' && !isSpeaking && testState.sentence) {
+      if (key === 'h' && !isSpeaking && testState.sentence && PRACTICE_MODES[practiceMode].hintsAllowed) {
         e.preventDefault();
         setTestState(prev => ({
           ...prev,
@@ -250,7 +490,7 @@ export default function DictationTest() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [testState.isComplete, testState.sentence, isSpeaking, cancel, speak]);
+  }, [testState.isComplete, testState.sentence, isSpeaking, cancel, speak, practiceMode]);
 
   useEffect(() => {
     if (!isSpeaking && testState.sentence && !testState.startTime && !testState.isComplete) {
@@ -344,12 +584,40 @@ export default function DictationTest() {
       result,
     }));
 
-    setSessionStats(prev => ({
-      totalWpm: prev.totalWpm + result.wpm,
-      totalAccuracy: prev.totalAccuracy + result.accuracy,
-      totalErrors: prev.totalErrors + result.errors,
-      count: prev.count + 1,
-    }));
+    const errorCategories = categorizeErrors(
+      accuracyResult.characterDiff,
+      currentSentence.sentence,
+      currentTypedText
+    );
+
+    setSessionHistory(prev => [...prev, {
+      sentence: currentSentence.sentence,
+      typedText: currentTypedText,
+      accuracy: result.accuracy,
+      wpm: result.wpm,
+      errors: result.errors,
+      timestamp: Date.now(),
+      errorCategories,
+    }]);
+
+    const newSessionStats = {
+      totalWpm: sessionStats.totalWpm + result.wpm,
+      totalAccuracy: sessionStats.totalAccuracy + result.accuracy,
+      totalErrors: sessionStats.totalErrors + result.errors,
+      count: sessionStats.count + 1,
+    };
+
+    setSessionStats(newSessionStats);
+
+    const tip = generateCoachingTip(
+      result.accuracy,
+      result.wpm,
+      errorCategories,
+      newSessionStats,
+      currentHintShown,
+      currentReplayCount
+    );
+    setCurrentCoachingTip(tip);
 
     setSessionProgress(prev => prev + 1);
 
@@ -384,22 +652,25 @@ export default function DictationTest() {
       });
     }
 
-    const AUTO_ADVANCE_SECONDS = 3;
-    setAutoAdvanceCountdown(AUTO_ADVANCE_SECONDS);
-    
-    countdownIntervalRef.current = setInterval(() => {
-      setAutoAdvanceCountdown(prev => {
-        if (prev === null || prev <= 1) {
-          if (countdownIntervalRef.current) {
-            clearInterval(countdownIntervalRef.current);
-            countdownIntervalRef.current = null;
+    const modeConfig = PRACTICE_MODES[practiceMode];
+    if (modeConfig.autoAdvance) {
+      const AUTO_ADVANCE_SECONDS = modeConfig.timerPressure ? 2 : 3;
+      setAutoAdvanceCountdown(AUTO_ADVANCE_SECONDS);
+      
+      countdownIntervalRef.current = setInterval(() => {
+        setAutoAdvanceCountdown(prev => {
+          if (prev === null || prev <= 1) {
+            if (countdownIntervalRef.current) {
+              clearInterval(countdownIntervalRef.current);
+              countdownIntervalRef.current = null;
+            }
+            startNewTest();
+            return null;
           }
-          startNewTest();
-          return null;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+          return prev - 1;
+        });
+      }, 1000);
+    }
   };
 
   const handleNextManual = () => {
@@ -420,8 +691,34 @@ export default function DictationTest() {
       totalErrors: 0,
       count: 0,
     });
-    startNewTest();
+    setSessionHistory([]);
+    setCurrentCoachingTip(null);
+    setShowModeSelector(true);
   };
+
+  const startPracticeMode = (mode: PracticeMode) => {
+    const config = PRACTICE_MODES[mode];
+    setPracticeMode(mode);
+    setDifficulty(config.defaultDifficulty);
+    setSpeedLevel(config.defaultSpeed);
+    setTestState({
+      sentence: null,
+      typedText: '',
+      startTime: null,
+      endTime: null,
+      replayCount: 0,
+      hintShown: false,
+      showHint: false,
+      isComplete: false,
+      result: null,
+    });
+    setShowModeSelector(false);
+  };
+
+  const achievements = useMemo(() => 
+    calculateAchievements(sessionStats, sessionHistory),
+    [sessionStats, sessionHistory]
+  );
 
   if (!isSupported) {
     return (
@@ -542,6 +839,56 @@ export default function DictationTest() {
                 </Tooltip>
               </div>
 
+              {achievements.filter(a => a.unlocked).length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium mb-3 text-center flex items-center justify-center gap-2">
+                    <Award className="w-4 h-4 text-yellow-500" />
+                    Achievements Unlocked!
+                  </h3>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {achievements.filter(a => a.unlocked).map((achievement) => (
+                      <Tooltip key={achievement.id}>
+                        <TooltipTrigger asChild>
+                          <Badge variant="default" className="bg-yellow-500/20 text-yellow-600 border-yellow-500/50 px-3 py-1.5">
+                            <span className="mr-1">{achievement.icon}</span>
+                            {achievement.name}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">{achievement.name}</p>
+                          <p className="text-xs opacity-90">{achievement.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {achievements.filter(a => !a.unlocked).length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-medium mb-3 text-center text-muted-foreground">Almost there...</h3>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {achievements.filter(a => !a.unlocked).map((achievement) => (
+                      <Tooltip key={achievement.id}>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/50 rounded-full text-sm text-muted-foreground">
+                            <span className="opacity-50">{achievement.icon}</span>
+                            <span>{achievement.name}</span>
+                            {achievement.progress !== undefined && achievement.target && (
+                              <span className="text-xs">({Math.round(achievement.progress)}/{achievement.target})</span>
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">{achievement.name}</p>
+                          <p className="text-xs opacity-90">{achievement.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-4 justify-center items-center mb-4">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -614,6 +961,140 @@ export default function DictationTest() {
     );
   }
 
+  if (showModeSelector) {
+    return (
+      <TooltipProvider delayDuration={300}>
+        <div className="container max-w-4xl mx-auto p-6">
+          <div className="mb-6 flex items-center justify-between">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/">
+                  <Button variant="ghost" size="sm" data-testid="button-back">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Return to home page</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h1 
+                  className="text-3xl font-bold cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg px-2"
+                  tabIndex={0}
+                  role="heading"
+                  aria-label="Choose your practice mode"
+                >
+                  Dictation Mode 🎧
+                </h1>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm">
+                <p>Select how you want to practice today</p>
+              </TooltipContent>
+            </Tooltip>
+            <div className="w-20" />
+          </div>
+
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-center">Choose Your Practice Mode</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {(Object.entries(PRACTICE_MODES) as [PracticeMode, PracticeModeConfig][]).map(([mode, config]) => (
+                  <Tooltip key={mode}>
+                    <TooltipTrigger asChild>
+                      <Card 
+                        className={`cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] border-2 ${
+                          practiceMode === mode ? 'border-primary' : 'border-transparent'
+                        }`}
+                        onClick={() => startPracticeMode(mode)}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Select ${config.name}`}
+                        onKeyDown={(e) => e.key === 'Enter' && startPracticeMode(mode)}
+                        data-testid={`button-mode-${mode}`}
+                      >
+                        <CardContent className="pt-6 text-center">
+                          <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
+                            mode === 'quick' ? 'bg-blue-500/10 text-blue-500' :
+                            mode === 'focus' ? 'bg-green-500/10 text-green-500' :
+                            'bg-yellow-500/10 text-yellow-500'
+                          }`}>
+                            {config.icon}
+                          </div>
+                          <h3 className="font-semibold text-lg mb-2">{config.name}</h3>
+                          <p className="text-sm text-muted-foreground mb-4">{config.description}</p>
+                          <div className="flex flex-wrap gap-1 justify-center">
+                            {config.autoAdvance && (
+                              <Badge variant="secondary" className="text-xs">Auto-advance</Badge>
+                            )}
+                            {!config.hintsAllowed && (
+                              <Badge variant="secondary" className="text-xs">No hints</Badge>
+                            )}
+                            {config.timerPressure && (
+                              <Badge variant="secondary" className="text-xs">Timed</Badge>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-medium mb-1">{config.name}</p>
+                      <p className="text-xs opacity-90">{config.description}</p>
+                      <p className="text-xs mt-1">Default: {config.defaultDifficulty} difficulty, {config.defaultSpeed} speed</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+
+              <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Session Settings
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Session Length</label>
+                    <Select value={sessionLength.toString()} onValueChange={(v) => setSessionLength(parseInt(v))}>
+                      <SelectTrigger data-testid="select-session-length-mode">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SESSION_LENGTH_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value.toString()}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Topic</label>
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger data-testid="select-category-mode">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORIES.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </TooltipProvider>
+    );
+  }
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="container max-w-4xl mx-auto p-6">
@@ -631,24 +1112,183 @@ export default function DictationTest() {
               <p>Return to home page</p>
             </TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <h1 
-                className="text-3xl font-bold cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg px-2"
-                tabIndex={0}
-                role="heading"
-                aria-label="Dictation Mode - practice listening and typing"
-              >
-                Dictation Mode 🎧
-              </h1>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-sm">
-              <p className="font-medium mb-1">Dictation Practice Mode</p>
-              <p className="text-xs opacity-90">Listen to spoken sentences and type them accurately. Improve your listening and typing skills!</p>
-            </TooltipContent>
-          </Tooltip>
-          <div className="w-20" />
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <h1 
+                  className="text-3xl font-bold cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg px-2"
+                  tabIndex={0}
+                  role="heading"
+                  aria-label="Dictation Mode - practice listening and typing"
+                >
+                  Dictation Mode 🎧
+                </h1>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm">
+                <p className="font-medium mb-1">Dictation Practice Mode</p>
+                <p className="text-xs opacity-90">Listen to spoken sentences and type them accurately. Improve your listening and typing skills!</p>
+              </TooltipContent>
+            </Tooltip>
+            <Badge variant="outline" className="ml-2">
+              {PRACTICE_MODES[practiceMode].icon}
+              <span className="ml-1">{PRACTICE_MODES[practiceMode].name}</span>
+            </Badge>
+          </div>
+          <div className="flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowHistory(!showHistory)}
+                  data-testid="button-toggle-history"
+                >
+                  <History className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>View session history</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowAnalytics(!showAnalytics)}
+                  data-testid="button-toggle-analytics"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>View session analytics</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
+
+        {showHistory && sessionHistory.length > 0 && (
+          <Card className="mb-6 animate-in slide-in-from-top-2">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <History className="w-5 h-5" />
+                  Session History
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="max-h-64 overflow-y-auto">
+              <div className="space-y-3">
+                {sessionHistory.map((item, index) => (
+                  <div key={index} className="p-3 bg-muted/50 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Sentence {index + 1}</span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={item.accuracy >= 95 ? 'default' : item.accuracy >= 80 ? 'secondary' : 'destructive'}>
+                          {item.accuracy}%
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">{item.wpm} WPM</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate">{item.sentence}</p>
+                    {item.errorCategories.length > 0 && (
+                      <div className="flex gap-1 mt-2 flex-wrap">
+                        {item.errorCategories.slice(0, 3).map((cat, i) => (
+                          <Badge key={i} variant="outline" className="text-xs">
+                            {cat.type}: {cat.count}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {showAnalytics && sessionStats.count > 0 && (
+          <Card className="mb-6 animate-in slide-in-from-top-2">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  Session Analytics
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowAnalytics(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div className="text-center p-3 bg-primary/10 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">
+                    {Math.round(sessionStats.totalWpm / sessionStats.count)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Avg WPM</div>
+                </div>
+                <div className="text-center p-3 bg-green-500/10 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">
+                    {Math.round(sessionStats.totalAccuracy / sessionStats.count)}%
+                  </div>
+                  <div className="text-xs text-muted-foreground">Avg Accuracy</div>
+                </div>
+                <div className="text-center p-3 bg-orange-500/10 rounded-lg">
+                  <div className="text-2xl font-bold text-orange-600">
+                    {sessionStats.totalErrors}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Total Errors</div>
+                </div>
+                <div className="text-center p-3 bg-purple-500/10 rounded-lg">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {sessionHistory.filter(h => h.accuracy === 100).length}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Perfect Scores</div>
+                </div>
+              </div>
+
+              <h4 className="text-sm font-medium mb-3">Achievements</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {achievements.map((achievement) => (
+                  <Tooltip key={achievement.id}>
+                    <TooltipTrigger asChild>
+                      <div className={`p-2 rounded-lg text-center transition-all ${
+                        achievement.unlocked 
+                          ? 'bg-yellow-500/20 border border-yellow-500/50' 
+                          : 'bg-muted/50 opacity-50'
+                      }`}>
+                        <div className={`mx-auto w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
+                          achievement.unlocked ? 'bg-yellow-500/30' : 'bg-muted'
+                        }`}>
+                          {achievement.icon}
+                        </div>
+                        <p className="text-xs font-medium truncate">{achievement.name}</p>
+                        {achievement.progress !== undefined && achievement.target && (
+                          <Progress 
+                            value={(achievement.progress / achievement.target) * 100} 
+                            className="h-1 mt-1"
+                          />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="font-medium">{achievement.name}</p>
+                      <p className="text-xs opacity-90">{achievement.description}</p>
+                      {achievement.progress !== undefined && achievement.target && (
+                        <p className="text-xs mt-1">Progress: {Math.round(achievement.progress)}/{achievement.target}</p>
+                      )}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="mb-6">
           <CardContent className="pt-6">
@@ -1059,7 +1699,7 @@ export default function DictationTest() {
               <TooltipTrigger asChild>
                 <Button
                   onClick={toggleHint}
-                  disabled={!testState.sentence || isSpeaking}
+                  disabled={!testState.sentence || isSpeaking || !PRACTICE_MODES[practiceMode].hintsAllowed}
                   variant="outline"
                   data-testid="button-hint"
                 >
@@ -1068,7 +1708,10 @@ export default function DictationTest() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Reveal the sentence text if you're stuck (reduces your score)</p>
+                <p>{PRACTICE_MODES[practiceMode].hintsAllowed 
+                  ? 'Reveal the sentence text if you\'re stuck (reduces your score)'
+                  : 'Hints are disabled in Challenge Mode'
+                }</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -1510,6 +2153,26 @@ export default function DictationTest() {
                       </p>
                     </TooltipContent>
                   </Tooltip>
+                )}
+
+                {currentCoachingTip && (
+                  <div className={`p-4 rounded-lg flex items-start gap-3 ${
+                    currentCoachingTip.type === 'achievement' ? 'bg-yellow-500/10 border border-yellow-500/30' :
+                    currentCoachingTip.type === 'encouragement' ? 'bg-green-500/10 border border-green-500/30' :
+                    currentCoachingTip.type === 'improvement' ? 'bg-blue-500/10 border border-blue-500/30' :
+                    'bg-orange-500/10 border border-orange-500/30'
+                  }`}>
+                    <div className="mt-0.5">{currentCoachingTip.icon}</div>
+                    <div>
+                      <p className="text-sm font-medium">
+                        {currentCoachingTip.type === 'achievement' ? 'Achievement!' :
+                         currentCoachingTip.type === 'encouragement' ? 'Great work!' :
+                         currentCoachingTip.type === 'improvement' ? 'Tip for improvement' :
+                         'Heads up!'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{currentCoachingTip.message}</p>
+                    </div>
+                  </div>
                 )}
               </div>
 
