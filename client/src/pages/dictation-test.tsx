@@ -34,12 +34,32 @@ interface DictationTestState {
   } | null;
 }
 
-const SENTENCES_PER_SESSION = 10;
+const SESSION_LENGTH_OPTIONS = [
+  { value: 5, label: '5 sentences (Quick)' },
+  { value: 10, label: '10 sentences (Standard)' },
+  { value: 15, label: '15 sentences (Extended)' },
+  { value: 20, label: '20 sentences (Marathon)' },
+];
+
+const CATEGORIES = [
+  { value: 'all', label: 'All Topics' },
+  { value: 'general', label: 'General' },
+  { value: 'business', label: 'Business' },
+  { value: 'technology', label: 'Technology' },
+  { value: 'science', label: 'Science' },
+  { value: 'culture', label: 'Culture' },
+  { value: 'environment', label: 'Environment' },
+  { value: 'health', label: 'Health' },
+  { value: 'entertainment', label: 'Entertainment' },
+  { value: 'education', label: 'Education' },
+];
 
 export default function DictationTest() {
   const { toast } = useToast();
   const [difficulty, setDifficulty] = useState<string>('medium');
   const [speedLevel, setSpeedLevel] = useState<string>('medium');
+  const [category, setCategory] = useState<string>('all');
+  const [sessionLength, setSessionLength] = useState<number>(10);
   const [testState, setTestState] = useState<DictationTestState>({
     sentence: null,
     typedText: '',
@@ -69,6 +89,10 @@ export default function DictationTest() {
   const [showKeyboardGuide, setShowKeyboardGuide] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [lastTestResultId, setLastTestResultId] = useState<number | null>(null);
+  const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState<number | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const elapsedIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const currentRate = getSpeedRate(speedLevel);
   const { speak, cancel, isSpeaking, isSupported, error: speechError, voices, setVoice, currentVoice } = useSpeechSynthesis({
@@ -86,9 +110,10 @@ export default function DictationTest() {
   };
 
   const { refetch: fetchNewSentence, isLoading } = useQuery({
-    queryKey: ['dictation-sentence', difficulty],
+    queryKey: ['dictation-sentence', difficulty, category],
     queryFn: async () => {
-      const res = await fetch(`/api/dictation/sentence?difficulty=${difficulty}`);
+      const categoryParam = category !== 'all' ? `&category=${category}` : '';
+      const res = await fetch(`/api/dictation/sentence?difficulty=${difficulty}${categoryParam}`);
       if (!res.ok) throw new Error('Failed to fetch sentence');
       const data = await res.json();
       return data.sentence as DictationSentence;
@@ -132,12 +157,23 @@ export default function DictationTest() {
   });
 
   const startNewTest = useCallback(async () => {
-    if (sessionProgress >= SENTENCES_PER_SESSION) {
+    if (sessionProgress >= sessionLength) {
       setSessionComplete(true);
       return;
     }
 
     cancel();
+    setAutoAdvanceCountdown(null);
+    setElapsedTime(0);
+    
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    if (elapsedIntervalRef.current) {
+      clearInterval(elapsedIntervalRef.current);
+      elapsedIntervalRef.current = null;
+    }
     
     try {
       const result = await fetchNewSentence();
@@ -172,19 +208,70 @@ export default function DictationTest() {
         variant: 'destructive',
       });
     }
-  }, [cancel, fetchNewSentence, speak, sessionProgress, toast]);
+  }, [cancel, fetchNewSentence, speak, sessionProgress, sessionLength, toast]);
 
   useEffect(() => {
     startNewTest();
   }, []);
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (testState.isComplete || !testState.sentence) return;
+      
+      const activeElement = document.activeElement;
+      const isTyping = activeElement?.tagName === 'TEXTAREA' || 
+                       activeElement?.tagName === 'INPUT' ||
+                       activeElement?.getAttribute('contenteditable') === 'true';
+      
+      if (isTyping) return;
+      
+      const key = e.key.toLowerCase();
+      
+      if (key === 'r' && !isSpeaking && testState.sentence) {
+        e.preventDefault();
+        cancel();
+        setTestState(prev => ({ ...prev, replayCount: prev.replayCount + 1 }));
+        setTimeout(() => {
+          if (testState.sentence) {
+            speak(testState.sentence.sentence);
+          }
+        }, 200);
+      }
+      
+      if (key === 'h' && !isSpeaking && testState.sentence) {
+        e.preventDefault();
+        setTestState(prev => ({
+          ...prev,
+          showHint: !prev.showHint,
+          hintShown: !prev.showHint ? true : prev.hintShown,
+        }));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [testState.isComplete, testState.sentence, isSpeaking, cancel, speak]);
+
+  useEffect(() => {
     if (!isSpeaking && testState.sentence && !testState.startTime && !testState.isComplete) {
       setTestState(prev => ({ ...prev, startTime: Date.now() }));
+      setElapsedTime(0);
+      
+      elapsedIntervalRef.current = setInterval(() => {
+        setElapsedTime(prev => prev + 1);
+      }, 1000);
+      
       setTimeout(() => {
         inputRef.current?.focus();
       }, 100);
     }
+    
+    return () => {
+      if (elapsedIntervalRef.current) {
+        clearInterval(elapsedIntervalRef.current);
+        elapsedIntervalRef.current = null;
+      }
+    };
   }, [isSpeaking, testState.sentence, testState.startTime, testState.isComplete]);
 
   const handleReplay = () => {
@@ -266,6 +353,11 @@ export default function DictationTest() {
 
     setSessionProgress(prev => prev + 1);
 
+    if (elapsedIntervalRef.current) {
+      clearInterval(elapsedIntervalRef.current);
+      elapsedIntervalRef.current = null;
+    }
+
     try {
       const saveResult = await saveTestMutation.mutateAsync({
         sentenceId: currentSentence.id,
@@ -281,7 +373,6 @@ export default function DictationTest() {
         duration: result.duration,
       });
       
-      // Store the test result ID for sharing
       if (saveResult && saveResult.result && saveResult.result.id) {
         setLastTestResultId(saveResult.result.id);
       }
@@ -293,12 +384,30 @@ export default function DictationTest() {
       });
     }
 
-    setTimeout(() => {
-      startNewTest();
-    }, 3000);
+    const AUTO_ADVANCE_SECONDS = 3;
+    setAutoAdvanceCountdown(AUTO_ADVANCE_SECONDS);
+    
+    countdownIntervalRef.current = setInterval(() => {
+      setAutoAdvanceCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+          }
+          startNewTest();
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   const handleNextManual = () => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setAutoAdvanceCountdown(null);
     startNewTest();
   };
 
@@ -373,10 +482,10 @@ export default function DictationTest() {
                     </h2>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Congratulations! You've finished all {SENTENCES_PER_SESSION} dictation exercises</p>
+                    <p>Congratulations! You've finished all {sessionLength} dictation exercises</p>
                   </TooltipContent>
                 </Tooltip>
-                <p className="text-muted-foreground">You've completed {SENTENCES_PER_SESSION} dictation tests</p>
+                <p className="text-muted-foreground">You've completed {sessionLength} dictation tests</p>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
@@ -433,6 +542,31 @@ export default function DictationTest() {
                 </Tooltip>
               </div>
 
+              <div className="flex gap-4 justify-center items-center mb-4">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">Session Length:</span>
+                      <Select value={sessionLength.toString()} onValueChange={(v) => setSessionLength(parseInt(v))}>
+                        <SelectTrigger className="w-[180px]" data-testid="select-session-length">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SESSION_LENGTH_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value.toString()}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p>Choose how many sentences to practice in your next session</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
               <div className="flex gap-3 justify-center flex-wrap">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -441,7 +575,7 @@ export default function DictationTest() {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Begin a fresh session with {SENTENCES_PER_SESSION} new sentences</p>
+                    <p>Begin a fresh session with {sessionLength} new sentences</p>
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -533,21 +667,21 @@ export default function DictationTest() {
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Complete {SENTENCES_PER_SESSION} dictation tests to finish the session</p>
+                    <p>Complete {sessionLength} dictation tests to finish the session</p>
                   </TooltipContent>
                 </Tooltip>
               </span>
               <span className="text-sm text-muted-foreground" data-testid="text-progress">
-                {sessionProgress} / {SENTENCES_PER_SESSION}
+                {sessionProgress} / {sessionLength}
               </span>
             </div>
-            <Progress value={(sessionProgress / SENTENCES_PER_SESSION) * 100} className="h-2" />
+            <Progress value={(sessionProgress / sessionLength) * 100} className="h-2" />
           </CardContent>
         </Card>
 
       {!testState.isComplete ? (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Card 
@@ -637,14 +771,18 @@ export default function DictationTest() {
                       disabled={isLoading || isSpeaking || englishVoices.length === 0}
                     >
                       <SelectTrigger data-testid="select-voice">
-                        <SelectValue placeholder="Voice" />
+                        <SelectValue placeholder={englishVoices.length === 0 ? "Loading..." : "Voice"} />
                       </SelectTrigger>
                       <SelectContent>
-                        {englishVoices.map((voice) => (
-                          <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
-                            {voice.name.split(' ').slice(0, 2).join(' ')}
-                          </SelectItem>
-                        ))}
+                        {englishVoices.length === 0 ? (
+                          <SelectItem value="loading" disabled>Loading voices...</SelectItem>
+                        ) : (
+                          englishVoices.map((voice) => (
+                            <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
+                              {voice.name.split(' ').slice(0, 2).join(' ')}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                     <div className="text-xs text-muted-foreground mt-1">Voice</div>
@@ -652,7 +790,36 @@ export default function DictationTest() {
                 </Card>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Choose the voice accent and tone you prefer for dictation</p>
+                <p>{englishVoices.length === 0 ? 'Loading available voices...' : 'Choose the voice accent and tone you prefer for dictation'}</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card 
+                  className="focus-within:ring-2 focus-within:ring-primary/50"
+                  tabIndex={0}
+                  role="group"
+                  aria-label="Category selector"
+                >
+                  <CardContent className="pt-6">
+                    <Select value={category} onValueChange={setCategory} disabled={isLoading || isSpeaking}>
+                      <SelectTrigger data-testid="select-category">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORIES.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="text-xs text-muted-foreground mt-1">Topic</div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>Filter sentences by topic: General for everyday phrases, Business for professional content, Technology for tech-related terms</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -790,13 +957,18 @@ export default function DictationTest() {
                 {testState.startTime && !isSpeaking && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="text-xs text-green-600 flex items-center gap-1 cursor-help">
-                        <span className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></span>
-                        Recording
+                      <span className="text-xs text-green-600 flex items-center gap-2 cursor-help">
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></span>
+                          Timer running
+                        </span>
+                        <span className="font-mono bg-green-500/10 px-2 py-0.5 rounded">
+                          {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
+                        </span>
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Timer is running. Type your answer now!</p>
+                      <p>Time elapsed since audio finished. Type your answer now!</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -968,6 +1140,38 @@ export default function DictationTest() {
                     </TooltipTrigger>
                     <TooltipContent>
                       <p className="text-xs">Hold Ctrl and press Enter to submit your answer quickly</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="flex items-center justify-between p-2 bg-muted/30 rounded cursor-help hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        tabIndex={0}
+                        role="listitem"
+                        aria-label="Replay audio shortcut: R key"
+                      >
+                        <span>Replay Audio</span>
+                        <kbd className="px-2 py-1 bg-background border rounded text-xs font-mono">R</kbd>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Press R (when not typing) to replay the audio</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div 
+                        className="flex items-center justify-between p-2 bg-muted/30 rounded cursor-help hover:bg-muted/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        tabIndex={0}
+                        role="listitem"
+                        aria-label="Toggle hint shortcut: H key"
+                      >
+                        <span>Toggle Hint</span>
+                        <kbd className="px-2 py-1 bg-background border rounded text-xs font-mono">H</kbd>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Press H (when not typing) to show/hide the hint</p>
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
@@ -1318,7 +1522,9 @@ export default function DictationTest() {
                       role="status"
                       aria-live="polite"
                     >
-                      Next sentence in 3 seconds, or click to continue now
+                      {autoAdvanceCountdown !== null 
+                        ? `Next sentence in ${autoAdvanceCountdown} second${autoAdvanceCountdown !== 1 ? 's' : ''}, or click to continue now`
+                        : 'Click to continue to next sentence'}
                     </p>
                   </TooltipTrigger>
                   <TooltipContent>
