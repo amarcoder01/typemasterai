@@ -8,6 +8,17 @@ export function normalizeText(text: string): string {
     .replace(/[‒–—―]/g, '-');
 }
 
+export function normalizeForComparison(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/['']/g, "'")
+    .replace(/[""]/g, '"')
+    .replace(/[‒–—―]/g, '-')
+    .replace(/[.,!?;:'"()\[\]{}]/g, '');
+}
+
 export function levenshteinDistance(str1: string, str2: string): number {
   const m = str1.length;
   const n = str2.length;
@@ -45,6 +56,13 @@ export interface CharacterDiff {
   position: number;
 }
 
+export interface WordDiff {
+  word: string;
+  typedWord: string;
+  status: 'correct' | 'incorrect' | 'missing' | 'extra';
+  position: number;
+}
+
 export function getCharacterDiff(typed: string, actual: string): CharacterDiff[] {
   const normalizedTyped = normalizeText(typed);
   const normalizedActual = normalizeText(actual);
@@ -70,22 +88,108 @@ export function getCharacterDiff(typed: string, actual: string): CharacterDiff[]
   return diff;
 }
 
+function normalizeWord(word: string): string {
+  return word.toLowerCase().replace(/[.,!?;:'"()\[\]{}]/g, '').trim();
+}
+
+export function getWordDiff(typed: string, actual: string): WordDiff[] {
+  const typedWords = typed.trim().split(/\s+/).filter(w => w.length > 0);
+  const actualWords = actual.trim().split(/\s+/).filter(w => w.length > 0);
+  const diff: WordDiff[] = [];
+  
+  let typedIdx = 0;
+  let actualIdx = 0;
+  
+  while (actualIdx < actualWords.length || typedIdx < typedWords.length) {
+    const actualWord = actualWords[actualIdx] || '';
+    const typedWord = typedWords[typedIdx] || '';
+    const normalizedActual = normalizeWord(actualWord);
+    const normalizedTyped = normalizeWord(typedWord);
+    
+    if (actualIdx >= actualWords.length) {
+      diff.push({
+        word: typedWord,
+        typedWord: typedWord,
+        status: 'extra',
+        position: typedIdx,
+      });
+      typedIdx++;
+    } else if (typedIdx >= typedWords.length) {
+      diff.push({
+        word: actualWord,
+        typedWord: '',
+        status: 'missing',
+        position: actualIdx,
+      });
+      actualIdx++;
+    } else if (normalizedActual === normalizedTyped) {
+      diff.push({
+        word: actualWord,
+        typedWord: typedWord,
+        status: 'correct',
+        position: actualIdx,
+      });
+      typedIdx++;
+      actualIdx++;
+    } else {
+      const nextActualNormalized = actualIdx + 1 < actualWords.length 
+        ? normalizeWord(actualWords[actualIdx + 1]) 
+        : '';
+      const nextTypedNormalized = typedIdx + 1 < typedWords.length 
+        ? normalizeWord(typedWords[typedIdx + 1]) 
+        : '';
+      
+      if (normalizedTyped === nextActualNormalized) {
+        diff.push({
+          word: actualWord,
+          typedWord: '',
+          status: 'missing',
+          position: actualIdx,
+        });
+        actualIdx++;
+      } else if (normalizedActual === nextTypedNormalized) {
+        diff.push({
+          word: typedWord,
+          typedWord: typedWord,
+          status: 'extra',
+          position: typedIdx,
+        });
+        typedIdx++;
+      } else {
+        diff.push({
+          word: actualWord,
+          typedWord: typedWord,
+          status: 'incorrect',
+          position: actualIdx,
+        });
+        typedIdx++;
+        actualIdx++;
+      }
+    }
+  }
+  
+  return diff;
+}
+
 export interface DictationAccuracyResult {
   accuracy: number;
   errors: number;
   normalizedTyped: string;
   normalizedActual: string;
   characterDiff: CharacterDiff[];
+  wordDiff: WordDiff[];
   correctChars: number;
   totalChars: number;
+  correctWords: number;
+  totalWords: number;
 }
 
 export function calculateDictationAccuracy(
   typedText: string,
   actualSentence: string
 ): DictationAccuracyResult {
-  const normalizedTyped = normalizeText(typedText);
-  const normalizedActual = normalizeText(actualSentence);
+  const normalizedTyped = normalizeForComparison(typedText);
+  const normalizedActual = normalizeForComparison(actualSentence);
   
   const distance = levenshteinDistance(normalizedTyped, normalizedActual);
   const maxLength = Math.max(normalizedTyped.length, normalizedActual.length);
@@ -94,7 +198,10 @@ export function calculateDictationAccuracy(
     Math.round(((maxLength - distance) / maxLength) * 100);
   
   const characterDiff = getCharacterDiff(typedText, actualSentence);
+  const wordDiff = getWordDiff(typedText, actualSentence);
   const correctChars = characterDiff.filter(d => d.status === 'correct').length;
+  const correctWords = wordDiff.filter(d => d.status === 'correct').length;
+  const totalWords = actualSentence.trim().split(/\s+/).filter(w => w.length > 0).length;
   
   return {
     accuracy: Math.max(0, Math.min(100, accuracy)),
@@ -102,8 +209,11 @@ export function calculateDictationAccuracy(
     normalizedTyped,
     normalizedActual,
     characterDiff,
+    wordDiff,
     correctChars,
     totalChars: maxLength,
+    correctWords,
+    totalWords,
   };
 }
 

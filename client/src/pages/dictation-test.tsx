@@ -10,7 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
-import { calculateDictationAccuracy, calculateDictationWPM, getSpeedRate, getSpeedLevelName, getAccuracyGrade, type CharacterDiff } from '@shared/dictation-utils';
+import { calculateDictationAccuracy, calculateDictationWPM, getSpeedRate, getSpeedLevelName, getAccuracyGrade, type CharacterDiff, type WordDiff } from '@shared/dictation-utils';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { DictationSentence } from '@shared/schema';
@@ -109,8 +109,11 @@ interface DictationTestState {
     errors: number;
     duration: number;
     characterDiff: CharacterDiff[];
+    wordDiff: WordDiff[];
     correctChars: number;
     totalChars: number;
+    correctWords: number;
+    totalWords: number;
   } | null;
 }
 
@@ -853,8 +856,11 @@ export default function DictationTest() {
       errors: accuracyResult.errors,
       duration,
       characterDiff: accuracyResult.characterDiff,
+      wordDiff: accuracyResult.wordDiff,
       correctChars: accuracyResult.correctChars,
       totalChars: accuracyResult.totalChars,
+      correctWords: accuracyResult.correctWords,
+      totalWords: accuracyResult.totalWords,
     };
 
     setTestState(prev => ({
@@ -3059,28 +3065,33 @@ export default function DictationTest() {
               </div>
 
               <div className="space-y-4">
-                {testState.result && testState.result.characterDiff && (
+                {testState.result && testState.result.wordDiff && (
                   <div>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span 
-                          className="text-sm font-medium mb-2 cursor-help inline-flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
-                          tabIndex={0}
-                          role="button"
-                          aria-label="Character analysis help"
-                        >
-                          Character-by-Character Analysis:
-                          <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p className="font-medium mb-1">Detailed Breakdown</p>
-                        <p className="text-xs opacity-90">Each character is color-coded to show exactly what you typed correctly and where you made mistakes.</p>
-                      </TooltipContent>
-                    </Tooltip>
+                    <div className="flex items-center justify-between mb-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span 
+                            className="text-sm font-medium cursor-help inline-flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-primary/50 rounded px-1"
+                            tabIndex={0}
+                            role="button"
+                            aria-label="Word analysis help"
+                          >
+                            Word-by-Word Analysis:
+                            <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="font-medium mb-1">Word Comparison</p>
+                          <p className="text-xs opacity-90">Each word is color-coded. Capitalization and punctuation are ignored - focus on the words!</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <span className="text-xs text-muted-foreground">
+                        {testState.result.correctWords}/{testState.result.totalWords} words correct
+                      </span>
+                    </div>
                     <div className="p-4 bg-muted/30 rounded-md">
-                      <div className="font-mono text-base leading-relaxed flex flex-wrap gap-0.5">
-                        {testState.result.characterDiff.map((diff, idx) => (
+                      <div className="text-base leading-relaxed flex flex-wrap gap-1.5">
+                        {testState.result.wordDiff.map((diff, idx) => (
                           <Tooltip key={idx}>
                             <TooltipTrigger asChild>
                               <span
@@ -3088,92 +3099,47 @@ export default function DictationTest() {
                                   diff.status === 'correct' 
                                     ? 'bg-green-500/20 text-green-700 dark:text-green-400' 
                                     : diff.status === 'incorrect'
-                                    ? 'bg-red-500/20 text-red-700 dark:text-red-400 underline decoration-wavy'
+                                    ? 'bg-red-500/20 text-red-700 dark:text-red-400'
                                     : diff.status === 'missing'
-                                    ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
+                                    ? 'bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 italic'
                                     : 'bg-orange-500/20 text-orange-700 dark:text-orange-400 line-through'
-                                } px-0.5 rounded cursor-help`}
+                                } px-1.5 py-0.5 rounded cursor-help`}
                               >
-                                {diff.char === ' ' ? '·' : diff.char}
+                                {diff.word}
                               </span>
                             </TooltipTrigger>
                             <TooltipContent>
                               <p className="text-xs">
-                                {diff.status === 'correct' ? 'Correct character' :
-                                 diff.status === 'incorrect' ? 'Wrong character typed' :
-                                 diff.status === 'missing' ? 'You missed this character' :
-                                 'Extra character you added'}
+                                {diff.status === 'correct' ? 'Correct!' :
+                                 diff.status === 'incorrect' ? `You typed: "${diff.typedWord}"` :
+                                 diff.status === 'missing' ? 'You missed this word' :
+                                 'Extra word you added'}
                               </p>
                             </TooltipContent>
                           </Tooltip>
                         ))}
                       </div>
-                      <div className="mt-4 flex gap-4 text-xs flex-wrap" role="list" aria-label="Color legend for character analysis">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div 
-                              className="flex items-center gap-1 cursor-help focus:outline-none focus:ring-1 focus:ring-green-500/50 rounded px-1"
-                              tabIndex={0}
-                              role="listitem"
-                              aria-label="Green indicates correct characters"
-                            >
-                              <span className="w-3 h-3 bg-green-500/20 rounded border border-green-500/30"></span>
-                              <span className="text-muted-foreground">Correct</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="text-xs">Characters you typed correctly</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div 
-                              className="flex items-center gap-1 cursor-help focus:outline-none focus:ring-1 focus:ring-red-500/50 rounded px-1"
-                              tabIndex={0}
-                              role="listitem"
-                              aria-label="Red indicates wrong characters"
-                            >
-                              <span className="w-3 h-3 bg-red-500/20 rounded border border-red-500/30"></span>
-                              <span className="text-muted-foreground">Wrong</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="text-xs">Characters where you typed the wrong letter</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div 
-                              className="flex items-center gap-1 cursor-help focus:outline-none focus:ring-1 focus:ring-yellow-500/50 rounded px-1"
-                              tabIndex={0}
-                              role="listitem"
-                              aria-label="Yellow indicates missing characters"
-                            >
-                              <span className="w-3 h-3 bg-yellow-500/20 rounded border border-yellow-500/30"></span>
-                              <span className="text-muted-foreground">Missing</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="text-xs">Characters you skipped or forgot to type</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div 
-                              className="flex items-center gap-1 cursor-help focus:outline-none focus:ring-1 focus:ring-orange-500/50 rounded px-1"
-                              tabIndex={0}
-                              role="listitem"
-                              aria-label="Orange indicates extra characters"
-                            >
-                              <span className="w-3 h-3 bg-orange-500/20 rounded border border-orange-500/30"></span>
-                              <span className="text-muted-foreground">Extra</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="text-xs">Extra characters you typed that weren't in the original</p>
-                          </TooltipContent>
-                        </Tooltip>
+                      <div className="mt-4 flex gap-4 text-xs flex-wrap" role="list" aria-label="Color legend for word analysis">
+                        <div className="flex items-center gap-1">
+                          <span className="w-3 h-3 bg-green-500/20 rounded border border-green-500/30"></span>
+                          <span className="text-muted-foreground">Correct</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="w-3 h-3 bg-red-500/20 rounded border border-red-500/30"></span>
+                          <span className="text-muted-foreground">Wrong</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="w-3 h-3 bg-yellow-500/20 rounded border border-yellow-500/30"></span>
+                          <span className="text-muted-foreground">Missing</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="w-3 h-3 bg-orange-500/20 rounded border border-orange-500/30"></span>
+                          <span className="text-muted-foreground">Extra</span>
+                        </div>
                       </div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Capitalization and punctuation are ignored for easier comparison.
+                      </p>
                     </div>
                   </div>
                 )}
