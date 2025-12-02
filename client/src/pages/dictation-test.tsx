@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, Volume2, RotateCcw, Eye, EyeOff, Check, ChevronRight, Mic, Share2, HelpCircle, Flame, Trophy, Target, Zap, Clock, History, TrendingUp, Award, Sparkles, AlertCircle, Lightbulb, X, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Volume2, RotateCcw, Eye, EyeOff, Check, ChevronRight, Mic, Share2, HelpCircle, Flame, Trophy, Target, Zap, Clock, History, TrendingUp, Award, Sparkles, AlertCircle, Lightbulb, X, ChevronDown, ChevronUp, BarChart3, Bookmark, BookmarkCheck, Calendar, Star, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -138,6 +138,114 @@ const CATEGORIES = [
   { value: 'entertainment', label: 'Entertainment' },
   { value: 'education', label: 'Education' },
 ];
+
+interface StreakData {
+  currentStreak: number;
+  longestStreak: number;
+  lastPracticeDate: string;
+  totalSessions: number;
+}
+
+interface BookmarkedSentence {
+  id: number;
+  sentence: string;
+  category: string;
+  difficulty: string;
+  bookmarkedAt: number;
+  lastAccuracy?: number;
+}
+
+const STREAK_STORAGE_KEY = 'dictation_streak';
+const BOOKMARKS_STORAGE_KEY = 'dictation_bookmarks';
+const VOICE_STORAGE_KEY = 'dictation_voice';
+
+function getStreakData(): StreakData {
+  try {
+    const stored = localStorage.getItem(STREAK_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error('Failed to parse streak data:', e);
+  }
+  return { currentStreak: 0, longestStreak: 0, lastPracticeDate: '', totalSessions: 0 };
+}
+
+function updateStreak(): StreakData {
+  const data = getStreakData();
+  const today = new Date().toISOString().split('T')[0];
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  
+  let newStreak = data.currentStreak;
+  
+  if (data.lastPracticeDate !== today) {
+    if (data.lastPracticeDate === yesterday) {
+      newStreak = data.currentStreak + 1;
+    } else {
+      newStreak = 1;
+    }
+  }
+  
+  const newData: StreakData = {
+    currentStreak: newStreak,
+    longestStreak: Math.max(data.longestStreak, newStreak),
+    lastPracticeDate: today,
+    totalSessions: data.totalSessions + 1,
+  };
+  
+  localStorage.setItem(STREAK_STORAGE_KEY, JSON.stringify(newData));
+  return newData;
+}
+
+function getSavedVoice(): string | null {
+  try {
+    return localStorage.getItem(VOICE_STORAGE_KEY);
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveVoiceSelection(voiceURI: string): void {
+  try {
+    localStorage.setItem(VOICE_STORAGE_KEY, voiceURI);
+  } catch (e) {
+    console.error('Failed to save voice selection:', e);
+  }
+}
+
+function getBookmarks(): BookmarkedSentence[] {
+  try {
+    const stored = localStorage.getItem(BOOKMARKS_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error('Failed to parse bookmarks:', e);
+  }
+  return [];
+}
+
+function saveBookmark(sentence: BookmarkedSentence): BookmarkedSentence[] {
+  const bookmarks = getBookmarks();
+  const existing = bookmarks.findIndex(b => b.id === sentence.id);
+  if (existing >= 0) {
+    bookmarks[existing] = sentence;
+  } else {
+    bookmarks.push(sentence);
+  }
+  localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(bookmarks));
+  return bookmarks;
+}
+
+function removeBookmark(id: number): BookmarkedSentence[] {
+  const bookmarks = getBookmarks().filter(b => b.id !== id);
+  localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(bookmarks));
+  return bookmarks;
+}
+
+function isBookmarked(id: number): boolean {
+  return getBookmarks().some(b => b.id === id);
+}
 
 function categorizeErrors(characterDiff: CharacterDiff[], original: string, typed: string): ErrorCategory[] {
   const categories: Map<string, ErrorCategory> = new Map();
@@ -340,6 +448,11 @@ export default function DictationTest() {
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const elapsedIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
+  const [streakData, setStreakData] = useState<StreakData>(() => getStreakData());
+  const [bookmarks, setBookmarks] = useState<BookmarkedSentence[]>(() => getBookmarks());
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  
   const currentRate = getSpeedRate(speedLevel);
   const { speak, cancel, isSpeaking, isSupported, error: speechError, voices, setVoice, currentVoice } = useSpeechSynthesis({
     rate: currentRate,
@@ -352,8 +465,21 @@ export default function DictationTest() {
     const selectedVoice = voices.find(v => v.voiceURI === voiceUri);
     if (selectedVoice) {
       setVoice(selectedVoice);
+      saveVoiceSelection(voiceUri);
     }
   };
+
+  useEffect(() => {
+    if (voices.length > 0) {
+      const savedVoiceURI = getSavedVoice();
+      if (savedVoiceURI) {
+        const savedVoice = voices.find(v => v.voiceURI === savedVoiceURI);
+        if (savedVoice) {
+          setVoice(savedVoice);
+        }
+      }
+    }
+  }, [voices, setVoice]);
 
   const handleSessionLengthChange = (value: string) => {
     const numValue = parseInt(value);
@@ -379,6 +505,64 @@ export default function DictationTest() {
       });
     }
   };
+
+  const toggleBookmark = useCallback(() => {
+    if (!testState.sentence) return;
+    
+    const sentenceId = testState.sentence.id;
+    const isCurrentlyBookmarked = bookmarks.some(b => b.id === sentenceId);
+    
+    if (isCurrentlyBookmarked) {
+      const newBookmarks = removeBookmark(sentenceId);
+      setBookmarks(newBookmarks);
+      toast({
+        title: 'Bookmark removed',
+        description: 'Sentence removed from your bookmarks',
+      });
+    } else {
+      const newBookmark: BookmarkedSentence = {
+        id: sentenceId,
+        sentence: testState.sentence.sentence,
+        category: testState.sentence.category || 'general',
+        difficulty: testState.sentence.difficulty,
+        bookmarkedAt: Date.now(),
+        lastAccuracy: testState.result?.accuracy,
+      };
+      const newBookmarks = saveBookmark(newBookmark);
+      setBookmarks(newBookmarks);
+      toast({
+        title: 'Sentence bookmarked',
+        description: 'Added to your practice list for later review',
+      });
+    }
+  }, [testState.sentence, testState.result, bookmarks, toast]);
+
+  const practiceBookmarkedSentence = useCallback((bookmark: BookmarkedSentence) => {
+    const words = bookmark.sentence.split(/\s+/).length;
+    setTestState({
+      sentence: {
+        id: bookmark.id,
+        sentence: bookmark.sentence,
+        difficulty: bookmark.difficulty,
+        category: bookmark.category,
+        wordCount: words,
+        characterCount: bookmark.sentence.length,
+        createdAt: new Date(),
+      },
+      typedText: '',
+      startTime: null,
+      endTime: null,
+      replayCount: 0,
+      hintShown: false,
+      showHint: false,
+      isComplete: false,
+      result: null,
+    });
+    setShowBookmarks(false);
+    setTimeout(() => {
+      speak(bookmark.sentence);
+    }, 500);
+  }, [speak]);
 
   const { refetch: fetchNewSentence, isLoading } = useQuery({
     queryKey: ['dictation-sentence', difficulty, category],
@@ -653,6 +837,9 @@ export default function DictationTest() {
     setCurrentCoachingTip(tip);
 
     setSessionProgress(prev => prev + 1);
+    
+    const newStreakData = updateStreak();
+    setStreakData(newStreakData);
 
     if (elapsedIntervalRef.current) {
       clearInterval(elapsedIntervalRef.current);
@@ -1203,6 +1390,20 @@ export default function DictationTest() {
               </TooltipContent>
             </Tooltip>
             <div className="flex items-center gap-2">
+              {streakData.currentStreak > 0 && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 px-2 py-1 bg-orange-500/10 text-orange-500 rounded-full text-sm font-medium">
+                      <Flame className="w-4 h-4 animate-pulse" />
+                      <span>{streakData.currentStreak}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="font-medium">{streakData.currentStreak} day streak!</p>
+                    <p className="text-xs opacity-80">Best: {streakData.longestStreak} days | Total: {streakData.totalSessions} sessions</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
@@ -1235,6 +1436,42 @@ export default function DictationTest() {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>View session analytics</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={showBookmarks ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setShowBookmarks(!showBookmarks)}
+                    data-testid="button-toggle-bookmarks"
+                    className="gap-2"
+                  >
+                    <Bookmark className="w-4 h-4" />
+                    {bookmarks.length > 0 && (
+                      <span className="bg-primary text-primary-foreground text-xs rounded-full px-1.5 py-0.5 min-w-[1.25rem] text-center">
+                        {bookmarks.length}
+                      </span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>View bookmarked sentences ({bookmarks.length})</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={showSettings ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setShowSettings(!showSettings)}
+                    data-testid="button-toggle-settings"
+                  >
+                    <Settings2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Voice & display settings</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -1427,6 +1664,183 @@ export default function DictationTest() {
                   </div>
                 </>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {showBookmarks && (
+          <Card className="mb-6 animate-in slide-in-from-top-2">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Bookmark className="w-5 h-5" />
+                  Bookmarked Sentences
+                  {bookmarks.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {bookmarks.length} saved
+                    </Badge>
+                  )}
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowBookmarks(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="max-h-64 overflow-y-auto">
+              {bookmarks.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="bg-muted/50 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <Bookmark className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <h4 className="font-medium text-muted-foreground mb-2">No Bookmarks Yet</h4>
+                  <p className="text-sm text-muted-foreground/70 max-w-xs mx-auto">
+                    Bookmark sentences you want to practice again later. Click the bookmark icon after completing a test.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {bookmarks.map((bookmark) => (
+                    <div key={bookmark.id} className="p-3 bg-muted/50 rounded-lg group">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs capitalize">
+                            {bookmark.difficulty}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs capitalize">
+                            {bookmark.category}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => practiceBookmarkedSentence(bookmark)}
+                                className="h-7 px-2"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Practice this sentence</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => setBookmarks(removeBookmark(bookmark.id))}
+                                className="h-7 px-2 text-destructive hover:text-destructive"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Remove bookmark</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{bookmark.sentence}</p>
+                      {bookmark.lastAccuracy !== undefined && (
+                        <p className="text-xs text-muted-foreground/70 mt-1">
+                          Last accuracy: {bookmark.lastAccuracy}%
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {showSettings && (
+          <Card className="mb-6 animate-in slide-in-from-top-2">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Settings2 className="w-5 h-5" />
+                  Settings
+                </CardTitle>
+                <Button variant="ghost" size="sm" onClick={() => setShowSettings(false)}>
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Voice Selection</label>
+                  <Select 
+                    value={currentVoice?.voiceURI || ''} 
+                    onValueChange={handleVoiceChange}
+                  >
+                    <SelectTrigger data-testid="select-voice">
+                      <SelectValue placeholder="Select a voice">
+                        {currentVoice?.name || 'Default Voice'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {englishVoices.length > 0 ? (
+                        englishVoices.map((voice) => (
+                          <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
+                            {voice.name} ({voice.lang})
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="" disabled>
+                          No voices available
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Choose from {englishVoices.length} available English voices
+                  </p>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Flame className="w-4 h-4 text-orange-500" />
+                    Streak Stats
+                  </h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center p-3 bg-orange-500/10 rounded-lg">
+                      <div className="text-xl font-bold text-orange-500">{streakData.currentStreak}</div>
+                      <div className="text-xs text-muted-foreground">Current</div>
+                    </div>
+                    <div className="text-center p-3 bg-yellow-500/10 rounded-lg">
+                      <div className="text-xl font-bold text-yellow-600">{streakData.longestStreak}</div>
+                      <div className="text-xs text-muted-foreground">Best</div>
+                    </div>
+                    <div className="text-center p-3 bg-blue-500/10 rounded-lg">
+                      <div className="text-xl font-bold text-blue-500">{streakData.totalSessions}</div>
+                      <div className="text-xs text-muted-foreground">Total</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-medium mb-2">Keyboard Shortcuts</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">R</kbd>
+                      <span className="text-muted-foreground">Replay audio</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">H</kbd>
+                      <span className="text-muted-foreground">Toggle hint</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Enter</kbd>
+                      <span className="text-muted-foreground">Submit answer</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
+                      <span className="text-muted-foreground">Cancel</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -2355,7 +2769,31 @@ export default function DictationTest() {
                     <p className="text-xs">Auto-advancing to the next sentence</p>
                   </TooltipContent>
                 </Tooltip>
-                <div>
+                <div className="flex items-center justify-center gap-3">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        onClick={toggleBookmark}
+                        data-testid="button-bookmark"
+                      >
+                        {testState.sentence && bookmarks.some(b => b.id === testState.sentence?.id) ? (
+                          <>
+                            <BookmarkCheck className="w-4 h-4 mr-2 text-primary" />
+                            Bookmarked
+                          </>
+                        ) : (
+                          <>
+                            <Bookmark className="w-4 h-4 mr-2" />
+                            Bookmark
+                          </>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Save this sentence for later practice</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button onClick={handleNextManual} data-testid="button-next">
