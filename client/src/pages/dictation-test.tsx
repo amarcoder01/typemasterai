@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, Volume2, RotateCcw, Eye, EyeOff, Check, ChevronRight, Mic, Share2, HelpCircle, Flame, Trophy, Target, Zap, Clock, History, TrendingUp, Award, Sparkles, AlertCircle, Lightbulb, X, ChevronDown, ChevronUp, BarChart3, Bookmark, BookmarkCheck, Calendar, Star, Settings2, Maximize2, Minimize2, Leaf, Waves, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, Volume2, RotateCcw, Eye, EyeOff, Check, ChevronRight, Mic, Share2, HelpCircle, Flame, Trophy, Target, Zap, Clock, History, TrendingUp, Award, Sparkles, AlertCircle, Lightbulb, X, ChevronDown, ChevronUp, BarChart3, Bookmark, BookmarkCheck, Calendar, Star, Settings2, Maximize2, Minimize2, Leaf, Waves, Sun, Moon, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -584,6 +584,20 @@ export default function DictationTest() {
   const [showEscHint, setShowEscHint] = useState(true);
   const [currentEncouragement, setCurrentEncouragement] = useState<string>('');
   const zenContainerRef = useRef<HTMLDivElement>(null);
+  
+  const [challengeState, setChallengeState] = useState<{
+    lives: number;
+    streak: number;
+    bestStreak: number;
+    score: number;
+    isGameOver: boolean;
+  }>({
+    lives: 3,
+    streak: 0,
+    bestStreak: 0,
+    score: 0,
+    isGameOver: false,
+  });
 
   useEffect(() => {
     if (difficultyJustChanged) {
@@ -1107,6 +1121,44 @@ export default function DictationTest() {
     
     const newStreakData = updateStreak();
     setStreakData(newStreakData);
+    
+    if (practiceMode === 'challenge') {
+      const isPerfect = result.accuracy >= 95;
+      const isPassed = result.accuracy >= 80;
+      
+      setChallengeState(prev => {
+        const newStreak = isPerfect ? prev.streak + 1 : 0;
+        const newBestStreak = Math.max(prev.bestStreak, newStreak);
+        const streakMultiplier = isPerfect ? Math.min(1 + (newStreak * 0.2), 3) : 1;
+        const baseScore = Math.round((result.accuracy / 100) * result.wpm * 10);
+        const newScore = prev.score + Math.round(baseScore * streakMultiplier);
+        const newLives = isPassed ? prev.lives : Math.max(0, prev.lives - 1);
+        const isGameOver = newLives === 0;
+        
+        if (!isPassed && prev.lives > 0) {
+          toast({
+            title: `💔 Life Lost! (${newLives} remaining)`,
+            description: 'Accuracy below 80%. Keep practicing!',
+            variant: 'destructive',
+          });
+        }
+        
+        if (isPerfect && newStreak > 1) {
+          toast({
+            title: `🔥 ${newStreak}x Streak!`,
+            description: `Score multiplier: ${streakMultiplier.toFixed(1)}x`,
+          });
+        }
+        
+        return {
+          lives: newLives,
+          streak: newStreak,
+          bestStreak: newBestStreak,
+          score: newScore,
+          isGameOver,
+        };
+      });
+    }
 
     if (elapsedIntervalRef.current) {
       clearInterval(elapsedIntervalRef.current);
@@ -1241,6 +1293,13 @@ export default function DictationTest() {
       isComplete: false,
       result: null,
     });
+    setChallengeState({
+      lives: 3,
+      streak: 0,
+      bestStreak: 0,
+      score: 0,
+      isGameOver: false,
+    });
     setShowModeSelector(false);
     setIsWaitingToStart(true);
   };
@@ -1273,6 +1332,119 @@ export default function DictationTest() {
           </CardContent>
         </Card>
       </div>
+    );
+  }
+
+  if (practiceMode === 'challenge' && challengeState.isGameOver) {
+    const avgWpm = sessionStats.count > 0 ? Math.round(sessionStats.totalWpm / sessionStats.count) : 0;
+    const avgAccuracy = sessionStats.count > 0 ? Math.round(sessionStats.totalAccuracy / sessionStats.count) : 0;
+
+    return (
+      <TooltipProvider delayDuration={300}>
+        <div className="container max-w-4xl mx-auto p-6">
+          <div className="mb-6">
+            <Link href="/">
+              <Button variant="ghost" size="sm" data-testid="button-back">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+            </Link>
+          </div>
+
+          <Card className="border-red-500/50 bg-gradient-to-br from-red-500/5 to-orange-500/5">
+            <CardContent className="pt-8 pb-8">
+              <div className="text-center mb-6">
+                <div className="flex justify-center mb-4">
+                  <div className="w-20 h-20 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <Heart className="w-10 h-10 text-red-500" />
+                  </div>
+                </div>
+                <h2 className="text-3xl font-bold mb-2 text-red-500" data-testid="text-game-over">
+                  Game Over!
+                </h2>
+                <p className="text-muted-foreground">You've run out of lives</p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div className="text-center p-4 bg-yellow-500/10 rounded-lg">
+                  <Trophy className="w-6 h-6 text-yellow-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-yellow-500" data-testid="text-final-score">
+                    {challengeState.score.toLocaleString()}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Final Score</div>
+                </div>
+                <div className="text-center p-4 bg-orange-500/10 rounded-lg">
+                  <Flame className="w-6 h-6 text-orange-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-orange-500" data-testid="text-best-streak">
+                    {challengeState.bestStreak}x
+                  </div>
+                  <div className="text-sm text-muted-foreground">Best Streak</div>
+                </div>
+                <div className="text-center p-4 bg-primary/10 rounded-lg">
+                  <Zap className="w-6 h-6 text-primary mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-primary">{avgWpm}</div>
+                  <div className="text-sm text-muted-foreground">Avg WPM</div>
+                </div>
+                <div className="text-center p-4 bg-green-500/10 rounded-lg">
+                  <Target className="w-6 h-6 text-green-500 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-green-500">{avgAccuracy}%</div>
+                  <div className="text-sm text-muted-foreground">Avg Accuracy</div>
+                </div>
+              </div>
+
+              <div className="text-center mb-6">
+                <p className="text-muted-foreground">
+                  Completed <span className="font-semibold text-foreground">{sessionProgress}</span> sentences before running out of lives
+                </p>
+              </div>
+
+              <div className="flex justify-center gap-4">
+                <Button
+                  onClick={() => {
+                    setChallengeState({
+                      lives: 3,
+                      streak: 0,
+                      bestStreak: 0,
+                      score: 0,
+                      isGameOver: false,
+                    });
+                    setSessionProgress(0);
+                    setSessionStats({ totalWpm: 0, totalAccuracy: 0, totalErrors: 0, count: 0 });
+                    setSessionHistory([]);
+                    setShownSentenceIds([]);
+                    setTestState({
+                      sentence: null,
+                      typedText: '',
+                      startTime: null,
+                      endTime: null,
+                      replayCount: 0,
+                      hintShown: false,
+                      showHint: false,
+                      isComplete: false,
+                      result: null,
+                    });
+                    startNewTest(true);
+                  }}
+                  size="lg"
+                  className="gap-2"
+                  data-testid="button-try-again"
+                >
+                  <RotateCcw className="w-5 h-5" />
+                  Try Again
+                </Button>
+                <Button
+                  onClick={() => setShowModeSelector(true)}
+                  variant="outline"
+                  size="lg"
+                  data-testid="button-change-mode"
+                >
+                  Change Mode
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </TooltipProvider>
     );
   }
 
@@ -1595,6 +1767,13 @@ export default function DictationTest() {
                               <>
                                 <Badge variant="secondary" className="text-xs bg-gradient-to-r from-blue-500/20 to-green-500/20">Zen Mode</Badge>
                                 <Badge variant="secondary" className="text-xs">Calming Themes</Badge>
+                              </>
+                            )}
+                            {mode === 'challenge' && (
+                              <>
+                                <Badge variant="secondary" className="text-xs bg-gradient-to-r from-red-500/20 to-orange-500/20">3 Lives</Badge>
+                                <Badge variant="secondary" className="text-xs bg-gradient-to-r from-orange-500/20 to-yellow-500/20">Streak Bonus</Badge>
+                                <Badge variant="secondary" className="text-xs bg-gradient-to-r from-yellow-500/20 to-amber-500/20">Score System</Badge>
                               </>
                             )}
                             {config.autoAdvance && (
@@ -2765,6 +2944,68 @@ export default function DictationTest() {
           </Card>
         )}
 
+        {practiceMode === 'challenge' && (
+          <Card className="mb-4 bg-gradient-to-r from-yellow-500/10 via-orange-500/10 to-red-500/10 border-orange-500/30">
+            <CardContent className="py-4">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-6">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-2" data-testid="challenge-lives">
+                        <span className="text-sm font-medium text-muted-foreground">Lives:</span>
+                        <div className="flex gap-1">
+                          {[1, 2, 3].map((life) => (
+                            <Heart
+                              key={life}
+                              className={`w-5 h-5 transition-all duration-300 ${
+                                life <= challengeState.lives
+                                  ? 'text-red-500 fill-red-500'
+                                  : 'text-muted-foreground/30'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Lose a life when accuracy drops below 80%</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-2" data-testid="challenge-streak">
+                        <Flame className={`w-5 h-5 ${challengeState.streak > 0 ? 'text-orange-500' : 'text-muted-foreground/30'}`} />
+                        <span className={`font-bold ${challengeState.streak > 0 ? 'text-orange-500' : 'text-muted-foreground'}`}>
+                          {challengeState.streak}x
+                        </span>
+                        {challengeState.bestStreak > 0 && challengeState.streak !== challengeState.bestStreak && (
+                          <span className="text-xs text-muted-foreground">(best: {challengeState.bestStreak})</span>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Build streaks with 95%+ accuracy for score multipliers!</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 px-4 py-2 rounded-lg" data-testid="challenge-score">
+                      <Trophy className="w-5 h-5 text-yellow-500" />
+                      <span className="font-bold text-xl text-yellow-500">{challengeState.score.toLocaleString()}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Score = (Accuracy × WPM × 10) × Streak Multiplier</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-2">
@@ -3249,27 +3490,26 @@ export default function DictationTest() {
                     <p>Listen to the sentence again (press R)</p>
                   </TooltipContent>
                 </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      onClick={toggleHint}
-                      disabled={!testState.sentence || isSpeaking || !PRACTICE_MODES[practiceMode].hintsAllowed}
-                      variant="outline"
-                      size="lg"
-                      className="h-12 px-6 text-base"
-                      data-testid="button-hint"
-                    >
-                      {testState.showHint ? <EyeOff className="w-5 h-5 mr-2" /> : <Eye className="w-5 h-5 mr-2" />}
-                      {testState.showHint ? 'Hide' : 'Hint'}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{PRACTICE_MODES[practiceMode].hintsAllowed 
-                      ? 'Show the sentence text (press H)'
-                      : 'Hints disabled in Challenge Mode'
-                    }</p>
-                  </TooltipContent>
-                </Tooltip>
+                {PRACTICE_MODES[practiceMode].hintsAllowed && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={toggleHint}
+                        disabled={!testState.sentence || isSpeaking}
+                        variant="outline"
+                        size="lg"
+                        className="h-12 px-6 text-base"
+                        data-testid="button-hint"
+                      >
+                        {testState.showHint ? <EyeOff className="w-5 h-5 mr-2" /> : <Eye className="w-5 h-5 mr-2" />}
+                        {testState.showHint ? 'Hide' : 'Hint'}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Show the sentence text (press H)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
