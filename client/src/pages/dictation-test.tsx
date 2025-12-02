@@ -123,6 +123,8 @@ const SESSION_LENGTH_OPTIONS = [
   { value: 25, label: '25 sentences (Marathon)' },
   { value: 30, label: '30 sentences (Endurance)' },
   { value: 50, label: '50 sentences (Challenge)' },
+  { value: 75, label: '75 sentences (Ultra)' },
+  { value: 100, label: '100 sentences (Master)' },
   { value: 0, label: 'Custom...' },
 ];
 
