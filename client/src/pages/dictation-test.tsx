@@ -2185,14 +2185,16 @@ export default function DictationTest() {
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {englishVoices.length > 0 ? (
-                        englishVoices.map((voice) => (
-                          <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
-                            {voice.name} ({voice.lang})
-                          </SelectItem>
-                        ))
+                      {englishVoices.filter((v) => v.voiceURI && v.voiceURI.trim() !== '').length > 0 ? (
+                        englishVoices
+                          .filter((voice) => voice.voiceURI && voice.voiceURI.trim() !== '')
+                          .map((voice) => (
+                            <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
+                              {voice.name} ({voice.lang})
+                            </SelectItem>
+                          ))
                       ) : (
-                        <SelectItem value="" disabled>
+                        <SelectItem value="no-voices" disabled>
                           No voices available
                         </SelectItem>
                       )}
@@ -2446,11 +2448,13 @@ export default function DictationTest() {
                             {englishVoices.length === 0 ? (
                               <SelectItem value="loading" disabled>Loading voices...</SelectItem>
                             ) : (
-                              englishVoices.map((voice) => (
-                                <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
-                                  {voice.name.split(' ').slice(0, 2).join(' ')}
-                                </SelectItem>
-                              ))
+                              englishVoices
+                                .filter((voice) => voice.voiceURI && voice.voiceURI.trim() !== '')
+                                .map((voice) => (
+                                  <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
+                                    {voice.name.split(' ').slice(0, 2).join(' ')}
+                                  </SelectItem>
+                                ))
                             )}
                           </SelectContent>
                         </Select>
