@@ -790,6 +790,9 @@ export default function DictationTest() {
       setTestState(prev => ({ ...prev, startTime: Date.now() }));
       setElapsedTime(0);
       
+      if (elapsedIntervalRef.current) {
+        clearInterval(elapsedIntervalRef.current);
+      }
       elapsedIntervalRef.current = setInterval(() => {
         setElapsedTime(prev => prev + 1);
       }, 1000);
@@ -798,14 +801,16 @@ export default function DictationTest() {
         inputRef.current?.focus();
       }, 100);
     }
-    
+  }, [isSpeaking, testState.sentence, testState.startTime, testState.isComplete]);
+  
+  useEffect(() => {
     return () => {
       if (elapsedIntervalRef.current) {
         clearInterval(elapsedIntervalRef.current);
         elapsedIntervalRef.current = null;
       }
     };
-  }, [isSpeaking, testState.sentence, testState.startTime, testState.isComplete]);
+  }, []);
 
   const handleReplay = () => {
     if (testState.sentence && !isSpeaking) {
