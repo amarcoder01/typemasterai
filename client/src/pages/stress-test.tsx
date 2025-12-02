@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { Link } from 'wouter';
 import { ArrowLeft, Zap, Skull, Trophy, Eye, Volume2, VolumeX, AlertTriangle, HelpCircle, Clock, Target, Flame, XCircle, Timer, BarChart3, RefreshCw, Home, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -215,6 +215,21 @@ const SAMPLE_TEXTS = [
   "Focus is everything when the screen becomes your worst enemy.",
 ];
 
+const Particle = memo(({ particle }: { particle: { id: number; x: number; y: number; emoji: string; speed: number } }) => (
+  <div
+    className="fixed pointer-events-none text-4xl animate-ping z-50"
+    style={{
+      left: `${particle.x}%`,
+      top: `${particle.y}%`,
+      animationDuration: `${particle.speed}s`,
+    }}
+  >
+    {particle.emoji}
+  </div>
+));
+
+Particle.displayName = 'Particle';
+
 export default function StressTest() {
   const { toast } = useToast();
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
@@ -250,62 +265,110 @@ export default function StressTest() {
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const pendingTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const config = selectedDifficulty ? DIFFICULTY_CONFIGS[selectedDifficulty] : null;
 
-  // Enhanced sound effects
+  // Helper to track timeouts for cleanup
+  const safeTimeout = useCallback((callback: () => void, delay: number) => {
+    const timeoutId = setTimeout(() => {
+      pendingTimeoutsRef.current.delete(timeoutId);
+      callback();
+    }, delay);
+    pendingTimeoutsRef.current.add(timeoutId);
+    return timeoutId;
+  }, []);
+
+  // Cleanup all pending timeouts and intervals
+  const clearAllTimeouts = useCallback(() => {
+    pendingTimeoutsRef.current.forEach(id => clearTimeout(id));
+    pendingTimeoutsRef.current.clear();
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+  }, []);
+
+  // Initialize audio context lazily (shared instance)
+  const getAudioContext = useCallback(() => {
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume();
+    }
+    return audioContextRef.current;
+  }, []);
+
+  // Enhanced sound effects - using shared AudioContext
   const playSound = useCallback((type: 'type' | 'error' | 'combo' | 'complete' | 'warning' | 'chaos') => {
     if (!soundEnabled || !config?.effects.sounds) return;
     
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    switch (type) {
-      case 'type':
-        oscillator.frequency.value = 800 + Math.random() * 200;
-        gainNode.gain.value = 0.08;
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.03);
-        break;
-      case 'error':
-        oscillator.frequency.value = 150;
-        oscillator.type = 'sawtooth';
-        gainNode.gain.value = 0.4;
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.2);
-        break;
-      case 'combo':
-        oscillator.frequency.value = 1500;
-        gainNode.gain.value = 0.15;
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.08);
-        break;
-      case 'complete':
-        oscillator.frequency.value = 2000;
-        gainNode.gain.value = 0.3;
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.5);
-        break;
-      case 'warning':
-        oscillator.frequency.value = 400;
-        oscillator.type = 'triangle';
-        gainNode.gain.value = 0.3;
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.15);
-        break;
-      case 'chaos':
-        oscillator.frequency.value = 100 + Math.random() * 500;
-        oscillator.type = 'square';
-        gainNode.gain.value = 0.2;
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.1);
-        break;
+    try {
+      const audioContext = getAudioContext();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      switch (type) {
+        case 'type':
+          oscillator.frequency.value = 800 + Math.random() * 200;
+          gainNode.gain.value = 0.08;
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.03);
+          break;
+        case 'error':
+          oscillator.frequency.value = 150;
+          oscillator.type = 'sawtooth';
+          gainNode.gain.value = 0.4;
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.2);
+          break;
+        case 'combo':
+          oscillator.frequency.value = 1500;
+          gainNode.gain.value = 0.15;
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.08);
+          break;
+        case 'complete':
+          oscillator.frequency.value = 2000;
+          gainNode.gain.value = 0.3;
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.5);
+          break;
+        case 'warning':
+          oscillator.frequency.value = 400;
+          oscillator.type = 'triangle';
+          gainNode.gain.value = 0.3;
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.15);
+          break;
+        case 'chaos':
+          oscillator.frequency.value = 100 + Math.random() * 500;
+          oscillator.type = 'square';
+          gainNode.gain.value = 0.2;
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.1);
+          break;
+      }
+    } catch (e) {
+      // Silently fail if audio context is unavailable
     }
-  }, [soundEnabled, config]);
+  }, [soundEnabled, config, getAudioContext]);
+
+  // Cleanup audio context on unmount
+  useEffect(() => {
+    return () => {
+      clearAllTimeouts();
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+      }
+    };
+  }, [clearAllTimeouts]);
 
   // Save result mutation
   const saveResultMutation = useMutation({
@@ -356,6 +419,7 @@ export default function StressTest() {
 
   // Start test with countdown
   const handleStart = (difficulty: Difficulty) => {
+    clearAllTimeouts();
     setSelectedDifficulty(difficulty);
     setCountdown(3);
     const randomText = SAMPLE_TEXTS[Math.floor(Math.random() * SAMPLE_TEXTS.length)];
@@ -368,10 +432,13 @@ export default function StressTest() {
       description: `${diffConfig.duration}s of pure chaos awaits! Get ready...`,
     });
     
-    const countInterval = setInterval(() => {
+    countdownIntervalRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          clearInterval(countInterval);
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+          }
           setIsStarted(true);
           setStartTime(Date.now());
           setTimeLeft(DIFFICULTY_CONFIGS[difficulty].duration);
@@ -409,7 +476,7 @@ export default function StressTest() {
         if (newCombo % 10 === 0 && newCombo > 0) {
           playSound('combo');
           setComboExplosion(true);
-          setTimeout(() => setComboExplosion(false), 500);
+          safeTimeout(() => setComboExplosion(false), 500);
           
           if (newCombo === 50) {
             toast({
@@ -439,17 +506,37 @@ export default function StressTest() {
       if (config?.effects.screenShake) {
         const intensity = config.baseShakeIntensity + (stressLevel / 5);
         setShakeIntensity(intensity);
-        setTimeout(() => setShakeIntensity(0), 400);
+        safeTimeout(() => setShakeIntensity(0), 400);
         
         // Flash background on error
         setBackgroundFlash(true);
-        setTimeout(() => setBackgroundFlash(false), 100);
+        safeTimeout(() => setBackgroundFlash(false), 100);
       }
     }
   };
 
   // Finish test
   const finishTest = (completed: boolean = false) => {
+    clearAllTimeouts();
+    
+    // Reset all visual states immediately to prevent stuck effects
+    setShakeIntensity(0);
+    setParticles([]);
+    setCurrentColor('hsl(0, 0%, 100%)');
+    setBlur(0);
+    setRotation(0);
+    setGravityOffset(0);
+    setGlitchActive(false);
+    setTextOpacity(1);
+    setTextReversed(false);
+    setTextPosition({ x: 0, y: 0 });
+    setScreenInverted(false);
+    setZoomScale(1);
+    setScreenFlipped(false);
+    setComboExplosion(false);
+    setBackgroundFlash(false);
+    setStressLevel(0);
+    
     setIsFinished(true);
     setIsStarted(false);
     
@@ -566,7 +653,7 @@ export default function StressTest() {
             speed: 1 + Math.random() * 2,
           };
           setParticles((prev) => [...prev, newParticle]);
-          setTimeout(() => {
+          safeTimeout(() => {
             setParticles((prev) => prev.filter((p) => p.id !== newParticle.id));
           }, 1500 / intensity);
         }
@@ -600,7 +687,7 @@ export default function StressTest() {
       // Glitch effect
       if (config.effects.glitch && Math.random() > 0.8) {
         setGlitchActive(true);
-        setTimeout(() => setGlitchActive(false), 50 + Math.random() * 100);
+        safeTimeout(() => setGlitchActive(false), 50 + Math.random() * 100);
       }
       
       // Text fade in/out
@@ -611,7 +698,7 @@ export default function StressTest() {
       // Reverse text randomly
       if (config.effects.reverseText && Math.random() > 0.9) {
         setTextReversed((prev) => !prev);
-        setTimeout(() => setTextReversed(false), 500 + Math.random() * 1000);
+        safeTimeout(() => setTextReversed(false), 500 + Math.random() * 1000);
       }
       
       // Random text jumps (IMPOSSIBLE mode)
@@ -620,26 +707,26 @@ export default function StressTest() {
           x: (Math.random() - 0.5) * 100,
           y: (Math.random() - 0.5) * 50,
         });
-        setTimeout(() => setTextPosition({ x: 0, y: 0 }), 300);
+        safeTimeout(() => setTextPosition({ x: 0, y: 0 }), 300);
       }
       
       // Screen invert (Intermediate+)
       if (config.effects.screenInvert && Math.random() > 0.7) {
         setScreenInverted((prev) => !prev);
-        setTimeout(() => setScreenInverted(false), 800 + Math.random() * 1200);
+        safeTimeout(() => setScreenInverted(false), 800 + Math.random() * 1200);
       }
       
       // Zoom chaos (Intermediate+)
       if (config.effects.zoomChaos && Math.random() > 0.75) {
         const zoomRange = 0.5 + (stressLevel / 100);
         setZoomScale(0.6 + Math.random() * zoomRange);
-        setTimeout(() => setZoomScale(1), 600 + Math.random() * 800);
+        safeTimeout(() => setZoomScale(1), 600 + Math.random() * 800);
       }
       
       // Screen flip upside down (Expert+)
       if (config.effects.screenFlip && Math.random() > 0.85) {
         setScreenFlipped(true);
-        setTimeout(() => setScreenFlipped(false), 1000 + Math.random() * 2000);
+        safeTimeout(() => setScreenFlipped(false), 1000 + Math.random() * 2000);
       }
       
     }, 200); // Effects update faster for more chaos
@@ -680,6 +767,7 @@ export default function StressTest() {
   }, [isStarted, isFinished]);
 
   const handleReset = () => {
+    clearAllTimeouts();
     setSelectedDifficulty(null);
     setIsStarted(false);
     setIsFinished(false);
@@ -689,6 +777,7 @@ export default function StressTest() {
     setMaxCombo(0);
     setShakeIntensity(0);
     setParticles([]);
+    setCurrentColor('hsl(0, 0%, 100%)');
     setBlur(0);
     setRotation(0);
     setGravityOffset(0);
@@ -700,6 +789,7 @@ export default function StressTest() {
     setZoomScale(1);
     setScreenFlipped(false);
     setComboExplosion(false);
+    setBackgroundFlash(false);
     setStressLevel(0);
   };
 
@@ -1129,6 +1219,26 @@ export default function StressTest() {
   const progress = (typedText.length / currentText.length) * 100;
   const displayText = textReversed ? currentText.split('').reverse().join('') : currentText;
 
+  // Memoize the text character rendering to avoid recalculating on every visual effect change
+  // When text is reversed, we need to map display positions to original positions
+  const renderedCharacters = useMemo(() => {
+    const textLength = currentText.length;
+    return displayText.split('').map((char, displayIndex) => {
+      // When reversed, display position maps to original position (length - 1 - displayIndex)
+      // When not reversed, display position equals original position
+      const originalIndex = textReversed ? (textLength - 1 - displayIndex) : displayIndex;
+      
+      let color = 'text-muted-foreground';
+      if (originalIndex < typedText.length) {
+        // Compare typed char at original position with expected char at original position
+        color = typedText[originalIndex] === currentText[originalIndex] ? 'text-green-500' : 'text-red-500';
+      } else if (originalIndex === typedText.length) {
+        color = 'text-primary bg-primary/20';
+      }
+      return { char, color, index: displayIndex };
+    });
+  }, [displayText, typedText, currentText, textReversed]);
+
   return (
     <TooltipProvider delayDuration={300}>
       <div
@@ -1141,19 +1251,9 @@ export default function StressTest() {
           filter: `${glitchActive ? 'hue-rotate(180deg) saturate(3)' : ''} ${screenInverted ? 'invert(1) hue-rotate(180deg)' : ''}`,
         }}
       >
-        {/* Floating particles */}
+        {/* Floating particles - memoized for performance */}
         {particles.map((particle) => (
-          <div
-            key={particle.id}
-            className="fixed pointer-events-none text-4xl animate-ping z-50"
-            style={{
-              left: `${particle.x}%`,
-              top: `${particle.y}%`,
-              animationDuration: `${particle.speed}s`,
-            }}
-          >
-            {particle.emoji}
-          </div>
+          <Particle key={particle.id} particle={particle} />
         ))}
 
         <div className="w-full max-w-4xl">
@@ -1243,27 +1343,18 @@ export default function StressTest() {
           >
             <CardContent className="p-8">
               <div className="text-2xl font-mono leading-relaxed whitespace-pre-wrap select-none">
-                {displayText.split('').map((char, index) => {
-                  let color = 'text-muted-foreground';
-                  if (index < typedText.length) {
-                    color = typedText[index] === displayText[index] ? 'text-green-500' : 'text-red-500';
-                  } else if (index === typedText.length) {
-                    color = 'text-primary bg-primary/20';
-                  }
-                  
-                  return (
-                    <span
-                      key={index}
-                      className={`${color} transition-colors duration-100`}
-                      style={{
-                        display: 'inline-block',
-                        animation: glitchActive ? 'glitch 0.1s infinite' : 'none',
-                      }}
-                    >
-                      {char}
-                    </span>
-                  );
-                })}
+                {renderedCharacters.map(({ char, color, index }) => (
+                  <span
+                    key={index}
+                    className={`${color} transition-colors duration-100`}
+                    style={{
+                      display: 'inline-block',
+                      animation: glitchActive ? 'glitch 0.1s infinite' : 'none',
+                    }}
+                  >
+                    {char}
+                  </span>
+                ))}
               </div>
             </CardContent>
           </Card>
