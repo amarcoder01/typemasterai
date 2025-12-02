@@ -230,21 +230,22 @@ export function calculateDictationAccuracy(
   const normalizedTyped = normalizeForComparison(typedText);
   const normalizedActual = normalizeForComparison(actualSentence);
   
-  const distance = levenshteinDistance(normalizedTyped, normalizedActual);
-  const maxLength = Math.max(normalizedTyped.length, normalizedActual.length);
-  
-  const accuracy = maxLength === 0 ? 100 : 
-    Math.round(((maxLength - distance) / maxLength) * 100);
-  
   const characterDiff = getCharacterDiff(typedText, actualSentence);
   const wordDiff = getWordDiff(typedText, actualSentence);
   const correctChars = characterDiff.filter(d => d.status === 'correct').length;
   const correctWords = wordDiff.filter(d => d.status === 'correct').length;
   const totalWords = actualSentence.trim().split(/\s+/).filter(w => w.length > 0).length;
   
+  const wordErrors = wordDiff.filter(d => d.status !== 'correct').length;
+  const totalWordSlots = Math.max(totalWords, wordDiff.length);
+  const accuracy = totalWordSlots === 0 ? 100 : 
+    Math.round((correctWords / totalWordSlots) * 100);
+  
+  const maxLength = Math.max(normalizedTyped.length, normalizedActual.length);
+  
   return {
     accuracy: Math.max(0, Math.min(100, accuracy)),
-    errors: distance,
+    errors: wordErrors,
     normalizedTyped,
     normalizedActual,
     characterDiff,
