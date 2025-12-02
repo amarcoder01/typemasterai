@@ -2145,6 +2145,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/dictation/tts", async (req, res) => {
+    try {
+      const { text, voice = "alloy", speed = 1.0 } = req.body;
+      
+      if (!text || typeof text !== "string" || text.trim().length === 0) {
+        return res.status(400).json({ message: "Text is required" });
+      }
+      
+      if (text.length > 1000) {
+        return res.status(400).json({ message: "Text too long (max 1000 characters)" });
+      }
+      
+      const apiKey = process.env.OPENAI_TTS_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ 
+          message: "TTS not available", 
+          fallback: true 
+        });
+      }
+      
+      const validVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+      const selectedVoice = validVoices.includes(voice) ? voice : "alloy";
+      const selectedSpeed = Math.max(0.25, Math.min(4.0, speed));
+      
+      const response = await fetch("https://api.openai.com/v1/audio/speech", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "tts-1",
+          input: text,
+          voice: selectedVoice,
+          speed: selectedSpeed,
+          response_format: "mp3",
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("OpenAI TTS error:", response.status, errorText);
+        return res.status(503).json({ 
+          message: "TTS generation failed", 
+          fallback: true 
+        });
+      }
+      
+      const audioBuffer = await response.arrayBuffer();
+      
+      res.set({
+        "Content-Type": "audio/mpeg",
+        "Content-Length": audioBuffer.byteLength.toString(),
+        "Cache-Control": "public, max-age=3600",
+      });
+      
+      res.send(Buffer.from(audioBuffer));
+    } catch (error: any) {
+      console.error("TTS error:", error);
+      res.status(503).json({ 
+        message: "TTS service error", 
+        fallback: true 
+      });
+    }
+  });
+
   // Stress Test Routes
   app.post("/api/stress-test", isAuthenticated, async (req, res) => {
     try {

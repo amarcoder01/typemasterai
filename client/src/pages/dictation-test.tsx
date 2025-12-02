@@ -516,7 +516,11 @@ export default function DictationTest() {
   }, [difficultyJustChanged]);
   
   const currentRate = getSpeedRate(speedLevel);
-  const { speak, cancel, isSpeaking, isSupported, error: speechError, voices, setVoice, currentVoice } = useSpeechSynthesis({
+  const { 
+    speak, cancel, isSpeaking, isSupported, error: speechError, 
+    voices, setVoice, currentVoice,
+    isUsingOpenAI, setUseOpenAI, openAIVoices, setOpenAIVoice, currentOpenAIVoice 
+  } = useSpeechSynthesis({
     rate: currentRate,
     lang: 'en-US',
   });
@@ -2196,35 +2200,83 @@ export default function DictationTest() {
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Voice Selection</label>
-                  <Select 
-                    value={currentVoice?.voiceURI || ''} 
-                    onValueChange={handleVoiceChange}
-                  >
-                    <SelectTrigger data-testid="select-voice">
-                      <SelectValue placeholder="Select a voice">
-                        {currentVoice?.name || 'Default Voice'}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {englishVoices.filter((v) => v.voiceURI && v.voiceURI.trim() !== '').length > 0 ? (
-                        englishVoices
-                          .filter((voice) => voice.voiceURI && voice.voiceURI.trim() !== '')
-                          .map((voice) => (
-                            <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
-                              {voice.name} ({voice.lang})
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <label className="text-sm font-medium flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-purple-500" />
+                        AI Voice (Premium)
+                      </label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        High-quality, natural-sounding speech
+                      </p>
+                    </div>
+                    <Button
+                      variant={isUsingOpenAI ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setUseOpenAI(!isUsingOpenAI)}
+                      data-testid="button-toggle-openai"
+                    >
+                      {isUsingOpenAI ? 'On' : 'Off'}
+                    </Button>
+                  </div>
+                  
+                  {isUsingOpenAI && (
+                    <div className="mb-4 p-3 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                      <label className="text-sm font-medium mb-2 block">AI Voice Style</label>
+                      <Select 
+                        value={currentOpenAIVoice} 
+                        onValueChange={setOpenAIVoice}
+                      >
+                        <SelectTrigger data-testid="select-openai-voice">
+                          <SelectValue placeholder="Select AI voice" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {openAIVoices.map((voice) => (
+                            <SelectItem key={voice.id} value={voice.id}>
+                              {voice.name}
                             </SelectItem>
-                          ))
-                      ) : (
-                        <SelectItem value="no-voices" disabled>
-                          No voices available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Choose from {englishVoices.length} available English voices
-                  </p>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Powered by OpenAI - crystal clear pronunciation
+                      </p>
+                    </div>
+                  )}
+                  
+                  {!isUsingOpenAI && (
+                    <>
+                      <label className="text-sm font-medium mb-2 block">Browser Voice</label>
+                      <Select 
+                        value={currentVoice?.voiceURI || ''} 
+                        onValueChange={handleVoiceChange}
+                      >
+                        <SelectTrigger data-testid="select-voice">
+                          <SelectValue placeholder="Select a voice">
+                            {currentVoice?.name || 'Default Voice'}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {englishVoices.filter((v) => v.voiceURI && v.voiceURI.trim() !== '').length > 0 ? (
+                            englishVoices
+                              .filter((voice) => voice.voiceURI && voice.voiceURI.trim() !== '')
+                              .map((voice) => (
+                                <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
+                                  {voice.name} ({voice.lang})
+                                </SelectItem>
+                              ))
+                          ) : (
+                            <SelectItem value="no-voices" disabled>
+                              No voices available
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Free browser voice - {englishVoices.length} available
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t">

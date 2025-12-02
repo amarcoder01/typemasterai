@@ -5,6 +5,8 @@ interface UseSpeechSynthesisOptions {
   pitch?: number;
   volume?: number;
   lang?: string;
+  useOpenAI?: boolean;
+  openAIVoice?: string;
 }
 
 interface UseSpeechSynthesisReturn {
@@ -17,7 +19,24 @@ interface UseSpeechSynthesisReturn {
   setVoice: (voice: SpeechSynthesisVoice | null) => void;
   currentVoice: SpeechSynthesisVoice | null;
   error: string | null;
+  isUsingOpenAI: boolean;
+  setUseOpenAI: (use: boolean) => void;
+  openAIVoices: { id: string; name: string }[];
+  setOpenAIVoice: (voice: string) => void;
+  currentOpenAIVoice: string;
 }
+
+const OPENAI_VOICES = [
+  { id: 'alloy', name: 'Alloy (Neutral)' },
+  { id: 'echo', name: 'Echo (Male)' },
+  { id: 'fable', name: 'Fable (British)' },
+  { id: 'onyx', name: 'Onyx (Deep Male)' },
+  { id: 'nova', name: 'Nova (Female)' },
+  { id: 'shimmer', name: 'Shimmer (Soft Female)' },
+];
+
+const OPENAI_VOICE_STORAGE_KEY = 'dictation-openai-voice';
+const USE_OPENAI_STORAGE_KEY = 'dictation-use-openai';
 
 export function useSpeechSynthesis(
   options: UseSpeechSynthesisOptions = {}
@@ -27,7 +46,16 @@ export function useSpeechSynthesis(
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [currentVoice, setCurrentVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isUsingOpenAI, setIsUsingOpenAI] = useState(() => {
+    const stored = localStorage.getItem(USE_OPENAI_STORAGE_KEY);
+    return stored === 'true';
+  });
+  const [currentOpenAIVoice, setCurrentOpenAIVoice] = useState(() => {
+    return localStorage.getItem(OPENAI_VOICE_STORAGE_KEY) || 'nova';
+  });
+  
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const resumeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const watchdogIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -44,9 +72,18 @@ export function useSpeechSynthesis(
     }
   }, []);
 
+  const setUseOpenAI = useCallback((use: boolean) => {
+    setIsUsingOpenAI(use);
+    localStorage.setItem(USE_OPENAI_STORAGE_KEY, use.toString());
+  }, []);
+
+  const setOpenAIVoice = useCallback((voice: string) => {
+    setCurrentOpenAIVoice(voice);
+    localStorage.setItem(OPENAI_VOICE_STORAGE_KEY, voice);
+  }, []);
+
   useEffect(() => {
     if (!isSupported) {
-      setError('Speech synthesis is not supported in this browser');
       return;
     }
 
@@ -101,14 +138,63 @@ export function useSpeechSynthesis(
     };
   }, [isSupported, clearIntervals]);
 
-  const speak = useCallback((text: string) => {
+  const speakWithOpenAI = useCallback(async (text: string): Promise<boolean> => {
+    try {
+      setIsSpeaking(true);
+      setError(null);
+      
+      const response = await fetch('/api/dictation/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          voice: currentOpenAIVoice,
+          speed: options.rate ?? 1.0,
+        }),
+      });
+      
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        if (data.fallback) {
+          return false;
+        }
+        throw new Error(data.message || 'TTS request failed');
+      }
+      
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      
+      if (audioRef.current) {
+        audioRef.current.pause();
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+      
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      
+      audio.onended = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        setError('Audio playback failed');
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      await audio.play();
+      return true;
+    } catch (err) {
+      console.error('OpenAI TTS error:', err);
+      setIsSpeaking(false);
+      return false;
+    }
+  }, [currentOpenAIVoice, options.rate]);
+
+  const speakWithBrowser = useCallback((text: string) => {
     if (!isSupported) {
       setError('Speech synthesis is not supported');
-      return;
-    }
-
-    if (!text.trim()) {
-      setError('Cannot speak empty text');
       return;
     }
 
@@ -128,11 +214,9 @@ export function useSpeechSynthesis(
         }
 
         let speechStarted = false;
-        let lastBoundaryTime = Date.now();
 
         utterance.onstart = () => {
           speechStarted = true;
-          lastBoundaryTime = Date.now();
           setIsSpeaking(true);
           setIsPaused(false);
           setError(null);
@@ -151,10 +235,6 @@ export function useSpeechSynthesis(
               setIsPaused(false);
             }
           }, 1000);
-        };
-
-        utterance.onboundary = () => {
-          lastBoundaryTime = Date.now();
         };
 
         utterance.onend = () => {
@@ -178,13 +258,8 @@ export function useSpeechSynthesis(
           setError(`Speech error: ${event.error}`);
         };
 
-        utterance.onpause = () => {
-          setIsPaused(true);
-        };
-
-        utterance.onresume = () => {
-          setIsPaused(false);
-        };
+        utterance.onpause = () => setIsPaused(true);
+        utterance.onresume = () => setIsPaused(false);
 
         utteranceRef.current = utterance;
         window.speechSynthesis.speak(utterance);
@@ -208,13 +283,37 @@ export function useSpeechSynthesis(
     }
   }, [isSupported, options.rate, options.pitch, options.volume, options.lang, currentVoice, clearIntervals]);
 
-  const cancel = useCallback(() => {
-    if (isSupported) {
-      clearIntervals();
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-      setIsPaused(false);
+  const speak = useCallback(async (text: string) => {
+    if (!text.trim()) {
+      setError('Cannot speak empty text');
+      return;
     }
+
+    if (isUsingOpenAI) {
+      const success = await speakWithOpenAI(text);
+      if (!success) {
+        console.log('OpenAI TTS failed, falling back to browser speech');
+        speakWithBrowser(text);
+      }
+    } else {
+      speakWithBrowser(text);
+    }
+  }, [isUsingOpenAI, speakWithOpenAI, speakWithBrowser]);
+
+  const cancel = useCallback(() => {
+    clearIntervals();
+    
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    
+    if (isSupported) {
+      window.speechSynthesis.cancel();
+    }
+    
+    setIsSpeaking(false);
+    setIsPaused(false);
   }, [isSupported, clearIntervals]);
 
   const setVoice = useCallback((voice: SpeechSynthesisVoice | null) => {
@@ -226,10 +325,15 @@ export function useSpeechSynthesis(
     cancel,
     isSpeaking,
     isPaused,
-    isSupported,
+    isSupported: isSupported || isUsingOpenAI,
     voices,
     setVoice,
     currentVoice,
     error,
+    isUsingOpenAI,
+    setUseOpenAI,
+    openAIVoices: OPENAI_VOICES,
+    setOpenAIVoice,
+    currentOpenAIVoice,
   };
 }
