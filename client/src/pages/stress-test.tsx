@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo, useLayoutEffect } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { ArrowLeft, Zap, Skull, Trophy, Eye, Volume2, VolumeX, AlertTriangle, HelpCircle, Clock, Target, Flame, XCircle, Timer, BarChart3, RefreshCw, Home, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -222,7 +222,17 @@ const SAMPLE_TEXTS = [
   "Let the screen shake, let the colors shift - your typing will not falter.",
 ];
 
-const Particle = memo(({ particle }: { particle: { id: number; x: number; y: number; emoji: string; speed: number } }) => (
+const MAX_PARTICLES = 20;
+
+interface ParticleData {
+  id: number;
+  x: number;
+  y: number;
+  emoji: string;
+  speed: number;
+}
+
+const Particle = memo(({ particle }: { particle: ParticleData }) => (
   <div
     className="fixed pointer-events-none text-4xl animate-ping z-50"
     style={{
@@ -230,6 +240,7 @@ const Particle = memo(({ particle }: { particle: { id: number; x: number; y: num
       top: `${particle.y}%`,
       animationDuration: `${particle.speed}s`,
     }}
+    aria-hidden="true"
   >
     {particle.emoji}
   </div>
@@ -237,8 +248,25 @@ const Particle = memo(({ particle }: { particle: { id: number; x: number; y: num
 
 Particle.displayName = 'Particle';
 
+let globalAudioContext: AudioContext | null = null;
+
+function getSharedAudioContext(): AudioContext | null {
+  try {
+    if (!globalAudioContext || globalAudioContext.state === 'closed') {
+      globalAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (globalAudioContext.state === 'suspended') {
+      globalAudioContext.resume();
+    }
+    return globalAudioContext;
+  } catch {
+    return null;
+  }
+}
+
 export default function StressTest() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
   const [isStarted, setIsStarted] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
@@ -252,9 +280,8 @@ export default function StressTest() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   
-  // Enhanced visual effects state
   const [shakeIntensity, setShakeIntensity] = useState(0);
-  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; emoji: string; speed: number }>>([]);
+  const [particles, setParticles] = useState<ParticleData[]>([]);
   const [currentColor, setCurrentColor] = useState('hsl(0, 0%, 100%)');
   const [blur, setBlur] = useState(0);
   const [rotation, setRotation] = useState(0);
@@ -270,7 +297,6 @@ export default function StressTest() {
   const [screenFlipped, setScreenFlipped] = useState(false);
   const [comboExplosion, setComboExplosion] = useState(false);
   
-  // Store final results to avoid recalculation issues in results screen
   const [finalResults, setFinalResults] = useState<{
     survivalTime: number;
     wpm: number;
@@ -279,7 +305,6 @@ export default function StressTest() {
     stressScore: number;
   } | null>(null);
   
-  // Detect reduced motion preference for accessibility
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
   useLayoutEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -291,50 +316,84 @@ export default function StressTest() {
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const pendingTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  
+  const pendingTimeoutsRef = useRef<Map<ReturnType<typeof setTimeout>, boolean>>(new Map());
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countdownSessionRef = useRef<number>(0); // Tracks countdown session to prevent race conditions
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const effectsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const shakeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  const testSessionRef = useRef<number>(0);
+  const isTestActiveRef = useRef<boolean>(false);
+  const particleIdRef = useRef<number>(0);
+  const finishTestRef = useRef<(completed: boolean) => void>(() => {});
 
   const config = selectedDifficulty ? DIFFICULTY_CONFIGS[selectedDifficulty] : null;
 
-  // Helper to track timeouts for cleanup
   const safeTimeout = useCallback((callback: () => void, delay: number) => {
     const timeoutId = setTimeout(() => {
       pendingTimeoutsRef.current.delete(timeoutId);
-      callback();
+      if (isTestActiveRef.current) {
+        callback();
+      }
     }, delay);
-    pendingTimeoutsRef.current.add(timeoutId);
+    pendingTimeoutsRef.current.set(timeoutId, true);
     return timeoutId;
   }, []);
 
-  // Cleanup all pending timeouts and intervals
-  const clearAllTimeouts = useCallback(() => {
-    pendingTimeoutsRef.current.forEach(id => clearTimeout(id));
+  const clearAllTimers = useCallback(() => {
+    pendingTimeoutsRef.current.forEach((_, id) => clearTimeout(id));
     pendingTimeoutsRef.current.clear();
+    
     if (countdownIntervalRef.current) {
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
     }
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    if (effectsIntervalRef.current) {
+      clearInterval(effectsIntervalRef.current);
+      effectsIntervalRef.current = null;
+    }
+    if (shakeIntervalRef.current) {
+      clearInterval(shakeIntervalRef.current);
+      shakeIntervalRef.current = null;
+    }
+    if (stressIntervalRef.current) {
+      clearInterval(stressIntervalRef.current);
+      stressIntervalRef.current = null;
+    }
   }, []);
 
-  // Initialize audio context lazily (shared instance)
-  const getAudioContext = useCallback(() => {
-    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    if (audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume();
-    }
-    return audioContextRef.current;
+  const resetVisualStates = useCallback(() => {
+    setShakeIntensity(0);
+    setParticles([]);
+    setCurrentColor('hsl(0, 0%, 100%)');
+    setBlur(0);
+    setRotation(0);
+    setGravityOffset(0);
+    setGlitchActive(false);
+    setTextOpacity(1);
+    setTextReversed(false);
+    setTextPosition({ x: 0, y: 0 });
+    setScreenInverted(false);
+    setZoomScale(1);
+    setScreenFlipped(false);
+    setComboExplosion(false);
+    setBackgroundFlash(false);
+    setStressLevel(0);
   }, []);
 
-  // Enhanced sound effects - using shared AudioContext
   const playSound = useCallback((type: 'type' | 'error' | 'combo' | 'complete' | 'warning' | 'chaos') => {
-    if (!soundEnabled || !config?.effects.sounds) return;
+    if (!soundEnabled) return;
+    
+    const audioContext = getSharedAudioContext();
+    if (!audioContext) return;
     
     try {
-      const audioContext = getAudioContext();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
@@ -382,22 +441,18 @@ export default function StressTest() {
           oscillator.stop(audioContext.currentTime + 0.1);
           break;
       }
-    } catch (e) {
-      // Silently fail if audio context is unavailable
+    } catch {
+      // Silently fail
     }
-  }, [soundEnabled, config, getAudioContext]);
+  }, [soundEnabled]);
 
-  // Cleanup audio context on unmount
   useEffect(() => {
     return () => {
-      clearAllTimeouts();
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close();
-      }
+      clearAllTimers();
+      isTestActiveRef.current = false;
     };
-  }, [clearAllTimeouts]);
+  }, [clearAllTimers]);
 
-  // Save result mutation
   const saveResultMutation = useMutation({
     mutationFn: async (data: {
       difficulty: Difficulty;
@@ -444,43 +499,112 @@ export default function StressTest() {
     },
   });
 
-  // Start test with countdown
-  const handleStart = (difficulty: Difficulty) => {
-    // Guard against starting while test is already running
-    if (isStarted) return;
+  const finishTest = useCallback((completed: boolean = false) => {
+    const currentSession = testSessionRef.current;
     
-    // Explicitly clear countdown interval first to prevent duplicates on rapid restart
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
-    }
-    clearAllTimeouts();
+    isTestActiveRef.current = false;
+    clearAllTimers();
+    resetVisualStates();
     
-    // Reset all game state before starting
+    setIsFinished(true);
+    setIsStarted(false);
+    setCountdown(0);
+    
+    setTypedText((currentTypedText) => {
+      setCurrentText((currentTextValue) => {
+        setErrors((currentErrors) => {
+          setStartTime((currentStartTime) => {
+            setSelectedDifficulty((currentDifficulty) => {
+              const survivalTime = currentStartTime ? Math.max(0, (Date.now() - currentStartTime) / 1000) : 0;
+              const completionRate = currentTextValue.length > 0 
+                ? Math.min(100, (currentTypedText.length / currentTextValue.length) * 100)
+                : 0;
+              const correctChars = Math.max(0, currentTypedText.length - currentErrors);
+              const totalTyped = currentTypedText.length;
+              const wpm = survivalTime > 0 ? calculateWPM(correctChars, survivalTime) : 0;
+              const accuracy = totalTyped > 0 ? Math.min(100, calculateAccuracy(correctChars, totalTyped)) : 100;
+              
+              const difficultyMultiplier = currentDifficulty === 'impossible' ? 5 : 
+                                           currentDifficulty === 'nightmare' ? 4 :
+                                           currentDifficulty === 'expert' ? 3 :
+                                           currentDifficulty === 'intermediate' ? 2 : 1;
+              const stressScore = Math.round((wpm * accuracy * completionRate * difficultyMultiplier) / 100);
+              
+              setFinalResults({ survivalTime, wpm, accuracy, completionRate, stressScore });
+              
+              if (completed) {
+                playSound('complete');
+                if (!prefersReducedMotion) {
+                  confetti({
+                    particleCount: 200,
+                    spread: 100,
+                    origin: { y: 0.6 },
+                    colors: ['#ff0000', '#ff6600', '#ffaa00'],
+                  });
+                }
+                
+                toast({
+                  title: "🎉 Incredible!",
+                  description: `You survived ${currentDifficulty} mode! Score: ${stressScore}`,
+                });
+              } else {
+                playSound('error');
+                toast({
+                  title: "Time's Up!",
+                  description: `You survived ${Math.round(survivalTime)}s. Score: ${stressScore}`,
+                  variant: "destructive",
+                });
+              }
+              
+              const diffConfig = currentDifficulty ? DIFFICULTY_CONFIGS[currentDifficulty] : null;
+              if (diffConfig && currentDifficulty) {
+                saveResultMutation.mutate({
+                  difficulty: currentDifficulty,
+                  enabledEffects: diffConfig.effects,
+                  wpm,
+                  accuracy,
+                  errors: currentErrors,
+                  maxCombo,
+                  totalCharacters: currentTypedText.length,
+                  duration: diffConfig.duration,
+                  survivalTime,
+                  completionRate,
+                  stressScore,
+                });
+              }
+              
+              return currentDifficulty;
+            });
+            return currentStartTime;
+          });
+          return currentErrors;
+        });
+        return currentTextValue;
+      });
+      return currentTypedText;
+    });
+  }, [clearAllTimers, resetVisualStates, playSound, prefersReducedMotion, toast, maxCombo, saveResultMutation]);
+
+  useEffect(() => {
+    finishTestRef.current = finishTest;
+  }, [finishTest]);
+
+  const handleStart = useCallback((difficulty: Difficulty) => {
+    if (isStarted || countdown > 0) return;
+    
+    testSessionRef.current += 1;
+    const currentSession = testSessionRef.current;
+    
+    clearAllTimers();
+    isTestActiveRef.current = false;
+    
     setTypedText('');
     setErrors(0);
     setCombo(0);
     setMaxCombo(0);
     setIsFinished(false);
     setFinalResults(null);
-    
-    // Reset all visual states
-    setShakeIntensity(0);
-    setParticles([]);
-    setCurrentColor('hsl(0, 0%, 100%)');
-    setBlur(0);
-    setRotation(0);
-    setGravityOffset(0);
-    setGlitchActive(false);
-    setTextOpacity(1);
-    setTextReversed(false);
-    setTextPosition({ x: 0, y: 0 });
-    setScreenInverted(false);
-    setZoomScale(1);
-    setScreenFlipped(false);
-    setComboExplosion(false);
-    setBackgroundFlash(false);
-    setStressLevel(0);
+    resetVisualStates();
     
     setSelectedDifficulty(difficulty);
     setCountdown(3);
@@ -493,14 +617,13 @@ export default function StressTest() {
       description: `${diffConfig.duration}s of pure chaos awaits! Get ready...`,
     });
     
-    // Increment session to invalidate any pending callbacks from previous countdown
-    countdownSessionRef.current += 1;
-    const currentSession = countdownSessionRef.current;
-    
     countdownIntervalRef.current = setInterval(() => {
-      // Check if this callback belongs to the current session
-      if (countdownSessionRef.current !== currentSession) {
-        return; // Stale callback, ignore
+      if (testSessionRef.current !== currentSession) {
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
+        return;
       }
       
       setCountdown((prev) => {
@@ -509,29 +632,30 @@ export default function StressTest() {
             clearInterval(countdownIntervalRef.current);
             countdownIntervalRef.current = null;
           }
+          
+          isTestActiveRef.current = true;
           setIsStarted(true);
           setStartTime(Date.now());
           setTimeLeft(DIFFICULTY_CONFIGS[difficulty].duration);
-          inputRef.current?.focus();
+          
+          setTimeout(() => inputRef.current?.focus(), 50);
           return 0;
         }
         playSound('warning');
         return prev - 1;
       });
     }, 1000);
-  };
+  }, [isStarted, countdown, clearAllTimers, resetVisualStates, toast, playSound]);
 
-  // Calculate stress level based on time elapsed
-  const calculateStressLevel = () => {
+  const calculateStressLevel = useCallback(() => {
     if (!config || !startTime) return 0;
     const elapsed = (Date.now() - startTime) / 1000;
-    const progress = elapsed / config.duration;
-    return Math.min(100, progress * 100);
-  };
+    const progress = Math.min(1, Math.max(0, elapsed / config.duration));
+    return progress * 100;
+  }, [config, startTime]);
 
-  // Handle typing
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isStarted || isFinished) return;
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isStarted || isFinished || !isTestActiveRef.current) return;
     
     const value = e.target.value;
     const lastChar = value[value.length - 1];
@@ -565,119 +689,42 @@ export default function StressTest() {
         return newCombo;
       });
       
-      // Check if test is complete
       if (value === currentText) {
-        finishTest(true);
+        finishTestRef.current(true);
       }
     } else {
       playSound('error');
       setErrors((prev) => prev + 1);
       setCombo(0);
       
-      // Enhanced screen shake on error - skip for reduced motion
       if (config?.effects.screenShake && !prefersReducedMotion) {
         const intensity = config.baseShakeIntensity + (stressLevel / 5);
         setShakeIntensity(intensity);
         safeTimeout(() => setShakeIntensity(0), 400);
         
-        // Flash background on error
         setBackgroundFlash(true);
         safeTimeout(() => setBackgroundFlash(false), 100);
       }
     }
-  };
+  }, [isStarted, isFinished, currentText, typedText, playSound, maxCombo, prefersReducedMotion, toast, config, stressLevel, safeTimeout]);
 
-  // Finish test
-  const finishTest = (completed: boolean = false) => {
-    clearAllTimeouts();
+  useEffect(() => {
+    if (!isStarted || isFinished) return;
     
-    // Reset all visual states immediately to prevent stuck effects
-    setShakeIntensity(0);
-    setParticles([]);
-    setCurrentColor('hsl(0, 0%, 100%)');
-    setBlur(0);
-    setRotation(0);
-    setGravityOffset(0);
-    setGlitchActive(false);
-    setTextOpacity(1);
-    setTextReversed(false);
-    setTextPosition({ x: 0, y: 0 });
-    setScreenInverted(false);
-    setZoomScale(1);
-    setScreenFlipped(false);
-    setComboExplosion(false);
-    setBackgroundFlash(false);
-    setStressLevel(0);
+    const currentSession = testSessionRef.current;
     
-    setIsFinished(true);
-    setIsStarted(false);
-    
-    // Calculate and store final results once to avoid recalculation issues
-    const survivalTime = startTime ? (Date.now() - startTime) / 1000 : 0;
-    const completionRate = (typedText.length / currentText.length) * 100;
-    const correctChars = Math.max(0, typedText.length - errors);
-    const wpm = survivalTime > 0 ? calculateWPM(correctChars, survivalTime) : 0;
-    const accuracy = calculateAccuracy(correctChars, typedText.length);
-    
-    const difficultyMultiplier = selectedDifficulty === 'impossible' ? 5 : 
-                                 selectedDifficulty === 'nightmare' ? 4 :
-                                 selectedDifficulty === 'expert' ? 3 :
-                                 selectedDifficulty === 'intermediate' ? 2 : 1;
-    const stressScore = Math.round((wpm * accuracy * completionRate * difficultyMultiplier) / 100);
-    
-    // Store results to avoid recalculation in results screen
-    setFinalResults({ survivalTime, wpm, accuracy, completionRate, stressScore });
-    
-    if (completed) {
-      playSound('complete');
-      if (!prefersReducedMotion) {
-        confetti({
-          particleCount: 200,
-          spread: 100,
-          origin: { y: 0.6 },
-          colors: ['#ff0000', '#ff6600', '#ffaa00'],
-        });
+    timerIntervalRef.current = setInterval(() => {
+      if (testSessionRef.current !== currentSession || !isTestActiveRef.current) {
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+        return;
       }
       
-      toast({
-        title: "🎉 Incredible!",
-        description: `You survived ${selectedDifficulty} mode! Score: ${stressScore}`,
-      });
-    } else {
-      playSound('error');
-      toast({
-        title: "Time's Up!",
-        description: `You survived ${Math.round(survivalTime)}s. Score: ${stressScore}`,
-        variant: "destructive",
-      });
-    }
-    
-    // Save result
-    if (config && selectedDifficulty) {
-      saveResultMutation.mutate({
-        difficulty: selectedDifficulty,
-        enabledEffects: config.effects,
-        wpm,
-        accuracy,
-        errors,
-        maxCombo,
-        totalCharacters: typedText.length,
-        duration: config.duration,
-        survivalTime: Math.round(survivalTime),
-        completionRate,
-        stressScore,
-      });
-    }
-  };
-
-  // Timer countdown
-  useEffect(() => {
-    if (!isStarted || isFinished || timeLeft <= 0) return;
-    
-    const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          finishTest(false);
+          finishTestRef.current(false);
           return 0;
         }
         if (prev === 10) {
@@ -687,57 +734,91 @@ export default function StressTest() {
             description: "Final push! You can do this!",
             variant: "destructive",
           });
-        } else if (prev <= 10) {
+        } else if (prev <= 5) {
           playSound('warning');
         }
         return prev - 1;
       });
     }, 1000);
     
-    return () => clearInterval(timer);
-  }, [isStarted, isFinished, timeLeft]);
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  }, [isStarted, isFinished, playSound, toast]);
 
-  // Update stress level
   useEffect(() => {
-    if (!isStarted || !config) return;
+    if (!isStarted || !config || !isTestActiveRef.current) return;
     
-    const stressInterval = setInterval(() => {
+    const currentSession = testSessionRef.current;
+    
+    stressIntervalRef.current = setInterval(() => {
+      if (testSessionRef.current !== currentSession || !isTestActiveRef.current) return;
       setStressLevel(calculateStressLevel());
     }, 100);
     
-    return () => clearInterval(stressInterval);
-  }, [isStarted, config, startTime]);
+    return () => {
+      if (stressIntervalRef.current) {
+        clearInterval(stressIntervalRef.current);
+        stressIntervalRef.current = null;
+      }
+    };
+  }, [isStarted, config, calculateStressLevel]);
 
-  // ENHANCED Visual effects - disabled if user prefers reduced motion
   useEffect(() => {
-    if (!isStarted || !config || prefersReducedMotion) return;
+    if (!isStarted || !config || prefersReducedMotion || !isTestActiveRef.current) return;
     
-    const effectsInterval = setInterval(() => {
-      const intensity = 1 + (stressLevel / 100); // Effects get worse over time
+    const currentSession = testSessionRef.current;
+    
+    effectsIntervalRef.current = setInterval(() => {
+      if (testSessionRef.current !== currentSession || !isTestActiveRef.current) return;
       
-      // Particle explosion distractions
+      const intensity = 1 + (stressLevel / 100);
+      
       if (config.effects.distractions && Math.random() > (1 - config.particleFrequency)) {
         const emojis = ['💥', '⚡', '🔥', '💀', '👻', '🌟', '💫', '✨', '⭐', '💣', '🎯', '🎪', '🎨', '🎭'];
-        const particleCount = Math.floor(1 + intensity * 3);
+        const particleCount = Math.min(3, Math.floor(1 + intensity * 2));
         
-        for (let i = 0; i < particleCount; i++) {
-          const newParticle = {
-            id: Date.now() + i,
-            x: Math.random() * 100,
-            y: Math.random() * 100,
-            emoji: emojis[Math.floor(Math.random() * emojis.length)],
-            speed: 1 + Math.random() * 2,
-          };
-          setParticles((prev) => [...prev, newParticle]);
-          safeTimeout(() => {
-            setParticles((prev) => prev.filter((p) => p.id !== newParticle.id));
-          }, 1500 / intensity);
-        }
+        setParticles((prev) => {
+          if (prev.length >= MAX_PARTICLES) {
+            const newParticles = prev.slice(-MAX_PARTICLES + particleCount);
+            const additions: ParticleData[] = [];
+            for (let i = 0; i < particleCount; i++) {
+              particleIdRef.current += 1;
+              additions.push({
+                id: particleIdRef.current,
+                x: Math.random() * 100,
+                y: Math.random() * 100,
+                emoji: emojis[Math.floor(Math.random() * emojis.length)],
+                speed: 1 + Math.random() * 2,
+              });
+            }
+            return [...newParticles, ...additions];
+          }
+          
+          const additions: ParticleData[] = [];
+          for (let i = 0; i < particleCount; i++) {
+            particleIdRef.current += 1;
+            additions.push({
+              id: particleIdRef.current,
+              x: Math.random() * 100,
+              y: Math.random() * 100,
+              emoji: emojis[Math.floor(Math.random() * emojis.length)],
+              speed: 1 + Math.random() * 2,
+            });
+          }
+          return [...prev, ...additions];
+        });
+        
+        safeTimeout(() => {
+          setParticles((prev) => prev.slice(particleCount));
+        }, 1500 / intensity);
         
         playSound('chaos');
       }
       
-      // Aggressive color shift
       if (config.effects.colorShift) {
         const hue = Math.random() * 360;
         const saturation = 60 + Math.random() * 40;
@@ -745,39 +826,32 @@ export default function StressTest() {
         setCurrentColor(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
       }
       
-      // Extreme blur for limited visibility
       if (config.effects.limitedVisibility) {
         setBlur(2 + Math.random() * (8 * intensity));
       }
       
-      // Aggressive rotation
       if (config.effects.rotation) {
         setRotation((Math.random() - 0.5) * 15 * intensity);
       }
       
-      // Gravity bounce effect
       if (config.effects.gravity) {
         setGravityOffset(Math.sin(Date.now() / 200) * 20 * intensity);
       }
       
-      // Glitch effect
       if (config.effects.glitch && Math.random() > 0.8) {
         setGlitchActive(true);
         safeTimeout(() => setGlitchActive(false), 50 + Math.random() * 100);
       }
       
-      // Text fade in/out
       if (config.effects.textFade) {
         setTextOpacity(0.3 + Math.random() * 0.7);
       }
       
-      // Reverse text randomly
       if (config.effects.reverseText && Math.random() > 0.9) {
-        setTextReversed((prev) => !prev);
+        setTextReversed(true);
         safeTimeout(() => setTextReversed(false), 500 + Math.random() * 1000);
       }
       
-      // Random text jumps (IMPOSSIBLE mode)
       if (config.effects.randomJumps && Math.random() > 0.85) {
         setTextPosition({
           x: (Math.random() - 0.5) * 100,
@@ -786,49 +860,57 @@ export default function StressTest() {
         safeTimeout(() => setTextPosition({ x: 0, y: 0 }), 300);
       }
       
-      // Screen invert (Intermediate+)
       if (config.effects.screenInvert && Math.random() > 0.7) {
-        setScreenInverted((prev) => !prev);
+        setScreenInverted(true);
         safeTimeout(() => setScreenInverted(false), 800 + Math.random() * 1200);
       }
       
-      // Zoom chaos (Intermediate+)
       if (config.effects.zoomChaos && Math.random() > 0.75) {
         const zoomRange = 0.5 + (stressLevel / 100);
         setZoomScale(0.6 + Math.random() * zoomRange);
         safeTimeout(() => setZoomScale(1), 600 + Math.random() * 800);
       }
       
-      // Screen flip upside down (Expert+)
       if (config.effects.screenFlip && Math.random() > 0.85) {
         setScreenFlipped(true);
         safeTimeout(() => setScreenFlipped(false), 1000 + Math.random() * 2000);
       }
       
-    }, 200); // Effects update faster for more chaos
+    }, 200);
     
-    return () => clearInterval(effectsInterval);
-  }, [isStarted, config, stressLevel, prefersReducedMotion]);
+    return () => {
+      if (effectsIntervalRef.current) {
+        clearInterval(effectsIntervalRef.current);
+        effectsIntervalRef.current = null;
+      }
+    };
+  }, [isStarted, config, stressLevel, prefersReducedMotion, playSound, safeTimeout]);
 
-  // Continuous shake effect that intensifies - disabled for reduced motion
   useEffect(() => {
-    if (!isStarted || !config?.effects.screenShake || prefersReducedMotion) return;
+    if (!isStarted || !config?.effects.screenShake || prefersReducedMotion || !isTestActiveRef.current) return;
     
-    const shakeInterval = setInterval(() => {
+    const currentSession = testSessionRef.current;
+    
+    shakeIntervalRef.current = setInterval(() => {
+      if (testSessionRef.current !== currentSession || !isTestActiveRef.current) return;
       const baseShake = config.baseShakeIntensity;
       const stressBonus = (stressLevel / 100) * baseShake;
       setShakeIntensity(baseShake + stressBonus);
     }, 50);
     
-    return () => clearInterval(shakeInterval);
+    return () => {
+      if (shakeIntervalRef.current) {
+        clearInterval(shakeIntervalRef.current);
+        shakeIntervalRef.current = null;
+      }
+    };
   }, [isStarted, config, stressLevel, prefersReducedMotion]);
 
-  // ESC key to quit test early
   useEffect(() => {
     if (!isStarted || isFinished) return;
     
     const handleEscapeKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && isTestActiveRef.current) {
         finishTest(false);
         toast({
           title: "Test Aborted",
@@ -840,38 +922,25 @@ export default function StressTest() {
     
     window.addEventListener('keydown', handleEscapeKey);
     return () => window.removeEventListener('keydown', handleEscapeKey);
-  }, [isStarted, isFinished]);
+  }, [isStarted, isFinished, finishTest, toast]);
 
-  const handleReset = () => {
-    clearAllTimeouts();
+  const handleReset = useCallback(() => {
+    testSessionRef.current += 1;
+    isTestActiveRef.current = false;
+    clearAllTimers();
     setSelectedDifficulty(null);
     setIsStarted(false);
     setIsFinished(false);
+    setCountdown(0);
     setTypedText('');
     setErrors(0);
     setCombo(0);
     setMaxCombo(0);
     setFinalResults(null);
-    setShakeIntensity(0);
-    setParticles([]);
-    setCurrentColor('hsl(0, 0%, 100%)');
-    setBlur(0);
-    setRotation(0);
-    setGravityOffset(0);
-    setGlitchActive(false);
-    setTextOpacity(1);
-    setTextReversed(false);
-    setTextPosition({ x: 0, y: 0 });
-    setScreenInverted(false);
-    setZoomScale(1);
-    setScreenFlipped(false);
-    setComboExplosion(false);
-    setBackgroundFlash(false);
-    setStressLevel(0);
-  };
+    resetVisualStates();
+  }, [clearAllTimers, resetVisualStates]);
 
-  // Selection screen
-  if (!selectedDifficulty || (!isStarted && !isFinished)) {
+  if (!selectedDifficulty || (!isStarted && !isFinished && countdown === 0)) {
     return (
       <TooltipProvider delayDuration={200}>
         <div className="container mx-auto px-4 py-8">
@@ -911,7 +980,7 @@ export default function StressTest() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div>
-                      <Zap className="w-12 h-12 text-primary animate-pulse cursor-help" />
+                      <Zap className={`w-12 h-12 text-primary cursor-help ${prefersReducedMotion ? '' : 'animate-pulse'}`} />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="top">
@@ -926,7 +995,7 @@ export default function StressTest() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div>
-                      <Skull className="w-12 h-12 text-destructive animate-bounce cursor-help" />
+                      <Skull className={`w-12 h-12 text-destructive cursor-help ${prefersReducedMotion ? '' : 'animate-bounce'}`} />
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="top">
@@ -941,9 +1010,9 @@ export default function StressTest() {
               
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg max-w-xl mx-auto cursor-help">
+                  <div className="mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg max-w-xl mx-auto cursor-help" role="alert">
                     <div className="flex items-center gap-2 justify-center text-destructive">
-                      <AlertTriangle className="w-5 h-5" />
+                      <AlertTriangle className="w-5 h-5" aria-hidden="true" />
                       <p className="font-semibold">Warning: May cause extreme frustration</p>
                     </div>
                   </div>
@@ -954,7 +1023,7 @@ export default function StressTest() {
               </Tooltip>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8" role="list" aria-label="Difficulty levels">
               {(Object.keys(DIFFICULTY_CONFIGS) as Difficulty[]).map((difficulty) => {
                 const diffConfig = DIFFICULTY_CONFIGS[difficulty];
                 const activeEffects = Object.entries(diffConfig.effects).filter(([_, enabled]) => enabled);
@@ -965,23 +1034,32 @@ export default function StressTest() {
                       <Card
                         className={`relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl border-2 ${
                           difficulty === 'impossible' 
-                            ? 'border-purple-500 hover:border-purple-400 animate-pulse' 
+                            ? `border-purple-500 hover:border-purple-400 ${prefersReducedMotion ? '' : 'animate-pulse'}` 
                             : 'border-border hover:border-primary'
                         }`}
-                        onClick={() => !countdown && handleStart(difficulty)}
+                        onClick={() => handleStart(difficulty)}
                         data-testid={`card-difficulty-${difficulty}`}
+                        role="listitem"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleStart(difficulty);
+                          }
+                        }}
+                        aria-label={`${diffConfig.name} - ${diffConfig.difficulty}`}
                       >
-                        <div className={`absolute inset-0 bg-gradient-to-br ${diffConfig.color} opacity-50`} />
+                        <div className={`absolute inset-0 bg-gradient-to-br ${diffConfig.color} opacity-50`} aria-hidden="true" />
                         <CardContent className="relative p-6">
                           <div className="text-center mb-4">
-                            <div className="text-6xl mb-2">{diffConfig.icon}</div>
+                            <div className="text-6xl mb-2" aria-hidden="true">{diffConfig.icon}</div>
                             <h3 className="text-2xl font-bold mb-2">{diffConfig.name}</h3>
                             <p className="text-sm text-muted-foreground mb-4">{diffConfig.description}</p>
                             
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-background/80 rounded-full text-sm font-mono cursor-help">
-                                  <Clock className="w-3 h-3" />
+                                  <Clock className="w-3 h-3" aria-hidden="true" />
                                   {diffConfig.duration}s duration
                                 </div>
                               </TooltipTrigger>
@@ -1007,7 +1085,7 @@ export default function StressTest() {
                               <Tooltip key={effect}>
                                 <TooltipTrigger asChild>
                                   <div className="flex items-center gap-2 bg-background/60 px-2 py-1 rounded cursor-help hover:bg-background/80 transition-colors">
-                                    <span className="w-2 h-2 bg-destructive rounded-full animate-pulse" />
+                                    <span className={`w-2 h-2 bg-destructive rounded-full ${prefersReducedMotion ? '' : 'animate-pulse'}`} aria-hidden="true" />
                                     <span className="capitalize">{effect.replace(/([A-Z])/g, ' $1').trim()}</span>
                                   </div>
                                 </TooltipTrigger>
@@ -1041,6 +1119,7 @@ export default function StressTest() {
                     onClick={() => setSoundEnabled(!soundEnabled)}
                     className="gap-2"
                     data-testid="button-toggle-sound"
+                    aria-pressed={soundEnabled}
                   >
                     {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                     {soundEnabled ? 'Sound On' : 'Sound Off'}
@@ -1057,11 +1136,10 @@ export default function StressTest() {
     );
   }
 
-  // Countdown screen
   if (countdown > 0 && !isStarted) {
     return (
       <TooltipProvider>
-        <div className="fixed inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-50" role="alert" aria-live="assertive">
           <div className="text-center">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1071,7 +1149,7 @@ export default function StressTest() {
                 <p>Focus on the screen - chaos begins soon!</p>
               </TooltipContent>
             </Tooltip>
-            <div className="text-9xl font-bold animate-bounce text-destructive">
+            <div className={`text-9xl font-bold text-destructive ${prefersReducedMotion ? '' : 'animate-bounce'}`} aria-label={`Starting in ${countdown}`}>
               {countdown}
             </div>
             <Tooltip>
@@ -1090,7 +1168,6 @@ export default function StressTest() {
     );
   }
 
-  // Results screen - use stored results to avoid recalculation issues
   if (isFinished && finalResults) {
     const { survivalTime, wpm, accuracy, completionRate, stressScore } = finalResults;
     const difficultyMultiplier = selectedDifficulty === 'impossible' ? 5 : 
@@ -1104,11 +1181,11 @@ export default function StressTest() {
           <div className="max-w-2xl mx-auto">
             <Card>
               <CardContent className="p-8">
-                <div className="text-center mb-8">
+                <div className="text-center mb-8" role="status" aria-live="polite">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div>
-                        <Trophy className="w-16 h-16 mx-auto mb-4 text-primary cursor-help" />
+                        <Trophy className="w-16 h-16 mx-auto mb-4 text-primary cursor-help" aria-hidden="true" />
                       </div>
                     </TooltipTrigger>
                     <TooltipContent side="top">
@@ -1124,7 +1201,7 @@ export default function StressTest() {
                     <TooltipTrigger asChild>
                       <p className="text-xl text-muted-foreground cursor-help inline-flex items-center gap-2">
                         {config?.name} - Stress Score: <span className="font-bold text-primary">{stressScore}</span>
-                        <Info className="w-4 h-4" />
+                        <Info className="w-4 h-4" aria-hidden="true" />
                       </p>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-xs">
@@ -1137,13 +1214,13 @@ export default function StressTest() {
                   </Tooltip>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="grid grid-cols-2 gap-4 mb-8" role="list" aria-label="Test results">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-wpm">
-                        <div className="text-3xl font-bold text-primary">{wpm}</div>
+                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-wpm" role="listitem">
+                        <div className="text-3xl font-bold text-primary" aria-label={`${wpm} words per minute`}>{wpm}</div>
                         <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                          <BarChart3 className="w-3 h-3" />
+                          <BarChart3 className="w-3 h-3" aria-hidden="true" />
                           WPM
                         </div>
                       </div>
@@ -1159,10 +1236,10 @@ export default function StressTest() {
                   
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-accuracy">
-                        <div className="text-3xl font-bold text-green-500">{accuracy.toFixed(1)}%</div>
+                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-accuracy" role="listitem">
+                        <div className="text-3xl font-bold text-green-500" aria-label={`${accuracy.toFixed(1)} percent accuracy`}>{accuracy.toFixed(1)}%</div>
                         <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                          <Target className="w-3 h-3" />
+                          <Target className="w-3 h-3" aria-hidden="true" />
                           Accuracy
                         </div>
                       </div>
@@ -1171,17 +1248,17 @@ export default function StressTest() {
                       <div className="space-y-1">
                         <p className="font-semibold">Typing Accuracy</p>
                         <p className="text-xs">Percentage of correct keystrokes</p>
-                        <p className="text-xs text-muted-foreground">{typedText.length - errors} correct out of {typedText.length} typed</p>
+                        <p className="text-xs text-muted-foreground">{Math.max(0, typedText.length - errors)} correct out of {typedText.length} typed</p>
                       </div>
                     </TooltipContent>
                   </Tooltip>
                   
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-completion">
-                        <div className="text-3xl font-bold text-orange-500">{completionRate.toFixed(1)}%</div>
+                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-completion" role="listitem">
+                        <div className="text-3xl font-bold text-orange-500" aria-label={`${completionRate.toFixed(1)} percent completed`}>{completionRate.toFixed(1)}%</div>
                         <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                          <Eye className="w-3 h-3" />
+                          <Eye className="w-3 h-3" aria-hidden="true" />
                           Completed
                         </div>
                       </div>
@@ -1197,10 +1274,10 @@ export default function StressTest() {
                   
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-combo">
-                        <div className="text-3xl font-bold text-purple-500">{maxCombo}</div>
+                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-combo" role="listitem">
+                        <div className="text-3xl font-bold text-purple-500" aria-label={`Maximum combo of ${maxCombo}`}>{maxCombo}</div>
                         <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                          <Flame className="w-3 h-3" />
+                          <Flame className="w-3 h-3" aria-hidden="true" />
                           Max Combo
                         </div>
                       </div>
@@ -1216,10 +1293,10 @@ export default function StressTest() {
                   
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-errors">
-                        <div className="text-3xl font-bold text-red-500">{errors}</div>
+                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-errors" role="listitem">
+                        <div className="text-3xl font-bold text-red-500" aria-label={`${errors} errors`}>{errors}</div>
                         <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                          <XCircle className="w-3 h-3" />
+                          <XCircle className="w-3 h-3" aria-hidden="true" />
                           Errors
                         </div>
                       </div>
@@ -1235,10 +1312,10 @@ export default function StressTest() {
                   
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-survival">
-                        <div className="text-3xl font-bold text-blue-500">{Math.round(survivalTime)}s</div>
+                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-survival" role="listitem">
+                        <div className="text-3xl font-bold text-blue-500" aria-label={`Survived ${Math.round(survivalTime)} seconds`}>{Math.round(survivalTime)}s</div>
                         <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                          <Timer className="w-3 h-3" />
+                          <Timer className="w-3 h-3" aria-hidden="true" />
                           Survival Time
                         </div>
                       </div>
@@ -1261,7 +1338,7 @@ export default function StressTest() {
                         className="w-full gap-2"
                         data-testid="button-retry-same"
                       >
-                        <Zap className="w-4 h-4" />
+                        <Zap className="w-4 h-4" aria-hidden="true" />
                         Retry {config?.name}
                       </Button>
                     </TooltipTrigger>
@@ -1274,7 +1351,7 @@ export default function StressTest() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button onClick={handleReset} variant="outline" className="flex-1 gap-2" data-testid="button-try-again">
-                          <RefreshCw className="w-4 h-4" />
+                          <RefreshCw className="w-4 h-4" aria-hidden="true" />
                           Change Difficulty
                         </Button>
                       </TooltipTrigger>
@@ -1287,7 +1364,7 @@ export default function StressTest() {
                       <TooltipTrigger asChild>
                         <Link href="/" className="flex-1">
                           <Button variant="outline" className="w-full gap-2" data-testid="button-home">
-                            <Home className="w-4 h-4" />
+                            <Home className="w-4 h-4" aria-hidden="true" />
                             Home
                           </Button>
                         </Link>
@@ -1306,22 +1383,16 @@ export default function StressTest() {
     );
   }
 
-  // Active test screen
-  const progress = (typedText.length / currentText.length) * 100;
+  const progress = currentText.length > 0 ? Math.min(100, (typedText.length / currentText.length) * 100) : 0;
   const displayText = textReversed ? currentText.split('').reverse().join('') : currentText;
 
-  // Memoize the text character rendering to avoid recalculating on every visual effect change
-  // When text is reversed, we need to map display positions to original positions
   const renderedCharacters = useMemo(() => {
     const textLength = currentText.length;
     return displayText.split('').map((char, displayIndex) => {
-      // When reversed, display position maps to original position (length - 1 - displayIndex)
-      // When not reversed, display position equals original position
       const originalIndex = textReversed ? (textLength - 1 - displayIndex) : displayIndex;
       
       let color = 'text-muted-foreground';
       if (originalIndex < typedText.length) {
-        // Compare typed char at original position with expected char at original position
         color = typedText[originalIndex] === currentText[originalIndex] ? 'text-green-500' : 'text-red-500';
       } else if (originalIndex === typedText.length) {
         color = 'text-primary bg-primary/20';
@@ -1339,22 +1410,22 @@ export default function StressTest() {
           backgroundFlash ? 'bg-red-500/30' : 'bg-background'
         }`}
         style={{
-          transform: `translate(${Math.sin(Date.now() / 100) * shakeIntensity}px, ${Math.cos(Date.now() / 80) * shakeIntensity}px) rotate(${rotation}deg) scale(${zoomScale}) ${screenFlipped ? 'rotateX(180deg)' : ''}`,
-          filter: `${glitchActive ? 'hue-rotate(180deg) saturate(3)' : ''} ${screenInverted ? 'invert(1) hue-rotate(180deg)' : ''}`,
+          transform: prefersReducedMotion ? 'none' : `translate(${Math.sin(Date.now() / 100) * shakeIntensity}px, ${Math.cos(Date.now() / 80) * shakeIntensity}px) rotate(${rotation}deg) scale(${zoomScale}) ${screenFlipped ? 'rotateX(180deg)' : ''}`,
+          filter: prefersReducedMotion ? 'none' : `${glitchActive ? 'hue-rotate(180deg) saturate(3)' : ''} ${screenInverted ? 'invert(1) hue-rotate(180deg)' : ''}`,
         }}
+        role="main"
+        aria-label="Stress test in progress"
       >
-        {/* Floating particles - memoized for performance */}
-        {particles.map((particle) => (
+        {!prefersReducedMotion && particles.map((particle) => (
           <Particle key={particle.id} particle={particle} />
         ))}
 
         <div className="w-full max-w-4xl">
-          {/* Stats header */}
-          <div className="mb-8 flex items-center justify-between">
+          <div className="mb-8 flex items-center justify-between" role="status" aria-live="polite">
             <div className="flex items-center gap-4">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="text-2xl font-mono font-bold cursor-help" style={{ color: currentColor }}>
+                  <div className="text-2xl font-mono font-bold cursor-help" style={{ color: prefersReducedMotion ? undefined : currentColor }} aria-label={`${timeLeft} seconds remaining`}>
                     {timeLeft}s
                   </div>
                 </TooltipTrigger>
@@ -1366,10 +1437,10 @@ export default function StressTest() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className={`text-sm text-muted-foreground transition-all cursor-help ${
-                    comboExplosion ? 'scale-150 text-yellow-500' : ''
-                  }`}>
+                    comboExplosion && !prefersReducedMotion ? 'scale-150 text-yellow-500' : ''
+                  }`} aria-label={`Current combo: ${combo}`}>
                     Combo: <span className="text-primary font-bold">{combo}</span>
-                    {comboExplosion && <span className="ml-1 animate-ping">🔥</span>}
+                    {comboExplosion && !prefersReducedMotion && <span className="ml-1 animate-ping" aria-hidden="true">🔥</span>}
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
@@ -1379,7 +1450,7 @@ export default function StressTest() {
               
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="text-sm text-muted-foreground cursor-help">
+                  <div className="text-sm text-muted-foreground cursor-help" aria-label={`${errors} errors`}>
                     Errors: <span className="text-destructive font-bold">{errors}</span>
                   </div>
                 </TooltipTrigger>
@@ -1391,9 +1462,9 @@ export default function StressTest() {
             
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-2 cursor-help">
+                <div className="flex items-center gap-2 cursor-help" aria-label={`Stress level: ${Math.round(stressLevel)} percent`}>
                   <span className="text-sm text-muted-foreground">Stress</span>
-                  <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="w-32 h-2 bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={Math.round(stressLevel)} aria-valuemin={0} aria-valuemax={100}>
                     <div 
                       className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 transition-all duration-300"
                       style={{ width: `${stressLevel}%` }}
@@ -1410,11 +1481,10 @@ export default function StressTest() {
             </Tooltip>
           </div>
 
-          {/* Progress bar */}
           <Tooltip>
             <TooltipTrigger asChild>
               <div className="cursor-help">
-                <Progress value={progress} className="mb-8 h-3" />
+                <Progress value={progress} className="mb-8 h-3" aria-label={`Progress: ${progress.toFixed(1)} percent complete`} />
               </div>
             </TooltipTrigger>
             <TooltipContent side="top">
@@ -1422,10 +1492,9 @@ export default function StressTest() {
             </TooltipContent>
           </Tooltip>
 
-          {/* Text display */}
           <Card
             className="mb-8 transition-all duration-200"
-            style={{
+            style={prefersReducedMotion ? {} : {
               transform: `translateY(${gravityOffset}px) translate(${textPosition.x}px, ${textPosition.y}px)`,
               opacity: textOpacity,
               filter: `blur(${blur}px)`,
@@ -1434,14 +1503,14 @@ export default function StressTest() {
             }}
           >
             <CardContent className="p-8">
-              <div className="text-2xl font-mono leading-relaxed whitespace-pre-wrap select-none">
+              <div className="text-2xl font-mono leading-relaxed whitespace-pre-wrap select-none" aria-label="Text to type">
                 {renderedCharacters.map(({ char, color, index }) => (
                   <span
                     key={index}
                     className={`${color} transition-colors duration-100`}
                     style={{
                       display: 'inline-block',
-                      animation: glitchActive ? 'glitch 0.1s infinite' : 'none',
+                      animation: glitchActive && !prefersReducedMotion ? 'glitch 0.1s infinite' : 'none',
                     }}
                   >
                     {char}
@@ -1451,53 +1520,29 @@ export default function StressTest() {
             </CardContent>
           </Card>
 
-          {/* Hidden input - auto-refocuses if focus is lost */}
           <input
             ref={inputRef}
             type="text"
             value={typedText}
             onChange={handleInputChange}
             onBlur={() => {
-              if (isStarted && !isFinished) {
-                inputRef.current?.focus();
+              if (isStarted && !isFinished && isTestActiveRef.current) {
+                setTimeout(() => inputRef.current?.focus(), 10);
               }
             }}
-            className="opacity-0 absolute pointer-events-none"
+            className="sr-only"
             autoComplete="off"
-            autoFocus
-            aria-label="Type the displayed text to complete the stress test"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            aria-label="Type the text shown above"
             data-testid="input-typing"
           />
-
-          {/* Controls */}
-          <div className="text-center text-sm text-muted-foreground">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <p className="cursor-help inline-flex items-center gap-2">
-                  Type the text above to survive | <kbd className="px-2 py-0.5 bg-muted rounded text-xs">ESC</kbd> to quit
-                  <HelpCircle className="w-3 h-3" />
-                </p>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <div className="space-y-1">
-                  <p>Press ESC at any time to abort the test</p>
-                  <p className="text-xs text-muted-foreground">Your progress will not be saved if you quit early</p>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </div>
+          
+          <p className="text-center text-sm text-muted-foreground" aria-live="polite">
+            {isStarted ? 'Click anywhere or press ESC to quit' : 'Click to focus and start typing'}
+          </p>
         </div>
-
-        {/* Glitch animation */}
-        <style>{`
-          @keyframes glitch {
-            0%, 100% { transform: translate(0); }
-            20% { transform: translate(-2px, 2px); }
-            40% { transform: translate(-2px, -2px); }
-            60% { transform: translate(2px, 2px); }
-            80% { transform: translate(2px, -2px); }
-          }
-        `}</style>
       </div>
     </TooltipProvider>
   );

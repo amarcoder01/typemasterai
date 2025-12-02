@@ -412,7 +412,7 @@ export default function StressLeaderboard() {
                       
                       {leaderboard.map((entry: any, index: number) => (
                         <div
-                          key={entry.oderId + entry.createdAt}
+                          key={`${entry.userId}-${entry.difficulty}-${entry.createdAt}`}
                           className={`flex items-center gap-4 p-4 transition-colors ${
                             entry.userId === user?.id ? 'bg-primary/10' : 'hover:bg-muted/50'
                           }`}
