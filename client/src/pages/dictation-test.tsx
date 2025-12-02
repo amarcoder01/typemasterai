@@ -32,9 +32,9 @@ interface PracticeModeConfig {
 const PRACTICE_MODES: Record<PracticeMode, PracticeModeConfig> = {
   quick: {
     name: 'Quick Practice',
-    description: 'Fast-paced sessions with auto-advance',
+    description: 'Fast-paced practice sessions',
     icon: <Zap className="w-5 h-5" />,
-    autoAdvance: true,
+    autoAdvance: false,
     hintsAllowed: true,
     timerPressure: false,
     defaultSpeed: '1.0',
@@ -54,7 +54,7 @@ const PRACTICE_MODES: Record<PracticeMode, PracticeModeConfig> = {
     name: 'Challenge Mode',
     description: 'No hints, harder difficulty, prove your skills',
     icon: <Trophy className="w-5 h-5" />,
-    autoAdvance: true,
+    autoAdvance: false,
     hintsAllowed: false,
     timerPressure: true,
     defaultSpeed: '1.3',
