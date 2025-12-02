@@ -148,6 +148,43 @@ interface StreakData {
   totalSessions: number;
 }
 
+interface AdaptiveDifficultyConfig {
+  enabled: boolean;
+  currentLevel: 'easy' | 'medium' | 'hard';
+  consecutiveHighScores: number;
+  consecutiveLowScores: number;
+  recentScores: { accuracy: number; wpm: number }[];
+}
+
+const ADAPTIVE_THRESHOLDS = {
+  upgradeAccuracy: 90,
+  upgradeWpm: 30,
+  upgradeConsecutive: 3,
+  downgradeAccuracy: 70,
+  downgradeConsecutive: 2,
+  maxRecentScores: 5,
+};
+
+const DIFFICULTY_ORDER: ('easy' | 'medium' | 'hard')[] = ['easy', 'medium', 'hard'];
+
+function getNextDifficulty(current: 'easy' | 'medium' | 'hard', direction: 'up' | 'down'): 'easy' | 'medium' | 'hard' {
+  const currentIndex = DIFFICULTY_ORDER.indexOf(current);
+  if (direction === 'up') {
+    return DIFFICULTY_ORDER[Math.min(currentIndex + 1, DIFFICULTY_ORDER.length - 1)];
+  } else {
+    return DIFFICULTY_ORDER[Math.max(currentIndex - 1, 0)];
+  }
+}
+
+function getDifficultyEmoji(difficulty: string): string {
+  switch (difficulty) {
+    case 'easy': return '🟢';
+    case 'medium': return '🟡';
+    case 'hard': return '🔴';
+    default: return '';
+  }
+}
+
 interface BookmarkedSentence {
   id: number;
   sentence: string;
@@ -455,6 +492,19 @@ export default function DictationTest() {
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [isWaitingToStart, setIsWaitingToStart] = useState(false);
+  
+  const [adaptiveDifficulty, setAdaptiveDifficulty] = useState<AdaptiveDifficultyConfig>({
+    enabled: false,
+    currentLevel: 'easy',
+    consecutiveHighScores: 0,
+    consecutiveLowScores: 0,
+    recentScores: [],
+  });
+  const [difficultyJustChanged, setDifficultyJustChanged] = useState<{
+    from: string;
+    to: string;
+    direction: 'up' | 'down';
+  } | null>(null);
   
   const currentRate = getSpeedRate(speedLevel);
   const { speak, cancel, isSpeaking, isSupported, error: speechError, voices, setVoice, currentVoice } = useSpeechSynthesis({
