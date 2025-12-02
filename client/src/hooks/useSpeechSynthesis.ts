@@ -36,7 +36,6 @@ const OPENAI_VOICES = [
 ];
 
 const OPENAI_VOICE_STORAGE_KEY = 'dictation-openai-voice';
-const USE_OPENAI_STORAGE_KEY = 'dictation-use-openai';
 
 export function useSpeechSynthesis(
   options: UseSpeechSynthesisOptions = {}
@@ -46,10 +45,7 @@ export function useSpeechSynthesis(
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [currentVoice, setCurrentVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isUsingOpenAI, setIsUsingOpenAI] = useState(() => {
-    const stored = localStorage.getItem(USE_OPENAI_STORAGE_KEY);
-    return stored === 'true';
-  });
+  const [isUsingOpenAI, setIsUsingOpenAI] = useState(true);
   const [currentOpenAIVoice, setCurrentOpenAIVoice] = useState(() => {
     return localStorage.getItem(OPENAI_VOICE_STORAGE_KEY) || 'nova';
   });
