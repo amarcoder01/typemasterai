@@ -268,6 +268,7 @@ export default function StressTest() {
   const audioContextRef = useRef<AudioContext | null>(null);
   const pendingTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownSessionRef = useRef<number>(0); // Tracks countdown session to prevent race conditions
 
   const config = selectedDifficulty ? DIFFICULTY_CONFIGS[selectedDifficulty] : null;
 
@@ -419,6 +420,14 @@ export default function StressTest() {
 
   // Start test with countdown
   const handleStart = (difficulty: Difficulty) => {
+    // Guard against starting while test is already running
+    if (isStarted) return;
+    
+    // Explicitly clear countdown interval first to prevent duplicates on rapid restart
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
     clearAllTimeouts();
     
     // Reset all game state before starting
@@ -457,7 +466,16 @@ export default function StressTest() {
       description: `${diffConfig.duration}s of pure chaos awaits! Get ready...`,
     });
     
+    // Increment session to invalidate any pending callbacks from previous countdown
+    countdownSessionRef.current += 1;
+    const currentSession = countdownSessionRef.current;
+    
     countdownIntervalRef.current = setInterval(() => {
+      // Check if this callback belongs to the current session
+      if (countdownSessionRef.current !== currentSession) {
+        return; // Stale callback, ignore
+      }
+      
       setCountdown((prev) => {
         if (prev <= 1) {
           if (countdownIntervalRef.current) {
