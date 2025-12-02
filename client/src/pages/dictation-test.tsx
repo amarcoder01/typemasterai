@@ -508,6 +508,8 @@ export default function DictationTest() {
     to: string;
     direction: 'up' | 'down';
   } | null>(null);
+  
+  const [shownSentenceIds, setShownSentenceIds] = useState<number[]>([]);
 
   useEffect(() => {
     if (difficultyJustChanged) {
@@ -629,17 +631,30 @@ export default function DictationTest() {
     }, 500);
   }, [speak]);
 
-  const { refetch: fetchNewSentence, isLoading } = useQuery({
-    queryKey: ['dictation-sentence', difficulty, category],
-    queryFn: async () => {
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const fetchNewSentence = useCallback(async () => {
+    setIsLoading(true);
+    try {
       const categoryParam = category !== 'all' ? `&category=${category}` : '';
-      const res = await fetch(`/api/dictation/sentence?difficulty=${difficulty}${categoryParam}`);
+      const excludeParam = shownSentenceIds.length > 0 ? `&excludeIds=${shownSentenceIds.join(',')}` : '';
+      const res = await fetch(`/api/dictation/sentence?difficulty=${difficulty}${categoryParam}${excludeParam}`);
       if (!res.ok) throw new Error('Failed to fetch sentence');
       const data = await res.json();
-      return data.sentence as DictationSentence;
-    },
-    enabled: false,
-  });
+      const sentence = data.sentence as DictationSentence;
+      
+      if (sentence) {
+        setShownSentenceIds(prev => [...prev, sentence.id]);
+      }
+      
+      return { data: sentence };
+    } catch (error) {
+      console.error('Failed to fetch sentence:', error);
+      return { data: null };
+    } finally {
+      setIsLoading(false);
+    }
+  }, [difficulty, category, shownSentenceIds]);
 
   const saveTestMutation = useMutation({
     mutationFn: async (testData: {
@@ -1031,6 +1046,7 @@ export default function DictationTest() {
     setCurrentCoachingTip(null);
     setShowModeSelector(true);
     setIsWaitingToStart(false);
+    setShownSentenceIds([]);
   };
 
   const restartCurrentSession = () => {
@@ -1055,6 +1071,7 @@ export default function DictationTest() {
     setCurrentCoachingTip(null);
     setAutoAdvanceCountdown(null);
     setElapsedTime(0);
+    setShownSentenceIds([]);
     setTestState({
       sentence: null,
       typedText: '',
@@ -1076,6 +1093,7 @@ export default function DictationTest() {
     setPracticeMode(mode);
     setDifficulty(config.defaultDifficulty);
     setSpeedLevel(config.defaultSpeed);
+    setShownSentenceIds([]);
     setTestState({
       sentence: null,
       typedText: '',

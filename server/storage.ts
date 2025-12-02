@@ -114,7 +114,7 @@ import {
   type SecuritySettings,
   type InsertSecuritySettings,
 } from "@shared/schema";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, notInArray } from "drizzle-orm";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -311,7 +311,7 @@ export interface IStorage {
   createBookTestResult(result: InsertBookTypingTest): Promise<BookTypingTest>;
   getBookTestResults(userId: string, limit?: number): Promise<BookTypingTest[]>;
   
-  getRandomDictationSentence(difficulty?: string, category?: string): Promise<DictationSentence | undefined>;
+  getRandomDictationSentence(difficulty?: string, category?: string, excludeIds?: number[]): Promise<DictationSentence | undefined>;
   createDictationTest(test: InsertDictationTest): Promise<DictationTest>;
   getDictationTestById(testId: number): Promise<DictationTest | undefined>;
   getUserDictationStats(userId: string): Promise<{
@@ -1890,7 +1890,7 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
   }
 
-  async getRandomDictationSentence(difficulty?: string, category?: string): Promise<DictationSentence | undefined> {
+  async getRandomDictationSentence(difficulty?: string, category?: string, excludeIds?: number[]): Promise<DictationSentence | undefined> {
     const conditions = [];
     
     if (difficulty) {
@@ -1899,6 +1899,10 @@ export class DatabaseStorage implements IStorage {
     
     if (category) {
       conditions.push(eq(dictationSentences.category, category));
+    }
+    
+    if (excludeIds && excludeIds.length > 0) {
+      conditions.push(notInArray(dictationSentences.id, excludeIds));
     }
     
     let query = db.select().from(dictationSentences);

@@ -2082,8 +2082,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const difficulty = req.query.difficulty as string | undefined;
       const category = req.query.category as string | undefined;
+      const excludeIdsParam = req.query.excludeIds as string | undefined;
       
-      const sentence = await storage.getRandomDictationSentence(difficulty, category);
+      let excludeIds: number[] | undefined;
+      if (excludeIdsParam) {
+        excludeIds = excludeIdsParam.split(',').map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+      }
+      
+      const sentence = await storage.getRandomDictationSentence(difficulty, category, excludeIds);
       
       if (!sentence) {
         return res.status(404).json({ message: "No sentences available" });
