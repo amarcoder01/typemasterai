@@ -675,16 +675,22 @@ export default function DictationTest() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (testState.isComplete || !testState.sentence) return;
-      
       const activeElement = document.activeElement;
       const isTyping = activeElement?.tagName === 'TEXTAREA' || 
                        activeElement?.tagName === 'INPUT' ||
                        activeElement?.getAttribute('contenteditable') === 'true';
       
-      if (isTyping) return;
-      
       const key = e.key.toLowerCase();
+      
+      if (testState.isComplete && key === 'n' && !isTyping) {
+        e.preventDefault();
+        handleNextManual();
+        return;
+      }
+      
+      if (testState.isComplete || !testState.sentence) return;
+      
+      if (isTyping) return;
       
       if (key === 'r' && !isSpeaking && testState.sentence) {
         e.preventDefault();
@@ -2164,18 +2170,33 @@ export default function DictationTest() {
                 {testState.startTime && !isSpeaking && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="text-xs text-green-600 flex items-center gap-2 cursor-help">
+                      <span className={`text-xs flex items-center gap-2 cursor-help transition-colors ${
+                        PRACTICE_MODES[practiceMode].timerPressure
+                          ? elapsedTime > 45 ? 'text-red-600' : elapsedTime > 30 ? 'text-orange-500' : elapsedTime > 15 ? 'text-yellow-600' : 'text-green-600'
+                          : 'text-green-600'
+                      }`}>
                         <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></span>
-                          Timer running
+                          <span className={`w-2 h-2 rounded-full animate-pulse ${
+                            PRACTICE_MODES[practiceMode].timerPressure
+                              ? elapsedTime > 45 ? 'bg-red-600' : elapsedTime > 30 ? 'bg-orange-500' : elapsedTime > 15 ? 'bg-yellow-600' : 'bg-green-600'
+                              : 'bg-green-600'
+                          }`}></span>
+                          {PRACTICE_MODES[practiceMode].timerPressure && elapsedTime > 30 ? 'Hurry up!' : 'Timer running'}
                         </span>
-                        <span className="font-mono bg-green-500/10 px-2 py-0.5 rounded">
+                        <span className={`font-mono px-2 py-0.5 rounded ${
+                          PRACTICE_MODES[practiceMode].timerPressure
+                            ? elapsedTime > 45 ? 'bg-red-500/20' : elapsedTime > 30 ? 'bg-orange-500/20' : elapsedTime > 15 ? 'bg-yellow-500/20' : 'bg-green-500/10'
+                            : 'bg-green-500/10'
+                        }`}>
                           {Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
                         </span>
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Time elapsed since audio finished. Type your answer now!</p>
+                      <p>{PRACTICE_MODES[practiceMode].timerPressure 
+                        ? 'Challenge mode: Complete quickly for bonus points!' 
+                        : 'Time elapsed since audio finished. Type your answer now!'}
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 )}
