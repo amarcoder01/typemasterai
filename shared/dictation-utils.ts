@@ -52,6 +52,7 @@ export function levenshteinDistance(str1: string, str2: string): number {
 
 export interface CharacterDiff {
   char: string;
+  typedChar?: string;
   status: 'correct' | 'incorrect' | 'missing' | 'extra';
   position: number;
 }
@@ -68,20 +69,58 @@ export function getCharacterDiff(typed: string, actual: string): CharacterDiff[]
   const normalizedActual = normalizeText(actual);
   const diff: CharacterDiff[] = [];
   
-  const maxLen = Math.max(normalizedTyped.length, normalizedActual.length);
+  let typedIdx = 0;
+  let actualIdx = 0;
+  let position = 0;
   
-  for (let i = 0; i < maxLen; i++) {
-    const typedChar = normalizedTyped[i] || '';
-    const actualChar = normalizedActual[i] || '';
+  while (actualIdx < normalizedActual.length || typedIdx < normalizedTyped.length) {
+    const typedChar = normalizedTyped[typedIdx] || '';
+    const actualChar = normalizedActual[actualIdx] || '';
     
-    if (typedChar === actualChar) {
-      diff.push({ char: actualChar, status: 'correct', position: i });
-    } else if (!typedChar && actualChar) {
-      diff.push({ char: actualChar, status: 'missing', position: i });
-    } else if (typedChar && !actualChar) {
-      diff.push({ char: typedChar, status: 'extra', position: i });
+    if (typedIdx >= normalizedTyped.length) {
+      diff.push({ char: actualChar, status: 'missing', position: position++ });
+      actualIdx++;
+    } else if (actualIdx >= normalizedActual.length) {
+      diff.push({ char: typedChar, status: 'extra', position: position++ });
+      typedIdx++;
+    } else if (typedChar === actualChar) {
+      diff.push({ char: actualChar, status: 'correct', position: position++ });
+      typedIdx++;
+      actualIdx++;
     } else {
-      diff.push({ char: actualChar, status: 'incorrect', position: i });
+      const lookAhead = 3;
+      let foundTypedAhead = -1;
+      let foundActualAhead = -1;
+      
+      for (let i = 1; i <= lookAhead && actualIdx + i < normalizedActual.length; i++) {
+        if (normalizedActual[actualIdx + i] === typedChar) {
+          foundActualAhead = i;
+          break;
+        }
+      }
+      
+      for (let i = 1; i <= lookAhead && typedIdx + i < normalizedTyped.length; i++) {
+        if (normalizedTyped[typedIdx + i] === actualChar) {
+          foundTypedAhead = i;
+          break;
+        }
+      }
+      
+      if (foundActualAhead > 0 && (foundTypedAhead < 0 || foundActualAhead <= foundTypedAhead)) {
+        for (let i = 0; i < foundActualAhead; i++) {
+          diff.push({ char: normalizedActual[actualIdx + i], status: 'missing', position: position++ });
+        }
+        actualIdx += foundActualAhead;
+      } else if (foundTypedAhead > 0) {
+        for (let i = 0; i < foundTypedAhead; i++) {
+          diff.push({ char: normalizedTyped[typedIdx + i], status: 'extra', position: position++ });
+        }
+        typedIdx += foundTypedAhead;
+      } else {
+        diff.push({ char: actualChar, typedChar: typedChar, status: 'incorrect', position: position++ });
+        typedIdx++;
+        actualIdx++;
+      }
     }
   }
   

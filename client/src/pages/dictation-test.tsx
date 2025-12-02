@@ -289,7 +289,7 @@ function isBookmarked(id: number): boolean {
   return getBookmarks().some(b => b.id === id);
 }
 
-function categorizeErrors(characterDiff: CharacterDiff[], original: string, typed: string): ErrorCategory[] {
+function categorizeErrors(characterDiff: CharacterDiff[]): ErrorCategory[] {
   const categories: Map<string, ErrorCategory> = new Map();
   
   const addError = (type: ErrorCategory['type'], example: string) => {
@@ -301,16 +301,11 @@ function categorizeErrors(characterDiff: CharacterDiff[], original: string, type
       categories.set(type, { type, count: 1, examples: [example] });
     }
   };
-
-  let lastType: 'correct' | 'incorrect' | 'missing' | 'extra' | null = null;
-  let buffer = '';
   
-  for (let i = 0; i < characterDiff.length; i++) {
-    const diff = characterDiff[i];
-    
+  for (const diff of characterDiff) {
     if (diff.status === 'incorrect') {
-      const origChar = original[i] || '';
-      const typedChar = typed[i] || '';
+      const origChar = diff.char;
+      const typedChar = diff.typedChar || '';
       
       if (/[.,!?;:'"-]/.test(origChar) || /[.,!?;:'"-]/.test(typedChar)) {
         addError('punctuation', `'${origChar}' → '${typedChar}'`);
@@ -885,11 +880,7 @@ export default function DictationTest() {
       result,
     }));
 
-    const errorCategories = categorizeErrors(
-      accuracyResult.characterDiff,
-      currentSentence.sentence,
-      currentTypedText
-    );
+    const errorCategories = categorizeErrors(accuracyResult.characterDiff);
 
     setSessionHistory(prev => [...prev, {
       sentence: currentSentence.sentence,
