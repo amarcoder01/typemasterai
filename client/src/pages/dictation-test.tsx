@@ -115,10 +115,15 @@ interface DictationTestState {
 }
 
 const SESSION_LENGTH_OPTIONS = [
+  { value: 3, label: '3 sentences (Warm-up)' },
   { value: 5, label: '5 sentences (Quick)' },
   { value: 10, label: '10 sentences (Standard)' },
   { value: 15, label: '15 sentences (Extended)' },
-  { value: 20, label: '20 sentences (Marathon)' },
+  { value: 20, label: '20 sentences (Long)' },
+  { value: 25, label: '25 sentences (Marathon)' },
+  { value: 30, label: '30 sentences (Endurance)' },
+  { value: 50, label: '50 sentences (Challenge)' },
+  { value: 0, label: 'Custom...' },
 ];
 
 const CATEGORIES = [
@@ -295,6 +300,8 @@ export default function DictationTest() {
   const [speedLevel, setSpeedLevel] = useState<string>('1.0');
   const [category, setCategory] = useState<string>('all');
   const [sessionLength, setSessionLength] = useState<number>(10);
+  const [showCustomLength, setShowCustomLength] = useState(false);
+  const [customLengthInput, setCustomLengthInput] = useState<string>('');
   const [sessionHistory, setSessionHistory] = useState<SessionHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -345,6 +352,31 @@ export default function DictationTest() {
     const selectedVoice = voices.find(v => v.voiceURI === voiceUri);
     if (selectedVoice) {
       setVoice(selectedVoice);
+    }
+  };
+
+  const handleSessionLengthChange = (value: string) => {
+    const numValue = parseInt(value);
+    if (numValue === 0) {
+      setShowCustomLength(true);
+    } else {
+      setSessionLength(numValue);
+      setShowCustomLength(false);
+    }
+  };
+
+  const handleCustomLengthSubmit = () => {
+    const value = parseInt(customLengthInput);
+    if (value >= 1 && value <= 100) {
+      setSessionLength(value);
+      setShowCustomLength(false);
+      setCustomLengthInput('');
+    } else {
+      toast({
+        title: 'Invalid session length',
+        description: 'Please enter a number between 1 and 100',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -890,27 +922,55 @@ export default function DictationTest() {
                 </div>
               )}
 
-              <div className="flex gap-4 justify-center items-center mb-4">
+              <div className="flex gap-4 justify-center items-center mb-4 flex-wrap">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">Session Length:</span>
-                      <Select value={sessionLength.toString()} onValueChange={(v) => setSessionLength(parseInt(v))}>
-                        <SelectTrigger className="w-[180px]" data-testid="select-session-length">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SESSION_LENGTH_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value.toString()}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {showCustomLength ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={customLengthInput}
+                            onChange={(e) => setCustomLengthInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleCustomLengthSubmit()}
+                            placeholder="1-100"
+                            className="w-20 px-3 py-2 text-sm border rounded-md bg-background"
+                            data-testid="input-custom-session-length"
+                            autoFocus
+                          />
+                          <Button size="sm" onClick={handleCustomLengthSubmit} data-testid="button-confirm-custom-length">
+                            Set
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setShowCustomLength(false)} data-testid="button-cancel-custom-length">
+                            Cancel
+                          </Button>
+                        </div>
+                      ) : (
+                        <Select 
+                          value={SESSION_LENGTH_OPTIONS.find(o => o.value === sessionLength) ? sessionLength.toString() : '0'} 
+                          onValueChange={handleSessionLengthChange}
+                        >
+                          <SelectTrigger className="w-[200px]" data-testid="select-session-length">
+                            <SelectValue>
+                              {SESSION_LENGTH_OPTIONS.find(o => o.value === sessionLength)?.label || `${sessionLength} sentences (Custom)`}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SESSION_LENGTH_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value.toString()}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
-                    <p>Choose how many sentences to practice in your next session</p>
+                    <p>Choose how many sentences to practice in your next session (1-100)</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -1056,21 +1116,49 @@ export default function DictationTest() {
                   <Clock className="w-4 h-4" />
                   Session Settings
                 </h4>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm text-muted-foreground mb-1 block">Session Length</label>
-                    <Select value={sessionLength.toString()} onValueChange={(v) => setSessionLength(parseInt(v))}>
-                      <SelectTrigger data-testid="select-session-length-mode">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SESSION_LENGTH_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value.toString()}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {showCustomLength ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={customLengthInput}
+                          onChange={(e) => setCustomLengthInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleCustomLengthSubmit()}
+                          placeholder="1-100"
+                          className="flex-1 px-3 py-2 text-sm border rounded-md bg-background"
+                          data-testid="input-custom-session-length-mode"
+                          autoFocus
+                        />
+                        <Button size="sm" onClick={handleCustomLengthSubmit} data-testid="button-confirm-custom-length-mode">
+                          Set
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setShowCustomLength(false)} data-testid="button-cancel-custom-length-mode">
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Select 
+                        value={SESSION_LENGTH_OPTIONS.find(o => o.value === sessionLength) ? sessionLength.toString() : '0'} 
+                        onValueChange={handleSessionLengthChange}
+                      >
+                        <SelectTrigger data-testid="select-session-length-mode">
+                          <SelectValue>
+                            {SESSION_LENGTH_OPTIONS.find(o => o.value === sessionLength)?.label || `${sessionLength} sentences (Custom)`}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SESSION_LENGTH_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value.toString()}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   <div>
                     <label className="text-sm text-muted-foreground mb-1 block">Topic</label>
