@@ -52,15 +52,39 @@ export function useSpeechSynthesis(
 
     const loadVoices = () => {
       const availableVoices = window.speechSynthesis.getVoices();
-      setVoices(availableVoices);
+      const validVoices = availableVoices.filter(v => v.voiceURI && v.voiceURI.trim() !== '');
+      setVoices(validVoices);
       
-      if (availableVoices.length > 0 && !currentVoice) {
-        const localEnglishVoice = availableVoices.find(v => v.localService && v.lang.startsWith('en'));
-        const anyLocalVoice = availableVoices.find(v => v.localService);
-        const defaultVoice = availableVoices.find(v => v.default);
-        const englishVoice = availableVoices.find(v => v.lang.startsWith('en'));
+      if (validVoices.length > 0 && !currentVoice) {
+        const englishVoices = validVoices.filter(v => v.lang.startsWith('en'));
         
-        const selectedVoice = localEnglishVoice || anyLocalVoice || defaultVoice || englishVoice || availableVoices[0];
+        const premiumVoice = englishVoices.find(v => 
+          v.name.toLowerCase().includes('premium') ||
+          v.name.toLowerCase().includes('enhanced') ||
+          v.name.toLowerCase().includes('natural') ||
+          v.name.toLowerCase().includes('neural')
+        );
+        
+        const googleVoice = englishVoices.find(v => 
+          v.name.toLowerCase().includes('google') && 
+          (v.lang === 'en-US' || v.lang === 'en-GB')
+        );
+        
+        const microsoftVoice = englishVoices.find(v => 
+          v.name.toLowerCase().includes('microsoft') &&
+          (v.name.toLowerCase().includes('zira') || 
+           v.name.toLowerCase().includes('david') ||
+           v.name.toLowerCase().includes('mark'))
+        );
+        
+        const localEnglishVoice = englishVoices.find(v => v.localService);
+        const usEnglishVoice = englishVoices.find(v => v.lang === 'en-US');
+        const anyEnglishVoice = englishVoices[0];
+        const defaultVoice = validVoices.find(v => v.default);
+        
+        const selectedVoice = premiumVoice || googleVoice || microsoftVoice || 
+                              localEnglishVoice || usEnglishVoice || anyEnglishVoice || 
+                              defaultVoice || validVoices[0];
         setCurrentVoice(selectedVoice);
       }
     };

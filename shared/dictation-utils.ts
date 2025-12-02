@@ -271,9 +271,9 @@ export function calculateDictationWPM(
 
 export function getSpeedRate(speedLevel: string): number {
   const rates: Record<string, number> = {
-    slow: 0.7,
-    medium: 1.0,
-    fast: 1.5,
+    slow: 0.6,
+    medium: 0.85,
+    fast: 1.1,
   };
   
   if (speedLevel === 'random') {
@@ -287,7 +287,7 @@ export function getSpeedRate(speedLevel: string): number {
     return numericRate;
   }
   
-  return rates[speedLevel] || 1.0;
+  return rates[speedLevel] || 0.85;
 }
 
 export function getSpeedLevelName(rate: number): string {
