@@ -1268,7 +1268,8 @@ export default function StressTest() {
     <TooltipProvider delayDuration={300}>
       <div
         ref={containerRef}
-        className={`min-h-screen flex items-center justify-center p-4 transition-all duration-100 ${
+        onClick={() => inputRef.current?.focus()}
+        className={`min-h-screen flex items-center justify-center p-4 transition-all duration-100 cursor-text ${
           backgroundFlash ? 'bg-red-500/30' : 'bg-background'
         }`}
         style={{
@@ -1384,12 +1385,17 @@ export default function StressTest() {
             </CardContent>
           </Card>
 
-          {/* Hidden input */}
+          {/* Hidden input - auto-refocuses if focus is lost */}
           <input
             ref={inputRef}
             type="text"
             value={typedText}
             onChange={handleInputChange}
+            onBlur={() => {
+              if (isStarted && !isFinished) {
+                inputRef.current?.focus();
+              }
+            }}
             className="opacity-0 absolute pointer-events-none"
             autoComplete="off"
             autoFocus
