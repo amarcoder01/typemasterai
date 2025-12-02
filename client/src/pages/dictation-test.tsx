@@ -454,6 +454,7 @@ export default function DictationTest() {
   const [bookmarks, setBookmarks] = useState<BookmarkedSentence[]>(() => getBookmarks());
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [isWaitingToStart, setIsWaitingToStart] = useState(false);
   
   const currentRate = getSpeedRate(speedLevel);
   const { speak, cancel, isSpeaking, isSupported, error: speechError, voices, setVoice, currentVoice } = useSpeechSynthesis({
@@ -667,12 +668,7 @@ export default function DictationTest() {
     }
   }, [cancel, fetchNewSentence, speak, sessionProgress, sessionLength, toast]);
 
-  useEffect(() => {
-    if (!showModeSelector) {
-      startNewTest();
-    }
-  }, [showModeSelector]);
-
+  
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeElement = document.activeElement;
@@ -941,6 +937,12 @@ export default function DictationTest() {
       result: null,
     });
     setShowModeSelector(false);
+    setIsWaitingToStart(true);
+  };
+
+  const beginSession = () => {
+    setIsWaitingToStart(false);
+    startNewTest();
   };
 
   const achievements = useMemo(() => 
@@ -1369,6 +1371,105 @@ export default function DictationTest() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </TooltipProvider>
+    );
+  }
+
+  if (isWaitingToStart) {
+    const modeConfig = PRACTICE_MODES[practiceMode];
+    return (
+      <TooltipProvider delayDuration={300}>
+        <div className="container max-w-4xl mx-auto p-6">
+          <div className="mb-6 flex items-center justify-between">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setShowModeSelector(true);
+                    setIsWaitingToStart(false);
+                  }}
+                  data-testid="button-back-to-modes"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Modes
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Choose a different practice mode</p>
+              </TooltipContent>
+            </Tooltip>
+            <h1 className="text-2xl font-bold">Get Ready!</h1>
+            <div className="w-24" />
+          </div>
+
+          <Card className="mb-6">
+            <CardContent className="pt-8 pb-8">
+              <div className="text-center">
+                <div className="mb-6">
+                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
+                    {modeConfig.icon}
+                  </div>
+                  <h2 className="text-2xl font-bold mb-2">{modeConfig.name}</h2>
+                  <p className="text-muted-foreground">{modeConfig.description}</p>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 max-w-lg mx-auto">
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <div className="text-lg font-bold">{sessionLength}</div>
+                    <div className="text-xs text-muted-foreground">Sentences</div>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <div className="text-lg font-bold capitalize">{difficulty}</div>
+                    <div className="text-xs text-muted-foreground">Difficulty</div>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <div className="text-lg font-bold">{speedLevel}x</div>
+                    <div className="text-xs text-muted-foreground">Speed</div>
+                  </div>
+                  <div className="p-3 bg-muted/50 rounded-lg">
+                    <div className="text-lg font-bold capitalize">{category === 'all' ? 'Mixed' : category}</div>
+                    <div className="text-xs text-muted-foreground">Topic</div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center gap-4">
+                  <Button 
+                    size="lg" 
+                    onClick={beginSession}
+                    className="px-12 py-6 text-lg"
+                    data-testid="button-start-session"
+                  >
+                    <Volume2 className="w-5 h-5 mr-2" />
+                    Start Session
+                  </Button>
+                  <p className="text-sm text-muted-foreground">
+                    Press the button when you're ready to begin
+                  </p>
+                </div>
+
+                <div className="mt-8 pt-6 border-t">
+                  <h3 className="text-sm font-medium mb-3">What to expect:</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 justify-center">
+                      <Volume2 className="w-4 h-4" />
+                      <span>Listen to the audio</span>
+                    </div>
+                    <div className="flex items-center gap-2 justify-center">
+                      <Mic className="w-4 h-4" />
+                      <span>Type what you heard</span>
+                    </div>
+                    <div className="flex items-center gap-2 justify-center">
+                      <Check className="w-4 h-4" />
+                      <span>Submit & get feedback</span>
+                    </div>
                   </div>
                 </div>
               </div>
