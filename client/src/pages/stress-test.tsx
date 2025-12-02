@@ -332,6 +332,26 @@ export default function StressTest() {
       if (!res.ok) throw new Error('Failed to save result');
       return res.json();
     },
+    onSuccess: (data) => {
+      if (data?.isNewPersonalBest) {
+        toast({
+          title: "🏆 New Personal Best!",
+          description: "You've set a new record for this difficulty level!",
+        });
+      } else if (data?.isLeaderboardEntry) {
+        toast({
+          title: "📊 Leaderboard Entry!",
+          description: "Your score has been added to the leaderboard!",
+        });
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Save Failed",
+        description: "Could not save your result. Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   // Start test with countdown
@@ -341,6 +361,12 @@ export default function StressTest() {
     const randomText = SAMPLE_TEXTS[Math.floor(Math.random() * SAMPLE_TEXTS.length)];
     setCurrentText(randomText);
     setStressLevel(0);
+    
+    const diffConfig = DIFFICULTY_CONFIGS[difficulty];
+    toast({
+      title: `${diffConfig.icon} ${diffConfig.name}`,
+      description: `${diffConfig.duration}s of pure chaos awaits! Get ready...`,
+    });
     
     const countInterval = setInterval(() => {
       setCountdown((prev) => {
@@ -384,6 +410,18 @@ export default function StressTest() {
           playSound('combo');
           setComboExplosion(true);
           setTimeout(() => setComboExplosion(false), 500);
+          
+          if (newCombo === 50) {
+            toast({
+              title: "🔥 50 Combo!",
+              description: "You're on fire! Keep it up!",
+            });
+          } else if (newCombo === 100) {
+            toast({
+              title: "⚡ 100 Combo!",
+              description: "Incredible focus under pressure!",
+            });
+          }
         }
         return newCombo;
       });
@@ -479,7 +517,14 @@ export default function StressTest() {
           finishTest(false);
           return 0;
         }
-        if (prev <= 10) {
+        if (prev === 10) {
+          playSound('warning');
+          toast({
+            title: "⏰ 10 Seconds Left!",
+            description: "Final push! You can do this!",
+            variant: "destructive",
+          });
+        } else if (prev <= 10) {
           playSound('warning');
         }
         return prev - 1;

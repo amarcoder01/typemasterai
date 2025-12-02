@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, Trophy, Zap, Flame, Award } from 'lucide-react';
+import { ArrowLeft, Trophy, Zap, Flame, Award, Info, Target, BarChart3, Timer, CheckCircle2, Medal, Crown, Star, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth-context';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 type Difficulty = 'all' | 'beginner' | 'intermediate' | 'expert' | 'nightmare' | 'impossible';
 
@@ -26,11 +32,27 @@ const DIFFICULTY_COLORS: Record<Exclude<Difficulty, 'all'>, string> = {
   impossible: 'text-purple-900',
 };
 
+const DIFFICULTY_DESCRIPTIONS: Record<Exclude<Difficulty, 'all'>, string> = {
+  beginner: 'Light screen shake with basic distractions - 30 seconds',
+  intermediate: 'Screen inverts, zoom chaos, and sensory assault - 45 seconds',
+  expert: 'Screen flips upside down, glitches, complete chaos - 60 seconds',
+  nightmare: 'Text reverses, screen inverts/flips, reality collapses - 90 seconds',
+  impossible: 'Text teleports, ALL effects active, reality ceases to exist - 120 seconds',
+};
+
+const DIFFICULTY_MULTIPLIERS: Record<Exclude<Difficulty, 'all'>, number> = {
+  beginner: 1,
+  intermediate: 2,
+  expert: 3,
+  nightmare: 4,
+  impossible: 5,
+};
+
 export default function StressLeaderboard() {
   const { user } = useAuth();
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('all');
 
-  const { data: leaderboardData } = useQuery({
+  const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery({
     queryKey: ['stress-leaderboard', selectedDifficulty],
     queryFn: async () => {
       const params = selectedDifficulty !== 'all' ? `?difficulty=${selectedDifficulty}` : '';
@@ -42,7 +64,7 @@ export default function StressLeaderboard() {
     },
   });
 
-  const { data: statsData } = useQuery({
+  const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['stress-stats'],
     queryFn: async () => {
       const res = await fetch('/api/stress-test/stats', {
@@ -58,212 +80,538 @@ export default function StressLeaderboard() {
   const stats = statsData?.stats;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <Link href="/stress-test">
-          <Button variant="ghost" size="sm" className="gap-2" data-testid="button-back">
-            <ArrowLeft className="w-4 h-4" />
-            Back to Stress Test
-          </Button>
-        </Link>
-      </div>
-
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Trophy className="w-12 h-12 text-primary animate-pulse" />
-            <h1 className="text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-500 via-red-500 to-purple-500">
-              Stress Test Leaderboard
-            </h1>
-          </div>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            The bravest warriors who survived the chaos
-          </p>
+    <TooltipProvider delayDuration={200}>
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/stress-test">
+                <Button variant="ghost" size="sm" className="gap-2" data-testid="button-back">
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Stress Test
+                </Button>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Return to difficulty selection and take the test</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
 
-        {/* User Stats */}
-        {user && stats && (
-          <Card className="mb-8 border-2 border-primary/20">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-primary" />
-                Your Statistics
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-3xl font-bold text-primary">{stats.totalTests}</div>
-                  <div className="text-sm text-muted-foreground">Total Tests</div>
-                </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-3xl font-bold text-green-500">{stats.completedTests}</div>
-                  <div className="text-sm text-muted-foreground">Completed</div>
-                </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-3xl font-bold text-orange-500">{stats.bestScore}</div>
-                  <div className="text-sm text-muted-foreground">Best Score</div>
-                </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-3xl font-bold text-blue-500">{stats.avgScore}</div>
-                  <div className="text-sm text-muted-foreground">Avg Score</div>
-                </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-3xl font-bold text-purple-500">{stats.difficultiesCompleted.length}</div>
-                  <div className="text-sm text-muted-foreground">Difficulties Beat</div>
-                </div>
-              </div>
-              
-              {stats.difficultiesCompleted.length > 0 && (
-                <div className="mt-4 text-center">
-                  <p className="text-sm text-muted-foreground mb-2">Conquered Difficulties:</p>
-                  <div className="flex items-center justify-center gap-2 flex-wrap">
-                    {stats.difficultiesCompleted.map((diff: string) => (
-                      <span
-                        key={diff}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 rounded-full text-sm font-medium"
-                      >
-                        <span>{DIFFICULTY_ICONS[diff as keyof typeof DIFFICULTY_ICONS]}</span>
-                        <span className="capitalize">{diff}</span>
-                      </span>
-                    ))}
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <Trophy className="w-12 h-12 text-primary animate-pulse cursor-help" />
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Global rankings of stress test champions</p>
+                </TooltipContent>
+              </Tooltip>
+              <h1 className="text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-orange-500 via-red-500 to-purple-500">
+                Stress Test Leaderboard
+              </h1>
+            </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <p className="text-xl text-muted-foreground max-w-2xl mx-auto cursor-help inline-flex items-center gap-2">
+                  The bravest warriors who survived the chaos
+                  <Info className="w-4 h-4" />
+                </p>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p>Rankings are based on Stress Score, which combines WPM, accuracy, completion rate, and difficulty multiplier</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
 
-        {/* Difficulty Filter */}
-        <Tabs value={selectedDifficulty} onValueChange={(v) => setSelectedDifficulty(v as Difficulty)} className="mb-8">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="all" data-testid="tab-all">
-              All
-            </TabsTrigger>
-            <TabsTrigger value="beginner" data-testid="tab-beginner">
-              🔥 Beginner
-            </TabsTrigger>
-            <TabsTrigger value="intermediate" data-testid="tab-intermediate">
-              ⚡ Intermediate
-            </TabsTrigger>
-            <TabsTrigger value="expert" data-testid="tab-expert">
-              💀 Expert
-            </TabsTrigger>
-            <TabsTrigger value="nightmare" data-testid="tab-nightmare">
-              ☠️ Nightmare
-            </TabsTrigger>
-            <TabsTrigger value="impossible" data-testid="tab-impossible">
-              🌀 Impossible
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value={selectedDifficulty}>
-            <Card>
-              <CardContent className="p-0">
-                {leaderboard.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Zap className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-lg text-muted-foreground">
-                      No one has conquered this challenge yet. Be the first!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {leaderboard.map((entry: any, index: number) => (
-                      <div
-                        key={entry.userId + entry.createdAt}
-                        className={`flex items-center gap-4 p-4 transition-colors ${
-                          entry.userId === user?.id ? 'bg-primary/10' : 'hover:bg-muted/50'
-                        }`}
-                        data-testid={`leaderboard-entry-${index}`}
-                      >
-                        {/* Rank */}
-                        <div className="flex-shrink-0 w-12 text-center">
-                          {index === 0 && (
-                            <div className="text-3xl animate-bounce">🥇</div>
-                          )}
-                          {index === 1 && (
-                            <div className="text-3xl animate-bounce" style={{ animationDelay: '0.1s' }}>🥈</div>
-                          )}
-                          {index === 2 && (
-                            <div className="text-3xl animate-bounce" style={{ animationDelay: '0.2s' }}>🥉</div>
-                          )}
-                          {index > 2 && (
-                            <span className="text-2xl font-bold text-muted-foreground">#{index + 1}</span>
-                          )}
-                        </div>
-
-                        {/* User */}
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <Avatar className="w-10 h-10 border-2" style={{ borderColor: entry.avatarColor || '#888' }}>
-                            <AvatarFallback style={{ backgroundColor: entry.avatarColor || '#888' }}>
-                              {entry.username.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-semibold truncate flex items-center gap-2">
-                              {entry.username}
-                              {entry.userId === user?.id && (
-                                <span className="text-xs px-2 py-0.5 bg-primary/20 text-primary rounded">You</span>
-                              )}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {new Date(entry.createdAt).toLocaleDateString()}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Difficulty Badge */}
-                        {selectedDifficulty === 'all' && (
-                          <div className="flex-shrink-0">
-                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
-                              DIFFICULTY_COLORS[entry.difficulty as keyof typeof DIFFICULTY_COLORS]
-                            } bg-muted`}>
-                              <span>{DIFFICULTY_ICONS[entry.difficulty as keyof typeof DIFFICULTY_ICONS]}</span>
-                              <span className="capitalize">{entry.difficulty}</span>
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Stats */}
-                        <div className="flex gap-6 flex-shrink-0">
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-primary">{entry.stressScore}</div>
-                            <div className="text-xs text-muted-foreground">Score</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-semibold text-blue-500">{entry.wpm}</div>
-                            <div className="text-xs text-muted-foreground">WPM</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-semibold text-green-500">{entry.accuracy.toFixed(1)}%</div>
-                            <div className="text-xs text-muted-foreground">Acc</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-semibold text-orange-500">{entry.completionRate.toFixed(0)}%</div>
-                            <div className="text-xs text-muted-foreground">Done</div>
-                          </div>
+          {/* User Stats */}
+          {user && stats && (
+            <Card className="mb-8 border-2 border-primary/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-2 cursor-help">
+                        <Award className="w-5 h-5 text-primary" />
+                        Your Statistics
+                        <HelpCircle className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="right">
+                      <p>Your personal stress test performance summary</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors">
+                        <div className="text-3xl font-bold text-primary">{stats.totalTests}</div>
+                        <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+                          <BarChart3 className="w-3 h-3" />
+                          Total Tests
                         </div>
                       </div>
-                    ))}
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Total number of stress tests you've attempted</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors">
+                        <div className="text-3xl font-bold text-green-500">{stats.completedTests}</div>
+                        <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Completed
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <div className="space-y-1">
+                        <p>Tests where you typed 100% of the text</p>
+                        <p className="text-xs text-muted-foreground">
+                          Completion rate: {stats.totalTests > 0 ? ((stats.completedTests / stats.totalTests) * 100).toFixed(0) : 0}%
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors">
+                        <div className="text-3xl font-bold text-orange-500">{stats.bestScore}</div>
+                        <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+                          <Crown className="w-3 h-3" />
+                          Best Score
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <div className="space-y-1">
+                        <p>Your highest stress score ever achieved</p>
+                        <p className="text-xs text-muted-foreground">Higher difficulties give higher multipliers!</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors">
+                        <div className="text-3xl font-bold text-blue-500">{stats.avgScore}</div>
+                        <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+                          <Target className="w-3 h-3" />
+                          Avg Score
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <p>Your average stress score across all tests</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors">
+                        <div className="text-3xl font-bold text-purple-500">{stats.difficultiesCompleted.length}</div>
+                        <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
+                          <Medal className="w-3 h-3" />
+                          Difficulties Beat
+                        </div>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <div className="space-y-1">
+                        <p>Number of unique difficulties you've completed</p>
+                        <p className="text-xs text-muted-foreground">Complete all 5 difficulties to become a true champion!</p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                
+                {stats.difficultiesCompleted.length > 0 && (
+                  <div className="mt-4 text-center">
+                    <p className="text-sm text-muted-foreground mb-2">Conquered Difficulties:</p>
+                    <div className="flex items-center justify-center gap-2 flex-wrap">
+                      {stats.difficultiesCompleted.map((diff: string) => (
+                        <Tooltip key={diff}>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 rounded-full text-sm font-medium cursor-help hover:bg-primary/20 transition-colors">
+                              <span>{DIFFICULTY_ICONS[diff as keyof typeof DIFFICULTY_ICONS]}</span>
+                              <span className="capitalize">{diff}</span>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <div className="space-y-1">
+                              <p>{DIFFICULTY_DESCRIPTIONS[diff as keyof typeof DIFFICULTY_DESCRIPTIONS]}</p>
+                              <p className="text-xs text-muted-foreground">Multiplier: {DIFFICULTY_MULTIPLIERS[diff as keyof typeof DIFFICULTY_MULTIPLIERS]}x</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          )}
 
-        {/* CTA */}
-        <div className="text-center mt-8">
-          <Link href="/stress-test">
-            <Button size="lg" className="gap-2" data-testid="button-take-test">
-              <Flame className="w-5 h-5" />
-              Take the Test
-            </Button>
-          </Link>
+          {/* Difficulty Filter */}
+          <Tabs value={selectedDifficulty} onValueChange={(v) => setSelectedDifficulty(v as Difficulty)} className="mb-8">
+            <TabsList className="grid w-full grid-cols-6">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="all" data-testid="tab-all">
+                    All
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>View all difficulties combined</p>
+                </TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="beginner" data-testid="tab-beginner">
+                    🔥 Beginner
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <div className="space-y-1">
+                    <p className="font-semibold">Warm-Up Chaos</p>
+                    <p className="text-xs">{DIFFICULTY_DESCRIPTIONS.beginner}</p>
+                    <p className="text-xs text-muted-foreground">Score multiplier: 1x</p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="intermediate" data-testid="tab-intermediate">
+                    ⚡ Intermediate
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <div className="space-y-1">
+                    <p className="font-semibold">Mind Scrambler</p>
+                    <p className="text-xs">{DIFFICULTY_DESCRIPTIONS.intermediate}</p>
+                    <p className="text-xs text-muted-foreground">Score multiplier: 2x</p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="expert" data-testid="tab-expert">
+                    💀 Expert
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <div className="space-y-1">
+                    <p className="font-semibold">Absolute Mayhem</p>
+                    <p className="text-xs">{DIFFICULTY_DESCRIPTIONS.expert}</p>
+                    <p className="text-xs text-muted-foreground">Score multiplier: 3x</p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="nightmare" data-testid="tab-nightmare">
+                    ☠️ Nightmare
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <div className="space-y-1">
+                    <p className="font-semibold">Nightmare Realm</p>
+                    <p className="text-xs">{DIFFICULTY_DESCRIPTIONS.nightmare}</p>
+                    <p className="text-xs text-muted-foreground">Score multiplier: 4x</p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="impossible" data-testid="tab-impossible">
+                    🌀 Impossible
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <div className="space-y-1">
+                    <p className="font-semibold">IMPOSSIBLE</p>
+                    <p className="text-xs">{DIFFICULTY_DESCRIPTIONS.impossible}</p>
+                    <p className="text-xs text-muted-foreground">Score multiplier: 5x</p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TabsList>
+
+            <TabsContent value={selectedDifficulty}>
+              <Card>
+                <CardContent className="p-0">
+                  {leaderboardLoading ? (
+                    <div className="text-center py-12">
+                      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                      <p className="text-muted-foreground">Loading leaderboard...</p>
+                    </div>
+                  ) : leaderboard.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Zap className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-lg text-muted-foreground">
+                        No one has conquered this challenge yet. Be the first!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {/* Table Header */}
+                      <div className="hidden md:flex items-center gap-4 p-4 bg-muted/30 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <div className="w-12 text-center">Rank</div>
+                        <div className="flex-1">Player</div>
+                        {selectedDifficulty === 'all' && <div className="w-24">Difficulty</div>}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="w-20 text-center cursor-help">Score</div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>Stress Score = WPM × Accuracy × Completion × Multiplier</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="w-16 text-center cursor-help">WPM</div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>Words Per Minute typed during the test</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="w-16 text-center cursor-help">Acc</div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>Accuracy - percentage of correct keystrokes</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="w-16 text-center cursor-help">Done</div>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            <p>Completion rate - how much text was typed</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      
+                      {leaderboard.map((entry: any, index: number) => (
+                        <div
+                          key={entry.oderId + entry.createdAt}
+                          className={`flex items-center gap-4 p-4 transition-colors ${
+                            entry.userId === user?.id ? 'bg-primary/10' : 'hover:bg-muted/50'
+                          }`}
+                          data-testid={`leaderboard-entry-${index}`}
+                        >
+                          {/* Rank */}
+                          <div className="flex-shrink-0 w-12 text-center">
+                            {index === 0 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="text-3xl animate-bounce cursor-help">🥇</div>
+                                </TooltipTrigger>
+                                <TooltipContent side="right">
+                                  <p>1st Place - The Champion!</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            {index === 1 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="text-3xl animate-bounce cursor-help" style={{ animationDelay: '0.1s' }}>🥈</div>
+                                </TooltipTrigger>
+                                <TooltipContent side="right">
+                                  <p>2nd Place - Silver medalist!</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            {index === 2 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="text-3xl animate-bounce cursor-help" style={{ animationDelay: '0.2s' }}>🥉</div>
+                                </TooltipTrigger>
+                                <TooltipContent side="right">
+                                  <p>3rd Place - Bronze medalist!</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            {index > 2 && (
+                              <span className="text-2xl font-bold text-muted-foreground">#{index + 1}</span>
+                            )}
+                          </div>
+
+                          {/* User */}
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Avatar className="w-10 h-10 border-2 cursor-help" style={{ borderColor: entry.avatarColor || '#888' }}>
+                                  <AvatarFallback style={{ backgroundColor: entry.avatarColor || '#888' }}>
+                                    {entry.username.substring(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <p>{entry.username}'s profile</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold truncate flex items-center gap-2">
+                                {entry.username}
+                                {entry.userId === user?.id && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-xs px-2 py-0.5 bg-primary/20 text-primary rounded cursor-help">You</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                      <p>This is your entry!</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="text-sm text-muted-foreground cursor-help">
+                                    {new Date(entry.createdAt).toLocaleDateString()}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">
+                                  <p>Achieved on {new Date(entry.createdAt).toLocaleString()}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </div>
+
+                          {/* Difficulty Badge */}
+                          {selectedDifficulty === 'all' && (
+                            <div className="flex-shrink-0">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium cursor-help ${
+                                    DIFFICULTY_COLORS[entry.difficulty as keyof typeof DIFFICULTY_COLORS]
+                                  } bg-muted hover:bg-muted/80 transition-colors`}>
+                                    <span>{DIFFICULTY_ICONS[entry.difficulty as keyof typeof DIFFICULTY_ICONS]}</span>
+                                    <span className="capitalize">{entry.difficulty}</span>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top">
+                                  <div className="space-y-1">
+                                    <p>{DIFFICULTY_DESCRIPTIONS[entry.difficulty as keyof typeof DIFFICULTY_DESCRIPTIONS]}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      Score multiplier: {DIFFICULTY_MULTIPLIERS[entry.difficulty as keyof typeof DIFFICULTY_MULTIPLIERS]}x
+                                    </p>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          )}
+
+                          {/* Stats */}
+                          <div className="flex gap-6 flex-shrink-0">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-center cursor-help">
+                                  <div className="text-2xl font-bold text-primary">{entry.stressScore}</div>
+                                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                                    <Star className="w-3 h-3" />
+                                    Score
+                                  </div>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <div className="space-y-1">
+                                  <p className="font-semibold">Stress Score</p>
+                                  <p className="text-xs">Calculated from WPM, accuracy, completion & difficulty</p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                            
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-center cursor-help">
+                                  <div className="text-lg font-semibold text-blue-500">{entry.wpm}</div>
+                                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                                    <BarChart3 className="w-3 h-3" />
+                                    WPM
+                                  </div>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <p>Words Per Minute during the chaos</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-center cursor-help">
+                                  <div className="text-lg font-semibold text-green-500">{entry.accuracy.toFixed(1)}%</div>
+                                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                                    <Target className="w-3 h-3" />
+                                    Acc
+                                  </div>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <p>Typing accuracy despite distractions</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="text-center cursor-help">
+                                  <div className="text-lg font-semibold text-orange-500">{entry.completionRate.toFixed(0)}%</div>
+                                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    Done
+                                  </div>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <p>Percentage of text completed before time ran out</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          {/* CTA */}
+          <div className="text-center mt-8">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/stress-test">
+                  <Button size="lg" className="gap-2" data-testid="button-take-test">
+                    <Flame className="w-5 h-5" />
+                    Take the Test
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>Challenge yourself and climb the leaderboard!</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

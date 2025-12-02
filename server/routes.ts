@@ -2228,8 +2228,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Get user's previous best score for this difficulty
+      const previousStats = await storage.getUserStressStats(req.user!.id);
+      const userTests = await storage.getUserStressTests(req.user!.id, 100);
+      const previousBestForDifficulty = userTests
+        .filter(t => t.difficulty === parsed.data.difficulty)
+        .reduce((max, t) => Math.max(max, t.stressScore), 0);
+      
       const result = await storage.createStressTest(parsed.data);
-      res.status(201).json({ message: "Stress test result saved", result });
+      
+      // Determine if this is a new personal best for this difficulty
+      const isNewPersonalBest = parsed.data.stressScore > previousBestForDifficulty;
+      
+      // Check if this score makes it to the leaderboard (top 50)
+      const leaderboard = await storage.getStressTestLeaderboard(parsed.data.difficulty, 50);
+      const isLeaderboardEntry = leaderboard.length < 50 || 
+        parsed.data.stressScore > (leaderboard[leaderboard.length - 1]?.stressScore || 0);
+      
+      res.status(201).json({ 
+        message: "Stress test result saved", 
+        result,
+        isNewPersonalBest,
+        isLeaderboardEntry,
+      });
     } catch (error: any) {
       console.error("Save stress test error:", error);
       res.status(500).json({ message: "Failed to save stress test result" });
