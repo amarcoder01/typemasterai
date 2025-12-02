@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, Volume2, RotateCcw, Eye, EyeOff, Check, ChevronRight, Mic, Share2, HelpCircle, Flame, Trophy, Target, Zap, Clock, History, TrendingUp, Award, Sparkles, AlertCircle, Lightbulb, X, ChevronDown, ChevronUp, BarChart3, Bookmark, BookmarkCheck, Calendar, Star, Settings2 } from 'lucide-react';
+import { ArrowLeft, Volume2, RotateCcw, Eye, EyeOff, Check, ChevronRight, Mic, Share2, HelpCircle, Flame, Trophy, Target, Zap, Clock, History, TrendingUp, Award, Sparkles, AlertCircle, Lightbulb, X, ChevronDown, ChevronUp, BarChart3, Bookmark, BookmarkCheck, Calendar, Star, Settings2, Maximize2, Minimize2, Leaf, Waves, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,7 +42,7 @@ const PRACTICE_MODES: Record<PracticeMode, PracticeModeConfig> = {
   },
   focus: {
     name: 'Focus Mode',
-    description: 'Distraction-free practice at your pace',
+    description: 'Zen fullscreen with calming themes & encouragement',
     icon: <Target className="w-5 h-5" />,
     autoAdvance: false,
     hintsAllowed: true,
@@ -61,6 +61,79 @@ const PRACTICE_MODES: Record<PracticeMode, PracticeModeConfig> = {
     defaultDifficulty: 'easy',
   },
 };
+
+type ZenTheme = 'ocean' | 'forest' | 'sunset' | 'night';
+
+interface ZenThemeConfig {
+  name: string;
+  icon: React.ReactNode;
+  gradient: string;
+  textColor: string;
+  accentColor: string;
+  inputBg: string;
+  buttonBg: string;
+}
+
+const ZEN_THEMES: Record<ZenTheme, ZenThemeConfig> = {
+  ocean: {
+    name: 'Ocean Calm',
+    icon: <Waves className="w-4 h-4" />,
+    gradient: 'linear-gradient(135deg, #1a365d 0%, #2c5282 30%, #2b6cb0 60%, #3182ce 100%)',
+    textColor: '#e2e8f0',
+    accentColor: '#63b3ed',
+    inputBg: 'rgba(255, 255, 255, 0.1)',
+    buttonBg: 'rgba(99, 179, 237, 0.3)',
+  },
+  forest: {
+    name: 'Forest Peace',
+    icon: <Leaf className="w-4 h-4" />,
+    gradient: 'linear-gradient(135deg, #1a4731 0%, #22543d 30%, #276749 60%, #2f855a 100%)',
+    textColor: '#e2e8f0',
+    accentColor: '#68d391',
+    inputBg: 'rgba(255, 255, 255, 0.1)',
+    buttonBg: 'rgba(104, 211, 145, 0.3)',
+  },
+  sunset: {
+    name: 'Sunset Glow',
+    icon: <Sun className="w-4 h-4" />,
+    gradient: 'linear-gradient(135deg, #744210 0%, #c05621 30%, #dd6b20 60%, #ed8936 100%)',
+    textColor: '#fffaf0',
+    accentColor: '#fbd38d',
+    inputBg: 'rgba(255, 255, 255, 0.1)',
+    buttonBg: 'rgba(251, 211, 141, 0.3)',
+  },
+  night: {
+    name: 'Night Sky',
+    icon: <Moon className="w-4 h-4" />,
+    gradient: 'linear-gradient(135deg, #1a202c 0%, #2d3748 30%, #4a5568 60%, #718096 100%)',
+    textColor: '#e2e8f0',
+    accentColor: '#a0aec0',
+    inputBg: 'rgba(255, 255, 255, 0.08)',
+    buttonBg: 'rgba(160, 174, 192, 0.3)',
+  },
+};
+
+const MINDFUL_ENCOURAGEMENTS = [
+  { message: "Breathe deeply. You're doing great.", type: 'calm' },
+  { message: "Every word typed is progress made.", type: 'progress' },
+  { message: "Stay present. Stay focused.", type: 'focus' },
+  { message: "You're in the flow. Keep going.", type: 'flow' },
+  { message: "Patience brings perfection.", type: 'patience' },
+  { message: "Your focus is your superpower.", type: 'encouragement' },
+  { message: "One sentence at a time. You've got this.", type: 'calm' },
+  { message: "Listen. Type. Succeed.", type: 'simple' },
+  { message: "Each attempt makes you stronger.", type: 'growth' },
+  { message: "Embrace the calm. Master the words.", type: 'zen' },
+  { message: "Your concentration is impressive.", type: 'praise' },
+  { message: "Steady hands, steady mind.", type: 'focus' },
+  { message: "Beautiful focus. Beautiful typing.", type: 'encouragement' },
+  { message: "You're building something great.", type: 'progress' },
+  { message: "The journey of mastery continues.", type: 'growth' },
+];
+
+function getRandomEncouragement(): string {
+  return MINDFUL_ENCOURAGEMENTS[Math.floor(Math.random() * MINDFUL_ENCOURAGEMENTS.length)].message;
+}
 
 interface ErrorCategory {
   type: 'spelling' | 'punctuation' | 'capitalization' | 'missing' | 'extra' | 'word_order';
@@ -505,6 +578,12 @@ export default function DictationTest() {
   } | null>(null);
   
   const [shownSentenceIds, setShownSentenceIds] = useState<number[]>([]);
+  
+  const [isZenMode, setIsZenMode] = useState(false);
+  const [zenTheme, setZenTheme] = useState<ZenTheme>('ocean');
+  const [showEscHint, setShowEscHint] = useState(true);
+  const [currentEncouragement, setCurrentEncouragement] = useState<string>('');
+  const zenContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (difficultyJustChanged) {
@@ -514,6 +593,61 @@ export default function DictationTest() {
       return () => clearTimeout(timer);
     }
   }, [difficultyJustChanged]);
+
+  useEffect(() => {
+    if (isZenMode && showEscHint) {
+      const timer = setTimeout(() => {
+        setShowEscHint(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isZenMode, showEscHint]);
+
+  useEffect(() => {
+    if (isZenMode) {
+      const handleEscKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          exitZenMode();
+        }
+      };
+      document.addEventListener('keydown', handleEscKey);
+      return () => document.removeEventListener('keydown', handleEscKey);
+    }
+  }, [isZenMode]);
+
+  useEffect(() => {
+    if (testState.isComplete && practiceMode === 'focus') {
+      setCurrentEncouragement(getRandomEncouragement());
+    }
+  }, [testState.isComplete, practiceMode]);
+
+  const enterZenMode = useCallback(() => {
+    setIsZenMode(true);
+    setShowEscHint(true);
+  }, []);
+
+  useEffect(() => {
+    if (isZenMode && zenContainerRef.current && document.fullscreenEnabled) {
+      zenContainerRef.current.requestFullscreen?.().catch(() => {});
+    }
+  }, [isZenMode]);
+
+  const exitZenMode = useCallback(() => {
+    setIsZenMode(false);
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isZenMode) {
+        setIsZenMode(false);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, [isZenMode]);
   
   const currentRate = getSpeedRate(speedLevel);
   const { 
@@ -1457,6 +1591,12 @@ export default function DictationTest() {
                           <h3 className="font-semibold text-lg mb-2">{config.name}</h3>
                           <p className="text-sm text-muted-foreground mb-4">{config.description}</p>
                           <div className="flex flex-wrap gap-1 justify-center">
+                            {mode === 'focus' && (
+                              <>
+                                <Badge variant="secondary" className="text-xs bg-gradient-to-r from-blue-500/20 to-green-500/20">Zen Mode</Badge>
+                                <Badge variant="secondary" className="text-xs">Calming Themes</Badge>
+                              </>
+                            )}
                             {config.autoAdvance && (
                               <Badge variant="secondary" className="text-xs">Auto-advance</Badge>
                             )}
@@ -1728,6 +1868,244 @@ export default function DictationTest() {
     );
   }
 
+  if (isZenMode && practiceMode === 'focus') {
+    const theme = ZEN_THEMES[zenTheme];
+    return (
+      <div 
+        ref={zenContainerRef}
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden"
+        style={{ background: theme.gradient }}
+        data-testid="zen-mode-container"
+      >
+        {showEscHint && (
+          <div 
+            className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300"
+            style={{ 
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              color: theme.textColor,
+            }}
+          >
+            Press <kbd className="px-1.5 py-0.5 mx-1 rounded bg-black/20 font-mono text-xs">ESC</kbd> to exit Zen Mode
+          </div>
+        )}
+
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          {Object.entries(ZEN_THEMES).map(([key, t]) => (
+            <button
+              key={key}
+              onClick={() => setZenTheme(key as ZenTheme)}
+              className={`p-2 rounded-full transition-all duration-200 ${
+                zenTheme === key 
+                  ? 'ring-2 ring-white/50 scale-110' 
+                  : 'opacity-60 hover:opacity-100'
+              }`}
+              style={{ backgroundColor: theme.buttonBg }}
+              title={t.name}
+              data-testid={`zen-theme-${key}`}
+            >
+              {t.icon}
+            </button>
+          ))}
+          <button
+            onClick={exitZenMode}
+            className="p-2 rounded-full transition-all ml-2"
+            style={{ backgroundColor: theme.buttonBg }}
+            title="Exit Zen Mode"
+            data-testid="button-exit-zen"
+          >
+            <Minimize2 className="w-4 h-4" style={{ color: theme.textColor }} />
+          </button>
+        </div>
+
+        <div className="w-full max-w-2xl px-8">
+          <div className="text-center mb-8">
+            <p 
+              className="text-lg font-medium mb-2 opacity-80"
+              style={{ color: theme.textColor }}
+            >
+              Sentence {sessionProgress + 1} of {sessionLength}
+            </p>
+            <div 
+              className="h-1 w-full rounded-full overflow-hidden"
+              style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+            >
+              <div 
+                className="h-full transition-all duration-500"
+                style={{ 
+                  width: `${(sessionProgress / sessionLength) * 100}%`,
+                  backgroundColor: theme.accentColor,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-center gap-4 mb-8">
+            <button
+              onClick={() => testState.sentence && speak(testState.sentence.sentence)}
+              disabled={isSpeaking || !testState.sentence}
+              className="p-4 rounded-full transition-all duration-200 hover:scale-105 disabled:opacity-50"
+              style={{ backgroundColor: theme.buttonBg }}
+              data-testid="zen-button-play"
+            >
+              <Volume2 
+                className={`w-8 h-8 ${isSpeaking ? 'animate-pulse' : ''}`} 
+                style={{ color: theme.accentColor }} 
+              />
+            </button>
+            {PRACTICE_MODES[practiceMode].hintsAllowed && (
+              <button
+                onClick={() => setTestState(prev => ({ ...prev, showHint: !prev.showHint, hintShown: true }))}
+                className="p-4 rounded-full transition-all duration-200 hover:scale-105"
+                style={{ backgroundColor: theme.buttonBg }}
+                data-testid="zen-button-hint"
+              >
+                {testState.showHint ? (
+                  <EyeOff className="w-8 h-8" style={{ color: theme.accentColor }} />
+                ) : (
+                  <Eye className="w-8 h-8" style={{ color: theme.accentColor }} />
+                )}
+              </button>
+            )}
+          </div>
+
+          {testState.showHint && testState.sentence && (
+            <div 
+              className="text-center mb-6 p-4 rounded-xl animate-in fade-in duration-300"
+              style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+            >
+              <p 
+                className="text-lg leading-relaxed"
+                style={{ color: theme.textColor }}
+              >
+                {testState.sentence.sentence}
+              </p>
+            </div>
+          )}
+
+          {!testState.isComplete ? (
+            <div className="space-y-4">
+              <Textarea
+                ref={inputRef}
+                value={testState.typedText}
+                onChange={(e) => {
+                  const text = e.target.value;
+                  setTestState(prev => ({
+                    ...prev,
+                    typedText: text,
+                    startTime: prev.startTime || Date.now(),
+                  }));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.ctrlKey) {
+                    e.preventDefault();
+                    handleSubmit();
+                  }
+                }}
+                placeholder="Listen and type what you hear..."
+                className="min-h-[120px] text-lg leading-relaxed resize-none border-0 focus-visible:ring-2 transition-all"
+                style={{ 
+                  backgroundColor: theme.inputBg,
+                  color: theme.textColor,
+                }}
+                disabled={!testState.sentence || isLoading}
+                data-testid="zen-textarea-input"
+              />
+              <div className="flex justify-center">
+                <Button
+                  onClick={handleSubmit}
+                  disabled={!testState.typedText.trim() || isLoading}
+                  className="px-8 py-3 text-lg font-medium rounded-full transition-all hover:scale-105"
+                  style={{ 
+                    backgroundColor: theme.accentColor,
+                    color: '#1a202c',
+                  }}
+                  data-testid="zen-button-submit"
+                >
+                  <Check className="w-5 h-5 mr-2" />
+                  Submit
+                </Button>
+              </div>
+              <p 
+                className="text-center text-sm opacity-60"
+                style={{ color: theme.textColor }}
+              >
+                Press <kbd className="px-1.5 py-0.5 mx-1 rounded bg-white/10 font-mono text-xs">Ctrl + Enter</kbd> to submit
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div 
+                className="text-center p-6 rounded-2xl"
+                style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+              >
+                <div className="flex justify-center gap-8 mb-6">
+                  <div className="text-center">
+                    <div 
+                      className="text-4xl font-bold mb-1"
+                      style={{ color: theme.accentColor }}
+                    >
+                      {testState.result?.accuracy}%
+                    </div>
+                    <div 
+                      className="text-sm opacity-70"
+                      style={{ color: theme.textColor }}
+                    >
+                      Accuracy
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div 
+                      className="text-4xl font-bold mb-1"
+                      style={{ color: theme.accentColor }}
+                    >
+                      {testState.result?.wpm}
+                    </div>
+                    <div 
+                      className="text-sm opacity-70"
+                      style={{ color: theme.textColor }}
+                    >
+                      WPM
+                    </div>
+                  </div>
+                </div>
+
+                {currentEncouragement && (
+                  <div 
+                    className="py-4 px-6 rounded-xl mb-4 animate-in fade-in duration-700"
+                    style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                  >
+                    <Sparkles className="w-5 h-5 mx-auto mb-2" style={{ color: theme.accentColor }} />
+                    <p 
+                      className="text-lg font-medium italic"
+                      style={{ color: theme.textColor }}
+                    >
+                      "{currentEncouragement}"
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-center gap-4">
+                <Button
+                  onClick={() => startNewTest()}
+                  className="px-8 py-3 text-lg font-medium rounded-full transition-all hover:scale-105"
+                  style={{ 
+                    backgroundColor: theme.accentColor,
+                    color: '#1a202c',
+                  }}
+                  data-testid="zen-button-next"
+                >
+                  <ChevronRight className="w-5 h-5 mr-2" />
+                  Next Sentence
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="container max-w-4xl mx-auto p-6">
@@ -1816,6 +2194,25 @@ export default function DictationTest() {
                   <p>View bookmarked sentences ({bookmarks.length})</p>
                 </TooltipContent>
               </Tooltip>
+              {practiceMode === 'focus' && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost"
+                      size="sm"
+                      onClick={enterZenMode}
+                      data-testid="button-enter-zen"
+                      className="gap-2 bg-gradient-to-r from-blue-500/10 to-green-500/10 hover:from-blue-500/20 hover:to-green-500/20"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                      <span className="hidden sm:inline">Zen</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Enter distraction-free Zen Mode</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button 
@@ -2220,6 +2617,49 @@ export default function DictationTest() {
                     Choose your preferred voice style
                   </p>
                 </div>
+
+                {practiceMode === 'focus' && (
+                  <div className="pt-4 border-t">
+                    <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                      <Maximize2 className="w-4 h-4 text-primary" />
+                      Zen Mode Theme
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {Object.entries(ZEN_THEMES).map(([key, t]) => (
+                        <button
+                          key={key}
+                          onClick={() => setZenTheme(key as ZenTheme)}
+                          className={`p-3 rounded-lg text-center transition-all ${
+                            zenTheme === key 
+                              ? 'ring-2 ring-primary scale-105' 
+                              : 'opacity-70 hover:opacity-100'
+                          }`}
+                          style={{ background: t.gradient }}
+                          data-testid={`settings-zen-theme-${key}`}
+                        >
+                          <div className="flex items-center justify-center gap-2 text-white">
+                            {t.icon}
+                            <span className="text-xs font-medium">{t.name}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between mt-3">
+                      <p className="text-xs text-muted-foreground">
+                        Choose your calming background for Zen Mode
+                      </p>
+                      <Button
+                        size="sm"
+                        onClick={enterZenMode}
+                        className="gap-2"
+                        data-testid="settings-button-enter-zen"
+                      >
+                        <Maximize2 className="w-3 h-3" />
+                        Enter Zen
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="pt-4 border-t">
                   <div className="flex items-center justify-between">
