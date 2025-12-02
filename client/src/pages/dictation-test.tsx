@@ -1406,71 +1406,148 @@ export default function DictationTest() {
                 <p>Choose a different practice mode</p>
               </TooltipContent>
             </Tooltip>
-            <h1 className="text-2xl font-bold">Get Ready!</h1>
+            <h1 className="text-2xl font-bold">{modeConfig.name}</h1>
             <div className="w-24" />
           </div>
 
           <Card className="mb-6">
-            <CardContent className="pt-8 pb-8">
-              <div className="text-center">
-                <div className="mb-6">
-                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
-                    {modeConfig.icon}
-                  </div>
-                  <h2 className="text-2xl font-bold mb-2">{modeConfig.name}</h2>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-4 mb-6 pb-6 border-b">
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
+                  practiceMode === 'quick' ? 'bg-blue-500/10 text-blue-500' :
+                  practiceMode === 'focus' ? 'bg-green-500/10 text-green-500' :
+                  'bg-yellow-500/10 text-yellow-500'
+                }`}>
+                  {modeConfig.icon}
+                </div>
+                <div>
                   <p className="text-muted-foreground">{modeConfig.description}</p>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 max-w-lg mx-auto">
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <div className="text-lg font-bold">{sessionLength}</div>
-                    <div className="text-xs text-muted-foreground">Sentences</div>
-                  </div>
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <div className="text-lg font-bold capitalize">{difficulty}</div>
-                    <div className="text-xs text-muted-foreground">Difficulty</div>
-                  </div>
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <div className="text-lg font-bold">{speedLevel}x</div>
-                    <div className="text-xs text-muted-foreground">Speed</div>
-                  </div>
-                  <div className="p-3 bg-muted/50 rounded-lg">
-                    <div className="text-lg font-bold capitalize">{category === 'all' ? 'Mixed' : category}</div>
-                    <div className="text-xs text-muted-foreground">Topic</div>
+                  <div className="flex gap-2 mt-2">
+                    {modeConfig.autoAdvance && (
+                      <Badge variant="secondary" className="text-xs">Auto-advance</Badge>
+                    )}
+                    {!modeConfig.hintsAllowed && (
+                      <Badge variant="secondary" className="text-xs">No hints</Badge>
+                    )}
+                    {modeConfig.timerPressure && (
+                      <Badge variant="secondary" className="text-xs">Timed</Badge>
+                    )}
                   </div>
                 </div>
+              </div>
 
+              <h3 className="font-medium mb-4 flex items-center gap-2">
+                <Settings2 className="w-4 h-4" />
+                Session Settings
+              </h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">Session Length</label>
+                  {showCustomLength ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="1"
+                        max="500"
+                        value={customLengthInput}
+                        onChange={(e) => setCustomLengthInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleCustomLengthSubmit()}
+                        placeholder="1-500"
+                        className="flex-1 px-3 py-2 text-sm border rounded-md bg-background"
+                        data-testid="input-custom-session-length-ready"
+                        autoFocus
+                      />
+                      <Button size="sm" onClick={handleCustomLengthSubmit}>Set</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setShowCustomLength(false)}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <Select 
+                      value={SESSION_LENGTH_OPTIONS.find(o => o.value === sessionLength) ? sessionLength.toString() : '0'} 
+                      onValueChange={handleSessionLengthChange}
+                    >
+                      <SelectTrigger data-testid="select-session-length-ready">
+                        <SelectValue>
+                          {SESSION_LENGTH_OPTIONS.find(o => o.value === sessionLength)?.label || `${sessionLength} sentences (Custom)`}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SESSION_LENGTH_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value.toString()}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">Topic</label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger data-testid="select-category-ready">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">Difficulty</label>
+                  <Select value={difficulty} onValueChange={setDifficulty}>
+                    <SelectTrigger data-testid="select-difficulty-ready">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="easy">Easy</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="hard">Hard</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1 block">
+                    Speech Speed: {getSpeedLevelName(parseFloat(speedLevel))}
+                  </label>
+                  <Slider
+                    value={[parseFloat(speedLevel)]}
+                    onValueChange={([val]) => setSpeedLevel(val.toString())}
+                    min={0.5}
+                    max={2.0}
+                    step={0.1}
+                    className="mt-2"
+                    data-testid="slider-speed-ready"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>0.5x</span>
+                    <span>2.0x</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t">
                 <div className="flex flex-col items-center gap-4">
                   <Button 
                     size="lg" 
                     onClick={beginSession}
-                    className="px-12 py-6 text-lg"
+                    className="px-12 py-6 text-lg w-full sm:w-auto"
                     data-testid="button-start-session"
                   >
                     <Volume2 className="w-5 h-5 mr-2" />
                     Start Session
                   </Button>
-                  <p className="text-sm text-muted-foreground">
-                    Press the button when you're ready to begin
+                  <p className="text-sm text-muted-foreground text-center">
+                    Configure your settings above, then press Start when ready
                   </p>
-                </div>
-
-                <div className="mt-8 pt-6 border-t">
-                  <h3 className="text-sm font-medium mb-3">What to expect:</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-2 justify-center">
-                      <Volume2 className="w-4 h-4" />
-                      <span>Listen to the audio</span>
-                    </div>
-                    <div className="flex items-center gap-2 justify-center">
-                      <Mic className="w-4 h-4" />
-                      <span>Type what you heard</span>
-                    </div>
-                    <div className="flex items-center gap-2 justify-center">
-                      <Check className="w-4 h-4" />
-                      <span>Submit & get feedback</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             </CardContent>
