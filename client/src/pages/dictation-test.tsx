@@ -505,6 +505,15 @@ export default function DictationTest() {
     to: string;
     direction: 'up' | 'down';
   } | null>(null);
+
+  useEffect(() => {
+    if (difficultyJustChanged) {
+      const timer = setTimeout(() => {
+        setDifficultyJustChanged(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [difficultyJustChanged]);
   
   const currentRate = getSpeedRate(speedLevel);
   const { speak, cancel, isSpeaking, isSupported, error: speechError, voices, setVoice, currentVoice } = useSpeechSynthesis({
@@ -664,8 +673,8 @@ export default function DictationTest() {
     },
   });
 
-  const startNewTest = useCallback(async () => {
-    if (sessionProgress >= sessionLength) {
+  const startNewTest = useCallback(async (forceStart: boolean = false) => {
+    if (!forceStart && sessionProgress >= sessionLength) {
       setSessionComplete(true);
       return;
     }
@@ -880,6 +889,53 @@ export default function DictationTest() {
 
     setSessionStats(newSessionStats);
 
+    if (adaptiveDifficulty.enabled) {
+      const isHighScore = result.accuracy >= ADAPTIVE_THRESHOLDS.upgradeAccuracy && 
+                          result.wpm >= ADAPTIVE_THRESHOLDS.upgradeWpm;
+      const isLowScore = result.accuracy < ADAPTIVE_THRESHOLDS.downgradeAccuracy;
+      
+      setAdaptiveDifficulty(prev => {
+        const newRecentScores = [...prev.recentScores, { accuracy: result.accuracy, wpm: result.wpm }]
+          .slice(-ADAPTIVE_THRESHOLDS.maxRecentScores);
+        
+        let newConsecutiveHigh = isHighScore ? prev.consecutiveHighScores + 1 : 0;
+        let newConsecutiveLow = isLowScore ? prev.consecutiveLowScores + 1 : 0;
+        let newLevel = prev.currentLevel;
+        
+        if (newConsecutiveHigh >= ADAPTIVE_THRESHOLDS.upgradeConsecutive && prev.currentLevel !== 'hard') {
+          const nextLevel = getNextDifficulty(prev.currentLevel, 'up');
+          setDifficulty(nextLevel);
+          setDifficultyJustChanged({ from: prev.currentLevel, to: nextLevel, direction: 'up' });
+          toast({
+            title: `${getDifficultyEmoji(nextLevel)} Difficulty Increased!`,
+            description: `Great job! Moving to ${nextLevel} difficulty.`,
+          });
+          newLevel = nextLevel;
+          newConsecutiveHigh = 0;
+          newConsecutiveLow = 0;
+        } else if (newConsecutiveLow >= ADAPTIVE_THRESHOLDS.downgradeConsecutive && prev.currentLevel !== 'easy') {
+          const nextLevel = getNextDifficulty(prev.currentLevel, 'down');
+          setDifficulty(nextLevel);
+          setDifficultyJustChanged({ from: prev.currentLevel, to: nextLevel, direction: 'down' });
+          toast({
+            title: `${getDifficultyEmoji(nextLevel)} Difficulty Adjusted`,
+            description: `Switching to ${nextLevel} for better practice.`,
+          });
+          newLevel = nextLevel;
+          newConsecutiveHigh = 0;
+          newConsecutiveLow = 0;
+        }
+        
+        return {
+          ...prev,
+          currentLevel: newLevel,
+          consecutiveHighScores: newConsecutiveHigh,
+          consecutiveLowScores: newConsecutiveLow,
+          recentScores: newRecentScores,
+        };
+      });
+    }
+
     const tip = generateCoachingTip(
       result.accuracy,
       result.wpm,
@@ -968,6 +1024,45 @@ export default function DictationTest() {
     setSessionHistory([]);
     setCurrentCoachingTip(null);
     setShowModeSelector(true);
+    setIsWaitingToStart(false);
+  };
+
+  const restartCurrentSession = () => {
+    cancel();
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    if (elapsedIntervalRef.current) {
+      clearInterval(elapsedIntervalRef.current);
+      elapsedIntervalRef.current = null;
+    }
+    setSessionProgress(0);
+    setSessionComplete(false);
+    setSessionStats({
+      totalWpm: 0,
+      totalAccuracy: 0,
+      totalErrors: 0,
+      count: 0,
+    });
+    setSessionHistory([]);
+    setCurrentCoachingTip(null);
+    setAutoAdvanceCountdown(null);
+    setElapsedTime(0);
+    setTestState({
+      sentence: null,
+      typedText: '',
+      startTime: null,
+      endTime: null,
+      replayCount: 0,
+      hintShown: false,
+      showHint: false,
+      isComplete: false,
+      result: null,
+    });
+    setTimeout(() => {
+      startNewTest(true);
+    }, 100);
   };
 
   const startPracticeMode = (mode: PracticeMode) => {
@@ -2109,6 +2204,63 @@ export default function DictationTest() {
                 </div>
 
                 <div className="pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-primary" />
+                        Adaptive Difficulty
+                      </h4>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Automatically adjust difficulty based on your performance
+                      </p>
+                    </div>
+                    <Button
+                      variant={adaptiveDifficulty.enabled ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        setAdaptiveDifficulty(prev => ({
+                          ...prev,
+                          enabled: !prev.enabled,
+                          currentLevel: difficulty as 'easy' | 'medium' | 'hard',
+                          consecutiveHighScores: 0,
+                          consecutiveLowScores: 0,
+                          recentScores: [],
+                        }));
+                        toast({
+                          title: adaptiveDifficulty.enabled ? 'Adaptive Difficulty Disabled' : 'Adaptive Difficulty Enabled',
+                          description: adaptiveDifficulty.enabled 
+                            ? 'Difficulty will stay at your selected level.' 
+                            : 'Difficulty will adjust based on your accuracy and speed.',
+                        });
+                      }}
+                      data-testid="button-toggle-adaptive"
+                    >
+                      {adaptiveDifficulty.enabled ? 'On' : 'Off'}
+                    </Button>
+                  </div>
+                  {adaptiveDifficulty.enabled && (
+                    <div className="mt-3 p-3 bg-primary/5 rounded-lg">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Current Level:</span>
+                        <span className="font-medium flex items-center gap-1">
+                          {getDifficultyEmoji(adaptiveDifficulty.currentLevel)} 
+                          {adaptiveDifficulty.currentLevel.charAt(0).toUpperCase() + adaptiveDifficulty.currentLevel.slice(1)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm mt-1">
+                        <span className="text-muted-foreground">Progress to upgrade:</span>
+                        <span className="font-medium">
+                          {adaptiveDifficulty.consecutiveHighScores}/{ADAPTIVE_THRESHOLDS.upgradeConsecutive} high scores
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Score 90%+ accuracy with 30+ WPM {ADAPTIVE_THRESHOLDS.upgradeConsecutive}x to level up
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t">
                   <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
                     <Flame className="w-4 h-4 text-orange-500" />
                     Streak Stats
@@ -2231,17 +2383,46 @@ export default function DictationTest() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">Difficulty</label>
-                        <Select value={difficulty} onValueChange={setDifficulty} disabled={isLoading || isSpeaking}>
+                        <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                          Difficulty
+                          {adaptiveDifficulty.enabled && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-primary/20 text-primary rounded-full font-medium">
+                              AUTO
+                            </span>
+                          )}
+                        </label>
+                        <Select 
+                          value={difficulty} 
+                          onValueChange={(val) => {
+                            setDifficulty(val);
+                            if (adaptiveDifficulty.enabled) {
+                              setAdaptiveDifficulty(prev => ({
+                                ...prev,
+                                currentLevel: val as 'easy' | 'medium' | 'hard',
+                                consecutiveHighScores: 0,
+                                consecutiveLowScores: 0,
+                              }));
+                            }
+                          }} 
+                          disabled={isLoading || isSpeaking}
+                        >
                           <SelectTrigger data-testid="select-difficulty" className="h-10">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="easy">Easy</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="hard">Hard</SelectItem>
+                            <SelectItem value="easy">{getDifficultyEmoji('easy')} Easy</SelectItem>
+                            <SelectItem value="medium">{getDifficultyEmoji('medium')} Medium</SelectItem>
+                            <SelectItem value="hard">{getDifficultyEmoji('hard')} Hard</SelectItem>
                           </SelectContent>
                         </Select>
+                        {difficultyJustChanged && (
+                          <div className={`text-xs mt-1 flex items-center gap-1 ${
+                            difficultyJustChanged.direction === 'up' ? 'text-green-500' : 'text-orange-500'
+                          }`}>
+                            {difficultyJustChanged.direction === 'up' ? '↑' : '↓'}
+                            Changed from {difficultyJustChanged.from} to {difficultyJustChanged.to}
+                          </div>
+                        )}
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -2309,15 +2490,34 @@ export default function DictationTest() {
                         <Button 
                           variant="outline" 
                           className="w-full h-10"
-                          onClick={resetSession}
+                          onClick={restartCurrentSession}
                           disabled={isLoading || isSpeaking}
                         >
                           <RotateCcw className="w-4 h-4 mr-2" />
-                          Reset
+                          Restart
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Start a new practice session</p>
+                        <p>Restart current session from beginning</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  
+                  <div className="flex items-end">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          className="w-full h-10"
+                          onClick={resetSession}
+                          disabled={isLoading || isSpeaking}
+                        >
+                          <ArrowLeft className="w-4 h-4 mr-2" />
+                          Exit Mode
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Return to mode selection</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
