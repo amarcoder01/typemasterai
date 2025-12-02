@@ -545,8 +545,10 @@ export default function StressTest() {
         if (newCombo > maxCombo) setMaxCombo(newCombo);
         if (newCombo % 10 === 0 && newCombo > 0) {
           playSound('combo');
-          setComboExplosion(true);
-          safeTimeout(() => setComboExplosion(false), 500);
+          if (!prefersReducedMotion) {
+            setComboExplosion(true);
+            safeTimeout(() => setComboExplosion(false), 500);
+          }
           
           if (newCombo === 50) {
             toast({
@@ -572,8 +574,8 @@ export default function StressTest() {
       setErrors((prev) => prev + 1);
       setCombo(0);
       
-      // Enhanced screen shake on error
-      if (config?.effects.screenShake) {
+      // Enhanced screen shake on error - skip for reduced motion
+      if (config?.effects.screenShake && !prefersReducedMotion) {
         const intensity = config.baseShakeIntensity + (stressLevel / 5);
         setShakeIntensity(intensity);
         safeTimeout(() => setShakeIntensity(0), 400);
@@ -628,12 +630,14 @@ export default function StressTest() {
     
     if (completed) {
       playSound('complete');
-      confetti({
-        particleCount: 200,
-        spread: 100,
-        origin: { y: 0.6 },
-        colors: ['#ff0000', '#ff6600', '#ffaa00'],
-      });
+      if (!prefersReducedMotion) {
+        confetti({
+          particleCount: 200,
+          spread: 100,
+          origin: { y: 0.6 },
+          colors: ['#ff0000', '#ff6600', '#ffaa00'],
+        });
+      }
       
       toast({
         title: "🎉 Incredible!",
