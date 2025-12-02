@@ -406,7 +406,7 @@ export default function DictationTest() {
   const { toast } = useToast();
   const [practiceMode, setPracticeMode] = useState<PracticeMode>('quick');
   const [showModeSelector, setShowModeSelector] = useState(true);
-  const [difficulty, setDifficulty] = useState<string>('medium');
+  const [difficulty, setDifficulty] = useState<string>('easy');
   const [speedLevel, setSpeedLevel] = useState<string>('1.0');
   const [category, setCategory] = useState<string>('all');
   const [sessionLength, setSessionLength] = useState<number>(10);
