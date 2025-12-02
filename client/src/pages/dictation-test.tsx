@@ -493,14 +493,14 @@ export default function DictationTest() {
 
   const handleCustomLengthSubmit = () => {
     const value = parseInt(customLengthInput);
-    if (value >= 1 && value <= 100) {
+    if (value >= 1 && value <= 500) {
       setSessionLength(value);
       setShowCustomLength(false);
       setCustomLengthInput('');
     } else {
       toast({
         title: 'Invalid session length',
-        description: 'Please enter a number between 1 and 100',
+        description: 'Please enter a number between 1 and 500',
         variant: 'destructive',
       });
     }
@@ -1119,11 +1119,11 @@ export default function DictationTest() {
                           <input
                             type="number"
                             min="1"
-                            max="100"
+                            max="500"
                             value={customLengthInput}
                             onChange={(e) => setCustomLengthInput(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleCustomLengthSubmit()}
-                            placeholder="1-100"
+                            placeholder="1-500"
                             className="w-20 px-3 py-2 text-sm border rounded-md bg-background"
                             data-testid="input-custom-session-length"
                             autoFocus
@@ -1157,7 +1157,7 @@ export default function DictationTest() {
                     </div>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
-                    <p>Choose how many sentences to practice in your next session (1-100)</p>
+                    <p>Choose how many sentences to practice in your next session (1-500)</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -1311,11 +1311,11 @@ export default function DictationTest() {
                         <input
                           type="number"
                           min="1"
-                          max="100"
+                          max="500"
                           value={customLengthInput}
                           onChange={(e) => setCustomLengthInput(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && handleCustomLengthSubmit()}
-                          placeholder="1-100"
+                          placeholder="1-500"
                           className="flex-1 px-3 py-2 text-sm border rounded-md bg-background"
                           data-testid="input-custom-session-length-mode"
                           autoFocus
