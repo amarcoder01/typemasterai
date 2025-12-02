@@ -1636,6 +1636,80 @@ export default function DictationTest() {
                     </div>
                   </div>
 
+                  {(() => {
+                    const errorBreakdown = sessionHistory.reduce((acc, item) => {
+                      item.errorCategories.forEach(cat => {
+                        if (!acc[cat.type]) {
+                          acc[cat.type] = { count: 0, examples: [] };
+                        }
+                        acc[cat.type].count += cat.count;
+                        acc[cat.type].examples = [...new Set([...acc[cat.type].examples, ...cat.examples])].slice(0, 5);
+                      });
+                      return acc;
+                    }, {} as Record<string, { count: number; examples: string[] }>);
+
+                    const sortedErrors = Object.entries(errorBreakdown).sort((a, b) => b[1].count - a[1].count);
+                    const weakestArea = sortedErrors[0];
+
+                    if (sortedErrors.length > 0) {
+                      return (
+                        <div className="mb-4">
+                          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-orange-500" />
+                            Error Breakdown
+                          </h4>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">
+                            {sortedErrors.map(([type, data]) => (
+                              <Tooltip key={type}>
+                                <TooltipTrigger asChild>
+                                  <div className={`p-2 rounded-lg text-center cursor-help ${
+                                    type === weakestArea?.[0] ? 'bg-red-500/20 border border-red-500/30' : 'bg-muted/50'
+                                  }`}>
+                                    <div className={`text-lg font-bold ${type === weakestArea?.[0] ? 'text-red-500' : 'text-foreground'}`}>
+                                      {data.count}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground capitalize">
+                                      {type.replace('_', ' ')}
+                                    </div>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <p className="font-medium capitalize mb-1">{type.replace('_', ' ')} Errors</p>
+                                  {data.examples.length > 0 && (
+                                    <p className="text-xs opacity-90">Examples: {data.examples.join(', ')}</p>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            ))}
+                          </div>
+                          {weakestArea && (
+                            <div className="p-3 bg-orange-500/10 rounded-lg border border-orange-500/20">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Lightbulb className="w-4 h-4 text-orange-500" />
+                                  <span className="text-sm">
+                                    <span className="font-medium">Focus area:</span>{' '}
+                                    <span className="capitalize">{weakestArea[0].replace('_', ' ')}</span>
+                                    <span className="text-muted-foreground"> ({weakestArea[1].count} errors)</span>
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {weakestArea[0] === 'spelling' && 'Practice similar words to improve spelling accuracy.'}
+                                {weakestArea[0] === 'punctuation' && 'Pay attention to commas, periods, and other punctuation marks.'}
+                                {weakestArea[0] === 'capitalization' && 'Remember to capitalize proper nouns and sentence beginnings.'}
+                                {weakestArea[0] === 'missing' && 'Listen more carefully and make sure not to skip words.'}
+                                {weakestArea[0] === 'extra' && 'Avoid adding words that weren\'t in the original sentence.'}
+                                {weakestArea[0] === 'word_order' && 'Pay attention to the order of words as you hear them.'}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
                   <h4 className="text-sm font-medium mb-3">Achievements</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     {achievements.map((achievement) => (
