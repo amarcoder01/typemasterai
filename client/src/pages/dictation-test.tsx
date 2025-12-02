@@ -1168,13 +1168,18 @@ export default function DictationTest() {
           </div>
         </div>
 
-        {showHistory && sessionHistory.length > 0 && (
+        {showHistory && (
           <Card className="mb-6 animate-in slide-in-from-top-2">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <History className="w-5 h-5" />
                   Session History
+                  {sessionHistory.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {sessionHistory.length} completed
+                    </Badge>
+                  )}
                 </CardTitle>
                 <Button variant="ghost" size="sm" onClick={() => setShowHistory(false)}>
                   <X className="w-4 h-4" />
@@ -1182,36 +1187,48 @@ export default function DictationTest() {
               </div>
             </CardHeader>
             <CardContent className="max-h-64 overflow-y-auto">
-              <div className="space-y-3">
-                {sessionHistory.map((item, index) => (
-                  <div key={index} className="p-3 bg-muted/50 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">Sentence {index + 1}</span>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={item.accuracy >= 95 ? 'default' : item.accuracy >= 80 ? 'secondary' : 'destructive'}>
-                          {item.accuracy}%
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{item.wpm} WPM</span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground truncate">{item.sentence}</p>
-                    {item.errorCategories.length > 0 && (
-                      <div className="flex gap-1 mt-2 flex-wrap">
-                        {item.errorCategories.slice(0, 3).map((cat, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">
-                            {cat.type}: {cat.count}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
+              {sessionHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="bg-muted/50 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <History className="w-8 h-8 text-muted-foreground" />
                   </div>
-                ))}
-              </div>
+                  <h4 className="font-medium text-muted-foreground mb-2">No History Yet</h4>
+                  <p className="text-sm text-muted-foreground/70 max-w-xs mx-auto">
+                    Complete a dictation test to see your history here. Your performance for each sentence will be tracked.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {sessionHistory.map((item, index) => (
+                    <div key={index} className="p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Sentence {index + 1}</span>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={item.accuracy >= 95 ? 'default' : item.accuracy >= 80 ? 'secondary' : 'destructive'}>
+                            {item.accuracy}%
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">{item.wpm} WPM</span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">{item.sentence}</p>
+                      {item.errorCategories.length > 0 && (
+                        <div className="flex gap-1 mt-2 flex-wrap">
+                          {item.errorCategories.slice(0, 3).map((cat, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">
+                              {cat.type}: {cat.count}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
 
-        {showAnalytics && sessionStats.count > 0 && (
+        {showAnalytics && (
           <Card className="mb-6 animate-in slide-in-from-top-2">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -1225,67 +1242,103 @@ export default function DictationTest() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="text-center p-3 bg-primary/10 rounded-lg">
-                  <div className="text-2xl font-bold text-primary">
-                    {Math.round(sessionStats.totalWpm / sessionStats.count)}
+              {sessionStats.count === 0 ? (
+                <div className="text-center py-8">
+                  <div className="bg-muted/50 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                    <BarChart3 className="w-8 h-8 text-muted-foreground" />
                   </div>
-                  <div className="text-xs text-muted-foreground">Avg WPM</div>
-                </div>
-                <div className="text-center p-3 bg-green-500/10 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">
-                    {Math.round(sessionStats.totalAccuracy / sessionStats.count)}%
+                  <h4 className="font-medium text-muted-foreground mb-2">No Stats Yet</h4>
+                  <p className="text-sm text-muted-foreground/70 max-w-xs mx-auto">
+                    Complete dictation tests to see your analytics. Track your WPM, accuracy, and achievements here.
+                  </p>
+                  
+                  <div className="mt-6">
+                    <h5 className="text-sm font-medium mb-3">Available Achievements</h5>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {achievements.map((achievement) => (
+                        <Tooltip key={achievement.id}>
+                          <TooltipTrigger asChild>
+                            <div className="p-2 rounded-lg text-center bg-muted/30 opacity-60">
+                              <div className="mx-auto w-8 h-8 rounded-full flex items-center justify-center mb-1 bg-muted">
+                                {achievement.icon}
+                              </div>
+                              <p className="text-xs font-medium truncate">{achievement.name}</p>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="font-medium">{achievement.name}</p>
+                            <p className="text-xs opacity-90">{achievement.description}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ))}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">Avg Accuracy</div>
                 </div>
-                <div className="text-center p-3 bg-orange-500/10 rounded-lg">
-                  <div className="text-2xl font-bold text-orange-600">
-                    {sessionStats.totalErrors}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Total Errors</div>
-                </div>
-                <div className="text-center p-3 bg-purple-500/10 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {sessionHistory.filter(h => h.accuracy === 100).length}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Perfect Scores</div>
-                </div>
-              </div>
-
-              <h4 className="text-sm font-medium mb-3">Achievements</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {achievements.map((achievement) => (
-                  <Tooltip key={achievement.id}>
-                    <TooltipTrigger asChild>
-                      <div className={`p-2 rounded-lg text-center transition-all ${
-                        achievement.unlocked 
-                          ? 'bg-yellow-500/20 border border-yellow-500/50' 
-                          : 'bg-muted/50 opacity-50'
-                      }`}>
-                        <div className={`mx-auto w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
-                          achievement.unlocked ? 'bg-yellow-500/30' : 'bg-muted'
-                        }`}>
-                          {achievement.icon}
-                        </div>
-                        <p className="text-xs font-medium truncate">{achievement.name}</p>
-                        {achievement.progress !== undefined && achievement.target && (
-                          <Progress 
-                            value={(achievement.progress / achievement.target) * 100} 
-                            className="h-1 mt-1"
-                          />
-                        )}
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div className="text-center p-3 bg-primary/10 rounded-lg">
+                      <div className="text-2xl font-bold text-primary">
+                        {Math.round(sessionStats.totalWpm / sessionStats.count)}
                       </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p className="font-medium">{achievement.name}</p>
-                      <p className="text-xs opacity-90">{achievement.description}</p>
-                      {achievement.progress !== undefined && achievement.target && (
-                        <p className="text-xs mt-1">Progress: {Math.round(achievement.progress)}/{achievement.target}</p>
-                      )}
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </div>
+                      <div className="text-xs text-muted-foreground">Avg WPM</div>
+                    </div>
+                    <div className="text-center p-3 bg-green-500/10 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">
+                        {Math.round(sessionStats.totalAccuracy / sessionStats.count)}%
+                      </div>
+                      <div className="text-xs text-muted-foreground">Avg Accuracy</div>
+                    </div>
+                    <div className="text-center p-3 bg-orange-500/10 rounded-lg">
+                      <div className="text-2xl font-bold text-orange-600">
+                        {sessionStats.totalErrors}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Total Errors</div>
+                    </div>
+                    <div className="text-center p-3 bg-purple-500/10 rounded-lg">
+                      <div className="text-2xl font-bold text-purple-600">
+                        {sessionHistory.filter(h => h.accuracy === 100).length}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Perfect Scores</div>
+                    </div>
+                  </div>
+
+                  <h4 className="text-sm font-medium mb-3">Achievements</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {achievements.map((achievement) => (
+                      <Tooltip key={achievement.id}>
+                        <TooltipTrigger asChild>
+                          <div className={`p-2 rounded-lg text-center transition-all ${
+                            achievement.unlocked 
+                              ? 'bg-yellow-500/20 border border-yellow-500/50' 
+                              : 'bg-muted/50 opacity-50'
+                          }`}>
+                            <div className={`mx-auto w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
+                              achievement.unlocked ? 'bg-yellow-500/30' : 'bg-muted'
+                            }`}>
+                              {achievement.icon}
+                            </div>
+                            <p className="text-xs font-medium truncate">{achievement.name}</p>
+                            {achievement.progress !== undefined && achievement.target && (
+                              <Progress 
+                                value={(achievement.progress / achievement.target) * 100} 
+                                className="h-1 mt-1"
+                              />
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">{achievement.name}</p>
+                          <p className="text-xs opacity-90">{achievement.description}</p>
+                          {achievement.progress !== undefined && achievement.target && (
+                            <p className="text-xs mt-1">Progress: {Math.round(achievement.progress)}/{achievement.target}</p>
+                          )}
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
