@@ -1099,73 +1099,72 @@ export default function DictationTest() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="container max-w-4xl mx-auto p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link href="/">
-                <Button variant="ghost" size="sm" data-testid="button-back">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back
-                </Button>
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Return to home page</p>
-            </TooltipContent>
-          </Tooltip>
-          <div className="flex items-center gap-2">
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
             <Tooltip>
               <TooltipTrigger asChild>
-                <h1 
-                  className="text-3xl font-bold cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg px-2"
-                  tabIndex={0}
-                  role="heading"
-                  aria-label="Dictation Mode - practice listening and typing"
-                >
-                  Dictation Mode 🎧
-                </h1>
+                <Link href="/">
+                  <Button variant="ghost" size="sm" data-testid="button-back">
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
+                  </Button>
+                </Link>
               </TooltipTrigger>
-              <TooltipContent className="max-w-sm">
-                <p className="font-medium mb-1">Dictation Practice Mode</p>
-                <p className="text-xs opacity-90">Listen to spoken sentences and type them accurately. Improve your listening and typing skills!</p>
+              <TooltipContent side="right">
+                <p>Return to home page</p>
               </TooltipContent>
             </Tooltip>
-            <Badge variant="outline" className="ml-2">
-              {PRACTICE_MODES[practiceMode].icon}
-              <span className="ml-1">{PRACTICE_MODES[practiceMode].name}</span>
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={showHistory ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setShowHistory(!showHistory)}
+                    data-testid="button-toggle-history"
+                    className="gap-2"
+                  >
+                    <History className="w-4 h-4" />
+                    <span className="hidden sm:inline">History</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>View session history ({sessionHistory.length} items)</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={showAnalytics ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => setShowAnalytics(!showAnalytics)}
+                    data-testid="button-toggle-analytics"
+                    className="gap-2"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Stats</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>View session analytics</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setShowHistory(!showHistory)}
-                  data-testid="button-toggle-history"
-                >
-                  <History className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>View session history</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setShowAnalytics(!showAnalytics)}
-                  data-testid="button-toggle-analytics"
-                >
-                  <BarChart3 className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>View session analytics</p>
-              </TooltipContent>
-            </Tooltip>
+          
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <div className="bg-primary/10 p-2 rounded-full">
+                <Mic className="w-6 h-6 text-primary" />
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold">
+                Dictation Mode
+              </h1>
+            </div>
+            <Badge variant="outline" className="text-sm px-3 py-1">
+              {PRACTICE_MODES[practiceMode].icon}
+              <span className="ml-2">{PRACTICE_MODES[practiceMode].name}</span>
+            </Badge>
           </div>
         </div>
 
@@ -1322,200 +1321,174 @@ export default function DictationTest() {
 
       {!testState.isComplete ? (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card 
-                  className="cursor-help transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  tabIndex={0}
-                  role="group"
-                  aria-label="Replay count statistic"
-                >
-                  <CardContent className="pt-6">
-                    <div className="text-2xl font-bold" data-testid="text-replay-count">{testState.replayCount}</div>
-                    <div className="text-sm text-muted-foreground">Replays</div>
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="font-medium mb-1">Replay Count</p>
-                <p className="text-xs opacity-90">Number of times you've replayed the audio for this sentence. Fewer replays = better listening skills!</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card 
-                  className="focus-within:ring-2 focus-within:ring-primary/50"
-                  tabIndex={0}
-                  role="group"
-                  aria-label="Difficulty selector"
-                >
-                  <CardContent className="pt-6">
-                    <Select value={difficulty} onValueChange={setDifficulty} disabled={isLoading || isSpeaking}>
-                      <SelectTrigger data-testid="select-difficulty">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="easy">Easy</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="hard">Hard</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="text-xs text-muted-foreground mt-1">Difficulty</div>
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="max-w-xs">Easy: Short simple sentences • Medium: Standard sentences • Hard: Complex sentences with advanced vocabulary</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card 
-                  className="focus-within:ring-2 focus-within:ring-primary/50 col-span-2"
-                  tabIndex={0}
-                  role="group"
-                  aria-label="Speech speed control"
-                >
-                  <CardContent className="pt-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Speech Speed</span>
-                        <Badge variant="secondary" className="font-mono">
-                          {currentRate.toFixed(1)}x
-                        </Badge>
-                      </div>
-                      <Slider
-                        value={[parseFloat(speedLevel) || 1.0]}
-                        onValueChange={(value) => setSpeedLevel(value[0].toString())}
-                        min={0.5}
-                        max={2.0}
-                        step={0.1}
-                        disabled={isLoading || isSpeaking}
-                        className="w-full"
-                        data-testid="slider-speed"
-                        aria-label="Adjust speech speed from 0.5x to 2.0x"
-                      />
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>0.5x Slower</span>
-                        <span>1.0x Normal</span>
-                        <span>2.0x Faster</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p className="max-w-xs">Drag the slider to adjust how fast the AI speaks. Lower values are easier to follow, higher values provide more challenge.</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card 
-                  className="focus-within:ring-2 focus-within:ring-primary/50"
-                  tabIndex={0}
-                  role="group"
-                  aria-label="Voice selector"
-                >
-                  <CardContent className="pt-6">
-                    <Select 
-                      value={currentVoice?.voiceURI || ''} 
-                      onValueChange={handleVoiceChange}
-                      disabled={isLoading || isSpeaking || englishVoices.length === 0}
-                    >
-                      <SelectTrigger data-testid="select-voice">
-                        <SelectValue placeholder={englishVoices.length === 0 ? "Loading..." : "Voice"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {englishVoices.length === 0 ? (
-                          <SelectItem value="loading" disabled>Loading voices...</SelectItem>
-                        ) : (
-                          englishVoices.map((voice) => (
-                            <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
-                              {voice.name.split(' ').slice(0, 2).join(' ')}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <div className="text-xs text-muted-foreground mt-1">Voice</div>
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{englishVoices.length === 0 ? 'Loading available voices...' : 'Choose the voice accent and tone you prefer for dictation'}</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card 
-                  className="focus-within:ring-2 focus-within:ring-primary/50"
-                  tabIndex={0}
-                  role="group"
-                  aria-label="Category selector"
-                >
-                  <CardContent className="pt-6">
-                    <Select value={category} onValueChange={setCategory} disabled={isLoading || isSpeaking}>
-                      <SelectTrigger data-testid="select-category">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CATEGORIES.map((cat) => (
-                          <SelectItem key={cat.value} value={cat.value}>
-                            {cat.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <div className="text-xs text-muted-foreground mt-1">Topic</div>
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p>Filter sentences by topic: General for everyday phrases, Business for professional content, Technology for tech-related terms</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card 
-                  className="cursor-help transition-all hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  tabIndex={0}
-                  role="group"
-                  aria-label="Current speech rate display"
-                >
-                  <CardContent className="pt-6">
-                    <div className="text-2xl font-bold" data-testid="text-speed-label">
-                      {getSpeedLevelName(currentRate)}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">{currentRate}x Rate</div>
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                <p className="font-medium mb-1">Current Speech Rate</p>
-                <p className="text-xs opacity-90">The speed at which sentences are spoken. Adjust using the Speed selector above.</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
+          <Card className="mb-6 bg-muted/30">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  Settings
+                </h3>
+                <Badge variant="outline" className="text-xs">
+                  {testState.replayCount} replays
+                </Badge>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium flex items-center gap-2">
+                      <Volume2 className="w-4 h-4 text-muted-foreground" />
+                      Speech Speed
+                    </span>
+                    <Badge variant="secondary" className="font-mono text-base px-3 py-1">
+                      {currentRate.toFixed(1)}x
+                    </Badge>
+                  </div>
+                  <Slider
+                    value={[parseFloat(speedLevel) || 1.0]}
+                    onValueChange={(value) => setSpeedLevel(value[0].toString())}
+                    min={0.5}
+                    max={2.0}
+                    step={0.1}
+                    disabled={isLoading || isSpeaking}
+                    className="w-full"
+                    data-testid="slider-speed"
+                    aria-label="Adjust speech speed from 0.5x to 2.0x"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground px-1">
+                    <span>Slower</span>
+                    <span>Normal</span>
+                    <span>Faster</span>
+                  </div>
+                </div>
 
-          <Card className="mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Difficulty</label>
+                        <Select value={difficulty} onValueChange={setDifficulty} disabled={isLoading || isSpeaking}>
+                          <SelectTrigger data-testid="select-difficulty" className="h-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="easy">Easy</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="hard">Hard</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">Easy: Short sentences • Medium: Standard • Hard: Complex vocabulary</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Voice</label>
+                        <Select 
+                          value={currentVoice?.voiceURI || ''} 
+                          onValueChange={handleVoiceChange}
+                          disabled={isLoading || isSpeaking || englishVoices.length === 0}
+                        >
+                          <SelectTrigger data-testid="select-voice" className="h-10">
+                            <SelectValue placeholder={englishVoices.length === 0 ? "Loading..." : "Voice"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {englishVoices.length === 0 ? (
+                              <SelectItem value="loading" disabled>Loading voices...</SelectItem>
+                            ) : (
+                              englishVoices.map((voice) => (
+                                <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
+                                  {voice.name.split(' ').slice(0, 2).join(' ')}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Choose your preferred voice accent</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Topic</label>
+                        <Select value={category} onValueChange={setCategory} disabled={isLoading || isSpeaking}>
+                          <SelectTrigger data-testid="select-category" className="h-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CATEGORIES.map((cat) => (
+                              <SelectItem key={cat.value} value={cat.value}>
+                                {cat.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Filter sentences by topic category</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <div className="flex items-end">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="outline" 
+                          className="w-full h-10"
+                          onClick={resetSession}
+                          disabled={isLoading || isSpeaking}
+                        >
+                          <RotateCcw className="w-4 h-4 mr-2" />
+                          Reset
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Start a new practice session</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-6 overflow-hidden">
             <CardContent className="pt-8 pb-8">
-              <div className="text-center space-y-4">
+              <div className="text-center">
                 {isSpeaking ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div 
-                        className="flex flex-col items-center justify-center space-y-4 cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg p-2"
+                        className="flex flex-col items-center justify-center cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-2xl p-6"
                         tabIndex={0}
                         role="status"
                         aria-label="Audio is playing"
                         aria-live="polite"
                       >
-                        <Mic className="w-16 h-16 text-primary animate-pulse" />
-                        <p className="text-xl font-semibold" data-testid="text-speaking">🔊 Listening...</p>
-                        <p className="text-sm text-muted-foreground">
-                          The sentence is being read aloud
-                        </p>
+                        <div className="relative mb-6">
+                          <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping" style={{ animationDuration: '1.5s' }}></div>
+                          <div className="absolute inset-0 bg-primary/10 rounded-full animate-pulse" style={{ animationDuration: '1s' }}></div>
+                          <div className="relative bg-gradient-to-br from-primary/30 to-primary/10 p-8 rounded-full border-4 border-primary/50 shadow-lg shadow-primary/20">
+                            <Mic className="w-20 h-20 text-primary" />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-2xl font-bold text-primary" data-testid="text-speaking">
+                            Listening...
+                          </p>
+                          <p className="text-base text-muted-foreground">
+                            Pay attention to what's being said
+                          </p>
+                        </div>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
@@ -1524,17 +1497,31 @@ export default function DictationTest() {
                     </TooltipContent>
                   </Tooltip>
                 ) : testState.startTime ? (
-                  <div className="flex flex-col items-center justify-center space-y-2">
+                  <div className="flex flex-col items-center justify-center">
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div 
-                          className="flex flex-col items-center cursor-default focus:outline-none focus:ring-2 focus:ring-green-500/50 rounded-lg p-2"
+                          className="flex flex-col items-center cursor-default focus:outline-none focus:ring-2 focus:ring-green-500/50 rounded-2xl p-6"
                           tabIndex={0}
                           role="status"
                           aria-label="Ready to type"
                         >
-                          <Volume2 className="w-12 h-12 text-green-600" />
-                          <p className="text-lg font-semibold text-green-600 mt-2" data-testid="text-ready">✓ Ready! Type what you heard</p>
+                          <div className="relative mb-6">
+                            <div className="bg-gradient-to-br from-green-500/30 to-green-500/10 p-6 rounded-full border-4 border-green-500/50 shadow-lg shadow-green-500/20">
+                              <Volume2 className="w-16 h-16 text-green-500" />
+                            </div>
+                            <div className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full p-1.5">
+                              <Check className="w-4 h-4" />
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-2xl font-bold text-green-500" data-testid="text-ready">
+                              Ready to Type!
+                            </p>
+                            <p className="text-base text-muted-foreground">
+                              Type what you heard in the box below
+                            </p>
+                          </div>
                         </div>
                       </TooltipTrigger>
                       <TooltipContent className="max-w-xs">
@@ -1546,13 +1533,16 @@ export default function DictationTest() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <div 
-                            className="mt-4 p-4 bg-primary/10 rounded-lg max-w-2xl cursor-help focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            className="mt-6 p-5 bg-gradient-to-r from-primary/10 to-primary/5 rounded-xl max-w-2xl cursor-help focus:outline-none focus:ring-2 focus:ring-primary/50 border border-primary/20"
                             tabIndex={0}
                             role="note"
                             aria-label="Hint showing the target sentence"
                           >
-                            <p className="text-sm font-medium mb-2">Hint:</p>
-                            <p className="text-base font-mono text-primary" data-testid="text-hint">
+                            <div className="flex items-center gap-2 mb-3">
+                              <Eye className="w-4 h-4 text-primary" />
+                              <p className="text-sm font-semibold text-primary">Hint</p>
+                            </div>
+                            <p className="text-lg font-mono text-foreground leading-relaxed" data-testid="text-hint">
                               {testState.sentence.sentence}
                             </p>
                           </div>
@@ -1568,14 +1558,21 @@ export default function DictationTest() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div 
-                        className="flex flex-col items-center justify-center space-y-2 cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-lg p-2"
+                        className="flex flex-col items-center justify-center cursor-default focus:outline-none focus:ring-2 focus:ring-primary/50 rounded-2xl p-6"
                         tabIndex={0}
                         role="status"
                         aria-label="Loading next sentence"
                         aria-live="polite"
                       >
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                        <p className="text-lg text-muted-foreground">Loading...</p>
+                        <div className="relative mb-6">
+                          <div className="bg-gradient-to-br from-muted to-muted/50 p-6 rounded-full border-4 border-muted-foreground/20">
+                            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xl font-semibold text-muted-foreground">Preparing...</p>
+                          <p className="text-sm text-muted-foreground/70">Getting your next sentence ready</p>
+                        </div>
                       </div>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -1691,74 +1688,84 @@ export default function DictationTest() {
             </CardContent>
           </Card>
 
-          <div className="flex gap-3 justify-center flex-wrap">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={handleReplay}
-                  disabled={!testState.sentence || isSpeaking}
-                  variant="outline"
-                  data-testid="button-replay"
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Replay Audio
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Listen to the sentence again (counts as a replay penalty)</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={toggleHint}
-                  disabled={!testState.sentence || isSpeaking || !PRACTICE_MODES[practiceMode].hintsAllowed}
-                  variant="outline"
-                  data-testid="button-hint"
-                >
-                  {testState.showHint ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
-                  {testState.showHint ? 'Hide' : 'Show'} Hint
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{PRACTICE_MODES[practiceMode].hintsAllowed 
-                  ? 'Reveal the sentence text if you\'re stuck (reduces your score)'
-                  : 'Hints are disabled in Challenge Mode'
-                }</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={!testState.typedText.trim() || isSpeaking || !testState.startTime}
-                  size="lg"
-                  data-testid="button-submit"
-                >
-                  <Check className="w-4 h-4 mr-2" />
-                  Submit Answer
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Submit your answer for grading (or press Ctrl+Enter)</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={() => setShowKeyboardGuide(!showKeyboardGuide)}
-                  variant="ghost"
-                  size="sm"
-                  data-testid="button-keyboard-guide"
-                >
-                  ⌨️ Shortcuts
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>View available keyboard shortcuts</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
+          <Card className="mb-4 bg-gradient-to-r from-muted/50 to-muted/30">
+            <CardContent className="py-4">
+              <div className="flex gap-3 justify-center flex-wrap items-center">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleReplay}
+                      disabled={!testState.sentence || isSpeaking}
+                      variant="outline"
+                      size="lg"
+                      className="h-12 px-6 text-base"
+                      data-testid="button-replay"
+                    >
+                      <RotateCcw className="w-5 h-5 mr-2" />
+                      Replay
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Listen to the sentence again (press R)</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={toggleHint}
+                      disabled={!testState.sentence || isSpeaking || !PRACTICE_MODES[practiceMode].hintsAllowed}
+                      variant="outline"
+                      size="lg"
+                      className="h-12 px-6 text-base"
+                      data-testid="button-hint"
+                    >
+                      {testState.showHint ? <EyeOff className="w-5 h-5 mr-2" /> : <Eye className="w-5 h-5 mr-2" />}
+                      {testState.showHint ? 'Hide' : 'Hint'}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{PRACTICE_MODES[practiceMode].hintsAllowed 
+                      ? 'Show the sentence text (press H)'
+                      : 'Hints disabled in Challenge Mode'
+                    }</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={!testState.typedText.trim() || isSpeaking || !testState.startTime}
+                      size="lg"
+                      className="h-12 px-8 text-base font-semibold shadow-lg shadow-primary/20"
+                      data-testid="button-submit"
+                    >
+                      <Check className="w-5 h-5 mr-2" />
+                      Submit
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Submit your answer (Ctrl+Enter)</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={() => setShowKeyboardGuide(!showKeyboardGuide)}
+                      variant="ghost"
+                      size="lg"
+                      className="h-12"
+                      data-testid="button-keyboard-guide"
+                    >
+                      <HelpCircle className="w-5 h-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Keyboard shortcuts</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </CardContent>
+          </Card>
 
           {showKeyboardGuide && (
             <Card className="mt-4">
