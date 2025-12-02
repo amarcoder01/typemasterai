@@ -1643,7 +1643,7 @@ export default function DictationTest() {
                           acc[cat.type] = { count: 0, examples: [] };
                         }
                         acc[cat.type].count += cat.count;
-                        acc[cat.type].examples = [...new Set([...acc[cat.type].examples, ...cat.examples])].slice(0, 5);
+                        acc[cat.type].examples = Array.from(new Set([...acc[cat.type].examples, ...cat.examples])).slice(0, 5);
                       });
                       return acc;
                     }, {} as Record<string, { count: number; examples: string[] }>);
@@ -1913,12 +1913,12 @@ export default function DictationTest() {
                       <span className="text-muted-foreground">Toggle hint</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Enter</kbd>
-                      <span className="text-muted-foreground">Submit answer</span>
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">N</kbd>
+                      <span className="text-muted-foreground">Next sentence</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Esc</kbd>
-                      <span className="text-muted-foreground">Cancel</span>
+                      <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">Ctrl+Enter</kbd>
+                      <span className="text-muted-foreground">Submit</span>
                     </div>
                   </div>
                 </div>
