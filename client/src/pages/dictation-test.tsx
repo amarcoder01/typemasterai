@@ -585,15 +585,6 @@ export default function DictationTest() {
   const [currentEncouragement, setCurrentEncouragement] = useState<string>('');
   const zenContainerRef = useRef<HTMLDivElement>(null);
   
-  const [challengeState, setChallengeState] = useState<{
-    streak: number;
-    bestStreak: number;
-    score: number;
-  }>({
-    streak: 0,
-    bestStreak: 0,
-    score: 0,
-  });
 
   useEffect(() => {
     if (difficultyJustChanged) {
@@ -1118,30 +1109,6 @@ export default function DictationTest() {
     const newStreakData = updateStreak();
     setStreakData(newStreakData);
     
-    if (practiceMode === 'challenge') {
-      const isPerfect = result.accuracy >= 95;
-      
-      setChallengeState(prev => {
-        const newStreak = isPerfect ? prev.streak + 1 : 0;
-        const newBestStreak = Math.max(prev.bestStreak, newStreak);
-        const streakMultiplier = isPerfect ? Math.min(1 + (newStreak * 0.2), 3) : 1;
-        const baseScore = Math.round((result.accuracy / 100) * result.wpm * 10);
-        const newScore = prev.score + Math.round(baseScore * streakMultiplier);
-        
-        if (isPerfect && newStreak > 1) {
-          toast({
-            title: `🔥 ${newStreak}x Streak!`,
-            description: `Score multiplier: ${streakMultiplier.toFixed(1)}x`,
-          });
-        }
-        
-        return {
-          streak: newStreak,
-          bestStreak: newBestStreak,
-          score: newScore,
-        };
-      });
-    }
 
     if (elapsedIntervalRef.current) {
       clearInterval(elapsedIntervalRef.current);
@@ -1275,11 +1242,6 @@ export default function DictationTest() {
       showHint: false,
       isComplete: false,
       result: null,
-    });
-    setChallengeState({
-      streak: 0,
-      bestStreak: 0,
-      score: 0,
     });
     setShowModeSelector(false);
     setIsWaitingToStart(true);
@@ -1635,12 +1597,6 @@ export default function DictationTest() {
                               <>
                                 <Badge variant="secondary" className="text-xs bg-gradient-to-r from-blue-500/20 to-green-500/20">Zen Mode</Badge>
                                 <Badge variant="secondary" className="text-xs">Calming Themes</Badge>
-                              </>
-                            )}
-                            {mode === 'challenge' && (
-                              <>
-                                <Badge variant="secondary" className="text-xs bg-gradient-to-r from-orange-500/20 to-yellow-500/20">Streak Bonus</Badge>
-                                <Badge variant="secondary" className="text-xs bg-gradient-to-r from-yellow-500/20 to-amber-500/20">Score System</Badge>
                               </>
                             )}
                             {config.autoAdvance && (
@@ -2806,43 +2762,6 @@ export default function DictationTest() {
                     </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {practiceMode === 'challenge' && (
-          <Card className="mb-4 bg-gradient-to-r from-yellow-500/10 via-orange-500/10 to-amber-500/10 border-orange-500/30">
-            <CardContent className="py-4">
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2" data-testid="challenge-streak">
-                      <Flame className={`w-5 h-5 ${challengeState.streak > 0 ? 'text-orange-500' : 'text-muted-foreground/30'}`} />
-                      <span className={`font-bold ${challengeState.streak > 0 ? 'text-orange-500' : 'text-muted-foreground'}`}>
-                        {challengeState.streak}x Streak
-                      </span>
-                      {challengeState.bestStreak > 0 && challengeState.streak !== challengeState.bestStreak && (
-                        <span className="text-xs text-muted-foreground">(best: {challengeState.bestStreak})</span>
-                      )}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Build streaks with 95%+ accuracy for score multipliers!</p>
-                  </TooltipContent>
-                </Tooltip>
-                
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 px-4 py-2 rounded-lg" data-testid="challenge-score">
-                      <Trophy className="w-5 h-5 text-yellow-500" />
-                      <span className="font-bold text-xl text-yellow-500">{challengeState.score.toLocaleString()}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Score = (Accuracy × WPM × 10) × Streak Multiplier</p>
-                  </TooltipContent>
-                </Tooltip>
               </div>
             </CardContent>
           </Card>
