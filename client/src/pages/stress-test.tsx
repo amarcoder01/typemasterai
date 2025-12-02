@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo, useLayoutEffect } from 'react';
 import { Link } from 'wouter';
 import { ArrowLeft, Zap, Skull, Trophy, Eye, Volume2, VolumeX, AlertTriangle, HelpCircle, Clock, Target, Flame, XCircle, Timer, BarChart3, RefreshCw, Home, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -213,6 +213,13 @@ const SAMPLE_TEXTS = [
   "Type through the storm, embrace the madness, and prove your worth.",
   "Your fingers dance on keys while reality itself trembles and distorts.",
   "Focus is everything when the screen becomes your worst enemy.",
+  "When the world falls apart around you, let your fingers find their rhythm in the chaos.",
+  "Every keystroke is a victory against the madness that surrounds your screen.",
+  "The storm rages but your hands remain steady on the keyboard.",
+  "Through glitch and shake, through flash and fade, the typist perseveres.",
+  "Master the chaos or be consumed by it - there is no middle ground here.",
+  "Concentration is your shield against the visual assault of the stress test.",
+  "Let the screen shake, let the colors shift - your typing will not falter.",
 ];
 
 const Particle = memo(({ particle }: { particle: { id: number; x: number; y: number; emoji: string; speed: number } }) => (
@@ -262,6 +269,25 @@ export default function StressTest() {
   const [zoomScale, setZoomScale] = useState(1);
   const [screenFlipped, setScreenFlipped] = useState(false);
   const [comboExplosion, setComboExplosion] = useState(false);
+  
+  // Store final results to avoid recalculation issues in results screen
+  const [finalResults, setFinalResults] = useState<{
+    survivalTime: number;
+    wpm: number;
+    accuracy: number;
+    completionRate: number;
+    stressScore: number;
+  } | null>(null);
+  
+  // Detect reduced motion preference for accessibility
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  useLayoutEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefersReducedMotion(mediaQuery.matches);
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -436,6 +462,7 @@ export default function StressTest() {
     setCombo(0);
     setMaxCombo(0);
     setIsFinished(false);
+    setFinalResults(null);
     
     // Reset all visual states
     setShakeIntensity(0);
@@ -583,19 +610,21 @@ export default function StressTest() {
     setIsFinished(true);
     setIsStarted(false);
     
+    // Calculate and store final results once to avoid recalculation issues
     const survivalTime = startTime ? (Date.now() - startTime) / 1000 : 0;
     const completionRate = (typedText.length / currentText.length) * 100;
-    // Use correct characters (typed - errors) for WPM calculation with raw seconds
     const correctChars = Math.max(0, typedText.length - errors);
     const wpm = survivalTime > 0 ? calculateWPM(correctChars, survivalTime) : 0;
     const accuracy = calculateAccuracy(correctChars, typedText.length);
     
-    // Calculate stress score (higher difficulty + better performance = higher score)
     const difficultyMultiplier = selectedDifficulty === 'impossible' ? 5 : 
                                  selectedDifficulty === 'nightmare' ? 4 :
                                  selectedDifficulty === 'expert' ? 3 :
                                  selectedDifficulty === 'intermediate' ? 2 : 1;
     const stressScore = Math.round((wpm * accuracy * completionRate * difficultyMultiplier) / 100);
+    
+    // Store results to avoid recalculation in results screen
+    setFinalResults({ survivalTime, wpm, accuracy, completionRate, stressScore });
     
     if (completed) {
       playSound('complete');
@@ -675,9 +704,9 @@ export default function StressTest() {
     return () => clearInterval(stressInterval);
   }, [isStarted, config, startTime]);
 
-  // ENHANCED Visual effects
+  // ENHANCED Visual effects - disabled if user prefers reduced motion
   useEffect(() => {
-    if (!isStarted || !config) return;
+    if (!isStarted || !config || prefersReducedMotion) return;
     
     const effectsInterval = setInterval(() => {
       const intensity = 1 + (stressLevel / 100); // Effects get worse over time
@@ -775,11 +804,11 @@ export default function StressTest() {
     }, 200); // Effects update faster for more chaos
     
     return () => clearInterval(effectsInterval);
-  }, [isStarted, config, stressLevel]);
+  }, [isStarted, config, stressLevel, prefersReducedMotion]);
 
-  // Continuous shake effect that intensifies
+  // Continuous shake effect that intensifies - disabled for reduced motion
   useEffect(() => {
-    if (!isStarted || !config?.effects.screenShake) return;
+    if (!isStarted || !config?.effects.screenShake || prefersReducedMotion) return;
     
     const shakeInterval = setInterval(() => {
       const baseShake = config.baseShakeIntensity;
@@ -788,7 +817,7 @@ export default function StressTest() {
     }, 50);
     
     return () => clearInterval(shakeInterval);
-  }, [isStarted, config, stressLevel]);
+  }, [isStarted, config, stressLevel, prefersReducedMotion]);
 
   // ESC key to quit test early
   useEffect(() => {
@@ -818,6 +847,7 @@ export default function StressTest() {
     setErrors(0);
     setCombo(0);
     setMaxCombo(0);
+    setFinalResults(null);
     setShakeIntensity(0);
     setParticles([]);
     setCurrentColor('hsl(0, 0%, 100%)');
@@ -1056,17 +1086,13 @@ export default function StressTest() {
     );
   }
 
-  // Results screen
-  if (isFinished) {
-    const survivalTime = startTime ? (Date.now() - startTime) / 1000 : 0;
-    const completionRate = (typedText.length / currentText.length) * 100;
-    const wpm = Math.round((typedText.length / 5) / (survivalTime / 60));
-    const accuracy = typedText.length > 0 ? ((typedText.length - errors) / typedText.length) * 100 : 0;
+  // Results screen - use stored results to avoid recalculation issues
+  if (isFinished && finalResults) {
+    const { survivalTime, wpm, accuracy, completionRate, stressScore } = finalResults;
     const difficultyMultiplier = selectedDifficulty === 'impossible' ? 5 : 
                                  selectedDifficulty === 'nightmare' ? 4 :
                                  selectedDifficulty === 'expert' ? 3 :
                                  selectedDifficulty === 'intermediate' ? 2 : 1;
-    const stressScore = Math.round((wpm * accuracy * completionRate * difficultyMultiplier) / 100);
 
     return (
       <TooltipProvider delayDuration={200}>
@@ -1223,32 +1249,50 @@ export default function StressTest() {
                   </Tooltip>
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex flex-col gap-3">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button onClick={handleReset} className="flex-1 gap-2" data-testid="button-try-again">
-                        <RefreshCw className="w-4 h-4" />
-                        Try Again
+                      <Button 
+                        onClick={() => selectedDifficulty && handleStart(selectedDifficulty)} 
+                        className="w-full gap-2"
+                        data-testid="button-retry-same"
+                      >
+                        <Zap className="w-4 h-4" />
+                        Retry {config?.name}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="top">
-                      <p>Start a new test with any difficulty level</p>
+                      <p>Immediately restart with the same difficulty</p>
                     </TooltipContent>
                   </Tooltip>
                   
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link href="/" className="flex-1">
-                        <Button variant="outline" className="w-full gap-2" data-testid="button-home">
-                          <Home className="w-4 h-4" />
-                          Home
+                  <div className="flex gap-4">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button onClick={handleReset} variant="outline" className="flex-1 gap-2" data-testid="button-try-again">
+                          <RefreshCw className="w-4 h-4" />
+                          Change Difficulty
                         </Button>
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Return to the main typing practice page</p>
-                    </TooltipContent>
-                  </Tooltip>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Go back to difficulty selection</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Link href="/" className="flex-1">
+                          <Button variant="outline" className="w-full gap-2" data-testid="button-home">
+                            <Home className="w-4 h-4" />
+                            Home
+                          </Button>
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        <p>Return to the main typing practice page</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1417,6 +1461,7 @@ export default function StressTest() {
             className="opacity-0 absolute pointer-events-none"
             autoComplete="off"
             autoFocus
+            aria-label="Type the displayed text to complete the stress test"
             data-testid="input-typing"
           />
 
