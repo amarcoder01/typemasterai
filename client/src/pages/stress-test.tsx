@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo, useLayoutEffect } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ArrowLeft, Zap, Skull, Trophy, Eye, Volume2, VolumeX, AlertTriangle, HelpCircle, Clock, Target, Flame, XCircle, Timer, BarChart3, RefreshCw, Home, Info } from 'lucide-react';
+import { ArrowLeft, Zap, Skull, Trophy, Eye, Volume2, VolumeX, AlertTriangle, HelpCircle, Clock, Target, Flame, XCircle, Timer, BarChart3, RefreshCw, Home, Info, ChevronDown, Share2, Copy, Check, Loader2, Keyboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation } from '@tanstack/react-query';
-import confetti from 'canvas-confetti';
 import { calculateWPM, calculateAccuracy } from '@/lib/typing-utils';
 import {
   Tooltip,
@@ -14,6 +13,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 type Difficulty = 'beginner' | 'intermediate' | 'expert' | 'nightmare' | 'impossible';
 
@@ -60,14 +64,19 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   duration: number;
   icon: string;
   color: string;
+  gradientFrom: string;
+  gradientTo: string;
   baseShakeIntensity: number;
   particleFrequency: number;
   multiplier: number;
   difficulty: string;
+  badge: string;
+  badgeClass: string;
+  survivalRate: number;
 }> = {
   beginner: {
     name: 'Warm-Up Chaos',
-    description: 'Light screen shake and basic distractions',
+    description: 'Light screen shake and basic distractions. Perfect for first-timers.',
     effects: {
       screenShake: true,
       distractions: true,
@@ -88,14 +97,19 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     duration: 30,
     icon: '🔥',
     color: 'from-orange-500/20 to-red-500/20',
+    gradientFrom: '#22c55e',
+    gradientTo: '#16a34a',
     baseShakeIntensity: 5,
     particleFrequency: 0.3,
     multiplier: 1,
-    difficulty: 'Easy - Great for beginners',
+    difficulty: 'Easy',
+    badge: 'Easy',
+    badgeClass: 'stress-badge-easy',
+    survivalRate: 78,
   },
   intermediate: {
     name: 'Mind Scrambler',
-    description: 'Screen inverts, zoom chaos, sensory assault',
+    description: 'Screen inverts, colors shift, and zoom goes wild. Stay focused!',
     effects: {
       screenShake: true,
       distractions: true,
@@ -116,14 +130,19 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     duration: 45,
     icon: '⚡',
     color: 'from-purple-500/20 to-pink-500/20',
+    gradientFrom: '#eab308',
+    gradientTo: '#ca8a04',
     baseShakeIntensity: 15,
     particleFrequency: 0.5,
     multiplier: 2,
-    difficulty: 'Medium - Challenging visuals',
+    difficulty: 'Medium',
+    badge: 'Medium',
+    badgeClass: 'stress-badge-medium',
+    survivalRate: 52,
   },
   expert: {
     name: 'Absolute Mayhem',
-    description: 'Screen flips upside down, glitches, complete chaos',
+    description: 'Screen flips, glitches strike, and visibility fades. Chaos reigns.',
     effects: {
       screenShake: true,
       distractions: true,
@@ -144,14 +163,19 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     duration: 60,
     icon: '💀',
     color: 'from-red-500/20 to-orange-500/20',
+    gradientFrom: '#f97316',
+    gradientTo: '#ea580c',
     baseShakeIntensity: 25,
     particleFrequency: 0.7,
     multiplier: 3,
-    difficulty: 'Hard - Not for the faint of heart',
+    difficulty: 'Hard',
+    badge: 'Hard',
+    badgeClass: 'stress-badge-hard',
+    survivalRate: 28,
   },
   nightmare: {
     name: 'Nightmare Realm',
-    description: 'Text reverses, screen inverts/flips, reality collapses.',
+    description: 'Text reverses, reality collapses. Your sanity will be tested.',
     effects: {
       screenShake: true,
       distractions: true,
@@ -172,14 +196,19 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     duration: 90,
     icon: '☠️',
     color: 'from-black/40 to-red-900/40',
+    gradientFrom: '#dc2626',
+    gradientTo: '#991b1b',
     baseShakeIntensity: 40,
     particleFrequency: 0.85,
     multiplier: 4,
-    difficulty: 'Extreme - Reality bends around you',
+    difficulty: 'Extreme',
+    badge: 'Extreme',
+    badgeClass: 'stress-badge-extreme',
+    survivalRate: 8,
   },
   impossible: {
     name: 'IMPOSSIBLE',
-    description: 'Text teleports, ALL effects active, reality ceases to exist.',
+    description: 'Text teleports, ALL effects active. Reality ceases to exist.',
     effects: {
       screenShake: true,
       distractions: true,
@@ -200,10 +229,15 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     duration: 120,
     icon: '🌀',
     color: 'from-purple-900/60 to-black/60',
+    gradientFrom: '#7c3aed',
+    gradientTo: '#581c87',
     baseShakeIntensity: 60,
     particleFrequency: 0.95,
     multiplier: 5,
-    difficulty: 'Legendary - Only 1% survive',
+    difficulty: 'Legendary',
+    badge: 'Legendary',
+    badgeClass: 'stress-badge-legendary',
+    survivalRate: 1,
   },
 };
 
@@ -234,11 +268,13 @@ interface ParticleData {
 
 const Particle = memo(({ particle }: { particle: ParticleData }) => (
   <div
-    className="fixed pointer-events-none text-4xl animate-ping z-50"
+    className="fixed pointer-events-none text-4xl animate-ping stress-particle-safe-zone"
     style={{
-      left: `${particle.x}%`,
-      top: `${particle.y}%`,
+      transform: `translate(${particle.x}vw, ${particle.y}vh)`,
       animationDuration: `${particle.speed}s`,
+      willChange: 'transform, opacity',
+      top: 0,
+      left: 0,
     }}
     aria-hidden="true"
   >
@@ -247,6 +283,23 @@ const Particle = memo(({ particle }: { particle: ParticleData }) => (
 ));
 
 Particle.displayName = 'Particle';
+
+const getPerformanceTier = (stressScore: number, difficulty: Difficulty): { tier: string; class: string; emoji: string } => {
+  const thresholds = {
+    beginner: { platinum: 5000, gold: 3000, silver: 1500, bronze: 500 },
+    intermediate: { platinum: 8000, gold: 5000, silver: 2500, bronze: 1000 },
+    expert: { platinum: 12000, gold: 8000, silver: 4000, bronze: 2000 },
+    nightmare: { platinum: 18000, gold: 12000, silver: 6000, bronze: 3000 },
+    impossible: { platinum: 25000, gold: 18000, silver: 10000, bronze: 5000 },
+  };
+  
+  const t = thresholds[difficulty];
+  if (stressScore >= t.platinum) return { tier: 'Platinum', class: 'stress-tier-platinum', emoji: '💎' };
+  if (stressScore >= t.gold) return { tier: 'Gold', class: 'stress-tier-gold', emoji: '🥇' };
+  if (stressScore >= t.silver) return { tier: 'Silver', class: 'stress-tier-silver', emoji: '🥈' };
+  if (stressScore >= t.bronze) return { tier: 'Bronze', class: 'stress-tier-bronze', emoji: '🥉' };
+  return { tier: 'Participant', class: 'text-muted-foreground', emoji: '🎯' };
+};
 
 let globalAudioContext: AudioContext | null = null;
 
@@ -296,6 +349,18 @@ export default function StressTest() {
   const [zoomScale, setZoomScale] = useState(1);
   const [screenFlipped, setScreenFlipped] = useState(false);
   const [comboExplosion, setComboExplosion] = useState(false);
+  const [keypressFlash, setKeypressFlash] = useState(false);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [comboMilestone, setComboMilestone] = useState<number | null>(null);
+  
+  const confettiRef = useRef<typeof import('canvas-confetti').default | null>(null);
+  
+  useEffect(() => {
+    import('canvas-confetti').then((mod) => {
+      confettiRef.current = mod.default;
+    });
+  }, []);
   
   const [finalResults, setFinalResults] = useState<{
     survivalTime: number;
@@ -534,8 +599,8 @@ export default function StressTest() {
               
               if (completed) {
                 playSound('complete');
-                if (!prefersReducedMotion) {
-                  confetti({
+                if (!prefersReducedMotion && confettiRef.current) {
+                  confettiRef.current({
                     particleCount: 200,
                     spread: 100,
                     origin: { y: 0.6 },
@@ -664,25 +729,46 @@ export default function StressTest() {
     if (lastChar === expectedChar) {
       playSound('type');
       setTypedText(value);
+      
+      if (!prefersReducedMotion) {
+        setKeypressFlash(true);
+        safeTimeout(() => setKeypressFlash(false), 100);
+      }
+      
       setCombo((prev) => {
         const newCombo = prev + 1;
         if (newCombo > maxCombo) setMaxCombo(newCombo);
-        if (newCombo % 10 === 0 && newCombo > 0) {
+        
+        const milestones = [10, 25, 50, 100, 150, 200];
+        if (milestones.includes(newCombo)) {
           playSound('combo');
+          setComboMilestone(newCombo);
+          safeTimeout(() => setComboMilestone(null), 1500);
+          
           if (!prefersReducedMotion) {
             setComboExplosion(true);
             safeTimeout(() => setComboExplosion(false), 500);
           }
           
-          if (newCombo === 50) {
+          if (newCombo === 25) {
             toast({
-              title: "🔥 50 Combo!",
+              title: "🔥 25 Combo!",
+              description: "Nice streak! Keep going!",
+            });
+          } else if (newCombo === 50) {
+            toast({
+              title: "⚡ 50 Combo!",
               description: "You're on fire! Keep it up!",
             });
           } else if (newCombo === 100) {
             toast({
-              title: "⚡ 100 Combo!",
+              title: "💎 100 Combo!",
               description: "Incredible focus under pressure!",
+            });
+          } else if (newCombo === 200) {
+            toast({
+              title: "🌟 200 Combo!",
+              description: "LEGENDARY! You're unstoppable!",
             });
           }
         }
@@ -940,195 +1026,284 @@ export default function StressTest() {
     resetVisualStates();
   }, [clearAllTimers, resetVisualStates]);
 
+  const handleShareResult = useCallback(() => {
+    if (!finalResults || !selectedDifficulty || !config) return;
+    
+    const { wpm, accuracy, stressScore } = finalResults;
+    const tier = getPerformanceTier(stressScore, selectedDifficulty);
+    
+    const shareText = `🔥 Stress Test Result 🔥
+${tier.emoji} ${tier.tier} Tier
+📊 Score: ${stressScore}
+⚡ WPM: ${wpm} | 🎯 Accuracy: ${accuracy.toFixed(1)}%
+🏆 Difficulty: ${config.name}
+
+Think you can beat me? Try the Typing Stress Test!`;
+
+    navigator.clipboard.writeText(shareText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({
+        title: "Copied to clipboard!",
+        description: "Share your result with friends!",
+      });
+    });
+  }, [finalResults, selectedDifficulty, config, toast]);
+
   if (!selectedDifficulty || (!isStarted && !isFinished && countdown === 0)) {
     return (
       <TooltipProvider delayDuration={200}>
-        <div className="container mx-auto px-4 py-8">
-          <div className="mb-8 flex items-center justify-between">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link href="/">
-                  <Button variant="ghost" size="sm" className="gap-2" data-testid="button-back">
-                    <ArrowLeft className="w-4 h-4" />
-                    Back
-                  </Button>
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>Return to home page</p>
-              </TooltipContent>
-            </Tooltip>
+        <div className="stress-test-container min-h-screen">
+          <a href="#difficulty-selection" className="stress-skip-link">Skip to difficulty selection</a>
+          
+          <div className={`relative overflow-hidden ${prefersReducedMotion ? 'bg-background' : 'stress-hero-gradient'}`}>
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" aria-hidden="true" />
             
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link href="/stress-leaderboard">
-                  <Button variant="outline" size="sm" className="gap-2" data-testid="button-leaderboard">
-                    <Trophy className="w-4 h-4" />
-                    Leaderboard
-                  </Button>
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>View top stress test scores from all players</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-3 mb-4">
+            <div className="container mx-auto px-4 py-6 relative z-10">
+              <div className="flex items-center justify-between">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div>
-                      <Zap className={`w-12 h-12 text-primary cursor-help ${prefersReducedMotion ? '' : 'animate-pulse'}`} />
-                    </div>
+                    <Link href="/">
+                      <Button variant="ghost" size="sm" className="gap-2 stress-button-glow" data-testid="button-back">
+                        <ArrowLeft className="w-4 h-4" />
+                        <span className="hidden sm:inline">Back</span>
+                      </Button>
+                    </Link>
                   </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>High intensity typing challenge</p>
+                  <TooltipContent side="bottom">
+                    <p>Return to home page</p>
                   </TooltipContent>
                 </Tooltip>
                 
-                <h1 className="text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500">
-                  Typing Stress Test
-                </h1>
-                
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div>
-                      <Skull className={`w-12 h-12 text-destructive cursor-help ${prefersReducedMotion ? '' : 'animate-bounce'}`} />
-                    </div>
+                    <Link href="/stress-leaderboard">
+                      <Button variant="outline" size="sm" className="gap-2 stress-button-glow" data-testid="button-leaderboard">
+                        <Trophy className="w-4 h-4" />
+                        <span className="hidden sm:inline">Leaderboard</span>
+                      </Button>
+                    </Link>
                   </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p>Test your typing under extreme pressure!</p>
+                  <TooltipContent side="bottom">
+                    <p>View top stress test scores from all players</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
-              
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Can you type while the world collapses around you? Choose your nightmare.
-              </p>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg max-w-xl mx-auto cursor-help" role="alert">
-                    <div className="flex items-center gap-2 justify-center text-destructive">
-                      <AlertTriangle className="w-5 h-5" aria-hidden="true" />
-                      <p className="font-semibold">Warning: May cause extreme frustration</p>
-                    </div>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p>This mode features intense visual effects including screen shake, color shifts, and text distortions. Not recommended for those sensitive to flashing lights.</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8" role="list" aria-label="Difficulty levels">
-              {(Object.keys(DIFFICULTY_CONFIGS) as Difficulty[]).map((difficulty) => {
-                const diffConfig = DIFFICULTY_CONFIGS[difficulty];
-                const activeEffects = Object.entries(diffConfig.effects).filter(([_, enabled]) => enabled);
+              <div className="text-center py-12 sm:py-16 lg:py-20">
+                <div className="flex items-center justify-center gap-3 sm:gap-4 mb-6">
+                  <Zap className={`w-8 h-8 sm:w-12 sm:h-12 text-primary ${prefersReducedMotion ? '' : 'animate-pulse'}`} aria-hidden="true" />
+                  <Skull className={`w-8 h-8 sm:w-12 sm:h-12 text-destructive ${prefersReducedMotion ? '' : 'animate-bounce'}`} aria-hidden="true" />
+                </div>
                 
-                return (
-                  <Tooltip key={difficulty}>
-                    <TooltipTrigger asChild>
-                      <Card
-                        className={`relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-2xl border-2 ${
-                          difficulty === 'impossible' 
-                            ? `border-purple-500 hover:border-purple-400 ${prefersReducedMotion ? '' : 'animate-pulse'}` 
-                            : 'border-border hover:border-primary'
-                        }`}
-                        onClick={() => handleStart(difficulty)}
-                        data-testid={`card-difficulty-${difficulty}`}
-                        role="listitem"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handleStart(difficulty);
-                          }
-                        }}
-                        aria-label={`${diffConfig.name} - ${diffConfig.difficulty}`}
-                      >
-                        <div className={`absolute inset-0 bg-gradient-to-br ${diffConfig.color} opacity-50`} aria-hidden="true" />
-                        <CardContent className="relative p-6">
-                          <div className="text-center mb-4">
-                            <div className="text-6xl mb-2" aria-hidden="true">{diffConfig.icon}</div>
-                            <h3 className="text-2xl font-bold mb-2">{diffConfig.name}</h3>
-                            <p className="text-sm text-muted-foreground mb-4">{diffConfig.description}</p>
-                            
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-background/80 rounded-full text-sm font-mono cursor-help">
-                                  <Clock className="w-3 h-3" aria-hidden="true" />
-                                  {diffConfig.duration}s duration
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="top">
-                                <p>You have {diffConfig.duration} seconds to complete the text</p>
-                              </TooltipContent>
-                            </Tooltip>
+                <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500">
+                  Can You Survive the Chaos?
+                </h1>
+                
+                <p className="text-base sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-6">
+                  Push your typing skills to the absolute limit. Distractions, visual chaos, and 
+                  time pressure await. Only the focused will prevail.
+                </p>
+                
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-destructive/15 border border-destructive/30 rounded-full text-destructive text-sm" role="alert">
+                  <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span className="font-medium">Warning: Intense visual effects ahead</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="container mx-auto px-4 py-8 sm:py-12" id="difficulty-selection">
+            <div className="max-w-6xl mx-auto">
+              <div className="text-center mb-8">
+                <h2 className="text-xs sm:text-sm font-bold uppercase tracking-widest text-muted-foreground mb-2">Choose Your Challenge</h2>
+                <p className="text-sm text-muted-foreground">Select a difficulty level to begin your descent into madness</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6 mb-10" role="list" aria-label="Difficulty levels">
+                {(Object.keys(DIFFICULTY_CONFIGS) as Difficulty[]).map((difficulty) => {
+                  const diffConfig = DIFFICULTY_CONFIGS[difficulty];
+                  const activeEffects = Object.entries(diffConfig.effects).filter(([_, enabled]) => enabled);
+                  
+                  return (
+                    <div 
+                      key={difficulty}
+                      className={`group relative stress-glass-card rounded-xl cursor-pointer transition-all duration-300 hover:-translate-y-2 focus-within:ring-2 focus-within:ring-primary ${
+                        difficulty === 'impossible' ? 'ring-2 ring-purple-500/50' : ''
+                      }`}
+                      onClick={() => handleStart(difficulty)}
+                      data-testid={`card-difficulty-${difficulty}`}
+                      role="listitem"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleStart(difficulty);
+                        }
+                      }}
+                      aria-label={`${diffConfig.name} - ${diffConfig.difficulty} difficulty with ${diffConfig.survivalRate}% survival rate`}
+                    >
+                      <div 
+                        className="absolute inset-0 rounded-xl opacity-20 group-hover:opacity-30 transition-opacity"
+                        style={{ background: `linear-gradient(135deg, ${diffConfig.gradientFrom}, ${diffConfig.gradientTo})` }}
+                        aria-hidden="true"
+                      />
+                      
+                      <div className="relative p-4 sm:p-6">
+                        <div className={`stress-difficulty-badge ${diffConfig.badgeClass} inline-block mb-3`}>
+                          {diffConfig.badge}
+                        </div>
+                        
+                        <div className={`text-4xl sm:text-5xl mb-3 ${prefersReducedMotion ? '' : 'stress-effect-preview'}`} aria-hidden="true">
+                          {diffConfig.icon}
+                        </div>
+                        
+                        <h3 className="text-lg sm:text-xl font-bold mb-2">{diffConfig.name}</h3>
+                        
+                        <p className="text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-2">{diffConfig.description}</p>
+                        
+                        <div className="space-y-3 mb-4">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <Clock className="w-3 h-3" aria-hidden="true" />
+                              Duration
+                            </span>
+                            <span className="font-mono font-bold">{diffConfig.duration}s</span>
                           </div>
                           
-                          <div className="space-y-2 text-xs">
-                            <div className="flex items-center justify-center gap-1 font-semibold mb-2">
-                              <span>Active Torments:</span>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <HelpCircle className="w-3 h-3 text-muted-foreground cursor-help" />
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-xs">
-                                  <p>Effects that will make your typing experience chaotic. Hover over each effect for details.</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </div>
-                            {activeEffects.map(([effect]) => (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <Target className="w-3 h-3" aria-hidden="true" />
+                              Survival Rate
+                            </span>
+                            <span className="font-mono font-bold" style={{ color: diffConfig.gradientFrom }}>{diffConfig.survivalRate}%</span>
+                          </div>
+                          
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground flex items-center gap-1">
+                              <BarChart3 className="w-3 h-3" aria-hidden="true" />
+                              Multiplier
+                            </span>
+                            <span className="font-mono font-bold">{diffConfig.multiplier}x</span>
+                          </div>
+                        </div>
+                        
+                        <div className="pt-3 border-t border-white/10">
+                          <div className="text-xs text-muted-foreground mb-2">{activeEffects.length} Active Effects</div>
+                          <div className="flex flex-wrap gap-1">
+                            {activeEffects.slice(0, 4).map(([effect]) => (
                               <Tooltip key={effect}>
                                 <TooltipTrigger asChild>
-                                  <div className="flex items-center gap-2 bg-background/60 px-2 py-1 rounded cursor-help hover:bg-background/80 transition-colors">
-                                    <span className={`w-2 h-2 bg-destructive rounded-full ${prefersReducedMotion ? '' : 'animate-pulse'}`} aria-hidden="true" />
-                                    <span className="capitalize">{effect.replace(/([A-Z])/g, ' $1').trim()}</span>
-                                  </div>
+                                  <span className="inline-block w-2 h-2 rounded-full bg-destructive/60 cursor-help" aria-label={effect} />
                                 </TooltipTrigger>
-                                <TooltipContent side="right" className="max-w-xs">
-                                  <p>{EFFECT_DESCRIPTIONS[effect as keyof StressEffects]}</p>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  <p className="font-semibold capitalize mb-1">{effect.replace(/([A-Z])/g, ' $1').trim()}</p>
+                                  <p className="text-xs text-muted-foreground">{EFFECT_DESCRIPTIONS[effect as keyof StressEffects]}</p>
                                 </TooltipContent>
                               </Tooltip>
                             ))}
+                            {activeEffects.length > 4 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="text-xs text-muted-foreground cursor-help">+{activeEffects.length - 4} more</span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  <div className="space-y-1">
+                                    {activeEffects.slice(4).map(([effect]) => (
+                                      <p key={effect} className="text-xs capitalize">{effect.replace(/([A-Z])/g, ' $1').trim()}</p>
+                                    ))}
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                           </div>
-                        </CardContent>
-                      </Card>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs">
-                      <div className="space-y-1">
-                        <p className="font-semibold">{diffConfig.difficulty}</p>
-                        <p className="text-xs text-muted-foreground">Score multiplier: {diffConfig.multiplier}x</p>
-                        <p className="text-xs text-muted-foreground">{activeEffects.length} active effects</p>
+                        </div>
                       </div>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
-            </div>
+                    </div>
+                  );
+                })}
+              </div>
 
-            <div className="text-center">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSoundEnabled(!soundEnabled)}
-                    className="gap-2"
-                    data-testid="button-toggle-sound"
-                    aria-pressed={soundEnabled}
-                  >
-                    {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                    {soundEnabled ? 'Sound On' : 'Sound Off'}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>{soundEnabled ? 'Click to mute chaotic sound effects' : 'Click to enable sound effects during the test'}</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="max-w-2xl mx-auto mb-8">
+                <Collapsible open={howItWorksOpen} onOpenChange={setHowItWorksOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-between gap-2 stress-glass-card py-4" data-testid="button-how-it-works">
+                      <span className="flex items-center gap-2">
+                        <HelpCircle className="w-4 h-4" />
+                        How It Works & Scoring
+                      </span>
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${howItWorksOpen ? 'rotate-180' : ''}`} />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="stress-glass-card rounded-xl mt-2 overflow-hidden">
+                    <div className="p-6 space-y-4">
+                      <div>
+                        <h4 className="font-semibold mb-2 flex items-center gap-2">
+                          <Keyboard className="w-4 h-4 text-primary" />
+                          The Challenge
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          Type the displayed text as quickly and accurately as possible while visual chaos unfolds around you. 
+                          Each difficulty level introduces more distracting effects to test your focus.
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-semibold mb-2 flex items-center gap-2">
+                          <Trophy className="w-4 h-4 text-primary" />
+                          Scoring Formula
+                        </h4>
+                        <div className="bg-background/50 rounded-lg p-3 font-mono text-sm">
+                          <span className="text-primary">Stress Score</span> = WPM × Accuracy × Completion × Difficulty Multiplier
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-semibold mb-2 flex items-center gap-2">
+                          <Flame className="w-4 h-4 text-primary" />
+                          Combo System
+                        </h4>
+                        <p className="text-sm text-muted-foreground">
+                          Build combos by typing correctly without mistakes. Reach milestones at 10, 25, 50, 100, and 200 for bonus celebrations! 
+                          Any mistake resets your combo and triggers extra chaos.
+                        </p>
+                      </div>
+                      
+                      <div className="pt-2 border-t border-white/10 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <span className="stress-kbd">ESC</span>
+                          <span>Quit test</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="stress-kbd">SPACE</span>
+                          <span>Retry after results</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSoundEnabled(!soundEnabled)}
+                      className="gap-2"
+                      data-testid="button-toggle-sound"
+                      aria-pressed={soundEnabled}
+                    >
+                      {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                      {soundEnabled ? 'Sound Effects On' : 'Sound Effects Off'}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>{soundEnabled ? 'Click to mute chaotic sound effects' : 'Click to enable sound effects during the test'}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             </div>
           </div>
         </div>
@@ -1140,28 +1315,38 @@ export default function StressTest() {
     return (
       <TooltipProvider>
         <div className="fixed inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-50" role="alert" aria-live="assertive">
-          <div className="text-center">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <h2 className="text-2xl font-bold mb-4 text-muted-foreground cursor-help">Get Ready...</h2>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Focus on the screen - chaos begins soon!</p>
-              </TooltipContent>
-            </Tooltip>
-            <div className={`text-9xl font-bold text-destructive ${prefersReducedMotion ? '' : 'animate-bounce'}`} aria-label={`Starting in ${countdown}`}>
-              {countdown}
+          <div className={`text-center ${prefersReducedMotion ? '' : 'stress-shake-preview'}`}>
+            <h2 className="text-lg sm:text-2xl font-bold mb-6 text-muted-foreground uppercase tracking-widest">Get Ready...</h2>
+            
+            <div className="relative inline-flex items-center justify-center mb-6">
+              <svg className="stress-countdown-svg w-32 h-32 sm:w-40 sm:h-40" viewBox="0 0 100 100" aria-hidden="true">
+                <circle className="stress-countdown-bg" cx="50" cy="50" r="45" />
+                <circle 
+                  key={`countdown-${countdown}`}
+                  className="stress-countdown-progress" 
+                  cx="50" 
+                  cy="50" 
+                  r="45"
+                />
+              </svg>
+              <span className="absolute text-6xl sm:text-8xl font-bold text-destructive" aria-label={`Starting in ${countdown}`}>
+                {countdown}
+              </span>
             </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <p className="text-xl text-muted-foreground mt-4 cursor-help">
-                  {config?.name}
-                </p>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <p>{config?.description}</p>
-              </TooltipContent>
-            </Tooltip>
+            
+            <div className="space-y-2">
+              <p className="text-xl sm:text-2xl font-bold" style={config ? { background: `linear-gradient(135deg, ${config.gradientFrom}, ${config.gradientTo})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' } : {}}>
+                {config?.name}
+              </p>
+              <p className="text-sm text-muted-foreground">{config?.description}</p>
+              
+              {soundEnabled && (
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-4">
+                  <Volume2 className="w-3 h-3" />
+                  <span>Sound effects enabled</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </TooltipProvider>
@@ -1174,209 +1359,133 @@ export default function StressTest() {
                                  selectedDifficulty === 'nightmare' ? 4 :
                                  selectedDifficulty === 'expert' ? 3 :
                                  selectedDifficulty === 'intermediate' ? 2 : 1;
+    const tier = selectedDifficulty ? getPerformanceTier(stressScore, selectedDifficulty) : { tier: 'Participant', class: '', emoji: '🎯' };
 
     return (
       <TooltipProvider delayDuration={200}>
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto">
-            <Card>
-              <CardContent className="p-8">
-                <div className="text-center mb-8" role="status" aria-live="polite">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <Trophy className="w-16 h-16 mx-auto mb-4 text-primary cursor-help" aria-hidden="true" />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>You survived the chaos!</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  
-                  <h2 className="text-4xl font-bold mb-2">
-                    {completionRate >= 100 ? '🎉 Completed!' : '💀 Survived!'}
-                  </h2>
-                  
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <p className="text-xl text-muted-foreground cursor-help inline-flex items-center gap-2">
-                        {config?.name} - Stress Score: <span className="font-bold text-primary">{stressScore}</span>
-                        <Info className="w-4 h-4" aria-hidden="true" />
-                      </p>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs">
-                      <div className="space-y-1">
-                        <p className="font-semibold">Stress Score Formula</p>
-                        <p className="text-xs">WPM × Accuracy × Completion × Difficulty Multiplier ({difficultyMultiplier}x)</p>
-                        <p className="text-xs text-muted-foreground">Higher difficulty = higher potential score</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
+        <div className="stress-test-container min-h-screen flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl">
+            <div className="stress-results-card relative p-6 sm:p-8" role="status" aria-live="polite">
+              <div className="text-center mb-6">
+                <div className={`text-5xl sm:text-6xl mb-3 ${tier.class}`} aria-hidden="true">
+                  {tier.emoji}
                 </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-8" role="list" aria-label="Test results">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-wpm" role="listitem">
-                        <div className="text-3xl font-bold text-primary" aria-label={`${wpm} words per minute`}>{wpm}</div>
-                        <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                          <BarChart3 className="w-3 h-3" aria-hidden="true" />
-                          WPM
-                        </div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <div className="space-y-1">
-                        <p className="font-semibold">Words Per Minute</p>
-                        <p className="text-xs">Calculated as (characters/5) ÷ minutes elapsed</p>
-                        <p className="text-xs text-muted-foreground">Average WPM is 40-50, pros type 80+</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                  
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-accuracy" role="listitem">
-                        <div className="text-3xl font-bold text-green-500" aria-label={`${accuracy.toFixed(1)} percent accuracy`}>{accuracy.toFixed(1)}%</div>
-                        <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                          <Target className="w-3 h-3" aria-hidden="true" />
-                          Accuracy
-                        </div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <div className="space-y-1">
-                        <p className="font-semibold">Typing Accuracy</p>
-                        <p className="text-xs">Percentage of correct keystrokes</p>
-                        <p className="text-xs text-muted-foreground">{Math.max(0, typedText.length - errors)} correct out of {typedText.length} typed</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                  
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-completion" role="listitem">
-                        <div className="text-3xl font-bold text-orange-500" aria-label={`${completionRate.toFixed(1)} percent completed`}>{completionRate.toFixed(1)}%</div>
-                        <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                          <Eye className="w-3 h-3" aria-hidden="true" />
-                          Completed
-                        </div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <div className="space-y-1">
-                        <p className="font-semibold">Text Completion</p>
-                        <p className="text-xs">How much of the text you finished typing</p>
-                        <p className="text-xs text-muted-foreground">{typedText.length} of {currentText.length} characters</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                  
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-combo" role="listitem">
-                        <div className="text-3xl font-bold text-purple-500" aria-label={`Maximum combo of ${maxCombo}`}>{maxCombo}</div>
-                        <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                          <Flame className="w-3 h-3" aria-hidden="true" />
-                          Max Combo
-                        </div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <div className="space-y-1">
-                        <p className="font-semibold">Highest Combo Streak</p>
-                        <p className="text-xs">Consecutive correct keystrokes without errors</p>
-                        <p className="text-xs text-muted-foreground">Every 10 combo triggers a bonus effect!</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                  
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-errors" role="listitem">
-                        <div className="text-3xl font-bold text-red-500" aria-label={`${errors} errors`}>{errors}</div>
-                        <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                          <XCircle className="w-3 h-3" aria-hidden="true" />
-                          Errors
-                        </div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <div className="space-y-1">
-                        <p className="font-semibold">Total Mistakes</p>
-                        <p className="text-xs">Number of incorrect keystrokes</p>
-                        <p className="text-xs text-muted-foreground">Each error resets your combo and causes screen shake!</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                  
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="text-center p-4 bg-muted rounded-lg cursor-help hover:bg-muted/80 transition-colors" data-testid="stat-survival" role="listitem">
-                        <div className="text-3xl font-bold text-blue-500" aria-label={`Survived ${Math.round(survivalTime)} seconds`}>{Math.round(survivalTime)}s</div>
-                        <div className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-                          <Timer className="w-3 h-3" aria-hidden="true" />
-                          Survival Time
-                        </div>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <div className="space-y-1">
-                        <p className="font-semibold">Time Survived</p>
-                        <p className="text-xs">How long you lasted in the chaos</p>
-                        <p className="text-xs text-muted-foreground">Max time for {selectedDifficulty}: {config?.duration}s</p>
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
+                
+                <h2 className="text-2xl sm:text-4xl font-bold mb-2">
+                  {completionRate >= 100 ? 'Challenge Completed!' : 'You Survived!'}
+                </h2>
+                
+                <div className={`inline-block stress-difficulty-badge ${config?.badgeClass} mb-3`}>
+                  {tier.tier} Tier
                 </div>
+                
+                <p className="text-3xl sm:text-5xl font-bold text-primary mb-1">{stressScore}</p>
+                <p className="text-sm text-muted-foreground">Stress Score</p>
+              </div>
 
-                <div className="flex flex-col gap-3">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        onClick={() => selectedDifficulty && handleStart(selectedDifficulty)} 
-                        className="w-full gap-2"
-                        data-testid="button-retry-same"
-                      >
-                        <Zap className="w-4 h-4" aria-hidden="true" />
-                        Retry {config?.name}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      <p>Immediately restart with the same difficulty</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  
-                  <div className="flex gap-4">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button onClick={handleReset} variant="outline" className="flex-1 gap-2" data-testid="button-try-again">
-                          <RefreshCw className="w-4 h-4" aria-hidden="true" />
-                          Change Difficulty
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>Go back to difficulty selection</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Link href="/" className="flex-1">
-                          <Button variant="outline" className="w-full gap-2" data-testid="button-home">
-                            <Home className="w-4 h-4" aria-hidden="true" />
-                            Home
-                          </Button>
-                        </Link>
-                      </TooltipTrigger>
-                      <TooltipContent side="top">
-                        <p>Return to the main typing practice page</p>
-                      </TooltipContent>
-                    </Tooltip>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-6" role="list" aria-label="Test results">
+                <div className="stress-glass-card rounded-lg p-3 sm:p-4 text-center" data-testid="stat-wpm" role="listitem">
+                  <div className="text-xl sm:text-2xl font-bold text-primary" aria-label={`${wpm} words per minute`}>{wpm}</div>
+                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                    <BarChart3 className="w-3 h-3" aria-hidden="true" />
+                    WPM
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                
+                <div className="stress-glass-card rounded-lg p-3 sm:p-4 text-center" data-testid="stat-accuracy" role="listitem">
+                  <div className="text-xl sm:text-2xl font-bold text-green-500" aria-label={`${accuracy.toFixed(1)} percent accuracy`}>{accuracy.toFixed(1)}%</div>
+                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                    <Target className="w-3 h-3" aria-hidden="true" />
+                    Accuracy
+                  </div>
+                </div>
+                
+                <div className="stress-glass-card rounded-lg p-3 sm:p-4 text-center" data-testid="stat-completion" role="listitem">
+                  <div className="text-xl sm:text-2xl font-bold text-orange-500" aria-label={`${completionRate.toFixed(1)} percent completed`}>{completionRate.toFixed(1)}%</div>
+                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                    <Eye className="w-3 h-3" aria-hidden="true" />
+                    Completed
+                  </div>
+                </div>
+                
+                <div className="stress-glass-card rounded-lg p-3 sm:p-4 text-center" data-testid="stat-combo" role="listitem">
+                  <div className="text-xl sm:text-2xl font-bold text-purple-500" aria-label={`Maximum combo of ${maxCombo}`}>{maxCombo}</div>
+                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                    <Flame className="w-3 h-3" aria-hidden="true" />
+                    Max Combo
+                  </div>
+                </div>
+                
+                <div className="stress-glass-card rounded-lg p-3 sm:p-4 text-center" data-testid="stat-errors" role="listitem">
+                  <div className="text-xl sm:text-2xl font-bold text-red-500" aria-label={`${errors} errors`}>{errors}</div>
+                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                    <XCircle className="w-3 h-3" aria-hidden="true" />
+                    Errors
+                  </div>
+                </div>
+                
+                <div className="stress-glass-card rounded-lg p-3 sm:p-4 text-center" data-testid="stat-survival" role="listitem">
+                  <div className="text-xl sm:text-2xl font-bold text-blue-500" aria-label={`Survived ${Math.round(survivalTime)} seconds`}>{Math.round(survivalTime)}s</div>
+                  <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                    <Timer className="w-3 h-3" aria-hidden="true" />
+                    Survival
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center text-xs text-muted-foreground mb-6 p-3 bg-background/30 rounded-lg">
+                <p className="font-mono">Score = WPM ({wpm}) × Accuracy ({accuracy.toFixed(0)}%) × Completion ({completionRate.toFixed(0)}%) × {difficultyMultiplier}x</p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <Button 
+                  onClick={handleShareResult}
+                  variant="outline"
+                  className="w-full gap-2 stress-button-glow"
+                  data-testid="button-share"
+                >
+                  {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+                  {copied ? 'Copied!' : 'Share Result'}
+                </Button>
+                
+                <Button 
+                  onClick={() => selectedDifficulty && handleStart(selectedDifficulty)} 
+                  className="w-full gap-2 stress-button-glow"
+                  data-testid="button-retry-same"
+                  disabled={saveResultMutation.isPending}
+                >
+                  {saveResultMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Zap className="w-4 h-4" />
+                  )}
+                  Retry {config?.name}
+                </Button>
+                
+                <div className="flex gap-3">
+                  <Button onClick={handleReset} variant="outline" className="flex-1 gap-2 stress-button-glow" data-testid="button-try-again">
+                    <RefreshCw className="w-4 h-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">Change</span> Difficulty
+                  </Button>
+                  
+                  <Link href="/" className="flex-1">
+                    <Button variant="outline" className="w-full gap-2 stress-button-glow" data-testid="button-home">
+                      <Home className="w-4 h-4" aria-hidden="true" />
+                      Home
+                    </Button>
+                  </Link>
+                </div>
+                
+                <div className="text-center text-xs text-muted-foreground pt-2 flex flex-wrap justify-center gap-4">
+                  <span className="flex items-center gap-1">
+                    <span className="stress-kbd">SPACE</span> Retry
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="stress-kbd">ESC</span> Menu
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </TooltipProvider>
@@ -1401,17 +1510,20 @@ export default function StressTest() {
     });
   }, [displayText, typedText, currentText, textReversed]);
 
+  const intensityLevel = stressLevel >= 80 ? 'high' : stressLevel >= 50 ? 'medium' : 'low';
+
   return (
     <TooltipProvider delayDuration={300}>
       <div
         ref={containerRef}
         onClick={() => inputRef.current?.focus()}
-        className={`min-h-screen flex items-center justify-center p-4 transition-all duration-100 cursor-text ${
+        className={`stress-test-container min-h-screen flex items-center justify-center p-4 transition-all duration-100 cursor-text ${
           backgroundFlash ? 'bg-red-500/30' : 'bg-background'
         }`}
         style={{
           transform: prefersReducedMotion ? 'none' : `translate(${Math.sin(Date.now() / 100) * shakeIntensity}px, ${Math.cos(Date.now() / 80) * shakeIntensity}px) rotate(${rotation}deg) scale(${zoomScale}) ${screenFlipped ? 'rotateX(180deg)' : ''}`,
           filter: prefersReducedMotion ? 'none' : `${glitchActive ? 'hue-rotate(180deg) saturate(3)' : ''} ${screenInverted ? 'invert(1) hue-rotate(180deg)' : ''}`,
+          willChange: 'transform, filter',
         }}
         role="main"
         aria-label="Stress test in progress"
@@ -1420,90 +1532,105 @@ export default function StressTest() {
           <Particle key={particle.id} particle={particle} />
         ))}
 
-        <div className="w-full max-w-4xl">
-          <div className="mb-8 flex items-center justify-between" role="status" aria-live="polite">
-            <div className="flex items-center gap-4">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-2xl font-mono font-bold cursor-help" style={{ color: prefersReducedMotion ? undefined : currentColor }} aria-label={`${timeLeft} seconds remaining`}>
-                    {timeLeft}s
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>Time remaining - type fast!</p>
-                </TooltipContent>
-              </Tooltip>
+        {keypressFlash && !prefersReducedMotion && (
+          <div 
+            className="fixed inset-0 pointer-events-none bg-primary/10 stress-keypress-indicator z-40"
+            aria-hidden="true"
+          />
+        )}
+
+        {comboMilestone && !prefersReducedMotion && (
+          <div className="fixed inset-0 pointer-events-none flex items-center justify-center z-50" aria-hidden="true">
+            <div className="stress-combo-milestone text-6xl sm:text-8xl font-bold text-primary opacity-80">
+              {comboMilestone}x
+            </div>
+          </div>
+        )}
+
+        <div className="w-full max-w-4xl px-2 sm:px-0">
+          <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4" role="status" aria-live="polite">
+            <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 sm:gap-4">
+              <div className={`relative flex items-center justify-center ${timeLeft <= 10 && !prefersReducedMotion ? 'stress-timer-urgent' : ''}`}>
+                <div 
+                  className="text-2xl sm:text-3xl font-mono font-bold px-3 py-1 rounded-lg bg-background/50"
+                  style={{ color: timeLeft <= 10 ? 'hsl(0 85% 60%)' : (prefersReducedMotion ? undefined : currentColor) }} 
+                  aria-label={`${timeLeft} seconds remaining`}
+                >
+                  {timeLeft}s
+                </div>
+              </div>
               
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className={`text-sm text-muted-foreground transition-all cursor-help ${
-                    comboExplosion && !prefersReducedMotion ? 'scale-150 text-yellow-500' : ''
-                  }`} aria-label={`Current combo: ${combo}`}>
-                    Combo: <span className="text-primary font-bold">{combo}</span>
-                    {comboExplosion && !prefersReducedMotion && <span className="ml-1 animate-ping" aria-hidden="true">🔥</span>}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>Current streak of correct keys. Every 10 combo = bonus!</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
+                comboExplosion && !prefersReducedMotion ? 'stress-combo-milestone bg-primary/20' : 'bg-background/50'
+              }`} aria-label={`Current combo: ${combo}`}>
+                <Flame className={`w-4 h-4 ${combo > 0 ? 'text-orange-500' : 'text-muted-foreground'}`} aria-hidden="true" />
+                <span className="text-sm font-bold">{combo}</span>
+                {comboExplosion && !prefersReducedMotion && <span className="animate-ping" aria-hidden="true">🔥</span>}
+              </div>
               
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="text-sm text-muted-foreground cursor-help" aria-label={`${errors} errors`}>
-                    Errors: <span className="text-destructive font-bold">{errors}</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p>Mistakes reset your combo and shake the screen!</p>
-                </TooltipContent>
-              </Tooltip>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-background/50" aria-label={`${errors} errors`}>
+                <XCircle className={`w-4 h-4 ${errors > 0 ? 'text-destructive' : 'text-muted-foreground'}`} aria-hidden="true" />
+                <span className={`text-sm font-bold ${errors > 0 ? 'text-destructive' : ''}`}>{errors}</span>
+              </div>
             </div>
             
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-2 cursor-help" aria-label={`Stress level: ${Math.round(stressLevel)} percent`}>
-                  <span className="text-sm text-muted-foreground">Stress</span>
-                  <div className="w-32 h-2 bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={Math.round(stressLevel)} aria-valuemin={0} aria-valuemax={100}>
+            <div className="flex items-center gap-3 justify-center sm:justify-end">
+              <div className="flex items-center gap-2" aria-label={`Intensity: ${intensityLevel}`}>
+                <span className="text-xs text-muted-foreground uppercase tracking-wider hidden sm:inline">Intensity</span>
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map((level) => (
                     <div 
-                      className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 transition-all duration-300"
-                      style={{ width: `${stressLevel}%` }}
+                      key={level}
+                      className={`w-1.5 sm:w-2 h-4 sm:h-5 rounded-sm transition-all ${
+                        stressLevel >= level * 20 
+                          ? `stress-intensity-bar ${stressLevel >= 80 ? 'high' : ''} ${
+                              stressLevel >= 80 ? 'bg-red-500' : stressLevel >= 50 ? 'bg-yellow-500' : 'bg-green-500'
+                            }`
+                          : 'bg-muted/50'
+                      }`}
+                      style={{ height: `${12 + level * 3}px` }}
+                      aria-hidden="true"
                     />
-                  </div>
+                  ))}
                 </div>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                <div className="space-y-1">
-                  <p className="font-semibold">Stress Level: {Math.round(stressLevel)}%</p>
-                  <p className="text-xs">As stress increases, visual effects intensify!</p>
-                </div>
-              </TooltipContent>
-            </Tooltip>
+              </div>
+            </div>
           </div>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="cursor-help">
-                <Progress value={progress} className="mb-8 h-3" aria-label={`Progress: ${progress.toFixed(1)} percent complete`} />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              <p>Progress: {progress.toFixed(1)}% - {typedText.length}/{currentText.length} characters</p>
-            </TooltipContent>
-          </Tooltip>
+          <div className="mb-6 sm:mb-8">
+            <div className="relative h-2 sm:h-3 bg-muted rounded-full overflow-hidden" role="progressbar" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
+              <div 
+                className="h-full rounded-full transition-all duration-150 ease-out"
+                style={{ 
+                  width: `${progress}%`,
+                  background: progress < 33 
+                    ? 'linear-gradient(90deg, #22c55e, #4ade80)' 
+                    : progress < 66 
+                      ? 'linear-gradient(90deg, #eab308, #facc15)' 
+                      : 'linear-gradient(90deg, #f97316, #ef4444)'
+                }}
+                aria-hidden="true"
+              />
+            </div>
+            <div className="flex justify-between mt-1 text-xs text-muted-foreground">
+              <span>{typedText.length}/{currentText.length}</span>
+              <span>{progress.toFixed(0)}%</span>
+            </div>
+          </div>
 
           <Card
-            className="mb-8 transition-all duration-200"
+            className="mb-6 sm:mb-8 transition-all duration-200 stress-glass-card"
             style={prefersReducedMotion ? {} : {
               transform: `translateY(${gravityOffset}px) translate(${textPosition.x}px, ${textPosition.y}px)`,
               opacity: textOpacity,
               filter: `blur(${blur}px)`,
               borderColor: currentColor,
               borderWidth: '2px',
+              willChange: 'transform, opacity, filter',
             }}
           >
-            <CardContent className="p-8">
-              <div className="text-2xl font-mono leading-relaxed whitespace-pre-wrap select-none" aria-label="Text to type">
+            <CardContent className="p-4 sm:p-8">
+              <div className="text-lg sm:text-2xl font-mono leading-relaxed whitespace-pre-wrap select-none" aria-label="Text to type">
                 {renderedCharacters.map(({ char, color, index }) => (
                   <span
                     key={index}
@@ -1539,9 +1666,17 @@ export default function StressTest() {
             data-testid="input-typing"
           />
           
-          <p className="text-center text-sm text-muted-foreground" aria-live="polite">
-            {isStarted ? 'Click anywhere or press ESC to quit' : 'Click to focus and start typing'}
-          </p>
+          <div className="text-center space-y-2" aria-live="polite">
+            <p className="text-sm text-muted-foreground">
+              {isStarted ? 'Click anywhere to focus' : 'Click to focus and start typing'}
+            </p>
+            <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="stress-kbd">ESC</span>
+                <span>Quit</span>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </TooltipProvider>
