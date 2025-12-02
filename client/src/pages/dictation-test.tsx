@@ -409,7 +409,7 @@ export default function DictationTest() {
   const [difficulty, setDifficulty] = useState<string>('easy');
   const [speedLevel, setSpeedLevel] = useState<string>('1.0');
   const [category, setCategory] = useState<string>('all');
-  const [sessionLength, setSessionLength] = useState<number>(10);
+  const [sessionLength, setSessionLength] = useState<number>(5);
   const [showCustomLength, setShowCustomLength] = useState(false);
   const [customLengthInput, setCustomLengthInput] = useState<string>('');
   const [sessionHistory, setSessionHistory] = useState<SessionHistoryItem[]>([]);
