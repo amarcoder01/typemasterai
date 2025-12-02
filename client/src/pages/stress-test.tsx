@@ -420,11 +420,36 @@ export default function StressTest() {
   // Start test with countdown
   const handleStart = (difficulty: Difficulty) => {
     clearAllTimeouts();
+    
+    // Reset all game state before starting
+    setTypedText('');
+    setErrors(0);
+    setCombo(0);
+    setMaxCombo(0);
+    setIsFinished(false);
+    
+    // Reset all visual states
+    setShakeIntensity(0);
+    setParticles([]);
+    setCurrentColor('hsl(0, 0%, 100%)');
+    setBlur(0);
+    setRotation(0);
+    setGravityOffset(0);
+    setGlitchActive(false);
+    setTextOpacity(1);
+    setTextReversed(false);
+    setTextPosition({ x: 0, y: 0 });
+    setScreenInverted(false);
+    setZoomScale(1);
+    setScreenFlipped(false);
+    setComboExplosion(false);
+    setBackgroundFlash(false);
+    setStressLevel(0);
+    
     setSelectedDifficulty(difficulty);
     setCountdown(3);
     const randomText = SAMPLE_TEXTS[Math.floor(Math.random() * SAMPLE_TEXTS.length)];
     setCurrentText(randomText);
-    setStressLevel(0);
     
     const diffConfig = DIFFICULTY_CONFIGS[difficulty];
     toast({
