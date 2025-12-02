@@ -38,7 +38,7 @@ const PRACTICE_MODES: Record<PracticeMode, PracticeModeConfig> = {
     hintsAllowed: true,
     timerPressure: false,
     defaultSpeed: '1.0',
-    defaultDifficulty: 'medium',
+    defaultDifficulty: 'easy',
   },
   focus: {
     name: 'Focus Mode',
@@ -58,7 +58,7 @@ const PRACTICE_MODES: Record<PracticeMode, PracticeModeConfig> = {
     hintsAllowed: false,
     timerPressure: true,
     defaultSpeed: '1.3',
-    defaultDifficulty: 'hard',
+    defaultDifficulty: 'easy',
   },
 };
 
