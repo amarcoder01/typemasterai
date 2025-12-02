@@ -860,10 +860,12 @@ export default function DictationTest() {
       elapsedSeconds
     );
 
+    const wordErrors = accuracyResult.wordDiff.filter(d => d.status !== 'correct').length;
+    
     const result = {
       accuracy: accuracyResult.accuracy,
       wpm,
-      errors: accuracyResult.errors,
+      errors: wordErrors,
       duration,
       characterDiff: accuracyResult.characterDiff,
       wordDiff: accuracyResult.wordDiff,
