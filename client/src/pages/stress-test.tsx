@@ -940,6 +940,24 @@ export default function StressTest() {
     resetVisualStates();
   }, [clearAllTimers, resetVisualStates]);
 
+  const displayText = textReversed ? currentText.split('').reverse().join('') : currentText;
+  
+  const renderedCharacters = useMemo(() => {
+    if (!currentText) return [];
+    const textLength = currentText.length;
+    return displayText.split('').map((char, displayIndex) => {
+      const originalIndex = textReversed ? (textLength - 1 - displayIndex) : displayIndex;
+      
+      let color = 'text-muted-foreground';
+      if (originalIndex < typedText.length) {
+        color = typedText[originalIndex] === currentText[originalIndex] ? 'text-green-500' : 'text-red-500';
+      } else if (originalIndex === typedText.length) {
+        color = 'text-primary bg-primary/20';
+      }
+      return { char, color, index: displayIndex };
+    });
+  }, [displayText, typedText, currentText, textReversed]);
+
   if (!selectedDifficulty || (!isStarted && !isFinished && countdown === 0)) {
     return (
       <TooltipProvider delayDuration={200}>
@@ -1384,22 +1402,6 @@ export default function StressTest() {
   }
 
   const progress = currentText.length > 0 ? Math.min(100, (typedText.length / currentText.length) * 100) : 0;
-  const displayText = textReversed ? currentText.split('').reverse().join('') : currentText;
-
-  const renderedCharacters = useMemo(() => {
-    const textLength = currentText.length;
-    return displayText.split('').map((char, displayIndex) => {
-      const originalIndex = textReversed ? (textLength - 1 - displayIndex) : displayIndex;
-      
-      let color = 'text-muted-foreground';
-      if (originalIndex < typedText.length) {
-        color = typedText[originalIndex] === currentText[originalIndex] ? 'text-green-500' : 'text-red-500';
-      } else if (originalIndex === typedText.length) {
-        color = 'text-primary bg-primary/20';
-      }
-      return { char, color, index: displayIndex };
-    });
-  }, [displayText, typedText, currentText, textReversed]);
 
   return (
     <TooltipProvider delayDuration={300}>
