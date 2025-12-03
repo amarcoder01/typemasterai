@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo, useLayoutEffect } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ArrowLeft, Zap, Skull, Trophy, Eye, Volume2, VolumeX, AlertTriangle, HelpCircle, Clock, Target, Flame, XCircle, Timer, BarChart3, RefreshCw, Home, Info } from 'lucide-react';
+import { ArrowLeft, Zap, Skull, Trophy, Eye, Volume2, VolumeX, AlertTriangle, HelpCircle, Clock, Target, Flame, XCircle, Timer, BarChart3, RefreshCw, Home, Info, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMutation } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { calculateWPM, calculateAccuracy } from '@/lib/typing-utils';
+import { useAuth } from '@/lib/auth-context';
 import {
   Tooltip,
   TooltipContent,
@@ -266,6 +267,7 @@ function getSharedAudioContext(): AudioContext | null {
 
 export default function StressTest() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
   const [isStarted, setIsStarted] = useState(false);
@@ -303,6 +305,7 @@ export default function StressTest() {
     accuracy: number;
     completionRate: number;
     stressScore: number;
+    completed: boolean;
   } | null>(null);
   
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -328,6 +331,13 @@ export default function StressTest() {
   const isTestActiveRef = useRef<boolean>(false);
   const particleIdRef = useRef<number>(0);
   const finishTestRef = useRef<(completed: boolean) => void>(() => {});
+  const maxComboRef = useRef<number>(0);
+  const typedTextRef = useRef<string>('');
+  const currentTextRef = useRef<string>('');
+  const errorsRef = useRef<number>(0);
+  const startTimeRef = useRef<number | null>(null);
+  const selectedDifficultyRef = useRef<Difficulty | null>(null);
+  const completedRef = useRef<boolean>(false);
 
   const config = selectedDifficulty ? DIFFICULTY_CONFIGS[selectedDifficulty] : null;
 
@@ -500,8 +510,6 @@ export default function StressTest() {
   });
 
   const finishTest = useCallback((completed: boolean = false) => {
-    const currentSession = testSessionRef.current;
-    
     isTestActiveRef.current = false;
     clearAllTimers();
     resetVisualStates();
@@ -510,11 +518,19 @@ export default function StressTest() {
     setIsStarted(false);
     setCountdown(0);
     
+    completedRef.current = completed;
+    
     setTypedText((currentTypedText) => {
+      typedTextRef.current = currentTypedText;
       setCurrentText((currentTextValue) => {
+        currentTextRef.current = currentTextValue;
         setErrors((currentErrors) => {
+          errorsRef.current = currentErrors;
           setStartTime((currentStartTime) => {
+            startTimeRef.current = currentStartTime;
             setSelectedDifficulty((currentDifficulty) => {
+              selectedDifficultyRef.current = currentDifficulty;
+              
               const survivalTime = currentStartTime ? Math.max(0, (Date.now() - currentStartTime) / 1000) : 0;
               const completionRate = currentTextValue.length > 0 
                 ? Math.min(100, (currentTypedText.length / currentTextValue.length) * 100)
@@ -530,7 +546,7 @@ export default function StressTest() {
                                            currentDifficulty === 'intermediate' ? 2 : 1;
               const stressScore = Math.round((wpm * accuracy * completionRate * difficultyMultiplier) / 100);
               
-              setFinalResults({ survivalTime, wpm, accuracy, completionRate, stressScore });
+              setFinalResults({ survivalTime, wpm, accuracy, completionRate, stressScore, completed });
               
               if (completed) {
                 playSound('complete');
@@ -542,29 +558,21 @@ export default function StressTest() {
                     colors: ['#ff0000', '#ff6600', '#ffaa00'],
                   });
                 }
-                
-                toast({
-                  title: "🎉 Incredible!",
-                  description: `You completed the challenge with a Stress Score of ${stressScore}!`,
-                });
               } else {
                 playSound('error');
-                toast({
-                  title: "Time's Up!",
-                  description: `You lasted ${Math.round(survivalTime)}s with a Stress Score of ${stressScore}`,
-                  variant: "destructive",
-                });
               }
               
               const diffConfig = currentDifficulty ? DIFFICULTY_CONFIGS[currentDifficulty] : null;
-              if (diffConfig && currentDifficulty) {
+              const currentMaxCombo = maxComboRef.current;
+              
+              if (diffConfig && currentDifficulty && user) {
                 saveResultMutation.mutate({
                   difficulty: currentDifficulty,
                   enabledEffects: diffConfig.effects,
                   wpm,
                   accuracy,
                   errors: currentErrors,
-                  maxCombo,
+                  maxCombo: currentMaxCombo,
                   totalCharacters: currentTypedText.length,
                   duration: diffConfig.duration,
                   survivalTime,
@@ -583,7 +591,33 @@ export default function StressTest() {
       });
       return currentTypedText;
     });
-  }, [clearAllTimers, resetVisualStates, playSound, prefersReducedMotion, toast, maxCombo, saveResultMutation]);
+  }, [clearAllTimers, resetVisualStates, playSound, prefersReducedMotion, user, saveResultMutation]);
+
+  const hasShownFinishToast = useRef(false);
+  
+  useEffect(() => {
+    if (finalResults && isFinished && !hasShownFinishToast.current) {
+      hasShownFinishToast.current = true;
+      const { survivalTime, stressScore, completed } = finalResults;
+      
+      if (completed) {
+        toast({
+          title: "🎉 Incredible!",
+          description: `You completed the challenge with a Stress Score of ${stressScore}!`,
+        });
+      } else {
+        toast({
+          title: "Time's Up!",
+          description: `You lasted ${Math.round(survivalTime)}s with a Stress Score of ${stressScore}`,
+          variant: "destructive",
+        });
+      }
+    }
+    
+    if (!isFinished) {
+      hasShownFinishToast.current = false;
+    }
+  }, [finalResults, isFinished, toast]);
 
   useEffect(() => {
     finishTestRef.current = finishTest;
@@ -602,6 +636,7 @@ export default function StressTest() {
     setErrors(0);
     setCombo(0);
     setMaxCombo(0);
+    maxComboRef.current = 0;
     setIsFinished(false);
     setFinalResults(null);
     resetVisualStates();
@@ -666,7 +701,10 @@ export default function StressTest() {
       setTypedText(value);
       setCombo((prev) => {
         const newCombo = prev + 1;
-        if (newCombo > maxCombo) setMaxCombo(newCombo);
+        if (newCombo > maxComboRef.current) {
+          maxComboRef.current = newCombo;
+          setMaxCombo(newCombo);
+        }
         if (newCombo % 10 === 0 && newCombo > 0) {
           playSound('combo');
           if (!prefersReducedMotion && selectedDifficulty !== 'beginner') {
@@ -694,7 +732,7 @@ export default function StressTest() {
         safeTimeout(() => setBackgroundFlash(false), 100);
       }
     }
-  }, [isStarted, isFinished, currentText, typedText, playSound, maxCombo, prefersReducedMotion, selectedDifficulty, config, stressLevel, safeTimeout]);
+  }, [isStarted, isFinished, currentText, typedText, playSound, prefersReducedMotion, selectedDifficulty, config, stressLevel, safeTimeout]);
 
   useEffect(() => {
     if (!isStarted || isFinished) return;
@@ -956,6 +994,7 @@ export default function StressTest() {
     setErrors(0);
     setCombo(0);
     setMaxCombo(0);
+    maxComboRef.current = 0;
     setFinalResults(null);
     resetVisualStates();
   }, [clearAllTimers, resetVisualStates]);
@@ -1281,6 +1320,33 @@ export default function StressTest() {
                     </div>
                   </div>
                 </div>
+
+                {!user && (
+                  <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg" data-testid="login-prompt">
+                    <div className="flex items-center gap-3">
+                      <LogIn className="w-5 h-5 text-amber-500 flex-shrink-0" aria-hidden="true" />
+                      <div className="flex-1">
+                        <p className="font-medium text-amber-500">Login to save your results</p>
+                        <p className="text-sm text-muted-foreground">Your score won't be saved to the leaderboard without an account.</p>
+                      </div>
+                      <Link href="/login">
+                        <Button size="sm" variant="outline" className="border-amber-500/50 text-amber-500 hover:bg-amber-500/10" data-testid="button-login-save">
+                          Login
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {user && (
+                  <div className="mb-6 p-3 bg-green-500/10 border border-green-500/30 rounded-lg" data-testid="save-status">
+                    <p className="text-sm text-green-500 text-center">
+                      {saveResultMutation.isPending ? '⏳ Saving result...' : 
+                       saveResultMutation.isSuccess ? '✓ Result saved to your profile!' : 
+                       saveResultMutation.isError ? '✗ Failed to save - please try again' : ''}
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-3">
                   <Button 
