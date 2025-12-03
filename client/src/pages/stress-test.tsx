@@ -96,7 +96,7 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   },
   intermediate: {
     name: 'Mind Scrambler',
-    description: 'Screen inverts, zoom chaos, sensory assault',
+    description: 'Progressive chaos - effects intensify as you type',
     effects: {
       screenShake: true,
       distractions: true,
@@ -117,10 +117,10 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     duration: 45,
     icon: '⚡',
     color: 'from-purple-500/20 to-pink-500/20',
-    baseShakeIntensity: 15,
-    particleFrequency: 0.5,
+    baseShakeIntensity: 8,
+    particleFrequency: 0.3,
     multiplier: 2,
-    difficulty: 'Medium - Challenging visuals',
+    difficulty: 'Medium - Build your focus',
   },
   expert: {
     name: 'Absolute Mayhem',
@@ -642,8 +642,10 @@ export default function StressTest() {
     resetVisualStates();
     
     setSelectedDifficulty(difficulty);
+    selectedDifficultyRef.current = difficulty;
     setCountdown(3);
     const randomText = SAMPLE_TEXTS[Math.floor(Math.random() * SAMPLE_TEXTS.length)];
+    currentTextRef.current = randomText;
     setCurrentText(randomText);
     
     const diffConfig = DIFFICULTY_CONFIGS[difficulty];
@@ -698,6 +700,7 @@ export default function StressTest() {
     
     if (lastChar === expectedChar) {
       playSound('type');
+      typedTextRef.current = value;
       setTypedText(value);
       setCombo((prev) => {
         const newCombo = prev + 1;
@@ -770,6 +773,8 @@ export default function StressTest() {
 
   const hasShown10SecWarning = useRef(false);
   const lastComboMilestone = useRef(0);
+  const lastProgressMilestone = useRef(0);
+  const [activeEffectWarning, setActiveEffectWarning] = useState<string | null>(null);
   
   useEffect(() => {
     if (timeLeft === 10 && isStarted && !isFinished && !hasShown10SecWarning.current) {
@@ -806,6 +811,37 @@ export default function StressTest() {
       });
     }
   }, [combo, isStarted, isFinished, toast]);
+
+  useEffect(() => {
+    if (!isStarted || isFinished || !currentText.length) {
+      lastProgressMilestone.current = 0;
+      return;
+    }
+    
+    const progress = Math.floor((typedText.length / currentText.length) * 100);
+    
+    if (selectedDifficulty === 'intermediate') {
+      if (progress >= 25 && lastProgressMilestone.current < 25) {
+        lastProgressMilestone.current = 25;
+        toast({
+          title: "💪 25% Complete!",
+          description: "Great start! Effects are warming up...",
+        });
+      } else if (progress >= 50 && lastProgressMilestone.current < 50) {
+        lastProgressMilestone.current = 50;
+        toast({
+          title: "⚡ Halfway There!",
+          description: "Chaos intensifying - stay focused!",
+        });
+      } else if (progress >= 75 && lastProgressMilestone.current < 75) {
+        lastProgressMilestone.current = 75;
+        toast({
+          title: "🔥 75% - Almost There!",
+          description: "Final stretch - you've got this!",
+        });
+      }
+    }
+  }, [typedText.length, currentText.length, isStarted, isFinished, selectedDifficulty, toast]);
 
   useEffect(() => {
     if (!isStarted || !config || !isTestActiveRef.current) return;
@@ -919,14 +955,41 @@ export default function StressTest() {
       }
       
       if (config.effects.screenInvert && Math.random() > 0.7) {
-        setScreenInverted(true);
-        safeTimeout(() => setScreenInverted(false), 800 + Math.random() * 1200);
+        const progressPercent = currentTextRef.current.length > 0 
+          ? (typedTextRef.current.length / currentTextRef.current.length) * 100 : 0;
+        
+        if (selectedDifficultyRef.current === 'intermediate' && progressPercent < 30) {
+        } else if (selectedDifficultyRef.current === 'intermediate') {
+          setActiveEffectWarning('🔄 Screen Invert!');
+          safeTimeout(() => {
+            setActiveEffectWarning(null);
+            setScreenInverted(true);
+            safeTimeout(() => setScreenInverted(false), 800 + Math.random() * 1200);
+          }, 500);
+        } else {
+          setScreenInverted(true);
+          safeTimeout(() => setScreenInverted(false), 800 + Math.random() * 1200);
+        }
       }
       
       if (config.effects.zoomChaos && Math.random() > 0.75) {
-        const zoomRange = 0.5 + (stressLevel / 100);
-        setZoomScale(0.6 + Math.random() * zoomRange);
-        safeTimeout(() => setZoomScale(1), 600 + Math.random() * 800);
+        const progressPercent = currentTextRef.current.length > 0 
+          ? (typedTextRef.current.length / currentTextRef.current.length) * 100 : 0;
+        
+        if (selectedDifficultyRef.current === 'intermediate' && progressPercent < 40) {
+        } else if (selectedDifficultyRef.current === 'intermediate') {
+          setActiveEffectWarning('🔍 Zoom Chaos!');
+          safeTimeout(() => {
+            setActiveEffectWarning(null);
+            const zoomRange = 0.5 + (stressLevel / 100);
+            setZoomScale(0.6 + Math.random() * zoomRange);
+            safeTimeout(() => setZoomScale(1), 600 + Math.random() * 800);
+          }, 500);
+        } else {
+          const zoomRange = 0.5 + (stressLevel / 100);
+          setZoomScale(0.6 + Math.random() * zoomRange);
+          safeTimeout(() => setZoomScale(1), 600 + Math.random() * 800);
+        }
       }
       
       if (config.effects.screenFlip && Math.random() > 0.85) {
@@ -1178,7 +1241,16 @@ export default function StressTest() {
                     <TooltipContent side="bottom" className="max-w-xs">
                       <div className="space-y-1">
                         <p className="font-semibold">{diffConfig.difficulty}</p>
-                        <p className="text-xs text-muted-foreground">Score multiplier: {diffConfig.multiplier}x</p>
+                        {difficulty === 'intermediate' && (
+                          <>
+                            <p className="text-xs text-green-400">✓ Progressive chaos - effects ramp up gradually</p>
+                            <p className="text-xs text-green-400">✓ Milestone encouragement at 25%, 50%, 75%</p>
+                            <p className="text-xs text-green-400">✓ Effect warnings before disorienting moments</p>
+                          </>
+                        )}
+                        {difficulty === 'beginner' && (
+                          <p className="text-xs text-green-400">✓ Perfect for learning the chaos mechanics</p>
+                        )}
                         <p className="text-xs text-muted-foreground">{activeEffects.length} active effects</p>
                       </div>
                     </TooltipContent>
@@ -1461,6 +1533,42 @@ export default function StressTest() {
               </TooltipContent>
             </Tooltip>
           </div>
+
+          {activeEffectWarning && selectedDifficulty === 'intermediate' && (
+            <div 
+              className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-purple-500/90 text-white px-6 py-2 rounded-full font-bold animate-pulse shadow-lg"
+              role="alert"
+              aria-live="assertive"
+            >
+              {activeEffectWarning}
+            </div>
+          )}
+
+          {selectedDifficulty === 'intermediate' && (
+            <div className="fixed bottom-4 right-4 z-40 bg-background/90 border border-border rounded-lg p-3 shadow-lg" role="status" aria-label="Active effects">
+              <div className="text-xs font-semibold text-muted-foreground mb-2">Active Effects</div>
+              <div className="flex flex-wrap gap-1">
+                {screenInverted && (
+                  <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded text-xs">🔄 Invert</span>
+                )}
+                {zoomScale !== 1 && (
+                  <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs">🔍 Zoom</span>
+                )}
+                {shakeIntensity > 5 && (
+                  <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs">📳 Shake</span>
+                )}
+                {rotation !== 0 && (
+                  <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">🔀 Tilt</span>
+                )}
+                {gravityOffset !== 0 && (
+                  <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs">🎈 Float</span>
+                )}
+                {!screenInverted && zoomScale === 1 && shakeIntensity <= 5 && rotation === 0 && gravityOffset === 0 && (
+                  <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded text-xs">Calm...</span>
+                )}
+              </div>
+            </div>
+          )}
 
           <Tooltip>
             <TooltipTrigger asChild>
