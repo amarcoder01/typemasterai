@@ -298,6 +298,7 @@ export default function StressTest() {
   const [zoomScale, setZoomScale] = useState(1);
   const [screenFlipped, setScreenFlipped] = useState(false);
   const [comboExplosion, setComboExplosion] = useState(false);
+  const [shakeOffset, setShakeOffset] = useState({ x: 0, y: 0 });
   
   const [finalResults, setFinalResults] = useState<{
     survivalTime: number;
@@ -380,6 +381,7 @@ export default function StressTest() {
 
   const resetVisualStates = useCallback(() => {
     setShakeIntensity(0);
+    setShakeOffset({ x: 0, y: 0 });
     setParticles([]);
     setCurrentColor('hsl(0, 0%, 100%)');
     setBlur(0);
@@ -1025,7 +1027,12 @@ export default function StressTest() {
       if (testSessionRef.current !== currentSession || !isTestActiveRef.current) return;
       const baseShake = config.baseShakeIntensity;
       const stressBonus = (stressLevel / 100) * baseShake;
-      setShakeIntensity(baseShake + stressBonus);
+      const totalIntensity = baseShake + stressBonus;
+      setShakeIntensity(totalIntensity);
+      setShakeOffset({
+        x: (Math.random() - 0.5) * 2 * totalIntensity,
+        y: (Math.random() - 0.5) * 2 * totalIntensity,
+      });
     }, 50);
     
     return () => {
@@ -1472,7 +1479,7 @@ export default function StressTest() {
           backgroundFlash ? 'bg-red-500/30' : 'bg-background'
         }`}
         style={{
-          transform: prefersReducedMotion ? 'none' : `translate(${Math.sin(Date.now() / 100) * shakeIntensity}px, ${Math.cos(Date.now() / 80) * shakeIntensity}px) rotate(${rotation}deg) scale(${zoomScale}) ${screenFlipped ? 'rotateX(180deg)' : ''}`,
+          transform: prefersReducedMotion ? 'none' : `translate(${shakeOffset.x}px, ${shakeOffset.y}px) rotate(${rotation}deg) scale(${zoomScale}) ${screenFlipped ? 'rotateX(180deg)' : ''}`,
           filter: prefersReducedMotion ? 'none' : `${glitchActive ? 'hue-rotate(180deg) saturate(3)' : ''} ${screenInverted ? 'invert(1) hue-rotate(180deg)' : ''}`,
         }}
         role="main"
