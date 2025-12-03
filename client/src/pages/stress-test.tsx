@@ -1463,43 +1463,6 @@ export default function StressTest() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      {/* Fixed UI elements OUTSIDE the transformed container so they're not affected by screen effects */}
-      {activeEffectWarning && selectedDifficulty === 'intermediate' && (
-        <div 
-          className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] bg-purple-500/90 text-white px-6 py-2 rounded-full font-bold animate-pulse shadow-lg"
-          role="alert"
-          aria-live="assertive"
-        >
-          {activeEffectWarning}
-        </div>
-      )}
-
-      {selectedDifficulty === 'intermediate' && (
-        <div className="fixed bottom-4 right-4 z-[100] bg-background/95 border border-border rounded-lg p-3 shadow-lg backdrop-blur-sm" role="status" aria-label="Active effects">
-          <div className="text-xs font-semibold text-muted-foreground mb-2">Active Effects</div>
-          <div className="flex flex-wrap gap-1 max-w-48">
-            {screenInverted && (
-              <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 rounded text-xs">🔄 Invert</span>
-            )}
-            {zoomScale !== 1 && (
-              <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs">🔍 Zoom</span>
-            )}
-            {shakeIntensity > 5 && (
-              <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs">📳 Shake</span>
-            )}
-            {rotation !== 0 && (
-              <span className="px-2 py-0.5 bg-green-500/20 text-green-400 rounded text-xs">🔀 Tilt</span>
-            )}
-            {gravityOffset !== 0 && (
-              <span className="px-2 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs">🎈 Float</span>
-            )}
-            {!screenInverted && zoomScale === 1 && shakeIntensity <= 5 && rotation === 0 && gravityOffset === 0 && (
-              <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded text-xs">Calm...</span>
-            )}
-          </div>
-        </div>
-      )}
-
       <div
         ref={containerRef}
         onClick={() => inputRef.current?.focus()}
