@@ -219,6 +219,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(401).json({ message: "Unauthorized" });
   }
 
+  app.get("/api/health", (_req, res) => {
+    res.status(200).json({ 
+      status: "ok", 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  });
+
+  app.head("/api/health", (_req, res) => {
+    res.status(200).end();
+  });
+
   app.post("/api/auth/register", authLimiter, async (req, res, next) => {
     try {
       const parsed = insertUserSchema.safeParse(req.body);

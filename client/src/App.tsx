@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/lib/theme-context";
+import { NetworkProvider } from "@/lib/network-context";
+import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import Layout from "@/components/layout";
 import NotFound from "@/pages/not-found";
@@ -102,12 +104,15 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <AuthProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Router />
-            </TooltipProvider>
-          </AuthProvider>
+          <NetworkProvider>
+            <AuthProvider>
+              <TooltipProvider>
+                <NetworkStatusBanner />
+                <Toaster />
+                <Router />
+              </TooltipProvider>
+            </AuthProvider>
+          </NetworkProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
