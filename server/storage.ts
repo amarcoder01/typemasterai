@@ -101,6 +101,8 @@ import {
   passwordResetTokens,
   userSessions,
   securitySettings,
+  oauthAccounts,
+  persistentLogins,
   type LoginHistory,
   type InsertLoginHistory,
   type AccountLockout,
@@ -113,6 +115,11 @@ import {
   type InsertUserSession,
   type SecuritySettings,
   type InsertSecuritySettings,
+  type OAuthAccount,
+  type InsertOAuthAccount,
+  type OAuthProvider,
+  type PersistentLogin,
+  type InsertPersistentLogin,
 } from "@shared/schema";
 import { eq, desc, sql, and, notInArray } from "drizzle-orm";
 
@@ -423,6 +430,23 @@ export interface IStorage {
   getUserGamification(userId: string): Promise<UserGamification | undefined>;
   createUserGamification(gamification: InsertUserGamification): Promise<UserGamification>;
   updateUserGamification(userId: string, updates: Partial<UserGamification>): Promise<UserGamification>;
+  
+  // OAuth Accounts
+  createOAuthAccount(account: InsertOAuthAccount): Promise<OAuthAccount>;
+  getOAuthAccount(provider: OAuthProvider, providerUserId: string): Promise<OAuthAccount | undefined>;
+  getUserOAuthAccounts(userId: string): Promise<OAuthAccount[]>;
+  linkOAuthAccount(userId: string, account: Omit<InsertOAuthAccount, 'userId'>): Promise<OAuthAccount>;
+  unlinkOAuthAccount(userId: string, provider: OAuthProvider): Promise<void>;
+  findUserByOAuthProvider(provider: OAuthProvider, providerUserId: string): Promise<User | undefined>;
+  
+  // Persistent Login (Remember Me)
+  createPersistentLogin(login: InsertPersistentLogin): Promise<PersistentLogin>;
+  getPersistentLogin(series: string): Promise<PersistentLogin | undefined>;
+  updatePersistentLoginToken(series: string, newTokenHash: string, lastUsed: Date): Promise<void>;
+  deletePersistentLogin(series: string): Promise<void>;
+  deleteAllUserPersistentLogins(userId: string): Promise<void>;
+  deleteExpiredPersistentLogins(): Promise<number>;
+  getUserPersistentLogins(userId: string): Promise<PersistentLogin[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2887,6 +2911,109 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userGamification.userId, userId))
       .returning();
     return updated[0];
+  }
+
+  // OAuth Accounts
+  async createOAuthAccount(account: InsertOAuthAccount): Promise<OAuthAccount> {
+    const inserted = await db.insert(oauthAccounts).values(account).returning();
+    return inserted[0];
+  }
+
+  async getOAuthAccount(provider: OAuthProvider, providerUserId: string): Promise<OAuthAccount | undefined> {
+    const result = await db
+      .select()
+      .from(oauthAccounts)
+      .where(and(
+        eq(oauthAccounts.provider, provider),
+        eq(oauthAccounts.providerUserId, providerUserId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async getUserOAuthAccounts(userId: string): Promise<OAuthAccount[]> {
+    return await db
+      .select()
+      .from(oauthAccounts)
+      .where(eq(oauthAccounts.userId, userId))
+      .orderBy(desc(oauthAccounts.linkedAt));
+  }
+
+  async linkOAuthAccount(userId: string, account: Omit<InsertOAuthAccount, 'userId'>): Promise<OAuthAccount> {
+    const inserted = await db
+      .insert(oauthAccounts)
+      .values({ ...account, userId })
+      .returning();
+    return inserted[0];
+  }
+
+  async unlinkOAuthAccount(userId: string, provider: OAuthProvider): Promise<void> {
+    await db
+      .delete(oauthAccounts)
+      .where(and(
+        eq(oauthAccounts.userId, userId),
+        eq(oauthAccounts.provider, provider)
+      ));
+  }
+
+  async findUserByOAuthProvider(provider: OAuthProvider, providerUserId: string): Promise<User | undefined> {
+    const result = await db
+      .select({ user: users })
+      .from(oauthAccounts)
+      .innerJoin(users, eq(oauthAccounts.userId, users.id))
+      .where(and(
+        eq(oauthAccounts.provider, provider),
+        eq(oauthAccounts.providerUserId, providerUserId)
+      ))
+      .limit(1);
+    return result[0]?.user;
+  }
+
+  // Persistent Login (Remember Me)
+  async createPersistentLogin(login: InsertPersistentLogin): Promise<PersistentLogin> {
+    const inserted = await db.insert(persistentLogins).values(login).returning();
+    return inserted[0];
+  }
+
+  async getPersistentLogin(series: string): Promise<PersistentLogin | undefined> {
+    const result = await db
+      .select()
+      .from(persistentLogins)
+      .where(eq(persistentLogins.series, series))
+      .limit(1);
+    return result[0];
+  }
+
+  async updatePersistentLoginToken(series: string, newTokenHash: string, lastUsed: Date): Promise<void> {
+    await db
+      .update(persistentLogins)
+      .set({ tokenHash: newTokenHash, lastUsed })
+      .where(eq(persistentLogins.series, series));
+  }
+
+  async deletePersistentLogin(series: string): Promise<void> {
+    await db.delete(persistentLogins).where(eq(persistentLogins.series, series));
+  }
+
+  async deleteAllUserPersistentLogins(userId: string): Promise<void> {
+    await db.delete(persistentLogins).where(eq(persistentLogins.userId, userId));
+  }
+
+  async deleteExpiredPersistentLogins(): Promise<number> {
+    const now = new Date();
+    const result = await db
+      .delete(persistentLogins)
+      .where(sql`${persistentLogins.expiresAt} < ${now}`)
+      .returning();
+    return result.length;
+  }
+
+  async getUserPersistentLogins(userId: string): Promise<PersistentLogin[]> {
+    return await db
+      .select()
+      .from(persistentLogins)
+      .where(eq(persistentLogins.userId, userId))
+      .orderBy(desc(persistentLogins.lastUsed));
   }
 }
 
