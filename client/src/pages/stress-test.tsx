@@ -68,6 +68,7 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   difficulty: string;
   maxBlur?: number;
   blurPulse?: boolean;
+  constantBlur?: number;
   realityDistortion?: boolean;
   chromaticAberration?: boolean;
   textScramble?: boolean;
@@ -185,8 +186,9 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     particleFrequency: 0.85,
     multiplier: 4,
     difficulty: 'Extreme - Reality bends around you',
-    maxBlur: 1.5,
+    maxBlur: 2.5,
     blurPulse: true,
+    constantBlur: 0.5,
     realityDistortion: false,
     chromaticAberration: true,
   },
@@ -217,8 +219,9 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     particleFrequency: 0.95,
     multiplier: 5,
     difficulty: 'Legendary - Only 1% survive',
-    maxBlur: 2.0,
+    maxBlur: 3.5,
     blurPulse: true,
+    constantBlur: 1.0,
     realityDistortion: true,
     chromaticAberration: true,
     textScramble: true,
@@ -373,12 +376,13 @@ export default function StressTest() {
   const [comboExplosion, setComboExplosion] = useState(false);
   const [shakeOffset, setShakeOffset] = useState({ x: 0, y: 0 });
   const [isClarityWindow, setIsClarityWindow] = useState(false);
+  const isClarityWindowRef = useRef(false);
   const [chromaticOffset, setChromaticOffset] = useState({ r: 0, g: 0, b: 0 });
   const [realityWarp, setRealityWarp] = useState(0);
   const [textScrambleActive, setTextScrambleActive] = useState(false);
   const [chaosWaveIntensity, setChaosWaveIntensity] = useState(0);
   const [multiEffectActive, setMultiEffectActive] = useState(false);
-  const [blurPulsePhase, setBlurPulsePhase] = useState(0);
+  const blurPulsePhaseRef = useRef(0);
   
   const [finalResults, setFinalResults] = useState<{
     survivalTime: number;
@@ -483,12 +487,13 @@ export default function StressTest() {
     setBackgroundFlash(false);
     setStressLevel(0);
     setIsClarityWindow(false);
+    isClarityWindowRef.current = false;
     setChromaticOffset({ r: 0, g: 0, b: 0 });
     setRealityWarp(0);
     setTextScrambleActive(false);
     setChaosWaveIntensity(0);
     setMultiEffectActive(false);
-    setBlurPulsePhase(0);
+    blurPulsePhaseRef.current = 0;
   }, []);
 
   const playSound = useCallback((type: 'type' | 'error' | 'combo' | 'complete' | 'warning' | 'chaos') => {
@@ -1116,18 +1121,21 @@ export default function StressTest() {
         setCurrentColor(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
       }
       
-      if (config.effects.limitedVisibility && !isClarityWindow) {
+      if (config.effects.limitedVisibility && !isClarityWindowRef.current) {
         const maxBlurValue = config.maxBlur ?? 3;
+        const constantBlur = config.constantBlur ?? 0;
         if (config.blurPulse) {
-          setBlurPulsePhase((prev) => (prev + 0.1) % (Math.PI * 2));
-          const pulseBlur = (Math.sin(blurPulsePhase) + 1) * 0.5 * maxBlurValue;
-          setBlur(Math.min(pulseBlur, maxBlurValue));
+          blurPulsePhaseRef.current = (blurPulsePhaseRef.current + 0.15) % (Math.PI * 2);
+          const pulseBlur = constantBlur + ((Math.sin(blurPulsePhaseRef.current) + 1) * 0.5 * (maxBlurValue - constantBlur));
+          setBlur(pulseBlur);
         } else {
-          setBlur(0.3 + Math.random() * Math.min(maxBlurValue, 1.5 * intensity));
+          setBlur(constantBlur + Math.random() * Math.min(maxBlurValue - constantBlur, 1.5 * intensity));
         }
+      } else if (isClarityWindowRef.current && config.constantBlur && config.constantBlur > 0) {
+        setBlur(config.constantBlur * 0.3);
       }
       
-      if (config.chromaticAberration && !isClarityWindow) {
+      if (config.chromaticAberration && !isClarityWindowRef.current) {
         const aberrationIntensity = config.realityDistortion ? 8 : 4;
         setChromaticOffset({
           r: (Math.random() - 0.5) * aberrationIntensity * intensity,
@@ -1136,7 +1144,7 @@ export default function StressTest() {
         });
       }
       
-      if (config.realityDistortion && !isClarityWindow) {
+      if (config.realityDistortion && !isClarityWindowRef.current) {
         setRealityWarp(Math.sin(Date.now() / 300) * 10 * intensity);
       }
       
@@ -1163,7 +1171,7 @@ export default function StressTest() {
         }, 400 + Math.random() * 400);
       }
       
-      if (config.effects.rotation && !isClarityWindow) {
+      if (config.effects.rotation && !isClarityWindowRef.current) {
         setRotation((Math.random() - 0.5) * 8 * intensity);
       }
       
@@ -1176,7 +1184,7 @@ export default function StressTest() {
         safeTimeout(() => setGlitchActive(false), 30 + Math.random() * 70);
       }
       
-      if (config.effects.textFade && !isClarityWindow) {
+      if (config.effects.textFade && !isClarityWindowRef.current) {
         setTextOpacity(0.6 + Math.random() * 0.4);
       }
       
@@ -1211,7 +1219,7 @@ export default function StressTest() {
         }
       }
       
-      if (config.effects.zoomChaos && Math.random() > 0.8 && !isClarityWindow) {
+      if (config.effects.zoomChaos && Math.random() > 0.8 && !isClarityWindowRef.current) {
         const progressPercent = currentTextRef.current.length > 0 
           ? (typedTextRef.current.length / currentTextRef.current.length) * 100 : 0;
         
@@ -1244,7 +1252,7 @@ export default function StressTest() {
         effectsIntervalRef.current = null;
       }
     };
-  }, [isStarted, config, stressLevel, prefersReducedMotion, playSound, safeTimeout, isClarityWindow, blurPulsePhase]);
+  }, [isStarted, config, stressLevel, prefersReducedMotion, playSound, safeTimeout]);
 
   useEffect(() => {
     if (!isStarted || !config?.effects.screenShake || prefersReducedMotion || !isTestActiveRef.current) return;
@@ -1282,6 +1290,7 @@ export default function StressTest() {
       if (testSessionRef.current !== currentSession || !isTestActiveRef.current) return;
       
       setIsClarityWindow(true);
+      isClarityWindowRef.current = true;
       setBlur(0);
       setTextOpacity(1);
       setRotation(0);
@@ -1293,6 +1302,7 @@ export default function StressTest() {
       setTimeout(() => {
         if (testSessionRef.current === currentSession && isTestActiveRef.current) {
           setIsClarityWindow(false);
+          isClarityWindowRef.current = false;
         }
       }, clarityDuration);
     };
@@ -1539,7 +1549,7 @@ export default function StressTest() {
                           <>
                             <p className="text-xs text-purple-400">✓ Pulsing blur waves - text clarity fluctuates</p>
                             <p className="text-xs text-purple-400">✓ Chromatic aberration - RGB color splitting</p>
-                            <p className="text-xs text-purple-400">✓ Max blur level: {diffConfig.maxBlur}px (controlled)</p>
+                            <p className="text-xs text-purple-400">✓ Blur intensity: {diffConfig.constantBlur}px - {diffConfig.maxBlur}px</p>
                           </>
                         )}
                         {difficulty === 'impossible' && (
@@ -1549,7 +1559,7 @@ export default function StressTest() {
                             <p className="text-xs text-red-400">✓ Extreme chaos waves - contrast/brightness bursts</p>
                             <p className="text-xs text-red-400">✓ Multi-effect combos - simultaneous chaos!</p>
                             <p className="text-xs text-red-400">✓ Enhanced chromatic aberration</p>
-                            <p className="text-xs text-red-400">✓ Max blur level: {diffConfig.maxBlur}px (controlled)</p>
+                            <p className="text-xs text-red-400">✓ Heavy blur: {diffConfig.constantBlur}px - {diffConfig.maxBlur}px</p>
                           </>
                         )}
                         <p className="text-xs text-muted-foreground">{activeEffects.length} active effects</p>
