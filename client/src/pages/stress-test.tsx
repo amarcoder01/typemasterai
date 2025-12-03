@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo, useLayoutEffect } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ArrowLeft, Zap, Skull, Trophy, Eye, Volume2, VolumeX, AlertTriangle, HelpCircle, Clock, Target, Flame, XCircle, Timer, BarChart3, RefreshCw, Home, Info, LogIn } from 'lucide-react';
+import { ArrowLeft, Zap, Skull, Trophy, Eye, Volume2, VolumeX, AlertTriangle, HelpCircle, Clock, Target, Flame, XCircle, Timer, BarChart3, RefreshCw, Home, Info, LogIn, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -9,6 +9,7 @@ import { useMutation } from '@tanstack/react-query';
 import confetti from 'canvas-confetti';
 import { calculateWPM, calculateAccuracy } from '@/lib/typing-utils';
 import { useAuth } from '@/lib/auth-context';
+import { useNetwork } from '@/lib/network-context';
 import {
   Tooltip,
   TooltipContent,
@@ -308,7 +309,21 @@ function getSharedAudioContext(): AudioContext | null {
 export default function StressTest() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { isOnline, isServerReachable, addPendingAction, checkConnection } = useNetwork();
   const [, setLocation] = useLocation();
+  const [pendingResultData, setPendingResultData] = useState<{
+    difficulty: Difficulty;
+    enabledEffects: StressEffects;
+    wpm: number;
+    accuracy: number;
+    errors: number;
+    maxCombo: number;
+    totalCharacters: number;
+    duration: number;
+    survivalTime: number;
+    completionRate: number;
+    stressScore: number;
+  } | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
   const [isStarted, setIsStarted] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
@@ -519,6 +534,35 @@ export default function StressTest() {
       completionRate: number;
       stressScore: number;
     }) => {
+      if (!user) {
+        throw new Error('You must be logged in to save results.');
+      }
+
+      if (!isOnline) {
+        setPendingResultData(data);
+        addPendingAction({
+          id: `stress_test_${Date.now()}`,
+          type: 'save_stress_test',
+          data,
+          timestamp: new Date(),
+          retryCount: 0,
+        });
+        throw new Error('OFFLINE: Your result will be saved when you reconnect.');
+      }
+
+      const serverReachable = await checkConnection();
+      if (!serverReachable) {
+        setPendingResultData(data);
+        addPendingAction({
+          id: `stress_test_${Date.now()}`,
+          type: 'save_stress_test',
+          data,
+          timestamp: new Date(),
+          retryCount: 0,
+        });
+        throw new Error('SERVER_UNREACHABLE: Your result will be saved when connection is restored.');
+      }
+
       const res = await fetch('/api/stress-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -529,12 +573,38 @@ export default function StressTest() {
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ message: 'Unknown error' }));
         console.error('Save stress test error:', res.status, errorData);
+        
+        if (res.status === 401) {
+          setPendingResultData(null);
+          throw new Error('AUTH_ERROR: Please log in again to save your result.');
+        }
+        
+        if (res.status >= 500) {
+          setPendingResultData(data);
+          addPendingAction({
+            id: `stress_test_${Date.now()}`,
+            type: 'save_stress_test',
+            data,
+            timestamp: new Date(),
+            retryCount: 0,
+          });
+          throw new Error('SERVER_ERROR: Server error. Will retry automatically.');
+        }
+        
         throw new Error(errorData.message || 'Failed to save result');
       }
+      setPendingResultData(null);
       return res.json();
     },
-    retry: 2,
-    retryDelay: 1000,
+    retry: (failureCount, error) => {
+      const msg = error.message || '';
+      if (msg.includes('OFFLINE') || msg.includes('AUTH_ERROR')) return false;
+      if (msg.includes('SERVER_UNREACHABLE') || msg.includes('SERVER_ERROR')) {
+        return failureCount < 3;
+      }
+      return failureCount < 2;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 10000),
     onSuccess: (data) => {
       if (data?.isNewPersonalBest) {
         toast({
@@ -550,13 +620,51 @@ export default function StressTest() {
     },
     onError: (error) => {
       console.error('Stress test save mutation error:', error);
-      toast({
-        title: "Save Failed",
-        description: error.message || "Could not save your result. Please try again.",
-        variant: "destructive",
-      });
+      const msg = error.message || '';
+      
+      if (msg.includes('OFFLINE') || msg.includes('SERVER_UNREACHABLE')) {
+        toast({
+          title: "Connection Issue",
+          description: "Your result will be saved automatically when connection is restored.",
+        });
+      } else if (msg.includes('AUTH_ERROR')) {
+        toast({
+          title: "Session Expired",
+          description: "Please log in again to save your result.",
+          variant: "destructive",
+        });
+      } else if (msg.includes('SERVER_ERROR')) {
+        toast({
+          title: "Server Issue",
+          description: "We'll keep trying to save your result.",
+        });
+      } else {
+        toast({
+          title: "Save Failed",
+          description: error.message || "Could not save your result. Please try again.",
+          variant: "destructive",
+        });
+      }
     },
   });
+
+  const retrySave = useCallback(async () => {
+    if (!pendingResultData || !user) return;
+    
+    const serverReachable = await checkConnection();
+    if (isOnline && serverReachable) {
+      saveResultMutation.mutate(pendingResultData);
+    }
+  }, [pendingResultData, isOnline, user, checkConnection, saveResultMutation]);
+
+  useEffect(() => {
+    if (isOnline && isServerReachable && pendingResultData && user && !saveResultMutation.isPending) {
+      const timer = setTimeout(() => {
+        retrySave();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOnline, isServerReachable, pendingResultData, user, saveResultMutation.isPending, retrySave]);
 
   const finishTest = useCallback((completed: boolean = false) => {
     isTestActiveRef.current = false;
@@ -1467,12 +1575,57 @@ export default function StressTest() {
                 )}
 
                 {user && (
-                  <div className="mb-6 p-3 bg-green-500/10 border border-green-500/30 rounded-lg" data-testid="save-status">
-                    <p className="text-sm text-green-500 text-center">
-                      {saveResultMutation.isPending ? '⏳ Saving result...' : 
-                       saveResultMutation.isSuccess ? '✓ Result saved to your profile!' : 
-                       saveResultMutation.isError ? '✗ Failed to save - please try again' : ''}
-                    </p>
+                  <div className={`mb-6 p-3 rounded-lg ${
+                    !isOnline || pendingResultData 
+                      ? 'bg-amber-500/10 border border-amber-500/30' 
+                      : saveResultMutation.isError 
+                        ? 'bg-red-500/10 border border-red-500/30'
+                        : 'bg-green-500/10 border border-green-500/30'
+                  }`} data-testid="save-status">
+                    {!isOnline ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <WifiOff className="w-4 h-4 text-amber-500" />
+                        <p className="text-sm text-amber-500">
+                          You're offline. Result will be saved when you reconnect.
+                        </p>
+                      </div>
+                    ) : pendingResultData ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <RefreshCw className={`w-4 h-4 text-amber-500 ${saveResultMutation.isPending ? 'animate-spin' : ''}`} />
+                        <p className="text-sm text-amber-500">
+                          {saveResultMutation.isPending ? 'Retrying save...' : 'Pending save - '}
+                        </p>
+                        {!saveResultMutation.isPending && (
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="h-6 px-2 text-amber-500 hover:text-amber-400"
+                            onClick={retrySave}
+                            data-testid="button-retry-save"
+                          >
+                            Retry Now
+                          </Button>
+                        )}
+                      </div>
+                    ) : saveResultMutation.isError ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <p className="text-sm text-red-500">✗ Failed to save</p>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-6 px-2 text-red-500 hover:text-red-400"
+                          onClick={retrySave}
+                          data-testid="button-retry-save-error"
+                        >
+                          Retry
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-green-500 text-center">
+                        {saveResultMutation.isPending ? '⏳ Saving result...' : 
+                         saveResultMutation.isSuccess ? '✓ Result saved to your profile!' : ''}
+                      </p>
+                    )}
                   </div>
                 )}
 

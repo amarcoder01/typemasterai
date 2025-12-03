@@ -283,7 +283,7 @@ export default function RacePage() {
       setWsConnected(false);
       setWs(null);
       
-      if (event.code !== 1000 && isOnline && race?.status !== "finished") {
+      if (event.code !== 1000 && race?.status !== "finished") {
         attemptReconnect();
       }
     };

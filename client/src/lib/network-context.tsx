@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import { useNetworkStatus, NetworkStatus, checkServerReachability } from '@/hooks/useNetworkStatus';
 
 interface NetworkContextType extends NetworkStatus {
@@ -86,67 +86,132 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const retryPendingActions = useCallback(async () => {
-    if (!networkStatus.isOnline || pendingActions.length === 0) return;
-
-    const actionsToRetry = [...pendingActions];
+    if (!networkStatus.isOnline) return;
     
-    for (const action of actionsToRetry) {
-      try {
-        let endpoint = '';
-        let method = 'POST';
+    const reachable = await checkServerReachability();
+    if (!reachable) {
+      setIsServerReachable(false);
+      return;
+    }
+    setIsServerReachable(true);
+
+    setPendingActions(currentActions => {
+      if (currentActions.length === 0) return currentActions;
+      
+      const processActions = async () => {
+        const actionsSnapshot = [...currentActions];
+        const processedIds: string[] = [];
+        const failedUpdates: { id: string; retryCount: number }[] = [];
         
-        switch (action.type) {
-          case 'save_result':
-            endpoint = '/api/results';
-            break;
-          case 'save_stress_test':
-            endpoint = '/api/stress-test';
-            break;
-          case 'update_progress':
-            endpoint = '/api/progress';
-            break;
-          case 'send_message':
-            endpoint = '/api/messages';
-            break;
-        }
+        for (const action of actionsSnapshot) {
+          try {
+            let endpoint = '';
+            
+            switch (action.type) {
+              case 'save_result':
+                endpoint = '/api/results';
+                break;
+              case 'save_stress_test':
+                endpoint = '/api/stress-test';
+                break;
+              case 'update_progress':
+                endpoint = '/api/progress';
+                break;
+              case 'send_message':
+                endpoint = '/api/messages';
+                break;
+            }
 
-        if (endpoint) {
-          const response = await fetch(endpoint, {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(action.data),
-          });
+            if (endpoint) {
+              const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(action.data),
+              });
 
-          if (response.ok) {
-            setPendingActions(prev => prev.filter(a => a.id !== action.id));
-          } else if (action.retryCount >= 3) {
-            setPendingActions(prev => prev.filter(a => a.id !== action.id));
-          } else {
-            setPendingActions(prev => 
-              prev.map(a => a.id === action.id 
-                ? { ...a, retryCount: a.retryCount + 1 } 
-                : a
-              )
-            );
+              if (response.ok) {
+                processedIds.push(action.id);
+              } else if (response.status === 401) {
+                processedIds.push(action.id);
+              } else if (action.retryCount >= 5) {
+                processedIds.push(action.id);
+              } else {
+                failedUpdates.push({ id: action.id, retryCount: action.retryCount + 1 });
+              }
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } catch {
+            if (action.retryCount >= 5) {
+              processedIds.push(action.id);
+            } else {
+              failedUpdates.push({ id: action.id, retryCount: action.retryCount + 1 });
+            }
           }
         }
-      } catch {
-        if (action.retryCount >= 3) {
-          setPendingActions(prev => prev.filter(a => a.id !== action.id));
-        }
-      }
-    }
-  }, [networkStatus.isOnline, pendingActions]);
+        
+        setPendingActions(prev => {
+          let updated = prev.filter(a => !processedIds.includes(a.id));
+          for (const fail of failedUpdates) {
+            updated = updated.map(a => 
+              a.id === fail.id ? { ...a, retryCount: fail.retryCount } : a
+            );
+          }
+          return updated;
+        });
+      };
+      
+      processActions();
+      return currentActions;
+    });
+  }, [networkStatus.isOnline]);
+
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (networkStatus.isOnline && networkStatus.wasOffline && pendingActions.length > 0) {
+      setRetryAttempt(0);
       const timer = setTimeout(() => {
         retryPendingActions();
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [networkStatus.isOnline, networkStatus.wasOffline, pendingActions.length, retryPendingActions]);
+  }, [networkStatus.isOnline, networkStatus.wasOffline]);
+
+  useEffect(() => {
+    if (networkStatus.isOnline && pendingActions.length > 0 && retryAttempt > 0) {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+      
+      const delay = Math.min(5000 * Math.pow(2, retryAttempt - 1), 60000);
+      
+      retryTimeoutRef.current = setTimeout(async () => {
+        const reachable = await checkServerReachability();
+        if (reachable) {
+          retryPendingActions();
+        } else {
+          setRetryAttempt(prev => Math.min(prev + 1, 5));
+        }
+      }, delay);
+      
+      return () => {
+        if (retryTimeoutRef.current) {
+          clearTimeout(retryTimeoutRef.current);
+        }
+      };
+    }
+  }, [networkStatus.isOnline, pendingActions.length, retryAttempt, retryPendingActions]);
+
+  useEffect(() => {
+    if (pendingActions.length > 0 && retryAttempt === 0 && networkStatus.isOnline) {
+      setRetryAttempt(1);
+    } else if (pendingActions.length === 0) {
+      setRetryAttempt(0);
+    }
+  }, [pendingActions.length, networkStatus.isOnline]);
 
   return (
     <NetworkContext.Provider
