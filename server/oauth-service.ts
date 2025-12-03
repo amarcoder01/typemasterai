@@ -627,30 +627,35 @@ export function oauthRateLimitMiddleware() {
 }
 
 export function initiateOAuthFlow(provider: string, linkToUserId?: string) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const state = generateOAuthState();
-    const codeVerifier = provider === "google" ? generateCodeVerifier() : undefined;
-    
-    storeOAuthState(state, {
-      codeVerifier,
-      returnTo: req.query.returnTo as string | undefined,
-      linkToUserId,
-    });
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const state = generateOAuthState();
+      const codeVerifier = provider === "google" ? generateCodeVerifier() : undefined;
+      
+      await storeOAuthState(state, provider, {
+        codeVerifier,
+        returnTo: req.query.returnTo as string | undefined,
+        linkToUserId,
+      });
 
-    (req as any).oauthState = state;
-    (req as any).oauthCodeVerifier = codeVerifier;
-    
-    const authenticateOptions: any = { 
-      state,
-      session: false,
-    };
-    
-    if (codeVerifier && provider === "google") {
-      authenticateOptions.codeChallenge = generateCodeChallenge(codeVerifier);
-      authenticateOptions.codeChallengeMethod = "S256";
+      (req as any).oauthState = state;
+      (req as any).oauthCodeVerifier = codeVerifier;
+      
+      const authenticateOptions: any = { 
+        state,
+        session: false,
+      };
+      
+      if (codeVerifier && provider === "google") {
+        authenticateOptions.codeChallenge = generateCodeChallenge(codeVerifier);
+        authenticateOptions.codeChallengeMethod = "S256";
+      }
+
+      passport.authenticate(provider, authenticateOptions)(req, res, next);
+    } catch (error) {
+      console.error(`Failed to initiate OAuth flow for ${provider}:`, error);
+      return res.redirect("/login?error=oauth_error");
     }
-
-    passport.authenticate(provider, authenticateOptions)(req, res, next);
   };
 }
 
@@ -663,7 +668,7 @@ export function handleOAuthCallbackFlow(provider: string) {
       return res.redirect("/login?error=invalid_state");
     }
     
-    const stateResult = validateAndConsumeOAuthState(state);
+    const stateResult = await validateAndConsumeOAuthState(state);
     
     if (!stateResult.valid) {
       console.warn(`OAuth ${provider} callback with invalid/expired state`);

@@ -231,6 +231,46 @@ export const insertPersistentLoginSchema = createInsertSchema(persistentLogins, 
 export type PersistentLogin = typeof persistentLogins.$inferSelect;
 export type InsertPersistentLogin = z.infer<typeof insertPersistentLoginSchema>;
 
+// OAuth States - CSRF protection for OAuth flows (database-persisted for multi-instance support)
+export const oauthStates = pgTable("oauth_states", {
+  state: varchar("state", { length: 64 }).primaryKey(),
+  provider: varchar("provider", { length: 20 }).notNull(),
+  codeVerifier: varchar("code_verifier", { length: 128 }),
+  redirectTo: varchar("redirect_to", { length: 255 }),
+  linkUserId: varchar("link_user_id").references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+}, (table) => ({
+  expiresAtIdx: index("oauth_states_expires_at_idx").on(table.expiresAt),
+}));
+
+export const insertOAuthStateSchema = createInsertSchema(oauthStates).omit({ createdAt: true });
+export type OAuthState = typeof oauthStates.$inferSelect;
+export type InsertOAuthState = z.infer<typeof insertOAuthStateSchema>;
+
+// Audit Logs - Security event tracking (database-persisted for compliance and querying)
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  eventType: varchar("event_type", { length: 50 }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  deviceFingerprint: varchar("device_fingerprint", { length: 64 }),
+  provider: varchar("provider", { length: 20 }),
+  success: boolean("success").notNull(),
+  failureReason: varchar("failure_reason", { length: 200 }),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  eventTypeIdx: index("audit_logs_event_type_idx").on(table.eventType),
+  userIdIdx: index("audit_logs_user_id_idx").on(table.userId),
+  createdAtIdx: index("audit_logs_created_at_idx").on(table.createdAt),
+}));
+
+export const insertAuditLogSchema = createInsertSchema(auditLogs).omit({ id: true, createdAt: true });
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+
 export const testResults = pgTable("test_results", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),

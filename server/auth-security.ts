@@ -73,20 +73,12 @@ function extractPlatform(userAgent: string): string {
   return "Unknown";
 }
 
-const auditLogs: AuthAuditLog[] = [];
-const MAX_AUDIT_LOGS = 10000;
-
 export function logAuthEvent(event: Omit<AuthAuditLog, "timestamp">): void {
   const log: AuthAuditLog = {
     ...event,
     timestamp: new Date(),
   };
   
-  auditLogs.unshift(log);
-  if (auditLogs.length > MAX_AUDIT_LOGS) {
-    auditLogs.pop();
-  }
-
   const logLevel = event.success ? "info" : "warn";
   const sanitizedLog = {
     ...log,
@@ -100,16 +92,41 @@ export function logAuthEvent(event: Omit<AuthAuditLog, "timestamp">): void {
   } else {
     console.log("[AUTH AUDIT]", event.eventType, event.userId || event.email || "anonymous");
   }
+  
+  storage.createAuditLog({
+    eventType: event.eventType,
+    userId: event.userId || null,
+    ipAddress: event.ipAddress,
+    userAgent: event.userAgent,
+    deviceFingerprint: event.deviceFingerprint,
+    provider: event.provider || null,
+    success: event.success,
+    failureReason: event.metadata?.failureReason || null,
+    metadata: event.metadata ? event.metadata : null,
+  }).catch((err) => {
+    console.error("[AUTH AUDIT] Failed to persist audit log:", err);
+  });
 }
 
-export function getRecentAuthEvents(
+export async function getRecentAuthEvents(
   userId?: string,
   limit: number = 50
-): AuthAuditLog[] {
-  if (userId) {
-    return auditLogs.filter((log) => log.userId === userId).slice(0, limit);
-  }
-  return auditLogs.slice(0, limit);
+): Promise<AuthAuditLog[]> {
+  const logs = userId 
+    ? await storage.getUserAuditLogs(userId, limit)
+    : await storage.getAuditLogs({ limit });
+  
+  return logs.map((log) => ({
+    eventType: log.eventType as AuthEventType,
+    userId: log.userId || undefined,
+    provider: log.provider || undefined,
+    ipAddress: log.ipAddress || "unknown",
+    userAgent: log.userAgent || "unknown",
+    deviceFingerprint: log.deviceFingerprint || "unknown",
+    success: log.success,
+    metadata: log.metadata as Record<string, any> | undefined,
+    timestamp: log.createdAt,
+  }));
 }
 
 export function generateOAuthState(): string {
@@ -124,66 +141,56 @@ export function generateCodeChallenge(verifier: string): string {
   return crypto.createHash("sha256").update(verifier).digest("base64url");
 }
 
-const oauthStates = new Map<string, { 
-  createdAt: Date; 
-  codeVerifier?: string;
-  returnTo?: string;
-  linkToUserId?: string;
-}>();
-
 const STATE_EXPIRY_MS = 10 * 60 * 1000;
 
-export function storeOAuthState(
-  state: string, 
+export async function storeOAuthState(
+  state: string,
+  provider: string,
   options?: { 
     codeVerifier?: string; 
     returnTo?: string;
     linkToUserId?: string;
   }
-): void {
-  cleanupExpiredStates();
-  oauthStates.set(state, {
-    createdAt: new Date(),
-    ...options,
+): Promise<void> {
+  storage.deleteExpiredOAuthStates().catch(() => {});
+  
+  const expiresAt = new Date(Date.now() + STATE_EXPIRY_MS);
+  
+  await storage.createOAuthState({
+    state,
+    provider,
+    codeVerifier: options?.codeVerifier || null,
+    redirectTo: options?.returnTo || null,
+    linkUserId: options?.linkToUserId || null,
+    expiresAt,
   });
 }
 
-export function validateAndConsumeOAuthState(
+export async function validateAndConsumeOAuthState(
   state: string
-): { 
+): Promise<{ 
   valid: boolean; 
   codeVerifier?: string; 
   returnTo?: string;
   linkToUserId?: string;
-} {
-  const stored = oauthStates.get(state);
+}> {
+  const stored = await storage.getOAuthState(state);
   if (!stored) {
     return { valid: false };
   }
   
-  oauthStates.delete(state);
+  await storage.deleteOAuthState(state);
   
-  const age = Date.now() - stored.createdAt.getTime();
-  if (age > STATE_EXPIRY_MS) {
+  if (new Date() > stored.expiresAt) {
     return { valid: false };
   }
   
   return {
     valid: true,
-    codeVerifier: stored.codeVerifier,
-    returnTo: stored.returnTo,
-    linkToUserId: stored.linkToUserId,
+    codeVerifier: stored.codeVerifier || undefined,
+    returnTo: stored.redirectTo || undefined,
+    linkToUserId: stored.linkUserId || undefined,
   };
-}
-
-function cleanupExpiredStates(): void {
-  const now = Date.now();
-  const entries = Array.from(oauthStates.entries());
-  for (const [state, data] of entries) {
-    if (now - data.createdAt.getTime() > STATE_EXPIRY_MS) {
-      oauthStates.delete(state);
-    }
-  }
 }
 
 export interface RateLimitEntry {

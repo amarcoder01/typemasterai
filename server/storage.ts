@@ -103,6 +103,8 @@ import {
   securitySettings,
   oauthAccounts,
   persistentLogins,
+  oauthStates,
+  auditLogs,
   type LoginHistory,
   type InsertLoginHistory,
   type AccountLockout,
@@ -120,6 +122,10 @@ import {
   type OAuthProvider,
   type PersistentLogin,
   type InsertPersistentLogin,
+  type OAuthState,
+  type InsertOAuthState,
+  type AuditLog,
+  type InsertAuditLog,
 } from "@shared/schema";
 import { eq, desc, sql, and, notInArray } from "drizzle-orm";
 
@@ -447,6 +453,17 @@ export interface IStorage {
   deleteAllUserPersistentLogins(userId: string): Promise<void>;
   deleteExpiredPersistentLogins(): Promise<number>;
   getUserPersistentLogins(userId: string): Promise<PersistentLogin[]>;
+  
+  // OAuth States (CSRF protection - database persisted for multi-instance support)
+  createOAuthState(state: InsertOAuthState): Promise<OAuthState>;
+  getOAuthState(state: string): Promise<OAuthState | undefined>;
+  deleteOAuthState(state: string): Promise<void>;
+  deleteExpiredOAuthStates(): Promise<number>;
+  
+  // Audit Logs (Security event tracking - database persisted for compliance)
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(filters?: { userId?: string; eventType?: string; limit?: number }): Promise<AuditLog[]>;
+  getUserAuditLogs(userId: string, limit?: number): Promise<AuditLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3014,6 +3031,69 @@ export class DatabaseStorage implements IStorage {
       .from(persistentLogins)
       .where(eq(persistentLogins.userId, userId))
       .orderBy(desc(persistentLogins.lastUsed));
+  }
+  
+  // OAuth States (CSRF protection - database persisted for multi-instance support)
+  async createOAuthState(state: InsertOAuthState): Promise<OAuthState> {
+    const inserted = await db.insert(oauthStates).values(state).returning();
+    return inserted[0];
+  }
+  
+  async getOAuthState(state: string): Promise<OAuthState | undefined> {
+    const result = await db
+      .select()
+      .from(oauthStates)
+      .where(eq(oauthStates.state, state))
+      .limit(1);
+    return result[0];
+  }
+  
+  async deleteOAuthState(state: string): Promise<void> {
+    await db.delete(oauthStates).where(eq(oauthStates.state, state));
+  }
+  
+  async deleteExpiredOAuthStates(): Promise<number> {
+    const now = new Date();
+    const result = await db
+      .delete(oauthStates)
+      .where(sql`${oauthStates.expiresAt} < ${now}`)
+      .returning();
+    return result.length;
+  }
+  
+  // Audit Logs (Security event tracking - database persisted for compliance)
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const inserted = await db.insert(auditLogs).values(log).returning();
+    return inserted[0];
+  }
+  
+  async getAuditLogs(filters?: { userId?: string; eventType?: string; limit?: number }): Promise<AuditLog[]> {
+    let query = db.select().from(auditLogs);
+    
+    const conditions = [];
+    if (filters?.userId) {
+      conditions.push(eq(auditLogs.userId, filters.userId));
+    }
+    if (filters?.eventType) {
+      conditions.push(eq(auditLogs.eventType, filters.eventType));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
+    }
+    
+    return await query
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(filters?.limit || 100);
+  }
+  
+  async getUserAuditLogs(userId: string, limit: number = 50): Promise<AuditLog[]> {
+    return await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.userId, userId))
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(limit);
   }
 }
 

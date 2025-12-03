@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Keyboard, AlertCircle, Github } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+
+interface ProviderAvailability {
+  google: boolean;
+  github: boolean;
+  facebook: boolean;
+}
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -39,6 +46,24 @@ export default function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const { data: providers } = useQuery<ProviderAvailability>({
+    queryKey: ["provider-availability"],
+    queryFn: async () => {
+      const response = await fetch("/api/auth/providers/availability");
+      if (!response.ok) {
+        return { google: false, github: false, facebook: false };
+      }
+      return response.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isProviderAvailable = (provider: keyof ProviderAvailability) => {
+    return providers?.[provider] ?? false;
+  };
+
+  const anyProviderAvailable = providers && (providers.google || providers.github || providers.facebook);
+
   useEffect(() => {
     const params = new URLSearchParams(searchString);
     const errorParam = params.get("error");
@@ -48,6 +73,8 @@ export default function Login() {
         github_failed: "GitHub sign-in failed. Please try again.",
         facebook_failed: "Facebook sign-in failed. Please try again.",
         oauth_error: "An error occurred during sign-in. Please try again.",
+        invalid_state: "Session expired. Please try signing in again.",
+        provider_not_configured: "This sign-in method is not available.",
       };
       setError(errorMessages[errorParam] || "Sign-in failed. Please try again.");
     }
@@ -69,6 +96,10 @@ export default function Login() {
   };
 
   const handleSocialLogin = (provider: "google" | "github" | "facebook") => {
+    if (!isProviderAvailable(provider)) {
+      setError("This sign-in method is not currently available.");
+      return;
+    }
     window.location.href = `/api/auth/${provider}`;
   };
 
@@ -99,47 +130,57 @@ export default function Login() {
                 </Alert>
               )}
 
-              <div className="grid gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => handleSocialLogin("google")}
-                  data-testid="button-login-google"
-                >
-                  <GoogleIcon className="w-5 h-5 mr-2" />
-                  Continue with Google
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => handleSocialLogin("github")}
-                  data-testid="button-login-github"
-                >
-                  <Github className="w-5 h-5 mr-2" />
-                  Continue with GitHub
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => handleSocialLogin("facebook")}
-                  data-testid="button-login-facebook"
-                >
-                  <FacebookIcon className="w-5 h-5 mr-2" />
-                  Continue with Facebook
-                </Button>
-              </div>
+              {anyProviderAvailable && (
+                <div className="grid gap-3">
+                  {isProviderAvailable("google") && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleSocialLogin("google")}
+                      data-testid="button-login-google"
+                    >
+                      <GoogleIcon className="w-5 h-5 mr-2" />
+                      Continue with Google
+                    </Button>
+                  )}
+                  {isProviderAvailable("github") && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleSocialLogin("github")}
+                      data-testid="button-login-github"
+                    >
+                      <Github className="w-5 h-5 mr-2" />
+                      Continue with GitHub
+                    </Button>
+                  )}
+                  {isProviderAvailable("facebook") && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleSocialLogin("facebook")}
+                      data-testid="button-login-facebook"
+                    >
+                      <FacebookIcon className="w-5 h-5 mr-2" />
+                      Continue with Facebook
+                    </Button>
+                  )}
+                </div>
+              )}
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <Separator className="w-full" />
+              {anyProviderAvailable && (
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <Separator className="w-full" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or continue with email</span>
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">Or continue with email</span>
-                </div>
-              </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
