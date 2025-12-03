@@ -85,7 +85,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
         toast({
           variant: 'destructive',
           title: "You're offline",
-          description: "Your internet connection was lost. Don't worry, your progress is saved locally.",
+          description: "Your progress is saved and will sync when you reconnect.",
           duration: 10000,
         });
       } else if (currentState === 'connected' && prevState === 'disconnected' && !toastShownRef.current.reconnected) {

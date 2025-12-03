@@ -90,7 +90,7 @@ export function NetworkStatusBanner() {
                 <div className="min-w-0">
                   <p className="font-semibold text-base">No Internet Connection</p>
                   <p className="text-sm text-white/90 truncate">
-                    Check your connection. Your progress is saved locally and will sync when you're back online.
+                    Check your connection. Your progress is saved and will sync automatically.
                   </p>
                 </div>
               </div>
