@@ -2223,10 +2223,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Stress Test Routes
-  app.post("/api/stress-test", isAuthenticated, async (req, res) => {
+  // Rate limiter for stress test submissions (prevent rapid-fire submissions)
+  const stressTestSubmitLimiter = rateLimit({
+    windowMs: 30 * 1000, // 30 second window
+    max: 5, // Max 5 submissions per 30 seconds per user
+    message: { message: "Too many stress test submissions. Please wait before submitting again." },
+    keyGenerator: (req) => req.user?.id || req.ip || 'anonymous',
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  // Stress Test Routes with anti-cheat validation
+  app.post("/api/stress-test", isAuthenticated, stressTestSubmitLimiter, async (req, res) => {
     try {
       const { insertStressTestSchema } = await import("@shared/schema");
+      const { validateStressTestSubmission, logSuspiciousSubmission } = await import("./stress-test-anticheat");
       
       const parsed = insertStressTestSchema.safeParse({
         ...req.body,
@@ -2237,6 +2248,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({
           message: "Validation failed",
           errors: fromError(parsed.error).toString(),
+        });
+      }
+
+      // Anti-cheat validation: Check for impossible scores and suspicious patterns
+      const antiCheatResult = await validateStressTestSubmission({
+        userId: req.user!.id,
+        difficulty: parsed.data.difficulty,
+        wpm: parsed.data.wpm,
+        accuracy: parsed.data.accuracy,
+        stressScore: parsed.data.stressScore,
+        completionRate: parsed.data.completionRate,
+        duration: parsed.data.duration,
+        survivalTime: parsed.data.survivalTime,
+        totalCharacters: parsed.data.totalCharacters,
+        errors: parsed.data.errors,
+        maxCombo: parsed.data.maxCombo,
+      });
+
+      // Log any suspicious submissions for monitoring
+      logSuspiciousSubmission(req.user!.id, parsed.data, antiCheatResult);
+
+      // Reject invalid submissions (impossible scores)
+      if (!antiCheatResult.isValid) {
+        console.warn(`[ANTI-CHEAT] Rejected invalid stress test from user ${req.user!.id}:`, antiCheatResult.errors);
+        return res.status(400).json({
+          message: "Score validation failed",
+          errors: antiCheatResult.errors.join("; "),
         });
       }
 
@@ -2254,6 +2292,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         result,
         isNewPersonalBest,
         isLeaderboardEntry,
+        // Include anti-cheat flags in response (for admin debugging)
+        ...(antiCheatResult.flags.length > 0 && { _flags: antiCheatResult.flags }),
       });
     } catch (error: any) {
       console.error("Save stress test error:", error);
@@ -2261,11 +2301,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Simple in-memory cache for leaderboard (5 second TTL)
+  const leaderboardCache = new Map<string, { data: any; timestamp: number }>();
+  const LEADERBOARD_CACHE_TTL_MS = 5000; // 5 seconds
+
   app.get("/api/stress-test/leaderboard", async (req, res) => {
     try {
       const difficulty = req.query.difficulty as string | undefined;
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      
+      // Create cache key from query parameters
+      const cacheKey = `${difficulty || 'all'}:${limit}`;
+      const cached = leaderboardCache.get(cacheKey);
+      
+      // Return cached data if still valid
+      if (cached && Date.now() - cached.timestamp < LEADERBOARD_CACHE_TTL_MS) {
+        res.set('X-Cache', 'HIT');
+        return res.json({ leaderboard: cached.data });
+      }
+      
+      // Fetch fresh data
       const leaderboard = await storage.getStressTestLeaderboard(difficulty, limit);
+      
+      // Update cache
+      leaderboardCache.set(cacheKey, { data: leaderboard, timestamp: Date.now() });
+      
+      // Clean up old cache entries (keep only 10 most recent)
+      if (leaderboardCache.size > 10) {
+        const oldestKey = leaderboardCache.keys().next().value;
+        if (oldestKey) leaderboardCache.delete(oldestKey);
+      }
+      
+      res.set('X-Cache', 'MISS');
       res.json({ leaderboard });
     } catch (error: any) {
       console.error("Get stress test leaderboard error:", error);
