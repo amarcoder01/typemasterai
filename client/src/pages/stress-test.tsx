@@ -69,11 +69,15 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   maxBlur?: number;
   blurPulse?: boolean;
   constantBlur?: number;
+  blurPulseSpeed?: number;
   realityDistortion?: boolean;
   chromaticAberration?: boolean;
   textScramble?: boolean;
   multiEffectCombos?: boolean;
   extremeChaosWaves?: boolean;
+  doubleVision?: boolean;
+  textWarp?: boolean;
+  chaosIntensityMultiplier?: number;
 }> = {
   beginner: {
     name: 'Warm-Up Chaos',
@@ -161,7 +165,7 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   },
   nightmare: {
     name: 'Nightmare Realm',
-    description: 'Text reverses, screen inverts/flips, reality collapses. Blur pulses in waves.',
+    description: 'Text reverses, screen inverts/flips. Blur pulses gently.',
     effects: {
       screenShake: true,
       distractions: true,
@@ -182,19 +186,20 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     duration: 90,
     icon: '☠️',
     color: 'from-black/40 to-red-900/40',
-    baseShakeIntensity: 40,
-    particleFrequency: 0.85,
+    baseShakeIntensity: 30,
+    particleFrequency: 0.7,
     multiplier: 4,
     difficulty: 'Extreme - Reality bends around you',
-    maxBlur: 2.5,
+    maxBlur: 1.8,
     blurPulse: true,
-    constantBlur: 0.5,
+    constantBlur: 0.3,
+    blurPulseSpeed: 0.1,
     realityDistortion: false,
-    chromaticAberration: true,
+    chromaticAberration: false,
   },
   impossible: {
     name: 'IMPOSSIBLE',
-    description: 'Reality ceases to exist. Double vision, chaos waves, blur storms.',
+    description: 'Stronger blur, subtle double vision, more chaos.',
     effects: {
       screenShake: true,
       distractions: true,
@@ -215,22 +220,22 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     duration: 120,
     icon: '🌀',
     color: 'from-purple-900/60 to-black/60',
-    baseShakeIntensity: 60,
-    particleFrequency: 0.95,
+    baseShakeIntensity: 40,
+    particleFrequency: 0.8,
     multiplier: 5,
     difficulty: 'Legendary - Only 1% survive',
-    maxBlur: 4.5,
+    maxBlur: 2.5,
     blurPulse: true,
-    constantBlur: 1.5,
-    blurPulseSpeed: 0.25,
-    realityDistortion: true,
+    constantBlur: 0.5,
+    blurPulseSpeed: 0.15,
+    realityDistortion: false,
     chromaticAberration: true,
-    textScramble: true,
-    multiEffectCombos: true,
-    extremeChaosWaves: true,
+    textScramble: false,
+    multiEffectCombos: false,
+    extremeChaosWaves: false,
     doubleVision: true,
-    textWarp: true,
-    chaosIntensityMultiplier: 1.5,
+    textWarp: false,
+    chaosIntensityMultiplier: 1,
   },
 };
 
