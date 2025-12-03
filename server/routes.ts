@@ -22,6 +22,13 @@ import { createNotificationRoutes } from "./notification-routes";
 import { NotificationScheduler } from "./notification-scheduler";
 import { AchievementService } from "./achievement-service";
 import { AuthSecurityService } from "./auth-security-service";
+import {
+  initializeOAuthStrategies,
+  rememberMeMiddleware,
+  setupRememberMeOnLogin,
+  clearRememberMeOnLogout,
+  REMEMBER_ME_COOKIE,
+} from "./oauth-service";
 
 const PgSession = ConnectPgSimple(session);
 
@@ -97,6 +104,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.use(passport.initialize());
   app.use(passport.session());
+  app.use(rememberMeMiddleware());
+
+  initializeOAuthStrategies();
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -305,6 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/login", authLimiter, (req, res, next) => {
     const parsed = loginSchema.safeParse(req.body);
+    const rememberMe = req.body.rememberMe === true;
     
     if (!parsed.success) {
       return res.status(400).json({
@@ -313,7 +324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
 
-    passport.authenticate("local", (err: any, user: Express.User | false, info: any) => {
+    passport.authenticate("local", async (err: any, user: Express.User | false, info: any) => {
       if (err) {
         return next(err);
       }
@@ -322,10 +333,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: info?.message || "Invalid credentials" });
       }
 
-      req.login(user, (err) => {
+      req.login(user, async (err) => {
         if (err) {
           return next(err);
         }
+        
+        if (rememberMe) {
+          try {
+            await setupRememberMeOnLogin(req, res, user.id);
+          } catch (error) {
+            console.error("Error setting up remember-me token:", error);
+          }
+        }
+        
         res.json({
           message: "Login successful",
           user: {
@@ -342,7 +362,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     })(req, res, next);
   });
 
-  app.post("/api/auth/logout", (req, res) => {
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      await clearRememberMeOnLogout(req, res);
+    } catch (error) {
+      console.error("Error clearing remember-me token:", error);
+    }
+    
     req.logout((err) => {
       if (err) {
         return res.status(500).json({ message: "Logout failed" });
@@ -353,6 +379,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/auth/me", isAuthenticated, (req, res) => {
     res.json({ user: req.user });
+  });
+
+  app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+
+  app.get("/api/auth/google/callback",
+    passport.authenticate("google", { failureRedirect: "/login?error=google_failed" }),
+    async (req, res) => {
+      try {
+        if (req.user) {
+          await setupRememberMeOnLogin(req, res, (req.user as any).id);
+        }
+        res.redirect("/");
+      } catch (error) {
+        console.error("Google OAuth callback error:", error);
+        res.redirect("/login?error=oauth_error");
+      }
+    }
+  );
+
+  app.get("/api/auth/github", passport.authenticate("github", { scope: ["user:email"] }));
+
+  app.get("/api/auth/github/callback",
+    passport.authenticate("github", { failureRedirect: "/login?error=github_failed" }),
+    async (req, res) => {
+      try {
+        if (req.user) {
+          await setupRememberMeOnLogin(req, res, (req.user as any).id);
+        }
+        res.redirect("/");
+      } catch (error) {
+        console.error("GitHub OAuth callback error:", error);
+        res.redirect("/login?error=oauth_error");
+      }
+    }
+  );
+
+  app.get("/api/auth/facebook", passport.authenticate("facebook", { scope: ["email"] }));
+
+  app.get("/api/auth/facebook/callback",
+    passport.authenticate("facebook", { failureRedirect: "/login?error=facebook_failed" }),
+    async (req, res) => {
+      try {
+        if (req.user) {
+          await setupRememberMeOnLogin(req, res, (req.user as any).id);
+        }
+        res.redirect("/");
+      } catch (error) {
+        console.error("Facebook OAuth callback error:", error);
+        res.redirect("/login?error=oauth_error");
+      }
+    }
+  );
+
+  app.get("/api/auth/providers", isAuthenticated, async (req, res) => {
+    try {
+      const accounts = await storage.getUserOAuthAccounts(req.user!.id);
+      const linkedProviders = accounts.map(acc => ({
+        provider: acc.provider,
+        profileName: acc.profileName,
+        email: acc.email,
+        linkedAt: acc.linkedAt,
+      }));
+      res.json({ linkedProviders });
+    } catch (error: any) {
+      console.error("Get linked providers error:", error);
+      res.status(500).json({ message: "Failed to fetch linked providers" });
+    }
+  });
+
+  app.delete("/api/auth/providers/:provider", isAuthenticated, async (req, res) => {
+    try {
+      const provider = req.params.provider as "google" | "github" | "facebook";
+      if (!["google", "github", "facebook"].includes(provider)) {
+        return res.status(400).json({ message: "Invalid provider" });
+      }
+
+      const user = await storage.getUser(req.user!.id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const accounts = await storage.getUserOAuthAccounts(req.user!.id);
+      
+      if (accounts.length <= 1 && !user.password) {
+        return res.status(400).json({ 
+          message: "Cannot unlink the only login method. Please set a password first." 
+        });
+      }
+
+      await storage.unlinkOAuthAccount(req.user!.id, provider);
+      res.json({ message: `${provider} account unlinked successfully` });
+    } catch (error: any) {
+      console.error("Unlink provider error:", error);
+      res.status(500).json({ message: "Failed to unlink provider" });
+    }
   });
 
   app.post("/api/test-results", isAuthenticated, async (req, res) => {
