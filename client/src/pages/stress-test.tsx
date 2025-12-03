@@ -412,6 +412,7 @@ export default function StressTest() {
   const shakeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const clarityIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const blurIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const testSessionRef = useRef<number>(0);
   const isTestActiveRef = useRef<boolean>(false);
@@ -424,8 +425,18 @@ export default function StressTest() {
   const startTimeRef = useRef<number | null>(null);
   const selectedDifficultyRef = useRef<Difficulty | null>(null);
   const completedRef = useRef<boolean>(false);
+  const stressLevelRef = useRef<number>(0);
+  const configRef = useRef<typeof DIFFICULTY_CONFIGS[Difficulty] | null>(null);
 
   const config = selectedDifficulty ? DIFFICULTY_CONFIGS[selectedDifficulty] : null;
+  
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
+  
+  useEffect(() => {
+    stressLevelRef.current = stressLevel;
+  }, [stressLevel]);
 
   const safeTimeout = useCallback((callback: () => void, delay: number) => {
     const timeoutId = setTimeout(() => {
@@ -465,6 +476,10 @@ export default function StressTest() {
     if (clarityIntervalRef.current) {
       clearInterval(clarityIntervalRef.current);
       clarityIntervalRef.current = null;
+    }
+    if (blurIntervalRef.current) {
+      clearInterval(blurIntervalRef.current);
+      blurIntervalRef.current = null;
     }
   }, []);
 
@@ -1064,15 +1079,17 @@ export default function StressTest() {
     if (!isStarted || !config || prefersReducedMotion || !isTestActiveRef.current) return;
     
     const currentSession = testSessionRef.current;
+    const currentConfig = config;
     
     effectsIntervalRef.current = setInterval(() => {
       if (testSessionRef.current !== currentSession || !isTestActiveRef.current) return;
       
-      const intensity = config.effects.speedIncrease 
-        ? 1 + (stressLevel / 50)
+      const currentStress = stressLevelRef.current;
+      const intensity = currentConfig.effects.speedIncrease 
+        ? 1 + (currentStress / 50)
         : 1;
       
-      if (config.effects.distractions && Math.random() > (1 - config.particleFrequency)) {
+      if (currentConfig.effects.distractions && Math.random() > (1 - currentConfig.particleFrequency)) {
         const emojis = ['💥', '⚡', '🔥', '💀', '👻', '🌟', '💫', '✨', '⭐', '💣', '🎯', '🎪', '🎨', '🎭'];
         const particleCount = Math.min(3, Math.floor(1 + intensity * 2));
         
@@ -1114,29 +1131,21 @@ export default function StressTest() {
         playSound('chaos');
       }
       
-      if (config.effects.colorShift) {
+      if (currentConfig.effects.colorShift) {
         const hue = Math.random() * 360;
         const saturation = 60 + Math.random() * 40;
         const lightness = 40 + Math.random() * 20;
         setCurrentColor(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
       }
       
-      if (config.effects.limitedVisibility && !isClarityWindowRef.current) {
-        const maxBlurValue = config.maxBlur ?? 3;
-        const constantBlur = config.constantBlur ?? 0;
-        if (config.blurPulse) {
-          blurPulsePhaseRef.current = (blurPulsePhaseRef.current + 0.15) % (Math.PI * 2);
-          const pulseBlur = constantBlur + ((Math.sin(blurPulsePhaseRef.current) + 1) * 0.5 * (maxBlurValue - constantBlur));
-          setBlur(pulseBlur);
-        } else {
-          setBlur(constantBlur + Math.random() * Math.min(maxBlurValue - constantBlur, 1.5 * intensity));
-        }
-      } else if (isClarityWindowRef.current && config.constantBlur && config.constantBlur > 0) {
-        setBlur(config.constantBlur * 0.3);
+      if (currentConfig.effects.limitedVisibility && !isClarityWindowRef.current && !currentConfig.blurPulse) {
+        const maxBlurValue = currentConfig.maxBlur ?? 3;
+        const constantBlur = currentConfig.constantBlur ?? 0;
+        setBlur(constantBlur + Math.random() * Math.min(maxBlurValue - constantBlur, 1.5 * intensity));
       }
       
-      if (config.chromaticAberration && !isClarityWindowRef.current) {
-        const aberrationIntensity = config.realityDistortion ? 8 : 4;
+      if (currentConfig.chromaticAberration && !isClarityWindowRef.current) {
+        const aberrationIntensity = currentConfig.realityDistortion ? 8 : 4;
         setChromaticOffset({
           r: (Math.random() - 0.5) * aberrationIntensity * intensity,
           g: (Math.random() - 0.5) * aberrationIntensity * intensity,
@@ -1144,21 +1153,21 @@ export default function StressTest() {
         });
       }
       
-      if (config.realityDistortion && !isClarityWindowRef.current) {
+      if (currentConfig.realityDistortion && !isClarityWindowRef.current) {
         setRealityWarp(Math.sin(Date.now() / 300) * 10 * intensity);
       }
       
-      if (config.textScramble && Math.random() > 0.92) {
+      if (currentConfig.textScramble && Math.random() > 0.92) {
         setTextScrambleActive(true);
         safeTimeout(() => setTextScrambleActive(false), 200 + Math.random() * 300);
       }
       
-      if (config.extremeChaosWaves && Math.random() > 0.85) {
+      if (currentConfig.extremeChaosWaves && Math.random() > 0.85) {
         setChaosWaveIntensity(1 + Math.random() * 2);
         safeTimeout(() => setChaosWaveIntensity(0), 500 + Math.random() * 500);
       }
       
-      if (config.multiEffectCombos && Math.random() > 0.9) {
+      if (currentConfig.multiEffectCombos && Math.random() > 0.9) {
         setMultiEffectActive(true);
         setScreenInverted(true);
         setGlitchActive(true);
@@ -1171,29 +1180,29 @@ export default function StressTest() {
         }, 400 + Math.random() * 400);
       }
       
-      if (config.effects.rotation && !isClarityWindowRef.current) {
+      if (currentConfig.effects.rotation && !isClarityWindowRef.current) {
         setRotation((Math.random() - 0.5) * 8 * intensity);
       }
       
-      if (config.effects.gravity) {
+      if (currentConfig.effects.gravity) {
         setGravityOffset(Math.sin(Date.now() / 200) * 15 * intensity);
       }
       
-      if (config.effects.glitch && Math.random() > 0.85) {
+      if (currentConfig.effects.glitch && Math.random() > 0.85) {
         setGlitchActive(true);
         safeTimeout(() => setGlitchActive(false), 30 + Math.random() * 70);
       }
       
-      if (config.effects.textFade && !isClarityWindowRef.current) {
+      if (currentConfig.effects.textFade && !isClarityWindowRef.current) {
         setTextOpacity(0.6 + Math.random() * 0.4);
       }
       
-      if (config.effects.reverseText && Math.random() > 0.9) {
+      if (currentConfig.effects.reverseText && Math.random() > 0.9) {
         setTextReversed(true);
         safeTimeout(() => setTextReversed(false), 500 + Math.random() * 1000);
       }
       
-      if (config.effects.randomJumps && Math.random() > 0.85) {
+      if (currentConfig.effects.randomJumps && Math.random() > 0.85) {
         setTextPosition({
           x: (Math.random() - 0.5) * 100,
           y: (Math.random() - 0.5) * 50,
@@ -1201,7 +1210,7 @@ export default function StressTest() {
         safeTimeout(() => setTextPosition({ x: 0, y: 0 }), 300);
       }
       
-      if (config.effects.screenInvert && Math.random() > 0.7) {
+      if (currentConfig.effects.screenInvert && Math.random() > 0.7) {
         const progressPercent = currentTextRef.current.length > 0 
           ? (typedTextRef.current.length / currentTextRef.current.length) * 100 : 0;
         
@@ -1219,7 +1228,7 @@ export default function StressTest() {
         }
       }
       
-      if (config.effects.zoomChaos && Math.random() > 0.8 && !isClarityWindowRef.current) {
+      if (currentConfig.effects.zoomChaos && Math.random() > 0.8 && !isClarityWindowRef.current) {
         const progressPercent = currentTextRef.current.length > 0 
           ? (typedTextRef.current.length / currentTextRef.current.length) * 100 : 0;
         
@@ -1228,18 +1237,18 @@ export default function StressTest() {
           setActiveEffectWarning('🔍 Zoom Chaos!');
           safeTimeout(() => {
             setActiveEffectWarning(null);
-            const zoomRange = 0.3 + (stressLevel / 150);
+            const zoomRange = 0.3 + (stressLevelRef.current / 150);
             setZoomScale(0.8 + Math.random() * zoomRange);
             safeTimeout(() => setZoomScale(1), 400 + Math.random() * 500);
           }, 500);
         } else {
-          const zoomRange = 0.2 + (stressLevel / 200);
+          const zoomRange = 0.2 + (stressLevelRef.current / 200);
           setZoomScale(0.85 + Math.random() * zoomRange);
           safeTimeout(() => setZoomScale(1), 400 + Math.random() * 400);
         }
       }
       
-      if (config.effects.screenFlip && Math.random() > 0.9) {
+      if (currentConfig.effects.screenFlip && Math.random() > 0.9) {
         setScreenFlipped(true);
         safeTimeout(() => setScreenFlipped(false), 600 + Math.random() * 800);
       }
@@ -1252,17 +1261,17 @@ export default function StressTest() {
         effectsIntervalRef.current = null;
       }
     };
-  }, [isStarted, config, stressLevel, prefersReducedMotion, playSound, safeTimeout]);
+  }, [isStarted, config, prefersReducedMotion, playSound, safeTimeout]);
 
   useEffect(() => {
     if (!isStarted || !config?.effects.screenShake || prefersReducedMotion || !isTestActiveRef.current) return;
     
     const currentSession = testSessionRef.current;
+    const baseShake = config.baseShakeIntensity;
     
     shakeIntervalRef.current = setInterval(() => {
       if (testSessionRef.current !== currentSession || !isTestActiveRef.current) return;
-      const baseShake = config.baseShakeIntensity;
-      const stressBonus = (stressLevel / 100) * baseShake;
+      const stressBonus = (stressLevelRef.current / 100) * baseShake;
       const totalIntensity = baseShake + stressBonus;
       setShakeIntensity(totalIntensity);
       setShakeOffset({
@@ -1277,7 +1286,7 @@ export default function StressTest() {
         shakeIntervalRef.current = null;
       }
     };
-  }, [isStarted, config, stressLevel, prefersReducedMotion]);
+  }, [isStarted, config, prefersReducedMotion]);
 
   useEffect(() => {
     if (!isStarted || !config || prefersReducedMotion || !isTestActiveRef.current) return;
@@ -1320,6 +1329,32 @@ export default function StressTest() {
       }
     };
   }, [isStarted, config, selectedDifficulty, prefersReducedMotion]);
+
+  useEffect(() => {
+    if (!isStarted || !config || prefersReducedMotion || !isTestActiveRef.current) return;
+    if (!config.effects.limitedVisibility || !config.blurPulse) return;
+    
+    const currentSession = testSessionRef.current;
+    const maxBlurValue = config.maxBlur ?? 3;
+    const constantBlur = config.constantBlur ?? 0;
+    
+    blurIntervalRef.current = setInterval(() => {
+      if (testSessionRef.current !== currentSession || !isTestActiveRef.current) return;
+      
+      if (!isClarityWindowRef.current) {
+        blurPulsePhaseRef.current = (blurPulsePhaseRef.current + 0.15) % (Math.PI * 2);
+        const pulseBlur = constantBlur + ((Math.sin(blurPulsePhaseRef.current) + 1) * 0.5 * (maxBlurValue - constantBlur));
+        setBlur(pulseBlur);
+      }
+    }, 50);
+    
+    return () => {
+      if (blurIntervalRef.current) {
+        clearInterval(blurIntervalRef.current);
+        blurIntervalRef.current = null;
+      }
+    };
+  }, [isStarted, config, prefersReducedMotion]);
 
   useEffect(() => {
     if (!isStarted || isFinished) return;
