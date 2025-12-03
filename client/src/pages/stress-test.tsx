@@ -876,7 +876,9 @@ export default function StressTest() {
     effectsIntervalRef.current = setInterval(() => {
       if (testSessionRef.current !== currentSession || !isTestActiveRef.current) return;
       
-      const intensity = 1 + (stressLevel / 100);
+      const intensity = config.effects.speedIncrease 
+        ? 1 + (stressLevel / 50)
+        : 1;
       
       if (config.effects.distractions && Math.random() > (1 - config.particleFrequency)) {
         const emojis = ['💥', '⚡', '🔥', '💀', '👻', '🌟', '💫', '✨', '⭐', '💣', '🎯', '🎪', '🎨', '🎭'];
