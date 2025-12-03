@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useRoute } from "wouter";
 import { useAuth } from "@/lib/auth-context";
+import { useNetwork } from "@/lib/network-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft } from "lucide-react";
+import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
@@ -36,11 +37,14 @@ export default function RacePage() {
   const [, params] = useRoute("/race/:id");
   const [, setLocation] = useLocation();
   const { user } = useAuth();
+  const { isOnline, wasOffline } = useNetwork();
   
   const [race, setRace] = useState<Race | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [myParticipant, setMyParticipant] = useState<Participant | null>(null);
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [isRacing, setIsRacing] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -51,6 +55,10 @@ export default function RacePage() {
   const currentIndexRef = useRef(0);
   const errorsRef = useRef(0);
   const isComposingRef = useRef(false);
+  const reconnectAttempts = useRef(0);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const maxReconnectAttempts = 5;
+  const pendingMessagesRef = useRef<string[]>([]);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -83,12 +91,12 @@ export default function RacePage() {
 
   useEffect(() => {
     if (ws && myParticipant && race && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
+      sendWsMessage({
         type: "join",
         raceId: race.id,
         participantId: myParticipant.id,
         username: myParticipant.username,
-      }));
+      });
     }
   }, [ws, myParticipant, race]);
 
@@ -202,7 +210,41 @@ export default function RacePage() {
     }
   }
 
+  const attemptReconnect = useCallback(() => {
+    if (reconnectAttempts.current >= maxReconnectAttempts) {
+      setIsReconnecting(false);
+      toast.error("Unable to reconnect. Please refresh the page.", {
+        duration: 10000,
+        action: {
+          label: "Refresh",
+          onClick: () => window.location.reload(),
+        },
+      });
+      return;
+    }
+
+    if (!isOnline) {
+      setIsReconnecting(false);
+      return;
+    }
+
+    setIsReconnecting(true);
+    reconnectAttempts.current += 1;
+    
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current - 1), 10000);
+    
+    reconnectTimeoutRef.current = setTimeout(() => {
+      console.log(`Reconnection attempt ${reconnectAttempts.current}/${maxReconnectAttempts}`);
+      connectWebSocket();
+    }, delay);
+  }, [isOnline]);
+
   function connectWebSocket() {
+    if (!isOnline) {
+      console.log("Cannot connect WebSocket: offline");
+      return;
+    }
+
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws/race`;
     const socket = new WebSocket(wsUrl);
@@ -210,6 +252,20 @@ export default function RacePage() {
     socket.onopen = () => {
       console.log("WebSocket connected");
       setWs(socket);
+      setWsConnected(true);
+      setIsReconnecting(false);
+      reconnectAttempts.current = 0;
+      
+      while (pendingMessagesRef.current.length > 0) {
+        const message = pendingMessagesRef.current.shift();
+        if (message) {
+          socket.send(message);
+        }
+      }
+      
+      if (wasOffline) {
+        toast.success("Reconnected to race server");
+      }
     };
 
     socket.onmessage = (event) => {
@@ -219,13 +275,49 @@ export default function RacePage() {
 
     socket.onerror = (error) => {
       console.error("WebSocket error:", error);
-      toast.error("Connection error");
+      setWsConnected(false);
     };
 
-    socket.onclose = () => {
-      console.log("WebSocket disconnected");
+    socket.onclose = (event) => {
+      console.log("WebSocket disconnected", event.code, event.reason);
+      setWsConnected(false);
+      setWs(null);
+      
+      if (event.code !== 1000 && isOnline && race?.status !== "finished") {
+        attemptReconnect();
+      }
     };
   }
+
+  function sendWsMessage(message: object) {
+    const messageStr = JSON.stringify(message);
+    
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(messageStr);
+    } else if (isOnline) {
+      pendingMessagesRef.current.push(messageStr);
+      if (!isReconnecting && ws?.readyState !== WebSocket.CONNECTING) {
+        attemptReconnect();
+      }
+    } else {
+      pendingMessagesRef.current.push(messageStr);
+    }
+  }
+
+  useEffect(() => {
+    if (isOnline && wasOffline && !wsConnected && !isReconnecting) {
+      reconnectAttempts.current = 0;
+      connectWebSocket();
+    }
+  }, [isOnline, wasOffline, wsConnected, isReconnecting]);
+
+  useEffect(() => {
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   function handleWebSocketMessage(message: any) {
     switch (message.type) {
@@ -303,29 +395,27 @@ export default function RacePage() {
     const wpm = calculateWPM(correctChars, elapsedSeconds);
     const accuracy = calculateAccuracy(correctChars, progress);
 
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: "progress",
-        participantId: myParticipant.id,
-        progress,
-        wpm: wpm || 0,
-        accuracy,
-        errors: errorCount,
-      }));
-    }
+    sendWsMessage({
+      type: "progress",
+      participantId: myParticipant.id,
+      progress,
+      wpm: wpm || 0,
+      accuracy,
+      errors: errorCount,
+    });
 
     setMyParticipant(prev => prev ? { ...prev, progress, wpm: wpm || 0, accuracy, errors: errorCount } : null);
   }
 
   function finishRace() {
-    if (!myParticipant || !ws) return;
+    if (!myParticipant) return;
 
     setIsRacing(false);
-    ws.send(JSON.stringify({
+    sendWsMessage({
       type: "finish",
       raceId: race?.id,
       participantId: myParticipant.id,
-    }));
+    });
 
     setMyParticipant(prev => prev ? { ...prev, isFinished: 1 } : null);
   }
@@ -340,21 +430,21 @@ export default function RacePage() {
   }
 
   function startRace() {
-    if (!ws || !participants.length) return;
+    if (!participants.length) return;
     
-    ws.send(JSON.stringify({
+    sendWsMessage({
       type: "ready",
       raceId: race?.id,
-    }));
+    });
   }
 
   function leaveRace() {
-    if (ws && myParticipant && race) {
-      ws.send(JSON.stringify({
+    if (myParticipant && race) {
+      sendWsMessage({
         type: "leave",
         raceId: race.id,
         participantId: myParticipant.id,
-      }));
+      });
     }
     
     if (race && myParticipant) {
