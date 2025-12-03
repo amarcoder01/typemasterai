@@ -194,7 +194,7 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   },
   impossible: {
     name: 'IMPOSSIBLE',
-    description: 'Reality ceases to exist. Chromatic distortion, text scramble, chaos waves.',
+    description: 'Reality ceases to exist. Double vision, chaos waves, blur storms.',
     effects: {
       screenShake: true,
       distractions: true,
@@ -219,14 +219,18 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     particleFrequency: 0.95,
     multiplier: 5,
     difficulty: 'Legendary - Only 1% survive',
-    maxBlur: 3.5,
+    maxBlur: 4.5,
     blurPulse: true,
-    constantBlur: 1.0,
+    constantBlur: 1.5,
+    blurPulseSpeed: 0.25,
     realityDistortion: true,
     chromaticAberration: true,
     textScramble: true,
     multiEffectCombos: true,
     extremeChaosWaves: true,
+    doubleVision: true,
+    textWarp: true,
+    chaosIntensityMultiplier: 1.5,
   },
 };
 
@@ -382,6 +386,8 @@ export default function StressTest() {
   const [textScrambleActive, setTextScrambleActive] = useState(false);
   const [chaosWaveIntensity, setChaosWaveIntensity] = useState(0);
   const [multiEffectActive, setMultiEffectActive] = useState(false);
+  const [doubleVisionOffset, setDoubleVisionOffset] = useState({ x: 0, y: 0 });
+  const [textWarpAmount, setTextWarpAmount] = useState(0);
   const blurPulsePhaseRef = useRef(0);
   
   const [finalResults, setFinalResults] = useState<{
@@ -508,6 +514,8 @@ export default function StressTest() {
     setTextScrambleActive(false);
     setChaosWaveIntensity(0);
     setMultiEffectActive(false);
+    setDoubleVisionOffset({ x: 0, y: 0 });
+    setTextWarpAmount(0);
     blurPulsePhaseRef.current = 0;
   }, []);
 
@@ -1337,14 +1345,35 @@ export default function StressTest() {
     const currentSession = testSessionRef.current;
     const maxBlurValue = config.maxBlur ?? 3;
     const constantBlur = config.constantBlur ?? 0;
+    const pulseSpeed = config.blurPulseSpeed ?? 0.15;
+    const hasDoubleVision = config.doubleVision ?? false;
+    const hasTextWarp = config.textWarp ?? false;
+    const chaosMultiplier = config.chaosIntensityMultiplier ?? 1;
     
     blurIntervalRef.current = setInterval(() => {
       if (testSessionRef.current !== currentSession || !isTestActiveRef.current) return;
       
       if (!isClarityWindowRef.current) {
-        blurPulsePhaseRef.current = (blurPulsePhaseRef.current + 0.15) % (Math.PI * 2);
+        blurPulsePhaseRef.current = (blurPulsePhaseRef.current + pulseSpeed) % (Math.PI * 2);
         const pulseBlur = constantBlur + ((Math.sin(blurPulsePhaseRef.current) + 1) * 0.5 * (maxBlurValue - constantBlur));
         setBlur(pulseBlur);
+        
+        if (hasDoubleVision) {
+          const visionPhase = blurPulsePhaseRef.current * 1.5;
+          const visionIntensity = 3 + Math.sin(visionPhase) * 2 * chaosMultiplier;
+          setDoubleVisionOffset({
+            x: Math.sin(visionPhase) * visionIntensity,
+            y: Math.cos(visionPhase * 0.7) * visionIntensity * 0.5,
+          });
+        }
+        
+        if (hasTextWarp) {
+          const warpPhase = blurPulsePhaseRef.current * 2;
+          setTextWarpAmount(Math.sin(warpPhase) * 3 * chaosMultiplier);
+        }
+      } else {
+        if (hasDoubleVision) setDoubleVisionOffset({ x: 0, y: 0 });
+        if (hasTextWarp) setTextWarpAmount(0);
       }
     }, 50);
     
@@ -1971,13 +2000,30 @@ export default function StressTest() {
                   </div>
                 </>
               )}
+              {(doubleVisionOffset.x !== 0 || doubleVisionOffset.y !== 0) && !prefersReducedMotion && (
+                <div 
+                  className="absolute inset-0 pointer-events-none text-2xl font-mono leading-relaxed whitespace-pre-wrap select-none opacity-40"
+                  style={{ 
+                    transform: `translate(${doubleVisionOffset.x}px, ${doubleVisionOffset.y}px)`,
+                    filter: 'blur(0.5px)',
+                  }}
+                  aria-hidden="true"
+                >
+                  {displayText}
+                </div>
+              )}
               <div 
                 className="text-2xl font-mono leading-relaxed whitespace-pre-wrap select-none relative z-10" 
                 aria-label="Text to type"
-                style={textScrambleActive && !prefersReducedMotion ? { 
-                  letterSpacing: `${Math.random() * 5}px`,
-                  wordSpacing: `${Math.random() * 10}px`,
-                } : {}}
+                style={{
+                  ...(textScrambleActive && !prefersReducedMotion ? { 
+                    letterSpacing: `${Math.random() * 5}px`,
+                    wordSpacing: `${Math.random() * 10}px`,
+                  } : {}),
+                  ...(textWarpAmount !== 0 && !prefersReducedMotion ? {
+                    transform: `skewX(${textWarpAmount}deg) skewY(${textWarpAmount * 0.3}deg)`,
+                  } : {}),
+                }}
               >
                 {renderedCharacters.map(({ char, color, index }) => (
                   <span
