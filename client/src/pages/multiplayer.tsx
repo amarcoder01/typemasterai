@@ -1,13 +1,59 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
+import { useNetwork } from "@/lib/network-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Zap, Users, Lock, Trophy, Loader2, Info, Globe, Shield, Clock } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Zap, Users, Lock, Trophy, Loader2, Info, Globe, Shield, Clock, WifiOff, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+
+// Error codes for specific error handling
+type MultiplayerErrorCode = "NETWORK_ERROR" | "ROOM_FULL" | "ROOM_NOT_FOUND" | "ROOM_STARTED" | "INVALID_CODE" | "SERVER_ERROR";
+
+interface MultiplayerError {
+  code: MultiplayerErrorCode;
+  message: string;
+}
+
+// Helper to parse error responses
+function parseErrorResponse(response: Response, data: { message?: string; code?: string }): MultiplayerError {
+  if (!navigator.onLine) {
+    return { code: "NETWORK_ERROR", message: "You appear to be offline. Please check your internet connection." };
+  }
+  
+  if (response.status === 404) {
+    return { code: "ROOM_NOT_FOUND", message: data.message || "Room not found. Check the code and try again." };
+  }
+  
+  if (response.status === 409) {
+    if (data.code === "RACE_FULL") {
+      return { code: "ROOM_FULL", message: "This room is full. Try another room or create your own." };
+    }
+    if (data.code === "RACE_STARTED") {
+      return { code: "ROOM_STARTED", message: "This race has already started. Try joining another room." };
+    }
+  }
+  
+  if (response.status >= 500) {
+    return { code: "SERVER_ERROR", message: "Server is temporarily unavailable. Please try again in a moment." };
+  }
+  
+  return { code: "SERVER_ERROR", message: data.message || "Something went wrong. Please try again." };
+}
+
+// Get user-friendly error icon
+function getErrorIcon(code: MultiplayerErrorCode) {
+  switch (code) {
+    case "NETWORK_ERROR": return <WifiOff className="h-4 w-4" />;
+    case "ROOM_FULL": return <Users className="h-4 w-4" />;
+    case "ROOM_NOT_FOUND": return <AlertTriangle className="h-4 w-4" />;
+    default: return <AlertTriangle className="h-4 w-4" />;
+  }
+}
 
 interface Race {
   id: number;
@@ -43,12 +89,16 @@ function getOrCreateGuestId(): string {
 
 export default function MultiplayerPage() {
   const { user } = useAuth();
+  const { isOnline } = useNetwork();
   const [, setLocation] = useLocation();
   const [roomCode, setRoomCode] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [isPrivate, setIsPrivate] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<"quickMatch" | "createRoom" | "joinRoom" | null>(null);
   const [activeRaces, setActiveRaces] = useState<(Race & { participantCount: number })[]>([]);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [lastSuccessfulFetch, setLastSuccessfulFetch] = useState<Date | null>(null);
 
   useEffect(() => {
     fetchActiveRaces();
@@ -62,14 +112,31 @@ export default function MultiplayerPage() {
       if (response.ok) {
         const races = await response.json();
         setActiveRaces(races);
+        setFetchError(null);
+        setLastSuccessfulFetch(new Date());
+      } else {
+        setFetchError("Unable to load races");
       }
     } catch (error) {
+      if (!isOnline) {
+        setFetchError("You're offline");
+      } else {
+        setFetchError("Connection error");
+      }
       console.error("Failed to fetch active races:", error);
     }
   }
 
   async function quickMatch() {
+    if (!isOnline) {
+      toast.error("You're offline. Please check your internet connection.", {
+        icon: <WifiOff className="h-4 w-4" />,
+      });
+      return;
+    }
+    
     setLoading(true);
+    setLoadingAction("quickMatch");
     try {
       const guestId = user ? undefined : getOrCreateGuestId();
       const response = await fetch("/api/races/quick-match", {
@@ -81,20 +148,39 @@ export default function MultiplayerPage() {
       if (response.ok) {
         const { race, participant } = await response.json();
         localStorage.setItem(`race_${race.id}_participant`, JSON.stringify(participant));
+        toast.success("Match found! Joining race...", {
+          icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+        });
         setLocation(`/race/${race.id}`);
       } else {
-        const error = await response.json();
-        toast.error(error.message || "Failed to find match");
+        const errorData = await response.json().catch(() => ({}));
+        const error = parseErrorResponse(response, errorData);
+        toast.error(error.message, {
+          icon: getErrorIcon(error.code),
+          description: error.code === "SERVER_ERROR" ? "Try again in a few seconds" : undefined,
+        });
       }
     } catch (error) {
-      toast.error("Failed to connect to server");
+      toast.error("Unable to connect to the game server", {
+        icon: <WifiOff className="h-4 w-4" />,
+        description: "Please check your connection and try again",
+      });
     } finally {
       setLoading(false);
+      setLoadingAction(null);
     }
   }
 
   async function createRoom() {
+    if (!isOnline) {
+      toast.error("You're offline. Please check your internet connection.", {
+        icon: <WifiOff className="h-4 w-4" />,
+      });
+      return;
+    }
+    
     setLoading(true);
+    setLoadingAction("createRoom");
     try {
       const guestId = user ? undefined : getOrCreateGuestId();
       const response = await fetch("/api/races/create", {
@@ -106,29 +192,60 @@ export default function MultiplayerPage() {
       if (response.ok) {
         const { race, participant } = await response.json();
         localStorage.setItem(`race_${race.id}_participant`, JSON.stringify(participant));
+        toast.success("Room created! Waiting for players...", {
+          icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+        });
         setLocation(`/race/${race.id}`);
       } else {
-        const error = await response.json();
-        toast.error(error.message || "Failed to create room");
+        const errorData = await response.json().catch(() => ({}));
+        const error = parseErrorResponse(response, errorData);
+        toast.error(error.message, {
+          icon: getErrorIcon(error.code),
+        });
       }
     } catch (error) {
-      toast.error("Failed to connect to server");
+      toast.error("Unable to connect to the game server", {
+        icon: <WifiOff className="h-4 w-4" />,
+        description: "Please check your connection and try again",
+      });
     } finally {
       setLoading(false);
+      setLoadingAction(null);
     }
   }
 
   async function joinRoom(code?: string) {
     const codeToUse = code || roomCode;
+    
     if (!codeToUse.trim()) {
-      toast.error("Please enter a room code");
+      toast.error("Please enter a room code", {
+        icon: <AlertTriangle className="h-4 w-4" />,
+      });
+      return;
+    }
+    
+    // Validate room code format
+    const cleanCode = codeToUse.trim().toUpperCase();
+    if (cleanCode.length !== 6) {
+      toast.error("Room code must be exactly 6 characters", {
+        icon: <AlertTriangle className="h-4 w-4" />,
+        description: "Check the code and try again",
+      });
+      return;
+    }
+    
+    if (!isOnline) {
+      toast.error("You're offline. Please check your internet connection.", {
+        icon: <WifiOff className="h-4 w-4" />,
+      });
       return;
     }
 
     setLoading(true);
+    setLoadingAction("joinRoom");
     try {
       const guestId = user ? undefined : getOrCreateGuestId();
-      const response = await fetch(`/api/races/join/${codeToUse.trim().toUpperCase()}`, {
+      const response = await fetch(`/api/races/join/${cleanCode}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ guestId }),
@@ -137,15 +254,26 @@ export default function MultiplayerPage() {
       if (response.ok) {
         const { race, participant } = await response.json();
         localStorage.setItem(`race_${race.id}_participant`, JSON.stringify(participant));
+        toast.success("Joined room! Waiting for race to start...", {
+          icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+        });
         setLocation(`/race/${race.id}`);
       } else {
-        const error = await response.json();
-        toast.error(error.message || "Failed to join room");
+        const errorData = await response.json().catch(() => ({}));
+        const error = parseErrorResponse(response, errorData);
+        toast.error(error.message, {
+          icon: getErrorIcon(error.code),
+          description: error.code === "ROOM_NOT_FOUND" ? "Double-check the room code" : undefined,
+        });
       }
     } catch (error) {
-      toast.error("Failed to connect to server");
+      toast.error("Unable to connect to the game server", {
+        icon: <WifiOff className="h-4 w-4" />,
+        description: "Please check your connection and try again",
+      });
     } finally {
       setLoading(false);
+      setLoadingAction(null);
     }
   }
 
@@ -153,6 +281,51 @@ export default function MultiplayerPage() {
     <TooltipProvider delayDuration={300}>
       <div className="min-h-screen bg-background">
         <div className="container max-w-6xl mx-auto px-4 py-8">
+          {/* Network offline banner */}
+          {!isOnline && (
+            <Alert variant="destructive" className="mb-6 border-yellow-500/50 bg-yellow-500/10">
+              <WifiOff className="h-4 w-4" />
+              <AlertTitle className="flex items-center gap-2">
+                You're Offline
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    <p className="font-medium">No Internet Connection</p>
+                    <p className="text-zinc-400">Multiplayer features require an active internet connection. Check your network and try again.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </AlertTitle>
+              <AlertDescription>
+                Please check your internet connection to use multiplayer features.
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {/* Fetch error banner */}
+          {fetchError && isOnline && (
+            <Alert className="mb-6 border-orange-500/50 bg-orange-500/10">
+              <AlertTriangle className="h-4 w-4 text-orange-500" />
+              <AlertTitle className="flex items-center gap-2">
+                {fetchError}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" onClick={fetchActiveRaces} className="h-6 px-2">
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Retry loading active races</p>
+                  </TooltipContent>
+                </Tooltip>
+              </AlertTitle>
+              <AlertDescription>
+                Active races may not be up to date. Other features still work.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="text-center mb-12">
             <div className="flex items-center justify-center gap-3 mb-4">
               <Tooltip>

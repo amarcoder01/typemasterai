@@ -6,10 +6,191 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Share2, Play, Flag } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
+
+// Error types for better error handling
+type ErrorType = "network" | "race_not_found" | "race_full" | "race_started" | "websocket" | "unknown";
+
+interface ErrorState {
+  type: ErrorType;
+  message: string;
+  canRetry: boolean;
+  retryAction?: () => void;
+}
+
+// Error display component with retry functionality
+function RaceErrorDisplay({ 
+  error, 
+  onRetry, 
+  onGoBack 
+}: { 
+  error: ErrorState; 
+  onRetry?: () => void; 
+  onGoBack: () => void;
+}) {
+  const getErrorIcon = () => {
+    switch (error.type) {
+      case "network":
+      case "websocket":
+        return <WifiOff className="h-12 w-12 text-yellow-500" />;
+      case "race_not_found":
+        return <XCircle className="h-12 w-12 text-red-500" />;
+      case "race_full":
+        return <Users className="h-12 w-12 text-orange-500" />;
+      case "race_started":
+        return <Timer className="h-12 w-12 text-orange-500" />;
+      default:
+        return <AlertTriangle className="h-12 w-12 text-red-500" />;
+    }
+  };
+
+  const getErrorTitle = () => {
+    switch (error.type) {
+      case "network": return "Connection Problem";
+      case "websocket": return "Live Connection Lost";
+      case "race_not_found": return "Race Not Found";
+      case "race_full": return "Race is Full";
+      case "race_started": return "Race Already Started";
+      default: return "Something Went Wrong";
+    }
+  };
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <div className="flex justify-center">
+                {getErrorIcon()}
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">{getErrorTitle()}</h2>
+                <p className="text-muted-foreground mt-2">{error.message}</p>
+              </div>
+              <div className="flex flex-col gap-2 pt-4">
+                {error.canRetry && onRetry && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button onClick={onRetry} className="w-full" data-testid="button-retry">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Try Again
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="font-medium">Retry</p>
+                      <p className="text-zinc-400">Attempt to reconnect or reload the race</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" onClick={onGoBack} className="w-full" data-testid="button-go-back">
+                      <Home className="h-4 w-4 mr-2" />
+                      Back to Multiplayer
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Return to the multiplayer lobby</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </TooltipProvider>
+  );
+}
+
+// Loading component with descriptive state
+function RaceLoadingDisplay({ message, subMessage }: { message: string; subMessage?: string }) {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="inline-flex items-center justify-center">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Loading race data from server</p>
+            </TooltipContent>
+          </Tooltip>
+          <div>
+            <p className="text-lg font-medium">{message}</p>
+            {subMessage && (
+              <p className="text-sm text-muted-foreground mt-1">{subMessage}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </TooltipProvider>
+  );
+}
+
+// Network status banner component
+function NetworkStatusBanner({ 
+  isConnected, 
+  isReconnecting, 
+  reconnectAttempt, 
+  maxAttempts,
+  onManualRetry 
+}: { 
+  isConnected: boolean; 
+  isReconnecting: boolean;
+  reconnectAttempt: number;
+  maxAttempts: number;
+  onManualRetry: () => void;
+}) {
+  if (isConnected) return null;
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Alert variant="destructive" className="mb-4 border-yellow-500/50 bg-yellow-500/10">
+        <WifiOff className="h-4 w-4" />
+        <AlertTitle className="flex items-center gap-2">
+          {isReconnecting ? "Reconnecting..." : "Connection Lost"}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-3.5 w-3.5 cursor-help" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p className="font-medium">WebSocket Disconnected</p>
+              <p className="text-zinc-400">Your live connection to the race server was interrupted. We're trying to reconnect automatically.</p>
+            </TooltipContent>
+          </Tooltip>
+        </AlertTitle>
+        <AlertDescription className="flex items-center justify-between">
+          <span>
+            {isReconnecting 
+              ? `Attempt ${reconnectAttempt} of ${maxAttempts}...` 
+              : "Your progress is saved. Click retry to reconnect."}
+          </span>
+          {!isReconnecting && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={onManualRetry} data-testid="button-manual-reconnect">
+                  <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                  Retry
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Manually attempt to reconnect</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </AlertDescription>
+      </Alert>
+    </TooltipProvider>
+  );
+}
 
 interface Race {
   id: number;
@@ -52,6 +233,8 @@ export default function RacePage() {
   const [errors, setErrors] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [errorState, setErrorState] = useState<ErrorState | null>(null);
+  const [loadingMessage, setLoadingMessage] = useState("Loading race...");
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const currentIndexRef = useRef(0);
   const errorsRef = useRef(0);
@@ -189,12 +372,17 @@ export default function RacePage() {
   }, [currentIndex, race, myParticipant]);
 
   async function fetchRaceData() {
+    setLoadingMessage("Loading race...");
+    setErrorState(null);
+    
     try {
       const response = await fetch(`/api/races/${params?.id}`);
+      
       if (response.ok) {
         const data = await response.json();
         setRace(data.race);
         setParticipants(data.participants);
+        setErrorState(null);
         
         if (myParticipant) {
           const updatedParticipant = data.participants.find((p: Participant) => p.id === myParticipant.id);
@@ -202,12 +390,54 @@ export default function RacePage() {
             setMyParticipant(updatedParticipant);
           }
         }
+      } else if (response.status === 404) {
+        setErrorState({
+          type: "race_not_found",
+          message: "This race doesn't exist or has ended. The room code may have expired.",
+          canRetry: false,
+        });
+      } else if (response.status === 409) {
+        const errorData = await response.json().catch(() => ({}));
+        if (errorData.code === "RACE_FULL") {
+          setErrorState({
+            type: "race_full",
+            message: "This race room is full. Try joining another race or create a new one.",
+            canRetry: false,
+          });
+        } else if (errorData.code === "RACE_STARTED") {
+          setErrorState({
+            type: "race_started",
+            message: "This race has already started. You can join the next one.",
+            canRetry: false,
+          });
+        } else {
+          setErrorState({
+            type: "unknown",
+            message: errorData.message || "Unable to join this race.",
+            canRetry: true,
+          });
+        }
       } else {
-        toast.error("Race not found");
-        setLocation("/multiplayer");
+        setErrorState({
+          type: "unknown",
+          message: "Something went wrong while loading the race. Please try again.",
+          canRetry: true,
+        });
       }
     } catch (error) {
-      toast.error("Failed to load race");
+      if (!isOnline) {
+        setErrorState({
+          type: "network",
+          message: "You appear to be offline. Please check your internet connection and try again.",
+          canRetry: true,
+        });
+      } else {
+        setErrorState({
+          type: "network",
+          message: "Unable to connect to the server. Please check your connection and try again.",
+          canRetry: true,
+        });
+      }
     }
   }
 
@@ -239,6 +469,16 @@ export default function RacePage() {
       connectWebSocket();
     }, delay);
   }, [isOnline]);
+
+  // Manual reconnect with reset
+  const manualReconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+    reconnectAttempts.current = 0;
+    setIsReconnecting(true);
+    connectWebSocket();
+  }, []);
 
   function connectWebSocket() {
     if (!isOnline) {
@@ -456,11 +696,24 @@ export default function RacePage() {
     setLocation("/multiplayer");
   }
 
+  // Handle error state
+  if (errorState) {
+    return (
+      <RaceErrorDisplay
+        error={errorState}
+        onRetry={errorState.canRetry ? fetchRaceData : undefined}
+        onGoBack={() => setLocation("/multiplayer")}
+      />
+    );
+  }
+
+  // Handle loading state
   if (!race) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
+      <RaceLoadingDisplay 
+        message={loadingMessage}
+        subMessage="Connecting to race server..."
+      />
     );
   }
 
@@ -610,13 +863,49 @@ export default function RacePage() {
 
   if (countdown !== null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="text-9xl font-bold text-primary animate-pulse" data-testid="countdown-number">
-            {countdown === 0 ? "GO!" : countdown}
+      <TooltipProvider delayDuration={300}>
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="text-center space-y-6">
+            {/* Preparation tip with tooltip */}
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2 cursor-help bg-muted/30 px-4 py-2 rounded-full">
+                    <Info className="h-4 w-4" />
+                    <span className="text-sm">Get ready to type!</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-medium">Preparation Tips</p>
+                  <ul className="text-zinc-400 text-sm list-disc list-inside mt-1">
+                    <li>Position your fingers on the home row</li>
+                    <li>Focus on the first few words</li>
+                    <li>Race begins automatically when timer hits zero</li>
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            
+            {/* Countdown number */}
+            <div className="text-9xl font-bold text-primary animate-pulse" data-testid="countdown-number">
+              {countdown === 0 ? "GO!" : countdown}
+            </div>
+            
+            {/* Dynamic instruction */}
+            {countdown > 0 ? (
+              <p className="text-muted-foreground text-lg flex items-center justify-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                Position your fingers on the keyboard!
+              </p>
+            ) : (
+              <p className="text-green-500 text-lg font-medium flex items-center justify-center gap-2">
+                <Play className="h-5 w-5" />
+                Start typing now!
+              </p>
+            )}
           </div>
         </div>
-      </div>
+      </TooltipProvider>
     );
   }
 
@@ -629,6 +918,15 @@ export default function RacePage() {
       <TooltipProvider delayDuration={300}>
         <div className="min-h-screen bg-background">
           <div className="container max-w-6xl mx-auto px-4 py-8">
+            {/* Network status banner */}
+            <NetworkStatusBanner
+              isConnected={wsConnected}
+              isReconnecting={isReconnecting}
+              reconnectAttempt={reconnectAttempts.current}
+              maxAttempts={maxReconnectAttempts}
+              onManualRetry={manualReconnect}
+            />
+            
             <div className="flex items-center justify-between mb-4">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -648,17 +946,18 @@ export default function RacePage() {
                 </TooltipContent>
               </Tooltip>
               
-              {!wsConnected && (
+              {/* Connection status indicator in header */}
+              {wsConnected && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2 text-yellow-500 text-sm">
-                      <WifiOff className="h-4 w-4" />
-                      <span>Reconnecting...</span>
+                    <div className="flex items-center gap-2 text-green-500 text-sm cursor-help">
+                      <Wifi className="h-4 w-4" />
+                      <span>Live</span>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    <p className="font-medium">Connection Lost</p>
-                    <p className="text-zinc-400">Attempting to reconnect to the race server</p>
+                    <p className="font-medium">Connected</p>
+                    <p className="text-zinc-400">Real-time updates are active</p>
                   </TooltipContent>
                 </Tooltip>
               )}
