@@ -66,6 +66,13 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   particleFrequency: number;
   multiplier: number;
   difficulty: string;
+  maxBlur?: number;
+  blurPulse?: boolean;
+  realityDistortion?: boolean;
+  chromaticAberration?: boolean;
+  textScramble?: boolean;
+  multiEffectCombos?: boolean;
+  extremeChaosWaves?: boolean;
 }> = {
   beginner: {
     name: 'Warm-Up Chaos',
@@ -153,7 +160,7 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   },
   nightmare: {
     name: 'Nightmare Realm',
-    description: 'Text reverses, screen inverts/flips, reality collapses.',
+    description: 'Text reverses, screen inverts/flips, reality collapses. Blur pulses in waves.',
     effects: {
       screenShake: true,
       distractions: true,
@@ -178,10 +185,14 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     particleFrequency: 0.85,
     multiplier: 4,
     difficulty: 'Extreme - Reality bends around you',
+    maxBlur: 1.5,
+    blurPulse: true,
+    realityDistortion: false,
+    chromaticAberration: true,
   },
   impossible: {
     name: 'IMPOSSIBLE',
-    description: 'Text teleports, ALL effects active, reality ceases to exist.',
+    description: 'Reality ceases to exist. Chromatic distortion, text scramble, chaos waves.',
     effects: {
       screenShake: true,
       distractions: true,
@@ -206,6 +217,13 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
     particleFrequency: 0.95,
     multiplier: 5,
     difficulty: 'Legendary - Only 1% survive',
+    maxBlur: 2.0,
+    blurPulse: true,
+    realityDistortion: true,
+    chromaticAberration: true,
+    textScramble: true,
+    multiEffectCombos: true,
+    extremeChaosWaves: true,
   },
 };
 
@@ -355,6 +373,12 @@ export default function StressTest() {
   const [comboExplosion, setComboExplosion] = useState(false);
   const [shakeOffset, setShakeOffset] = useState({ x: 0, y: 0 });
   const [isClarityWindow, setIsClarityWindow] = useState(false);
+  const [chromaticOffset, setChromaticOffset] = useState({ r: 0, g: 0, b: 0 });
+  const [realityWarp, setRealityWarp] = useState(0);
+  const [textScrambleActive, setTextScrambleActive] = useState(false);
+  const [chaosWaveIntensity, setChaosWaveIntensity] = useState(0);
+  const [multiEffectActive, setMultiEffectActive] = useState(false);
+  const [blurPulsePhase, setBlurPulsePhase] = useState(0);
   
   const [finalResults, setFinalResults] = useState<{
     survivalTime: number;
@@ -459,6 +483,12 @@ export default function StressTest() {
     setBackgroundFlash(false);
     setStressLevel(0);
     setIsClarityWindow(false);
+    setChromaticOffset({ r: 0, g: 0, b: 0 });
+    setRealityWarp(0);
+    setTextScrambleActive(false);
+    setChaosWaveIntensity(0);
+    setMultiEffectActive(false);
+    setBlurPulsePhase(0);
   }, []);
 
   const playSound = useCallback((type: 'type' | 'error' | 'combo' | 'complete' | 'warning' | 'chaos') => {
@@ -1087,7 +1117,50 @@ export default function StressTest() {
       }
       
       if (config.effects.limitedVisibility && !isClarityWindow) {
-        setBlur(0.5 + Math.random() * Math.min(2.5, 2 * intensity));
+        const maxBlurValue = config.maxBlur ?? 3;
+        if (config.blurPulse) {
+          setBlurPulsePhase((prev) => (prev + 0.1) % (Math.PI * 2));
+          const pulseBlur = (Math.sin(blurPulsePhase) + 1) * 0.5 * maxBlurValue;
+          setBlur(Math.min(pulseBlur, maxBlurValue));
+        } else {
+          setBlur(0.3 + Math.random() * Math.min(maxBlurValue, 1.5 * intensity));
+        }
+      }
+      
+      if (config.chromaticAberration && !isClarityWindow) {
+        const aberrationIntensity = config.realityDistortion ? 8 : 4;
+        setChromaticOffset({
+          r: (Math.random() - 0.5) * aberrationIntensity * intensity,
+          g: (Math.random() - 0.5) * aberrationIntensity * intensity,
+          b: (Math.random() - 0.5) * aberrationIntensity * intensity,
+        });
+      }
+      
+      if (config.realityDistortion && !isClarityWindow) {
+        setRealityWarp(Math.sin(Date.now() / 300) * 10 * intensity);
+      }
+      
+      if (config.textScramble && Math.random() > 0.92) {
+        setTextScrambleActive(true);
+        safeTimeout(() => setTextScrambleActive(false), 200 + Math.random() * 300);
+      }
+      
+      if (config.extremeChaosWaves && Math.random() > 0.85) {
+        setChaosWaveIntensity(1 + Math.random() * 2);
+        safeTimeout(() => setChaosWaveIntensity(0), 500 + Math.random() * 500);
+      }
+      
+      if (config.multiEffectCombos && Math.random() > 0.9) {
+        setMultiEffectActive(true);
+        setScreenInverted(true);
+        setGlitchActive(true);
+        setZoomScale(0.7 + Math.random() * 0.6);
+        safeTimeout(() => {
+          setMultiEffectActive(false);
+          setScreenInverted(false);
+          setGlitchActive(false);
+          setZoomScale(1);
+        }, 400 + Math.random() * 400);
       }
       
       if (config.effects.rotation && !isClarityWindow) {
@@ -1171,7 +1244,7 @@ export default function StressTest() {
         effectsIntervalRef.current = null;
       }
     };
-  }, [isStarted, config, stressLevel, prefersReducedMotion, playSound, safeTimeout, isClarityWindow]);
+  }, [isStarted, config, stressLevel, prefersReducedMotion, playSound, safeTimeout, isClarityWindow, blurPulsePhase]);
 
   useEffect(() => {
     if (!isStarted || !config?.effects.screenShake || prefersReducedMotion || !isTestActiveRef.current) return;
@@ -1213,6 +1286,9 @@ export default function StressTest() {
       setTextOpacity(1);
       setRotation(0);
       setZoomScale(1);
+      setChromaticOffset({ r: 0, g: 0, b: 0 });
+      setRealityWarp(0);
+      setChaosWaveIntensity(0);
       
       setTimeout(() => {
         if (testSessionRef.current === currentSession && isTestActiveRef.current) {
@@ -1458,6 +1534,23 @@ export default function StressTest() {
                         )}
                         {difficulty === 'beginner' && (
                           <p className="text-xs text-green-400">✓ Perfect for learning the chaos mechanics</p>
+                        )}
+                        {difficulty === 'nightmare' && (
+                          <>
+                            <p className="text-xs text-purple-400">✓ Pulsing blur waves - text clarity fluctuates</p>
+                            <p className="text-xs text-purple-400">✓ Chromatic aberration - RGB color splitting</p>
+                            <p className="text-xs text-purple-400">✓ Max blur level: {diffConfig.maxBlur}px (controlled)</p>
+                          </>
+                        )}
+                        {difficulty === 'impossible' && (
+                          <>
+                            <p className="text-xs text-red-400">✓ Reality distortion - screen warps and skews</p>
+                            <p className="text-xs text-red-400">✓ Text scramble - characters shift randomly</p>
+                            <p className="text-xs text-red-400">✓ Extreme chaos waves - contrast/brightness bursts</p>
+                            <p className="text-xs text-red-400">✓ Multi-effect combos - simultaneous chaos!</p>
+                            <p className="text-xs text-red-400">✓ Enhanced chromatic aberration</p>
+                            <p className="text-xs text-red-400">✓ Max blur level: {diffConfig.maxBlur}px (controlled)</p>
+                          </>
                         )}
                         <p className="text-xs text-muted-foreground">{activeEffects.length} active effects</p>
                       </div>
@@ -1716,8 +1809,8 @@ export default function StressTest() {
           backgroundFlash ? 'bg-red-500/30' : 'bg-background'
         }`}
         style={{
-          transform: prefersReducedMotion ? 'none' : `translate(${shakeOffset.x}px, ${shakeOffset.y}px) rotate(${rotation}deg) scale(${zoomScale}) ${screenFlipped ? 'rotateX(180deg)' : ''}`,
-          filter: prefersReducedMotion ? 'none' : `${glitchActive ? 'hue-rotate(180deg) saturate(3)' : ''} ${screenInverted ? 'invert(1) hue-rotate(180deg)' : ''}`,
+          transform: prefersReducedMotion ? 'none' : `translate(${shakeOffset.x}px, ${shakeOffset.y}px) rotate(${rotation}deg) scale(${zoomScale + chaosWaveIntensity * 0.1}) ${screenFlipped ? 'rotateX(180deg)' : ''} skewX(${realityWarp}deg)`,
+          filter: prefersReducedMotion ? 'none' : `${glitchActive ? 'hue-rotate(180deg) saturate(3)' : ''} ${screenInverted ? 'invert(1) hue-rotate(180deg)' : ''} ${chaosWaveIntensity > 0 ? `contrast(${1 + chaosWaveIntensity * 0.3}) brightness(${1 + chaosWaveIntensity * 0.2})` : ''}`,
         }}
         role="main"
         aria-label="Stress test in progress"
@@ -1799,7 +1892,7 @@ export default function StressTest() {
           </Tooltip>
 
           <Card
-            className="mb-8 transition-all duration-200"
+            className={`mb-8 transition-all duration-200 ${multiEffectActive ? 'ring-4 ring-purple-500/50' : ''}`}
             style={prefersReducedMotion ? {} : {
               transform: `translateY(${gravityOffset}px) translate(${textPosition.x}px, ${textPosition.y}px)`,
               opacity: textOpacity,
@@ -1808,8 +1901,39 @@ export default function StressTest() {
               borderWidth: '2px',
             }}
           >
-            <CardContent className="p-8">
-              <div className="text-2xl font-mono leading-relaxed whitespace-pre-wrap select-none" aria-label="Text to type">
+            <CardContent className="p-8 relative overflow-hidden">
+              {(chromaticOffset.r !== 0 || chromaticOffset.g !== 0 || chromaticOffset.b !== 0) && !prefersReducedMotion && (
+                <>
+                  <div 
+                    className="absolute inset-0 pointer-events-none text-2xl font-mono leading-relaxed whitespace-pre-wrap select-none mix-blend-screen opacity-30"
+                    style={{ 
+                      transform: `translate(${chromaticOffset.r}px, ${chromaticOffset.r * 0.5}px)`,
+                      color: 'red',
+                    }}
+                    aria-hidden="true"
+                  >
+                    {displayText}
+                  </div>
+                  <div 
+                    className="absolute inset-0 pointer-events-none text-2xl font-mono leading-relaxed whitespace-pre-wrap select-none mix-blend-screen opacity-30"
+                    style={{ 
+                      transform: `translate(${chromaticOffset.b}px, ${chromaticOffset.b * 0.5}px)`,
+                      color: 'blue',
+                    }}
+                    aria-hidden="true"
+                  >
+                    {displayText}
+                  </div>
+                </>
+              )}
+              <div 
+                className="text-2xl font-mono leading-relaxed whitespace-pre-wrap select-none relative z-10" 
+                aria-label="Text to type"
+                style={textScrambleActive && !prefersReducedMotion ? { 
+                  letterSpacing: `${Math.random() * 5}px`,
+                  wordSpacing: `${Math.random() * 10}px`,
+                } : {}}
+              >
                 {renderedCharacters.map(({ char, color, index }) => (
                   <span
                     key={index}
@@ -1817,6 +1941,9 @@ export default function StressTest() {
                     style={{
                       display: 'inline-block',
                       animation: glitchActive && !prefersReducedMotion ? 'glitch 0.1s infinite' : 'none',
+                      transform: textScrambleActive && !prefersReducedMotion && Math.random() > 0.7 
+                        ? `translateY(${(Math.random() - 0.5) * 8}px) rotate(${(Math.random() - 0.5) * 10}deg)` 
+                        : 'none',
                     }}
                   >
                     {char}
