@@ -5,7 +5,8 @@ import { useNetwork } from "@/lib/network-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Share2, Play, Flag } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
@@ -465,75 +466,145 @@ export default function RacePage() {
 
   if (race.status === "waiting") {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="container max-w-4xl mx-auto px-4 py-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={leaveRace}
-              data-testid="button-leave-race"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Lobby
-            </Button>
-          </div>
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
+      <TooltipProvider delayDuration={300}>
+        <div className="min-h-screen bg-background">
+          <div className="container max-w-4xl mx-auto px-4 py-8">
+            <div className="flex items-center gap-4 mb-4">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={leaveRace}
+                    data-testid="button-leave-race"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Lobby
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Leave the race and return to multiplayer lobby</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      Waiting for Players
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <p className="font-medium">Waiting Room</p>
+                          <p className="text-zinc-400">Share your room code with friends. AI racers may join to fill empty slots when you start.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </CardTitle>
+                    <CardDescription>Share the room code with friends</CardDescription>
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        onClick={copyRoomCode}
+                        data-testid="button-copy-code"
+                        className="font-mono"
+                      >
+                        {copied ? <Check className="h-4 w-4 mr-2 text-green-500" /> : <Share2 className="h-4 w-4 mr-2" />}
+                        {race.roomCode}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="font-medium">{copied ? "Copied!" : "Click to copy room code"}</p>
+                      <p className="text-zinc-400">Share this code with friends to let them join</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
                 <div>
-                  <CardTitle>Waiting for Players</CardTitle>
-                  <CardDescription>Share the room code with friends</CardDescription>
+                  <div className="flex items-center gap-2 mb-3">
+                    <h3 className="text-sm font-medium">
+                      Players ({participants.length}/{race.maxPlayers})
+                    </h3>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>{race.maxPlayers - participants.length} slot{race.maxPlayers - participants.length !== 1 ? 's' : ''} available</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="grid gap-2">
+                    {participants.map((p) => (
+                      <Tooltip key={p.id}>
+                        <TooltipTrigger asChild>
+                          <div
+                            className="flex items-center gap-3 p-3 border rounded-lg hover:border-primary/50 transition-colors cursor-default"
+                            data-testid={`participant-${p.id}`}
+                          >
+                            <div className={`h-10 w-10 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium relative`}>
+                              {p.username[0].toUpperCase()}
+                              {p.isBot === 1 && (
+                                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
+                                  <Bot className="h-3 w-3 text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="font-medium flex items-center gap-2">
+                                {p.username}
+                                {p.isBot === 1 && (
+                                  <span className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">AI</span>
+                                )}
+                              </div>
+                              {p.id === myParticipant?.id && (
+                                <div className="text-xs text-primary flex items-center gap-1">
+                                  <User className="h-3 w-3" />
+                                  You
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="left">
+                          <p className="font-medium">{p.username}</p>
+                          <p className="text-zinc-400">
+                            {p.isBot === 1 ? "AI Racer" : p.id === myParticipant?.id ? "Your profile" : "Human player"}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </div>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={copyRoomCode}
-                  data-testid="button-copy-code"
-                >
-                  {copied ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
-                  {race.roomCode}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <h3 className="text-sm font-medium mb-3">
-                  Players ({participants.length}/{race.maxPlayers})
-                </h3>
-                <div className="grid gap-2">
-                  {participants.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex items-center gap-3 p-3 border rounded-lg"
-                      data-testid={`participant-${p.id}`}
-                    >
-                      <div className={`h-10 w-10 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium`}>
-                        {p.username[0].toUpperCase()}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">{p.username}</div>
-                        {p.id === myParticipant?.id && (
-                          <div className="text-xs text-muted-foreground">You</div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
-              <Button
-                onClick={startRace}
-                disabled={participants.length < 1}
-                size="lg"
-                className="w-full"
-                data-testid="button-start-race"
-              >
-                Start Race
-              </Button>
-            </CardContent>
-          </Card>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={startRace}
+                      disabled={participants.length < 1}
+                      size="lg"
+                      className="w-full"
+                      data-testid="button-start-race"
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Start Race
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="font-medium">Begin the race</p>
+                    <p className="text-zinc-400">A countdown will start and the race begins!</p>
+                  </TooltipContent>
+                </Tooltip>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
+      </TooltipProvider>
     );
   }
 
@@ -555,174 +626,343 @@ export default function RacePage() {
     const textAfter = race.paragraphContent.substring(currentIndex + 1);
 
     return (
-      <div className="min-h-screen bg-background">
-        <div className="container max-w-6xl mx-auto px-4 py-8">
-          <div className="flex items-center justify-between mb-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={leaveRace}
-              data-testid="button-forfeit-race"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Forfeit Race
-            </Button>
-          </div>
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Live Race Progress</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {participants
-                    .sort((a, b) => b.progress - a.progress)
-                    .map((p) => {
-                      const progressPercent = (p.progress / race.paragraphContent.length) * 100;
-                      return (
-                        <div key={p.id} className="space-y-2" data-testid={`progress-${p.id}`}>
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-2">
-                              <div className={`h-6 w-6 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white text-xs`}>
-                                {p.username[0].toUpperCase()}
+      <TooltipProvider delayDuration={300}>
+        <div className="min-h-screen bg-background">
+          <div className="container max-w-6xl mx-auto px-4 py-8">
+            <div className="flex items-center justify-between mb-4">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={leaveRace}
+                    data-testid="button-forfeit-race"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Forfeit Race
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="font-medium text-red-400">Forfeit Race</p>
+                  <p className="text-zinc-400">Leave the race. You will not be ranked.</p>
+                </TooltipContent>
+              </Tooltip>
+              
+              {!wsConnected && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2 text-yellow-500 text-sm">
+                      <WifiOff className="h-4 w-4" />
+                      <span>Reconnecting...</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="font-medium">Connection Lost</p>
+                    <p className="text-zinc-400">Attempting to reconnect to the race server</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Flag className="h-5 w-5 text-primary" />
+                    Live Race Progress
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="font-medium">Real-time Leaderboard</p>
+                        <p className="text-zinc-400">Track all racers' progress, speed, and accuracy as they type</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {participants
+                      .sort((a, b) => b.progress - a.progress)
+                      .map((p) => {
+                        const progressPercent = (p.progress / race.paragraphContent.length) * 100;
+                        return (
+                          <div key={p.id} className="space-y-2" data-testid={`progress-${p.id}`}>
+                            <div className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className={`h-6 w-6 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white text-xs cursor-help relative`}>
+                                      {p.username[0].toUpperCase()}
+                                      {p.isBot === 1 && (
+                                        <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
+                                          <Bot className="h-2.5 w-2.5 text-muted-foreground" />
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="left">
+                                    <p className="font-medium">{p.username}</p>
+                                    <p className="text-zinc-400">{p.isBot === 1 ? "AI Racer" : "Human player"}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                                <span className="font-medium">{p.username}</span>
+                                {p.id === myParticipant?.id && (
+                                  <span className="text-xs text-primary">(You)</span>
+                                )}
+                                {p.isFinished === 1 && p.finishPosition && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-xs font-semibold text-yellow-500 cursor-help" data-testid={`text-position-${p.id}`}>
+                                        {p.finishPosition === 1 ? '🥇 1st' : p.finishPosition === 2 ? '🥈 2nd' : p.finishPosition === 3 ? '🥉 3rd' : `#${p.finishPosition}`}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="right">
+                                      <p className="font-medium">Finished #{p.finishPosition}</p>
+                                      <p className="text-zinc-400">{p.username} completed the race!</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                               </div>
-                              <span className="font-medium">{p.username}</span>
-                              {p.id === myParticipant?.id && (
-                                <span className="text-xs text-primary">(You)</span>
-                              )}
-                              {p.isFinished === 1 && p.finishPosition && (
-                                <span className="text-xs font-semibold text-yellow-500" data-testid={`text-position-${p.id}`}>
-                                  {p.finishPosition === 1 ? '🥇 1st' : p.finishPosition === 2 ? '🥈 2nd' : p.finishPosition === 3 ? '🥉 3rd' : `#${p.finishPosition}`}
-                                </span>
-                              )}
+                              <div className="flex items-center gap-4">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="flex items-center gap-1 cursor-help">
+                                      <Gauge className="h-3.5 w-3.5 text-muted-foreground" />
+                                      {p.wpm} WPM
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom">
+                                    <p className="font-medium">Words Per Minute</p>
+                                    <p className="text-zinc-400">Typing speed measured in words per minute</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="flex items-center gap-1 cursor-help">
+                                      <Target className="h-3.5 w-3.5 text-muted-foreground" />
+                                      {p.accuracy}%
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom">
+                                    <p className="font-medium">Accuracy</p>
+                                    <p className="text-zinc-400">Percentage of characters typed correctly</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                              <span>{p.wpm} WPM</span>
-                              <span>{p.accuracy}% Accuracy</span>
-                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="cursor-help">
+                                  <Progress value={progressPercent} className="h-3" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom">
+                                <p className="font-medium">{Math.round(progressPercent)}% complete</p>
+                                <p className="text-zinc-400">{p.progress} of {race.paragraphContent.length} characters</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </div>
-                          <Progress value={progressPercent} className="h-3" />
-                        </div>
-                      );
-                    })}
-                </div>
-              </CardContent>
-            </Card>
+                        );
+                      })}
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl leading-relaxed font-mono select-none" data-testid="text-paragraph">
-                  <span className="text-green-500">{textBefore}</span>
-                  <span className="bg-primary text-primary-foreground px-1">{textCurrent}</span>
-                  <span className="text-muted-foreground">{textAfter}</span>
-                </div>
-                {isRacing && (
-                  <p className="text-sm text-muted-foreground mt-4 text-center">
-                    Just start typing! Press Backspace to correct mistakes.
-                  </p>
-                )}
-                <input
-                  ref={hiddenInputRef}
-                  type="text"
-                  onInput={handleTyping}
-                  onKeyDown={handleKeyDown}
-                  onCompositionStart={handleCompositionStart}
-                  onCompositionEnd={handleCompositionEnd}
-                  onPaste={handlePaste}
-                  onCut={handleCut}
-                  className="absolute opacity-0 pointer-events-none"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck="false"
-                  data-testid="input-typing"
-                  aria-label="Typing input"
-                />
-              </CardContent>
-            </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="text-2xl leading-relaxed font-mono select-none" data-testid="text-paragraph">
+                    <span className="text-green-500">{textBefore}</span>
+                    <span className="bg-primary text-primary-foreground px-1">{textCurrent}</span>
+                    <span className="text-muted-foreground">{textAfter}</span>
+                  </div>
+                  {isRacing && (
+                    <div className="flex items-center justify-center gap-2 mt-4">
+                      <Info className="h-4 w-4 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground text-center">
+                        Just start typing! Press Backspace to correct mistakes.
+                      </p>
+                    </div>
+                  )}
+                  <input
+                    ref={hiddenInputRef}
+                    type="text"
+                    onInput={handleTyping}
+                    onKeyDown={handleKeyDown}
+                    onCompositionStart={handleCompositionStart}
+                    onCompositionEnd={handleCompositionEnd}
+                    onPaste={handlePaste}
+                    onCut={handleCut}
+                    className="absolute opacity-0 pointer-events-none"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
+                    data-testid="input-typing"
+                    aria-label="Typing input"
+                  />
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
-      </div>
+      </TooltipProvider>
     );
   }
 
   if (race.status === "finished") {
     const sortedParticipants = [...participants].sort((a, b) => (a.finishPosition || 999) - (b.finishPosition || 999));
+    const myResult = sortedParticipants.find(p => p.id === myParticipant?.id);
+    const myPosition = myResult ? sortedParticipants.indexOf(myResult) + 1 : null;
 
     return (
-      <div className="min-h-screen bg-background">
-        <div className="container max-w-4xl mx-auto px-4 py-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setLocation("/multiplayer")}
-              data-testid="button-back-to-lobby"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Lobby
-            </Button>
-          </div>
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trophy className="h-6 w-6 text-yellow-500" />
-                Race Results
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-3">
-                {sortedParticipants.map((p, idx) => (
-                  <div
-                    key={p.id}
-                    className={`flex items-center gap-4 p-4 border rounded-lg ${
-                      p.id === myParticipant?.id ? 'border-primary bg-primary/5' : ''
-                    }`}
-                    data-testid={`result-${p.id}`}
+      <TooltipProvider delayDuration={300}>
+        <div className="min-h-screen bg-background">
+          <div className="container max-w-4xl mx-auto px-4 py-8">
+            <div className="flex items-center gap-4 mb-4">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLocation("/multiplayer")}
+                    data-testid="button-back-to-lobby"
                   >
-                    <div className="text-2xl font-bold w-12 text-center">
-                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
-                    </div>
-                    <div className={`h-12 w-12 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium`}>
-                      {p.username[0].toUpperCase()}
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium">{p.username}</div>
-                      {p.id === myParticipant?.id && (
-                        <div className="text-xs text-primary">You</div>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xl font-bold">{p.wpm} WPM</div>
-                      <div className="text-sm text-muted-foreground">{p.accuracy}% Accuracy</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Lobby
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p>Return to multiplayer lobby</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-6 w-6 text-yellow-500" />
+                  Race Results
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs">
+                      <p className="font-medium">Final Standings</p>
+                      <p className="text-zinc-400">
+                        {myPosition === 1 
+                          ? "Congratulations! You won the race!" 
+                          : myPosition 
+                            ? `You finished in position #${myPosition}` 
+                            : "Race complete - see final standings below"}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-3">
+                  {sortedParticipants.map((p, idx) => (
+                    <Tooltip key={p.id}>
+                      <TooltipTrigger asChild>
+                        <div
+                          className={`flex items-center gap-4 p-4 border rounded-lg cursor-default transition-colors hover:border-primary/30 ${
+                            p.id === myParticipant?.id ? 'border-primary bg-primary/5' : ''
+                          }`}
+                          data-testid={`result-${p.id}`}
+                        >
+                          <div className="text-2xl font-bold w-12 text-center">
+                            {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                          </div>
+                          <div className={`h-12 w-12 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium relative`}>
+                            {p.username[0].toUpperCase()}
+                            {p.isBot === 1 && (
+                              <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
+                                <Bot className="h-3 w-3 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="font-medium flex items-center gap-2">
+                              {p.username}
+                              {p.isBot === 1 && (
+                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">AI</span>
+                              )}
+                            </div>
+                            {p.id === myParticipant?.id && (
+                              <div className="text-xs text-primary flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                You
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xl font-bold flex items-center justify-end gap-1">
+                              <Gauge className="h-4 w-4 text-muted-foreground" />
+                              {p.wpm} WPM
+                            </div>
+                            <div className="text-sm text-muted-foreground flex items-center justify-end gap-1">
+                              <Target className="h-3 w-3" />
+                              {p.accuracy}% Accuracy
+                            </div>
+                          </div>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-xs">
+                        <div className="space-y-1">
+                          <p className="font-medium">{p.username} - #{idx + 1}</p>
+                          <p className="text-zinc-400">
+                            {p.isBot === 1 ? "AI Racer" : p.id === myParticipant?.id ? "Your result" : "Human player"}
+                          </p>
+                          <div className="pt-1 border-t border-zinc-700 mt-1">
+                            <p className="text-zinc-300">Speed: {p.wpm} words per minute</p>
+                            <p className="text-zinc-300">Accuracy: {p.accuracy}% correct</p>
+                            {p.errors > 0 && <p className="text-zinc-400">Errors: {p.errors}</p>}
+                          </div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
 
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setLocation("/multiplayer")}
-                  className="flex-1"
-                  data-testid="button-back"
-                >
-                  <Home className="h-4 w-4 mr-2" />
-                  Back to Lobby
-                </Button>
-                <Button
-                  onClick={() => window.location.reload()}
-                  className="flex-1"
-                  data-testid="button-rematch"
-                >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  New Race
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="flex gap-3">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        onClick={() => setLocation("/multiplayer")}
+                        className="flex-1"
+                        data-testid="button-back"
+                      >
+                        <Home className="h-4 w-4 mr-2" />
+                        Back to Lobby
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Return to multiplayer lobby to find more races</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => window.location.reload()}
+                        className="flex-1"
+                        data-testid="button-rematch"
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        New Race
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="font-medium">Start a new race</p>
+                      <p className="text-zinc-400">Race again with similar players and text</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
+      </TooltipProvider>
     );
   }
 

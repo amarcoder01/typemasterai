@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Zap, Users, Lock, Trophy, Loader2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Zap, Users, Lock, Trophy, Loader2, Info, Globe, Shield, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 interface Race {
@@ -149,203 +150,357 @@ export default function MultiplayerPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-6xl mx-auto px-4 py-8">
-        <div className="text-center mb-12">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Trophy className="h-12 w-12 text-primary" />
-            <h1 className="text-4xl font-bold">Multiplayer Racing</h1>
+    <TooltipProvider delayDuration={300}>
+      <div className="min-h-screen bg-background">
+        <div className="container max-w-6xl mx-auto px-4 py-8">
+          <div className="text-center mb-12">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Trophy className="h-12 w-12 text-primary cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="font-medium">Multiplayer Racing Mode</p>
+                  <p className="text-zinc-400">Compete with real players in real-time typing races</p>
+                </TooltipContent>
+              </Tooltip>
+              <h1 className="text-4xl font-bold">Multiplayer Racing</h1>
+            </div>
+            <p className="text-lg text-muted-foreground">
+              Compete against others in real-time typing races
+            </p>
           </div>
-          <p className="text-lg text-muted-foreground">
-            Compete against others in real-time typing races
-          </p>
-        </div>
 
-        <Tabs defaultValue="quick" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8">
-            <TabsTrigger value="quick" data-testid="tab-quick-match">
-              <Zap className="h-4 w-4 mr-2" />
-              Quick Match
-            </TabsTrigger>
-            <TabsTrigger value="create" data-testid="tab-create-room">
-              <Users className="h-4 w-4 mr-2" />
-              Create Room
-            </TabsTrigger>
-            <TabsTrigger value="join" data-testid="tab-join-room">
-              <Lock className="h-4 w-4 mr-2" />
-              Join Room
-            </TabsTrigger>
-          </TabsList>
+          <Tabs defaultValue="quick" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="quick" data-testid="tab-quick-match">
+                    <Zap className="h-4 w-4 mr-2" />
+                    Quick Match
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="font-medium">Instant Matchmaking</p>
+                  <p className="text-zinc-400">Join an open race or start a new public one instantly</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="create" data-testid="tab-create-room">
+                    <Users className="h-4 w-4 mr-2" />
+                    Create Room
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="font-medium">Create Custom Room</p>
+                  <p className="text-zinc-400">Set up a private or public race with custom settings</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <TabsTrigger value="join" data-testid="tab-join-room">
+                    <Lock className="h-4 w-4 mr-2" />
+                    Join Room
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="font-medium">Join by Code</p>
+                  <p className="text-zinc-400">Enter a 6-character room code to join a private race</p>
+                </TooltipContent>
+              </Tooltip>
+            </TabsList>
 
-          <TabsContent value="quick">
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Match</CardTitle>
-                <CardDescription>
-                  Join an available race or start a new one instantly
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <Button
-                  onClick={quickMatch}
-                  disabled={loading}
-                  size="lg"
-                  className="w-full text-lg h-14"
-                  data-testid="button-quick-match"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Finding match...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="mr-2 h-5 w-5" />
-                      Find Match
-                    </>
-                  )}
-                </Button>
+            <TabsContent value="quick">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    Quick Match
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="font-medium">How Quick Match Works</p>
+                        <p className="text-zinc-400">System finds an open race or creates a new public one. AI racers may join to fill empty slots.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </CardTitle>
+                  <CardDescription>
+                    Join an available race or start a new one instantly
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={quickMatch}
+                        disabled={loading}
+                        size="lg"
+                        className="w-full text-lg h-14"
+                        data-testid="button-quick-match"
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            Finding match...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="mr-2 h-5 w-5" />
+                            Find Match
+                          </>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Click to instantly join or create a race</p>
+                    </TooltipContent>
+                  </Tooltip>
 
-                {activeRaces.length > 0 && (
-                  <div className="mt-6">
-                    <h3 className="text-sm font-medium mb-3">Active Public Races</h3>
-                    <div className="space-y-2">
-                      {activeRaces
-                        .filter(r => r.isPrivate === 0)
-                        .map(race => (
-                          <div
-                            key={race.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
-                          >
-                            <div>
-                              <div className="font-medium">Room {race.roomCode}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {race.participantCount}/{race.maxPlayers} players • {race.status}
-                              </div>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => joinRoom(race.roomCode)}
-                            >
-                              Join
-                            </Button>
-                          </div>
-                        ))}
+                  {activeRaces.length > 0 && (
+                    <div className="mt-6">
+                      <div className="flex items-center gap-2 mb-3">
+                        <h3 className="text-sm font-medium">Active Public Races</h3>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Globe className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p>Open races anyone can join</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <div className="space-y-2">
+                        {activeRaces
+                          .filter(r => r.isPrivate === 0)
+                          .map(race => (
+                            <Tooltip key={race.id}>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center justify-between p-3 border rounded-lg hover:border-primary/50 transition-colors cursor-pointer">
+                                  <div>
+                                    <div className="font-medium flex items-center gap-2">
+                                      Room {race.roomCode}
+                                      {race.status === "waiting" && (
+                                        <span className="inline-flex items-center gap-1 text-xs text-green-500">
+                                          <Clock className="h-3 w-3" />
+                                          Waiting
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {race.participantCount}/{race.maxPlayers} players
+                                    </div>
+                                  </div>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => joinRoom(race.roomCode)}
+                                    data-testid={`button-join-race-${race.roomCode}`}
+                                  >
+                                    Join
+                                  </Button>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="left" className="max-w-xs">
+                                <div className="space-y-1">
+                                  <p className="font-medium">Room {race.roomCode}</p>
+                                  <p className="text-zinc-400">{race.participantCount} of {race.maxPlayers} players joined</p>
+                                  <p className="text-zinc-400">Status: {race.status === "waiting" ? "Waiting for players" : race.status}</p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-          <TabsContent value="create">
-            <Card>
-              <CardHeader>
-                <CardTitle>Create Private Room</CardTitle>
-                <CardDescription>
-                  Set up a custom race and invite your friends
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
+            <TabsContent value="create">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    Create Private Room
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="font-medium">Custom Room Setup</p>
+                        <p className="text-zinc-400">Create a room with your own settings. Share the room code with friends to race together.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </CardTitle>
+                  <CardDescription>
+                    Set up a custom race and invite your friends
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium">Max Players</label>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p className="font-medium">Player Limit</p>
+                            <p className="text-zinc-400">Set between 2-10 players per race</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <Input
+                        type="number"
+                        min={2}
+                        max={10}
+                        value={maxPlayers}
+                        onChange={(e) => setMaxPlayers(parseInt(e.target.value) || 4)}
+                        className="w-full"
+                        data-testid="input-max-players"
+                      />
+                    </div>
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 transition-colors cursor-pointer">
+                          <input
+                            type="checkbox"
+                            id="private"
+                            checked={isPrivate}
+                            onChange={(e) => setIsPrivate(e.target.checked)}
+                            className="h-4 w-4"
+                            data-testid="checkbox-private"
+                          />
+                          <label htmlFor="private" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-muted-foreground" />
+                            Make room private (requires code to join)
+                          </label>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="font-medium">Private Room</p>
+                        <p className="text-zinc-400">When enabled, only players with the room code can join. Public rooms appear in the active races list.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={createRoom}
+                        disabled={loading}
+                        size="lg"
+                        className="w-full text-lg h-14"
+                        data-testid="button-create-room"
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <Users className="mr-2 h-5 w-5" />
+                            Create Room
+                          </>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>Create a new race room with your settings</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="join">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    Join with Code
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs">
+                        <p className="font-medium">Room Code Entry</p>
+                        <p className="text-zinc-400">Enter the 6-character code shared by the room creator to join their race.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </CardTitle>
+                  <CardDescription>
+                    Enter a room code to join a private race
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Max Players</label>
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm font-medium">Room Code</label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p className="font-medium">6-Character Code</p>
+                          <p className="text-zinc-400">Example: ABC123, XYZ789</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <Input
-                      type="number"
-                      min={2}
-                      max={10}
-                      value={maxPlayers}
-                      onChange={(e) => setMaxPlayers(parseInt(e.target.value) || 4)}
-                      className="w-full"
-                      data-testid="input-max-players"
+                      type="text"
+                      placeholder="Enter 6-character code"
+                      value={roomCode}
+                      onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                      maxLength={6}
+                      className="w-full text-lg tracking-wider font-mono"
+                      data-testid="input-room-code"
                     />
+                    {roomCode.length > 0 && roomCode.length < 6 && (
+                      <p className="text-xs text-muted-foreground">
+                        {6 - roomCode.length} more character{6 - roomCode.length !== 1 ? 's' : ''} needed
+                      </p>
+                    )}
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="private"
-                      checked={isPrivate}
-                      onChange={(e) => setIsPrivate(e.target.checked)}
-                      className="h-4 w-4"
-                      data-testid="checkbox-private"
-                    />
-                    <label htmlFor="private" className="text-sm font-medium cursor-pointer">
-                      Make room private (requires code to join)
-                    </label>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={createRoom}
-                  disabled={loading}
-                  size="lg"
-                  className="w-full text-lg h-14"
-                  data-testid="button-create-room"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <Users className="mr-2 h-5 w-5" />
-                      Create Room
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="join">
-            <Card>
-              <CardHeader>
-                <CardTitle>Join with Code</CardTitle>
-                <CardDescription>
-                  Enter a room code to join a private race
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Room Code</label>
-                  <Input
-                    type="text"
-                    placeholder="Enter 6-character code"
-                    value={roomCode}
-                    onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                    maxLength={6}
-                    className="w-full text-lg tracking-wider"
-                    data-testid="input-room-code"
-                  />
-                </div>
-
-                <Button
-                  onClick={() => { void joinRoom(); }}
-                  disabled={loading || roomCode.length !== 6}
-                  size="lg"
-                  className="w-full text-lg h-14"
-                  data-testid="button-join-room"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      Joining...
-                    </>
-                  ) : (
-                    <>
-                      <Lock className="mr-2 h-5 w-5" />
-                      Join Room
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => { void joinRoom(); }}
+                        disabled={loading || roomCode.length !== 6}
+                        size="lg"
+                        className="w-full text-lg h-14"
+                        data-testid="button-join-room"
+                      >
+                        {loading ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            Joining...
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="mr-2 h-5 w-5" />
+                            Join Room
+                          </>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      {roomCode.length !== 6 
+                        ? <p>Enter a complete 6-character room code</p>
+                        : <p>Click to join the race room</p>
+                      }
+                    </TooltipContent>
+                  </Tooltip>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
