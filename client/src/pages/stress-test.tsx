@@ -208,20 +208,60 @@ const DIFFICULTY_CONFIGS: Record<Difficulty, {
   },
 };
 
-const SAMPLE_TEXTS = [
+const STRESS_SENTENCES = [
   "The quick brown fox jumps over the lazy dog while the world shakes violently around you.",
   "In the midst of chaos, only the focused mind prevails against impossible odds.",
-  "Type through the storm, embrace the madness, and prove your worth.",
-  "Your fingers dance on keys while reality itself trembles and distorts.",
-  "Focus is everything when the screen becomes your worst enemy.",
+  "Type through the storm, embrace the madness, and prove your worth as a master typist.",
+  "Your fingers dance on keys while reality itself trembles and distorts before your eyes.",
+  "Focus is everything when the screen becomes your worst enemy in this battle of wills.",
   "When the world falls apart around you, let your fingers find their rhythm in the chaos.",
-  "Every keystroke is a victory against the madness that surrounds your screen.",
-  "The storm rages but your hands remain steady on the keyboard.",
-  "Through glitch and shake, through flash and fade, the typist perseveres.",
-  "Master the chaos or be consumed by it - there is no middle ground here.",
-  "Concentration is your shield against the visual assault of the stress test.",
-  "Let the screen shake, let the colors shift - your typing will not falter.",
+  "Every keystroke is a victory against the madness that surrounds your screen tonight.",
+  "The storm rages but your hands remain steady on the keyboard through it all.",
+  "Through glitch and shake, through flash and fade, the determined typist perseveres.",
+  "Master the chaos or be consumed by it - there is no middle ground here for you.",
+  "Concentration is your shield against the visual assault of this stress test.",
+  "Let the screen shake, let the colors shift - your typing will not falter today.",
+  "In darkness and confusion, the skilled typist finds clarity in each keystroke.",
+  "Reality bends and warps but your focus remains unbroken through it all.",
+  "The keys beneath your fingers are your only connection to sanity in this storm.",
+  "Embrace the chaos, let it flow through you, and emerge victorious on the other side.",
+  "Speed and accuracy become one as you type through the visual madness around you.",
+  "Your mind is a fortress, your fingers are soldiers, and every word is a victory won.",
+  "The screen may flicker and dance but your determination remains absolutely steadfast.",
+  "Type like your life depends on it because in this test your score certainly does.",
+  "Chaos is merely a ladder for those who refuse to let their focus waver even slightly.",
+  "The visual storm is nothing compared to the calm precision of your practiced fingers.",
+  "Each character you type correctly is a small triumph against the forces of distraction.",
+  "Stay calm, stay focused, and let your muscle memory guide you through this trial.",
 ];
+
+const generateStressText = (durationSeconds: number): string => {
+  const targetCharsPerSecond = 6;
+  const targetLength = durationSeconds * targetCharsPerSecond;
+  
+  const shuffled = [...STRESS_SENTENCES].sort(() => Math.random() - 0.5);
+  
+  let result = '';
+  let sentenceIndex = 0;
+  
+  while (result.length < targetLength && sentenceIndex < shuffled.length) {
+    if (result.length > 0) {
+      result += ' ';
+    }
+    result += shuffled[sentenceIndex];
+    sentenceIndex++;
+  }
+  
+  if (result.length < targetLength && shuffled.length > 0) {
+    let extraIndex = 0;
+    while (result.length < targetLength) {
+      result += ' ' + shuffled[extraIndex % shuffled.length];
+      extraIndex++;
+    }
+  }
+  
+  return result;
+};
 
 const MAX_PARTICLES = 20;
 
@@ -653,11 +693,11 @@ export default function StressTest() {
     setSelectedDifficulty(difficulty);
     selectedDifficultyRef.current = difficulty;
     setCountdown(3);
-    const randomText = SAMPLE_TEXTS[Math.floor(Math.random() * SAMPLE_TEXTS.length)];
-    currentTextRef.current = randomText;
-    setCurrentText(randomText);
-    
     const diffConfig = DIFFICULTY_CONFIGS[difficulty];
+    const generatedText = generateStressText(diffConfig.duration);
+    currentTextRef.current = generatedText;
+    setCurrentText(generatedText);
+    
     toast({
       title: `${diffConfig.icon} ${diffConfig.name}`,
       description: `${diffConfig.duration} seconds - ${diffConfig.difficulty}`,
