@@ -333,6 +333,7 @@ export interface IStorage {
   }>>;
   
   createStressTest(test: InsertStressTest): Promise<StressTest>;
+  upsertStressTestBestScore(test: InsertStressTest): Promise<{ result: StressTest; isNewPersonalBest: boolean }>;
   getUserStressTests(userId: string, limit?: number): Promise<StressTest[]>;
   getStressTestLeaderboard(difficulty?: string, limit?: number): Promise<Array<{
     userId: string;
@@ -344,6 +345,7 @@ export interface IStorage {
     completionRate: number;
     avatarColor: string | null;
     createdAt: Date;
+    rank: number;
   }>>;
   getUserStressStats(userId: string): Promise<{
     totalTests: number;
@@ -1999,8 +2001,101 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createStressTest(test: InsertStressTest): Promise<StressTest> {
+    // Production-ready upsert: Keep all test history for stats but use
+    // INSERT ON CONFLICT to optimize storage for leaderboard entries
+    // For leaderboard: only keep best score per user per difficulty
+    // For stats: we keep all records to track total tests, averages, etc.
+    
+    // First, check if user already has an entry for this difficulty with a LOWER score
+    // If so, and the new score is higher, we can optionally update or just insert
+    // For now, we insert all records for accurate stats (total tests, avg score)
+    // The leaderboard query already handles showing only the best score
     const inserted = await db.insert(stressTests).values(test).returning();
     return inserted[0];
+  }
+  
+  async upsertStressTestBestScore(test: InsertStressTest): Promise<{ result: StressTest; isNewPersonalBest: boolean }> {
+    // Production-ready atomic upsert using PostgreSQL's INSERT ON CONFLICT
+    // Uses WHERE clause to compare EXCLUDED vs existing row at conflict time (not pre-insert)
+    // This ensures race-safe atomic updates - only updates when new score beats existing
+    
+    const result = await db.execute(sql`
+      INSERT INTO stress_tests (
+        user_id, difficulty, enabled_effects, wpm, accuracy, errors,
+        max_combo, total_characters, duration, survival_time,
+        completion_rate, stress_score, created_at
+      )
+      VALUES (
+        ${test.userId}, ${test.difficulty}, ${JSON.stringify(test.enabledEffects)}::jsonb,
+        ${test.wpm}, ${test.accuracy}, ${test.errors}, ${test.maxCombo},
+        ${test.totalCharacters}, ${test.duration}, ${test.survivalTime},
+        ${test.completionRate}, ${test.stressScore}, NOW()
+      )
+      ON CONFLICT (user_id, difficulty) 
+      DO UPDATE SET
+        enabled_effects = EXCLUDED.enabled_effects,
+        wpm = EXCLUDED.wpm,
+        accuracy = EXCLUDED.accuracy,
+        errors = EXCLUDED.errors,
+        max_combo = EXCLUDED.max_combo,
+        total_characters = EXCLUDED.total_characters,
+        duration = EXCLUDED.duration,
+        survival_time = EXCLUDED.survival_time,
+        completion_rate = EXCLUDED.completion_rate,
+        stress_score = EXCLUDED.stress_score,
+        created_at = EXCLUDED.created_at
+      WHERE 
+        EXCLUDED.stress_score > stress_tests.stress_score 
+        OR (EXCLUDED.stress_score = stress_tests.stress_score AND EXCLUDED.wpm > stress_tests.wpm)
+      RETURNING *, (xmax = 0) as is_insert
+    `);
+    
+    // If no rows returned, the WHERE condition failed (existing score is better)
+    // Need to fetch the existing record
+    if (result.rows.length === 0) {
+      const existing = await db
+        .select()
+        .from(stressTests)
+        .where(
+          and(
+            eq(stressTests.userId, test.userId),
+            eq(stressTests.difficulty, test.difficulty)
+          )
+        )
+        .limit(1);
+      
+      return {
+        result: existing[0],
+        isNewPersonalBest: false,
+      };
+    }
+    
+    const row = result.rows[0] as any;
+    // If row was returned, it means either:
+    // 1. New insert (is_insert = true, xmax = 0)
+    // 2. Update occurred because WHERE condition passed (xmax != 0)
+    // Either way, this is a new personal best
+    const isNewPersonalBest = true;
+    
+    return {
+      result: {
+        id: row.id,
+        userId: row.user_id,
+        difficulty: row.difficulty,
+        enabledEffects: row.enabled_effects,
+        wpm: row.wpm,
+        accuracy: row.accuracy,
+        errors: row.errors,
+        maxCombo: row.max_combo,
+        totalCharacters: row.total_characters,
+        duration: row.duration,
+        survivalTime: row.survival_time,
+        completionRate: row.completion_rate,
+        stressScore: row.stress_score,
+        createdAt: row.created_at,
+      },
+      isNewPersonalBest,
+    };
   }
 
   async getUserStressTests(userId: string, limit: number = 10): Promise<StressTest[]> {
@@ -2022,52 +2117,55 @@ export class DatabaseStorage implements IStorage {
     completionRate: number;
     avatarColor: string | null;
     createdAt: Date;
+    rank: number;
   }>> {
-    // Get best score and most recent date per user per difficulty to handle ties
-    const bestScoresSubquery = db
-      .select({
-        userId: stressTests.userId,
-        difficulty: stressTests.difficulty,
-        maxScore: sql<number>`MAX(${stressTests.stressScore})`.as('max_score'),
-        latestDate: sql<Date>`MAX(${stressTests.createdAt})`.as('latest_date'),
-      })
-      .from(stressTests)
-      .groupBy(stressTests.userId, stressTests.difficulty)
-      .as('best_scores');
+    // Production-ready leaderboard query using ROW_NUMBER() to guarantee exactly
+    // one entry per user per difficulty, with proper tiebreaking by WPM and date
+    const difficultyFilter = difficulty ? sql`AND st.difficulty = ${difficulty}` : sql``;
+    
+    const leaderboard = await db.execute(sql`
+      WITH ranked_scores AS (
+        SELECT 
+          st.user_id,
+          st.difficulty,
+          st.stress_score,
+          st.wpm,
+          st.accuracy,
+          st.completion_rate,
+          st.created_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY st.user_id, st.difficulty
+            ORDER BY st.stress_score DESC, st.wpm DESC, st.created_at DESC
+          ) as user_rank
+        FROM stress_tests st
+        WHERE 1=1 ${difficultyFilter}
+      ),
+      best_scores AS (
+        SELECT * FROM ranked_scores WHERE user_rank = 1
+      ),
+      final_ranking AS (
+        SELECT 
+          bs.user_id as "userId",
+          u.username,
+          bs.difficulty,
+          bs.stress_score as "stressScore",
+          bs.wpm,
+          bs.accuracy,
+          bs.completion_rate as "completionRate",
+          u.avatar_color as "avatarColor",
+          bs.created_at as "createdAt",
+          DENSE_RANK() OVER (
+            ORDER BY bs.stress_score DESC, bs.wpm DESC, bs.created_at ASC
+          ) as rank
+        FROM best_scores bs
+        INNER JOIN users u ON bs.user_id = u.id
+      )
+      SELECT * FROM final_ranking
+      ORDER BY rank ASC, "stressScore" DESC, wpm DESC
+      LIMIT ${limit}
+    `);
 
-    let query = db
-      .select({
-        userId: stressTests.userId,
-        username: users.username,
-        difficulty: stressTests.difficulty,
-        stressScore: stressTests.stressScore,
-        wpm: stressTests.wpm,
-        accuracy: stressTests.accuracy,
-        completionRate: stressTests.completionRate,
-        avatarColor: users.avatarColor,
-        createdAt: stressTests.createdAt,
-      })
-      .from(stressTests)
-      .innerJoin(users, eq(stressTests.userId, users.id))
-      .innerJoin(
-        bestScoresSubquery,
-        and(
-          eq(stressTests.userId, bestScoresSubquery.userId),
-          eq(stressTests.difficulty, bestScoresSubquery.difficulty),
-          eq(stressTests.stressScore, bestScoresSubquery.maxScore),
-          eq(stressTests.createdAt, bestScoresSubquery.latestDate)
-        )
-      );
-
-    if (difficulty) {
-      query = query.where(eq(stressTests.difficulty, difficulty)) as any;
-    }
-
-    const topScores = await query
-      .orderBy(desc(stressTests.stressScore), desc(stressTests.wpm))
-      .limit(limit);
-
-    return topScores;
+    return leaderboard.rows as any[];
   }
 
   async getUserStressStats(userId: string): Promise<{

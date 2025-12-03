@@ -305,7 +305,9 @@ export default function StressLeaderboard() {
                         <div className="w-16 text-center">Done</div>
                       </div>
                       
-                      {leaderboard.map((entry: any, index: number) => (
+                      {leaderboard.map((entry: any, index: number) => {
+                        const rank = entry.rank || (index + 1);
+                        return (
                         <div
                           key={`${entry.userId}-${entry.difficulty}-${entry.createdAt}`}
                           className={`flex items-center gap-4 p-4 transition-colors ${
@@ -313,9 +315,9 @@ export default function StressLeaderboard() {
                           }`}
                           data-testid={`leaderboard-entry-${index}`}
                         >
-                          {/* Rank */}
+                          {/* Rank - uses DENSE_RANK from API for proper tie handling */}
                           <div className="flex-shrink-0 w-12 text-center">
-                            {index === 0 && (
+                            {rank === 1 && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div className="text-3xl animate-bounce cursor-help">🥇</div>
@@ -325,7 +327,7 @@ export default function StressLeaderboard() {
                                 </TooltipContent>
                               </Tooltip>
                             )}
-                            {index === 1 && (
+                            {rank === 2 && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div className="text-3xl animate-bounce cursor-help" style={{ animationDelay: '0.1s' }}>🥈</div>
@@ -335,7 +337,7 @@ export default function StressLeaderboard() {
                                 </TooltipContent>
                               </Tooltip>
                             )}
-                            {index === 2 && (
+                            {rank === 3 && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <div className="text-3xl animate-bounce cursor-help" style={{ animationDelay: '0.2s' }}>🥉</div>
@@ -345,8 +347,8 @@ export default function StressLeaderboard() {
                                 </TooltipContent>
                               </Tooltip>
                             )}
-                            {index > 2 && (
-                              <span className="text-2xl font-bold text-muted-foreground">#{index + 1}</span>
+                            {rank > 3 && (
+                              <span className="text-2xl font-bold text-muted-foreground">#{rank}</span>
                             )}
                           </div>
 
@@ -438,7 +440,8 @@ export default function StressLeaderboard() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                      );
+                      })}
                     </div>
                   )}
                 </CardContent>
