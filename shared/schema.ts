@@ -166,6 +166,65 @@ export type InsertUserSession = z.infer<typeof insertUserSessionSchema>;
 export type SecuritySettings = typeof securitySettings.$inferSelect;
 export type InsertSecuritySettings = z.infer<typeof insertSecuritySettingsSchema>;
 
+// OAuth Accounts - Links social providers to users
+export const oauthProviderEnum = z.enum(["google", "github", "facebook"]);
+export type OAuthProvider = z.infer<typeof oauthProviderEnum>;
+
+export const oauthAccounts = pgTable("oauth_accounts", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  provider: varchar("provider", { length: 20 }).notNull(), // google, github, facebook
+  providerUserId: varchar("provider_user_id", { length: 255 }).notNull(),
+  email: varchar("email", { length: 255 }),
+  profileName: varchar("profile_name", { length: 100 }),
+  avatarUrl: text("avatar_url"),
+  accessTokenHash: varchar("access_token_hash", { length: 64 }),
+  refreshTokenHash: varchar("refresh_token_hash", { length: 64 }),
+  linkedAt: timestamp("linked_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("oauth_accounts_user_id_idx").on(table.userId),
+  providerIdx: index("oauth_accounts_provider_idx").on(table.provider),
+  providerUserIdIdx: index("oauth_accounts_provider_user_id_idx").on(table.provider, table.providerUserId),
+}));
+
+export const insertOAuthAccountSchema = createInsertSchema(oauthAccounts, {
+  provider: oauthProviderEnum,
+  providerUserId: z.string().min(1).max(255),
+  email: z.string().email().nullable().optional(),
+  profileName: z.string().max(100).nullable().optional(),
+  avatarUrl: z.string().url().nullable().optional(),
+}).omit({ id: true, linkedAt: true });
+
+export type OAuthAccount = typeof oauthAccounts.$inferSelect;
+export type InsertOAuthAccount = z.infer<typeof insertOAuthAccountSchema>;
+
+// Persistent Login Tokens - Remember Me functionality
+export const persistentLogins = pgTable("persistent_logins", {
+  series: varchar("series", { length: 64 }).primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+  deviceName: varchar("device_name", { length: 200 }),
+  userAgent: text("user_agent"),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  lastUsed: timestamp("last_used").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+}, (table) => ({
+  userIdIdx: index("persistent_logins_user_id_idx").on(table.userId),
+  expiresAtIdx: index("persistent_logins_expires_at_idx").on(table.expiresAt),
+}));
+
+export const insertPersistentLoginSchema = createInsertSchema(persistentLogins, {
+  series: z.string().length(64),
+  tokenHash: z.string().length(64),
+  deviceName: z.string().max(200).nullable().optional(),
+  userAgent: z.string().nullable().optional(),
+  ipAddress: z.string().max(45).nullable().optional(),
+}).omit({ createdAt: true });
+
+export type PersistentLogin = typeof persistentLogins.$inferSelect;
+export type InsertPersistentLogin = z.infer<typeof insertPersistentLoginSchema>;
+
 export const testResults = pgTable("test_results", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
