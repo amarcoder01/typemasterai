@@ -1080,11 +1080,11 @@ export default function StressTest() {
       }
       
       if (config.effects.limitedVisibility) {
-        setBlur(2 + Math.random() * (8 * intensity));
+        setBlur(1 + Math.random() * Math.min(4, 3 * intensity));
       }
       
       if (config.effects.rotation) {
-        setRotation((Math.random() - 0.5) * 15 * intensity);
+        setRotation((Math.random() - 0.5) * 10 * intensity);
       }
       
       if (config.effects.gravity) {
@@ -1097,7 +1097,7 @@ export default function StressTest() {
       }
       
       if (config.effects.textFade) {
-        setTextOpacity(0.3 + Math.random() * 0.7);
+        setTextOpacity(0.5 + Math.random() * 0.5);
       }
       
       if (config.effects.reverseText && Math.random() > 0.9) {
@@ -1145,15 +1145,15 @@ export default function StressTest() {
             safeTimeout(() => setZoomScale(1), 600 + Math.random() * 800);
           }, 500);
         } else {
-          const zoomRange = 0.5 + (stressLevel / 100);
-          setZoomScale(0.6 + Math.random() * zoomRange);
-          safeTimeout(() => setZoomScale(1), 600 + Math.random() * 800);
+          const zoomRange = 0.3 + (stressLevel / 150);
+          setZoomScale(0.75 + Math.random() * zoomRange);
+          safeTimeout(() => setZoomScale(1), 500 + Math.random() * 600);
         }
       }
       
-      if (config.effects.screenFlip && Math.random() > 0.85) {
+      if (config.effects.screenFlip && Math.random() > 0.9) {
         setScreenFlipped(true);
-        safeTimeout(() => setScreenFlipped(false), 1000 + Math.random() * 2000);
+        safeTimeout(() => setScreenFlipped(false), 600 + Math.random() * 800);
       }
       
     }, 200);
