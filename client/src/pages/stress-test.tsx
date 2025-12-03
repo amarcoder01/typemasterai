@@ -354,6 +354,7 @@ export default function StressTest() {
   const [screenFlipped, setScreenFlipped] = useState(false);
   const [comboExplosion, setComboExplosion] = useState(false);
   const [shakeOffset, setShakeOffset] = useState({ x: 0, y: 0 });
+  const [isClarityWindow, setIsClarityWindow] = useState(false);
   
   const [finalResults, setFinalResults] = useState<{
     survivalTime: number;
@@ -382,6 +383,7 @@ export default function StressTest() {
   const effectsIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const shakeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const stressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const clarityIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
   const testSessionRef = useRef<number>(0);
   const isTestActiveRef = useRef<boolean>(false);
@@ -432,6 +434,10 @@ export default function StressTest() {
       clearInterval(stressIntervalRef.current);
       stressIntervalRef.current = null;
     }
+    if (clarityIntervalRef.current) {
+      clearInterval(clarityIntervalRef.current);
+      clarityIntervalRef.current = null;
+    }
   }, []);
 
   const resetVisualStates = useCallback(() => {
@@ -452,6 +458,7 @@ export default function StressTest() {
     setComboExplosion(false);
     setBackgroundFlash(false);
     setStressLevel(0);
+    setIsClarityWindow(false);
   }, []);
 
   const playSound = useCallback((type: 'type' | 'error' | 'combo' | 'complete' | 'warning' | 'chaos') => {
@@ -1079,25 +1086,25 @@ export default function StressTest() {
         setCurrentColor(`hsl(${hue}, ${saturation}%, ${lightness}%)`);
       }
       
-      if (config.effects.limitedVisibility) {
-        setBlur(1 + Math.random() * Math.min(4, 3 * intensity));
+      if (config.effects.limitedVisibility && !isClarityWindow) {
+        setBlur(0.5 + Math.random() * Math.min(2.5, 2 * intensity));
       }
       
-      if (config.effects.rotation) {
-        setRotation((Math.random() - 0.5) * 10 * intensity);
+      if (config.effects.rotation && !isClarityWindow) {
+        setRotation((Math.random() - 0.5) * 8 * intensity);
       }
       
       if (config.effects.gravity) {
-        setGravityOffset(Math.sin(Date.now() / 200) * 20 * intensity);
+        setGravityOffset(Math.sin(Date.now() / 200) * 15 * intensity);
       }
       
-      if (config.effects.glitch && Math.random() > 0.8) {
+      if (config.effects.glitch && Math.random() > 0.85) {
         setGlitchActive(true);
-        safeTimeout(() => setGlitchActive(false), 50 + Math.random() * 100);
+        safeTimeout(() => setGlitchActive(false), 30 + Math.random() * 70);
       }
       
-      if (config.effects.textFade) {
-        setTextOpacity(0.5 + Math.random() * 0.5);
+      if (config.effects.textFade && !isClarityWindow) {
+        setTextOpacity(0.6 + Math.random() * 0.4);
       }
       
       if (config.effects.reverseText && Math.random() > 0.9) {
@@ -1131,7 +1138,7 @@ export default function StressTest() {
         }
       }
       
-      if (config.effects.zoomChaos && Math.random() > 0.75) {
+      if (config.effects.zoomChaos && Math.random() > 0.8 && !isClarityWindow) {
         const progressPercent = currentTextRef.current.length > 0 
           ? (typedTextRef.current.length / currentTextRef.current.length) * 100 : 0;
         
@@ -1140,14 +1147,14 @@ export default function StressTest() {
           setActiveEffectWarning('🔍 Zoom Chaos!');
           safeTimeout(() => {
             setActiveEffectWarning(null);
-            const zoomRange = 0.5 + (stressLevel / 100);
-            setZoomScale(0.6 + Math.random() * zoomRange);
-            safeTimeout(() => setZoomScale(1), 600 + Math.random() * 800);
+            const zoomRange = 0.3 + (stressLevel / 150);
+            setZoomScale(0.8 + Math.random() * zoomRange);
+            safeTimeout(() => setZoomScale(1), 400 + Math.random() * 500);
           }, 500);
         } else {
-          const zoomRange = 0.3 + (stressLevel / 150);
-          setZoomScale(0.75 + Math.random() * zoomRange);
-          safeTimeout(() => setZoomScale(1), 500 + Math.random() * 600);
+          const zoomRange = 0.2 + (stressLevel / 200);
+          setZoomScale(0.85 + Math.random() * zoomRange);
+          safeTimeout(() => setZoomScale(1), 400 + Math.random() * 400);
         }
       }
       
@@ -1164,7 +1171,7 @@ export default function StressTest() {
         effectsIntervalRef.current = null;
       }
     };
-  }, [isStarted, config, stressLevel, prefersReducedMotion, playSound, safeTimeout]);
+  }, [isStarted, config, stressLevel, prefersReducedMotion, playSound, safeTimeout, isClarityWindow]);
 
   useEffect(() => {
     if (!isStarted || !config?.effects.screenShake || prefersReducedMotion || !isTestActiveRef.current) return;
@@ -1190,6 +1197,43 @@ export default function StressTest() {
       }
     };
   }, [isStarted, config, stressLevel, prefersReducedMotion]);
+
+  useEffect(() => {
+    if (!isStarted || !config || prefersReducedMotion || !isTestActiveRef.current) return;
+    
+    const currentSession = testSessionRef.current;
+    const clarityDuration = 2000;
+    const chaosDuration = selectedDifficulty === 'nightmare' || selectedDifficulty === 'impossible' ? 4000 : 6000;
+    
+    const triggerClarity = () => {
+      if (testSessionRef.current !== currentSession || !isTestActiveRef.current) return;
+      
+      setIsClarityWindow(true);
+      setBlur(0);
+      setTextOpacity(1);
+      setRotation(0);
+      setZoomScale(1);
+      
+      setTimeout(() => {
+        if (testSessionRef.current === currentSession && isTestActiveRef.current) {
+          setIsClarityWindow(false);
+        }
+      }, clarityDuration);
+    };
+    
+    triggerClarity();
+    
+    clarityIntervalRef.current = setInterval(() => {
+      triggerClarity();
+    }, clarityDuration + chaosDuration);
+    
+    return () => {
+      if (clarityIntervalRef.current) {
+        clearInterval(clarityIntervalRef.current);
+        clarityIntervalRef.current = null;
+      }
+    };
+  }, [isStarted, config, selectedDifficulty, prefersReducedMotion]);
 
   useEffect(() => {
     if (!isStarted || isFinished) return;
