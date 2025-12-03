@@ -28,7 +28,17 @@ import {
   setupRememberMeOnLogin,
   clearRememberMeOnLogout,
   REMEMBER_ME_COOKIE,
+  oauthRateLimitMiddleware,
+  initiateOAuthFlow,
+  handleOAuthCallbackFlow,
+  canUnlinkProvider,
+  getProviderAvailability,
+  logAuthEvent,
+  extractDeviceInfo,
+  regenerateSession,
+  checkRateLimit,
 } from "./oauth-service";
+import { securityHeaders, csrfProtection } from "./auth-security";
 
 const PgSession = ConnectPgSimple(session);
 
@@ -381,56 +391,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ user: req.user });
   });
 
-  app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+  app.get("/api/auth/google", 
+    oauthRateLimitMiddleware(), 
+    initiateOAuthFlow("google")
+  );
 
   app.get("/api/auth/google/callback",
-    passport.authenticate("google", { failureRedirect: "/login?error=google_failed" }),
-    async (req, res) => {
-      try {
-        if (req.user) {
-          await setupRememberMeOnLogin(req, res, (req.user as any).id);
-        }
-        res.redirect("/");
-      } catch (error) {
-        console.error("Google OAuth callback error:", error);
-        res.redirect("/login?error=oauth_error");
-      }
-    }
+    oauthRateLimitMiddleware(),
+    handleOAuthCallbackFlow("google")
   );
 
-  app.get("/api/auth/github", passport.authenticate("github", { scope: ["user:email"] }));
+  app.get("/api/auth/github", 
+    oauthRateLimitMiddleware(),
+    initiateOAuthFlow("github")
+  );
 
   app.get("/api/auth/github/callback",
-    passport.authenticate("github", { failureRedirect: "/login?error=github_failed" }),
-    async (req, res) => {
-      try {
-        if (req.user) {
-          await setupRememberMeOnLogin(req, res, (req.user as any).id);
-        }
-        res.redirect("/");
-      } catch (error) {
-        console.error("GitHub OAuth callback error:", error);
-        res.redirect("/login?error=oauth_error");
-      }
-    }
+    oauthRateLimitMiddleware(),
+    handleOAuthCallbackFlow("github")
   );
 
-  app.get("/api/auth/facebook", passport.authenticate("facebook", { scope: ["email"] }));
+  app.get("/api/auth/facebook", 
+    oauthRateLimitMiddleware(),
+    initiateOAuthFlow("facebook")
+  );
 
   app.get("/api/auth/facebook/callback",
-    passport.authenticate("facebook", { failureRedirect: "/login?error=facebook_failed" }),
-    async (req, res) => {
-      try {
-        if (req.user) {
-          await setupRememberMeOnLogin(req, res, (req.user as any).id);
-        }
-        res.redirect("/");
-      } catch (error) {
-        console.error("Facebook OAuth callback error:", error);
-        res.redirect("/login?error=oauth_error");
-      }
-    }
+    oauthRateLimitMiddleware(),
+    handleOAuthCallbackFlow("facebook")
   );
+
+  app.get("/api/auth/link/google", isAuthenticated,
+    oauthRateLimitMiddleware(),
+    (req, res, next) => initiateOAuthFlow("google", req.user?.id)(req, res, next)
+  );
+
+  app.get("/api/auth/link/github", isAuthenticated,
+    oauthRateLimitMiddleware(),
+    (req, res, next) => initiateOAuthFlow("github", req.user?.id)(req, res, next)
+  );
+
+  app.get("/api/auth/link/facebook", isAuthenticated,
+    oauthRateLimitMiddleware(),
+    (req, res, next) => initiateOAuthFlow("facebook", req.user?.id)(req, res, next)
+  );
+
+  app.get("/api/auth/providers/available", (req, res) => {
+    const availability = getProviderAvailability();
+    res.json({ providers: availability });
+  });
 
   app.get("/api/auth/providers", isAuthenticated, async (req, res) => {
     try {
@@ -441,7 +450,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: acc.email,
         linkedAt: acc.linkedAt,
       }));
-      res.json({ linkedProviders });
+      const availability = getProviderAvailability();
+      res.json({ linkedProviders, availableProviders: availability });
     } catch (error: any) {
       console.error("Get linked providers error:", error);
       res.status(500).json({ message: "Failed to fetch linked providers" });
@@ -455,20 +465,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid provider" });
       }
 
-      const user = await storage.getUser(req.user!.id);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      const accounts = await storage.getUserOAuthAccounts(req.user!.id);
-      
-      if (accounts.length <= 1 && !user.password) {
-        return res.status(400).json({ 
-          message: "Cannot unlink the only login method. Please set a password first." 
+      const rateLimitCheck = checkRateLimit(req.user!.id, "unlink");
+      if (!rateLimitCheck.allowed) {
+        return res.status(429).json({ 
+          message: "Too many unlink attempts. Please try again later.",
+          retryAfterMs: rateLimitCheck.retryAfterMs
         });
       }
 
+      const unlinkCheck = await canUnlinkProvider(req.user!.id, provider);
+      if (!unlinkCheck.allowed) {
+        return res.status(400).json({ message: unlinkCheck.reason });
+      }
+
+      const deviceInfo = extractDeviceInfo(req);
+      
       await storage.unlinkOAuthAccount(req.user!.id, provider);
+      
+      logAuthEvent({
+        eventType: "oauth_unlink",
+        userId: req.user!.id,
+        provider,
+        ipAddress: deviceInfo.ipAddress,
+        userAgent: deviceInfo.userAgent,
+        deviceFingerprint: deviceInfo.fingerprint,
+        success: true,
+      });
+      
       res.json({ message: `${provider} account unlinked successfully` });
     } catch (error: any) {
       console.error("Unlink provider error:", error);
@@ -2349,9 +2372,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     windowMs: 30 * 1000, // 30 second window
     max: 5, // Max 5 submissions per 30 seconds per user
     message: { message: "Too many stress test submissions. Please wait before submitting again." },
-    keyGenerator: (req) => req.user?.id || req.ip || 'anonymous',
+    keyGenerator: (req) => {
+      if (req.user?.id) return req.user.id;
+      return 'anonymous';
+    },
     standardHeaders: true,
     legacyHeaders: false,
+    validate: false,
   });
 
   // Stress Test Routes with anti-cheat validation

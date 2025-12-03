@@ -57,6 +57,12 @@ interface LinkedProvider {
   linkedAt: string;
 }
 
+interface ProviderAvailability {
+  google: boolean;
+  github: boolean;
+  facebook: boolean;
+}
+
 export default function Settings() {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -214,20 +220,22 @@ export default function Settings() {
     },
   });
 
-  const { data: linkedProviders, isLoading: providersLoading } = useQuery({
+  const { data: providerData, isLoading: providersLoading } = useQuery({
     queryKey: ["linked-providers"],
-    queryFn: async (): Promise<LinkedProvider[]> => {
+    queryFn: async (): Promise<{ linkedProviders: LinkedProvider[]; availableProviders: ProviderAvailability }> => {
       const response = await fetch("/api/auth/providers", {
         credentials: "include",
       });
       if (!response.ok) {
         throw new Error("Failed to fetch linked providers");
       }
-      const data = await response.json();
-      return data.linkedProviders;
+      return response.json();
     },
     enabled: !!user,
   });
+
+  const linkedProviders = providerData?.linkedProviders;
+  const availableProviders = providerData?.availableProviders;
 
   const unlinkProviderMutation = useMutation({
     mutationFn: async (provider: string) => {
@@ -266,7 +274,11 @@ export default function Settings() {
   };
 
   const handleLinkProvider = (provider: string) => {
-    window.location.href = `/api/auth/${provider}`;
+    window.location.href = `/api/auth/link/${provider}`;
+  };
+
+  const isProviderAvailable = (provider: keyof ProviderAvailability) => {
+    return availableProviders?.[provider] ?? false;
   };
 
   const handleUnlinkProvider = (provider: string) => {
@@ -713,7 +725,7 @@ export default function Settings() {
                             </>
                           )}
                         </Button>
-                      ) : (
+                      ) : isProviderAvailable("google") ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -723,6 +735,8 @@ export default function Settings() {
                           <Link2 className="w-4 h-4 mr-2" />
                           Link
                         </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Not configured</span>
                       )}
                     </div>
 
@@ -760,7 +774,7 @@ export default function Settings() {
                             </>
                           )}
                         </Button>
-                      ) : (
+                      ) : isProviderAvailable("github") ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -770,6 +784,8 @@ export default function Settings() {
                           <Link2 className="w-4 h-4 mr-2" />
                           Link
                         </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Not configured</span>
                       )}
                     </div>
 
@@ -807,7 +823,7 @@ export default function Settings() {
                             </>
                           )}
                         </Button>
-                      ) : (
+                      ) : isProviderAvailable("facebook") ? (
                         <Button
                           variant="outline"
                           size="sm"
@@ -817,6 +833,8 @@ export default function Settings() {
                           <Link2 className="w-4 h-4 mr-2" />
                           Link
                         </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Not configured</span>
                       )}
                     </div>
                   </div>

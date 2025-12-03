@@ -6,6 +6,21 @@ import { Strategy as FacebookStrategy, Profile as FacebookProfile } from "passpo
 import { storage } from "./storage";
 import type { User, OAuthProvider } from "@shared/schema";
 import type { Request, Response, NextFunction } from "express";
+import {
+  generateOAuthState,
+  generateCodeVerifier,
+  generateCodeChallenge,
+  storeOAuthState,
+  validateAndConsumeOAuthState,
+  logAuthEvent,
+  extractDeviceInfo,
+  generateDeviceFingerprint,
+  validateDeviceBinding,
+  checkRateLimit,
+  canUnlinkProvider,
+  getProviderAvailability,
+  regenerateSession,
+} from "./auth-security";
 
 const REMEMBER_ME_COOKIE = "remember_me";
 const REMEMBER_ME_EXPIRY_DAYS = 30;
@@ -40,7 +55,8 @@ export function formatPersistentLoginCookie(series: string, token: string): stri
 export async function createRememberMeToken(
   userId: string,
   userAgent?: string,
-  ipAddress?: string
+  ipAddress?: string,
+  deviceFingerprint?: string
 ): Promise<{ series: string; token: string; cookieValue: string }> {
   const series = generateSecureToken();
   const token = generateSecureToken();
@@ -54,7 +70,17 @@ export async function createRememberMeToken(
     expiresAt,
     userAgent: userAgent || null,
     ipAddress: ipAddress || null,
+    deviceFingerprint: deviceFingerprint || null,
     lastUsed: new Date(),
+  });
+
+  logAuthEvent({
+    eventType: "remember_me_created",
+    userId,
+    ipAddress: ipAddress || "unknown",
+    userAgent: userAgent || "unknown",
+    deviceFingerprint: deviceFingerprint || "unknown",
+    success: true,
   });
 
   return { series, token, cookieValue: formatPersistentLoginCookie(series, token) };
@@ -65,12 +91,14 @@ export interface ValidateRememberMeResult {
   user?: User;
   newCookieValue?: string;
   theftDetected?: boolean;
+  deviceMismatch?: boolean;
 }
 
 export async function validateAndRotateRememberMeToken(
   cookieValue: string,
   userAgent?: string,
-  ipAddress?: string
+  ipAddress?: string,
+  deviceFingerprint?: string
 ): Promise<ValidateRememberMeResult> {
   const parsed = parsePersistentLoginCookie(cookieValue);
   if (!parsed) {
@@ -91,8 +119,43 @@ export async function validateAndRotateRememberMeToken(
 
   const tokenHash = hashToken(token);
   if (tokenHash !== persistentLogin.tokenHash) {
+    logAuthEvent({
+      eventType: "remember_me_theft_detected",
+      userId: persistentLogin.userId,
+      ipAddress: ipAddress || "unknown",
+      userAgent: userAgent || "unknown",
+      deviceFingerprint: deviceFingerprint || "unknown",
+      success: false,
+      metadata: {
+        series,
+        storedIp: persistentLogin.ipAddress,
+        currentIp: ipAddress,
+      },
+    });
+    
     await storage.deleteAllUserPersistentLogins(persistentLogin.userId);
     return { valid: false, theftDetected: true };
+  }
+
+  if (deviceFingerprint && persistentLogin.deviceFingerprint) {
+    const isValidDevice = validateDeviceBinding(
+      persistentLogin.deviceFingerprint,
+      deviceFingerprint,
+      false
+    );
+    
+    if (!isValidDevice) {
+      logAuthEvent({
+        eventType: "remember_me_used",
+        userId: persistentLogin.userId,
+        ipAddress: ipAddress || "unknown",
+        userAgent: userAgent || "unknown",
+        deviceFingerprint: deviceFingerprint || "unknown",
+        success: false,
+        metadata: { reason: "device_mismatch", series },
+      });
+      return { valid: false, deviceMismatch: true };
+    }
   }
 
   const user = await storage.getUser(persistentLogin.userId);
@@ -104,6 +167,15 @@ export async function validateAndRotateRememberMeToken(
   const newToken = generateSecureToken();
   const newTokenHash = hashToken(newToken);
   await storage.updatePersistentLoginToken(series, newTokenHash, new Date());
+
+  logAuthEvent({
+    eventType: "remember_me_used",
+    userId: user.id,
+    ipAddress: ipAddress || "unknown",
+    userAgent: userAgent || "unknown",
+    deviceFingerprint: deviceFingerprint || "unknown",
+    success: true,
+  });
 
   return {
     valid: true,
@@ -127,6 +199,7 @@ export function getRememberMeCookieOptions(
   sameSite: "lax" | "strict" | "none";
   maxAge: number;
   path: string;
+  priority: "high" | "medium" | "low";
 } {
   return {
     httpOnly: true,
@@ -134,6 +207,7 @@ export function getRememberMeCookieOptions(
     sameSite: "lax",
     maxAge: REMEMBER_ME_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
     path: "/",
+    priority: "high",
   };
 }
 
@@ -152,6 +226,9 @@ export function getClearCookieOptions(secure: boolean): {
 }
 
 function getBaseUrl(): string {
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  }
   if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
     return `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
   }
@@ -195,16 +272,71 @@ function hashAccessToken(token: string): string {
 }
 
 async function handleOAuthCallback(
+  req: Request,
   provider: OAuthProvider,
   profile: OAuthProfileInfo,
   accessToken: string,
   refreshToken: string | undefined,
   done: (error: any, user?: User | false, info?: object) => void
 ) {
+  const deviceInfo = extractDeviceInfo(req);
+  
   try {
+    const linkToUserId = (req as any).oauthLinkUserId;
+    
+    if (linkToUserId) {
+      const existingAccount = await storage.getOAuthAccount(provider, profile.id);
+      if (existingAccount && existingAccount.userId !== linkToUserId) {
+        logAuthEvent({
+          eventType: "oauth_link",
+          userId: linkToUserId,
+          provider,
+          ipAddress: deviceInfo.ipAddress,
+          userAgent: deviceInfo.userAgent,
+          deviceFingerprint: deviceInfo.fingerprint,
+          success: false,
+          metadata: { reason: "already_linked_to_another_account" },
+        });
+        return done(null, false, { message: "This social account is already linked to another user" });
+      }
+      
+      await storage.linkOAuthAccount(linkToUserId, {
+        provider,
+        providerUserId: profile.id,
+        email: profile.email,
+        profileName: profile.profileName,
+        avatarUrl: profile.avatarUrl || null,
+        accessTokenHash: hashAccessToken(accessToken),
+        refreshTokenHash: refreshToken ? hashAccessToken(refreshToken) : null,
+      });
+      
+      const user = await storage.getUser(linkToUserId);
+      
+      logAuthEvent({
+        eventType: "oauth_link",
+        userId: linkToUserId,
+        provider,
+        ipAddress: deviceInfo.ipAddress,
+        userAgent: deviceInfo.userAgent,
+        deviceFingerprint: deviceInfo.fingerprint,
+        success: true,
+      });
+      
+      return done(null, user || false);
+    }
+    
     let user = await storage.findUserByOAuthProvider(provider, profile.id);
 
     if (user) {
+      logAuthEvent({
+        eventType: "oauth_login",
+        userId: user.id,
+        provider,
+        ipAddress: deviceInfo.ipAddress,
+        userAgent: deviceInfo.userAgent,
+        deviceFingerprint: deviceInfo.fingerprint,
+        success: true,
+      });
       return done(null, user);
     }
 
@@ -220,6 +352,19 @@ async function handleOAuthCallback(
           accessTokenHash: hashAccessToken(accessToken),
           refreshTokenHash: refreshToken ? hashAccessToken(refreshToken) : null,
         });
+        
+        logAuthEvent({
+          eventType: "oauth_login",
+          userId: existingUser.id,
+          email: profile.email,
+          provider,
+          ipAddress: deviceInfo.ipAddress,
+          userAgent: deviceInfo.userAgent,
+          deviceFingerprint: deviceInfo.fingerprint,
+          success: true,
+          metadata: { linkedExisting: true },
+        });
+        
         return done(null, existingUser);
       }
     }
@@ -262,15 +407,39 @@ async function handleOAuthCallback(
       refreshTokenHash: refreshToken ? hashAccessToken(refreshToken) : null,
     });
 
+    logAuthEvent({
+      eventType: "oauth_login",
+      userId: user.id,
+      email: profile.email || undefined,
+      provider,
+      ipAddress: deviceInfo.ipAddress,
+      userAgent: deviceInfo.userAgent,
+      deviceFingerprint: deviceInfo.fingerprint,
+      success: true,
+      metadata: { newUser: true },
+    });
+
     return done(null, user);
   } catch (error) {
     console.error(`OAuth ${provider} error:`, error);
+    
+    logAuthEvent({
+      eventType: "oauth_login",
+      provider,
+      ipAddress: deviceInfo.ipAddress,
+      userAgent: deviceInfo.userAgent,
+      deviceFingerprint: deviceInfo.fingerprint,
+      success: false,
+      metadata: { error: String(error) },
+    });
+    
     return done(error);
   }
 }
 
 export function initializeOAuthStrategies() {
   const baseUrl = getBaseUrl();
+  console.log(`OAuth base URL: ${baseUrl}`);
 
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     passport.use(
@@ -280,10 +449,11 @@ export function initializeOAuthStrategies() {
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
           callbackURL: `${baseUrl}/api/auth/google/callback`,
           scope: ["profile", "email"],
+          passReqToCallback: true,
         },
-        async (accessToken, refreshToken, profile, done) => {
+        async (req: Request, accessToken: string, refreshToken: string, profile: GoogleProfile, done: any) => {
           const info = extractProfileInfo("google", profile);
-          await handleOAuthCallback("google", info, accessToken, refreshToken, done);
+          await handleOAuthCallback(req, "google", info, accessToken, refreshToken, done);
         }
       )
     );
@@ -300,10 +470,11 @@ export function initializeOAuthStrategies() {
           clientSecret: process.env.GITHUB_CLIENT_SECRET,
           callbackURL: `${baseUrl}/api/auth/github/callback`,
           scope: ["user:email"],
+          passReqToCallback: true,
         },
-        async (accessToken: string, refreshToken: string, profile: GitHubProfile, done: any) => {
+        async (req: Request, accessToken: string, refreshToken: string, profile: GitHubProfile, done: any) => {
           const info = extractProfileInfo("github", profile);
-          await handleOAuthCallback("github", info, accessToken, refreshToken, done);
+          await handleOAuthCallback(req, "github", info, accessToken, refreshToken, done);
         }
       )
     );
@@ -320,10 +491,11 @@ export function initializeOAuthStrategies() {
           clientSecret: process.env.FACEBOOK_APP_SECRET,
           callbackURL: `${baseUrl}/api/auth/facebook/callback`,
           profileFields: ["id", "emails", "name", "displayName", "photos"],
+          passReqToCallback: true,
         },
-        async (accessToken: string, refreshToken: string, profile: FacebookProfile, done: any) => {
+        async (req: Request, accessToken: string, refreshToken: string, profile: FacebookProfile, done: any) => {
           const info = extractProfileInfo("facebook", profile);
-          await handleOAuthCallback("facebook", info, accessToken, refreshToken, done);
+          await handleOAuthCallback(req, "facebook", info, accessToken, refreshToken, done);
         }
       )
     );
@@ -341,11 +513,15 @@ export function rememberMeMiddleware() {
 
     const cookieValue = req.cookies[REMEMBER_ME_COOKIE];
     const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
-    const userAgent = req.get("User-Agent");
-    const ipAddress = req.ip;
+    const deviceInfo = extractDeviceInfo(req);
 
     try {
-      const result = await validateAndRotateRememberMeToken(cookieValue, userAgent, ipAddress);
+      const result = await validateAndRotateRememberMeToken(
+        cookieValue,
+        deviceInfo.userAgent,
+        deviceInfo.ipAddress,
+        deviceInfo.fingerprint
+      );
 
       if (result.theftDetected) {
         console.warn(`Token theft detected for cookie, clearing all tokens`);
@@ -353,8 +529,17 @@ export function rememberMeMiddleware() {
         return next();
       }
 
+      if (result.deviceMismatch) {
+        console.warn(`Device mismatch for remember-me token`);
+        res.clearCookie(REMEMBER_ME_COOKIE, getClearCookieOptions(isSecure));
+        return next();
+      }
+
       if (result.valid && result.user && result.newCookieValue) {
         res.cookie(REMEMBER_ME_COOKIE, result.newCookieValue, getRememberMeCookieOptions(isSecure));
+        
+        await regenerateSession(req).catch(() => {});
+        
         req.login(result.user, (err) => {
           if (err) {
             console.error("Remember-me auto-login failed:", err);
@@ -377,10 +562,14 @@ export function setupRememberMeOnLogin(req: Request, res: Response, userId: stri
   return new Promise(async (resolve, reject) => {
     try {
       const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
-      const userAgent = req.get("User-Agent");
-      const ipAddress = req.ip;
+      const deviceInfo = extractDeviceInfo(req);
 
-      const { cookieValue } = await createRememberMeToken(userId, userAgent, ipAddress);
+      const { cookieValue } = await createRememberMeToken(
+        userId,
+        deviceInfo.userAgent,
+        deviceInfo.ipAddress,
+        deviceInfo.fingerprint
+      );
       res.cookie(REMEMBER_ME_COOKIE, cookieValue, getRememberMeCookieOptions(isSecure));
       resolve();
     } catch (error) {
@@ -392,11 +581,150 @@ export function setupRememberMeOnLogin(req: Request, res: Response, userId: stri
 export async function clearRememberMeOnLogout(req: Request, res: Response): Promise<void> {
   const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
   const cookieValue = req.cookies?.[REMEMBER_ME_COOKIE];
+  const userId = (req.user as User)?.id;
 
   if (cookieValue) {
     await clearRememberMeToken(cookieValue);
     res.clearCookie(REMEMBER_ME_COOKIE, getClearCookieOptions(isSecure));
   }
+
+  if (userId) {
+    const deviceInfo = extractDeviceInfo(req);
+    logAuthEvent({
+      eventType: "logout",
+      userId,
+      ipAddress: deviceInfo.ipAddress,
+      userAgent: deviceInfo.userAgent,
+      deviceFingerprint: deviceInfo.fingerprint,
+      success: true,
+    });
+  }
 }
 
-export { REMEMBER_ME_COOKIE };
+export function oauthRateLimitMiddleware() {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const identifier = req.ip || "unknown";
+    const result = checkRateLimit(identifier, "oauth");
+    
+    if (!result.allowed) {
+      logAuthEvent({
+        eventType: "rate_limit_exceeded",
+        ipAddress: identifier,
+        userAgent: req.get("User-Agent") || "unknown",
+        deviceFingerprint: generateDeviceFingerprint(req),
+        success: false,
+        metadata: { action: "oauth", retryAfterMs: result.retryAfterMs },
+      });
+      
+      return res.status(429).json({
+        message: "Too many authentication attempts. Please try again later.",
+        retryAfterMs: result.retryAfterMs,
+      });
+    }
+    
+    next();
+  };
+}
+
+export function initiateOAuthFlow(provider: string, linkToUserId?: string) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const state = generateOAuthState();
+    const codeVerifier = provider === "google" ? generateCodeVerifier() : undefined;
+    
+    storeOAuthState(state, {
+      codeVerifier,
+      returnTo: req.query.returnTo as string | undefined,
+      linkToUserId,
+    });
+
+    (req as any).oauthState = state;
+    (req as any).oauthCodeVerifier = codeVerifier;
+    
+    const authenticateOptions: any = { 
+      state,
+      session: false,
+    };
+    
+    if (codeVerifier && provider === "google") {
+      authenticateOptions.codeChallenge = generateCodeChallenge(codeVerifier);
+      authenticateOptions.codeChallengeMethod = "S256";
+    }
+
+    passport.authenticate(provider, authenticateOptions)(req, res, next);
+  };
+}
+
+export function handleOAuthCallbackFlow(provider: string) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const state = req.query.state as string;
+    
+    if (!state) {
+      console.warn(`OAuth ${provider} callback missing state parameter`);
+      return res.redirect("/login?error=invalid_state");
+    }
+    
+    const stateResult = validateAndConsumeOAuthState(state);
+    
+    if (!stateResult.valid) {
+      console.warn(`OAuth ${provider} callback with invalid/expired state`);
+      return res.redirect("/login?error=invalid_state");
+    }
+
+    if (stateResult.linkToUserId) {
+      (req as any).oauthLinkUserId = stateResult.linkToUserId;
+    }
+
+    passport.authenticate(provider, { session: false }, async (err: any, user: User | false, info: any) => {
+      const isSecure = req.secure || req.headers["x-forwarded-proto"] === "https";
+      
+      if (err) {
+        console.error(`OAuth ${provider} authentication error:`, err);
+        return res.redirect("/login?error=oauth_error");
+      }
+
+      if (!user) {
+        const message = info?.message || "authentication_failed";
+        return res.redirect(`/login?error=${encodeURIComponent(message)}`);
+      }
+
+      try {
+        await regenerateSession(req);
+      } catch (e) {
+        console.error("Session regeneration failed:", e);
+      }
+
+      req.login(user, async (loginErr) => {
+        if (loginErr) {
+          console.error(`OAuth ${provider} login error:`, loginErr);
+          return res.redirect("/login?error=login_error");
+        }
+
+        try {
+          const deviceInfo = extractDeviceInfo(req);
+          const { cookieValue } = await createRememberMeToken(
+            user.id,
+            deviceInfo.userAgent,
+            deviceInfo.ipAddress,
+            deviceInfo.fingerprint
+          );
+          res.cookie(REMEMBER_ME_COOKIE, cookieValue, getRememberMeCookieOptions(isSecure));
+        } catch (e) {
+          console.error("Failed to create remember-me token:", e);
+        }
+
+        const returnTo = stateResult.returnTo || "/";
+        res.redirect(returnTo);
+      });
+    })(req, res, next);
+  };
+}
+
+export {
+  REMEMBER_ME_COOKIE,
+  canUnlinkProvider,
+  getProviderAvailability,
+  extractDeviceInfo,
+  logAuthEvent,
+  checkRateLimit,
+  regenerateSession,
+};
