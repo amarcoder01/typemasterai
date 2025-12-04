@@ -231,6 +231,7 @@ export default function RacePage() {
   const [isRacing, setIsRacing] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [errors, setErrors] = useState(0);
+  const [charStates, setCharStates] = useState<('pending' | 'correct' | 'incorrect')[]>([]);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [errorState, setErrorState] = useState<ErrorState | null>(null);
@@ -342,6 +343,7 @@ export default function RacePage() {
 
     let localIndex = currentIndexRef.current;
     let localErrors = errorsRef.current;
+    const newCharStates = [...charStates];
 
     for (let i = 0; i < value.length; i++) {
       if (localIndex >= race.paragraphContent.length) {
@@ -351,7 +353,10 @@ export default function RacePage() {
       const typedChar = value[i];
       const expectedChar = race.paragraphContent[localIndex];
 
-      if (typedChar !== expectedChar) {
+      if (typedChar === expectedChar) {
+        newCharStates[localIndex] = 'correct';
+      } else {
+        newCharStates[localIndex] = 'incorrect';
         localErrors++;
       }
 
@@ -362,6 +367,7 @@ export default function RacePage() {
     errorsRef.current = localErrors;
     setCurrentIndex(localIndex);
     setErrors(localErrors);
+    setCharStates(newCharStates);
     updateProgress(localIndex, localErrors);
   }
 
@@ -372,10 +378,25 @@ export default function RacePage() {
       e.preventDefault();
       const newIndex = currentIndexRef.current - 1;
       currentIndexRef.current = newIndex;
+      
+      const newCharStates = [...charStates];
+      if (newCharStates[newIndex] === 'incorrect') {
+        errorsRef.current = Math.max(0, errorsRef.current - 1);
+        setErrors(errorsRef.current);
+      }
+      newCharStates[newIndex] = 'pending';
+      setCharStates(newCharStates);
+      
       setCurrentIndex(newIndex);
-      updateProgress(newIndex);
+      updateProgress(newIndex, errorsRef.current);
     }
   }
+
+  useEffect(() => {
+    if (race && race.paragraphContent && charStates.length !== race.paragraphContent.length) {
+      setCharStates(new Array(race.paragraphContent.length).fill('pending'));
+    }
+  }, [race?.paragraphContent]);
 
   useEffect(() => {
     if (!race || !myParticipant || myParticipant.isFinished) return;
@@ -624,8 +645,13 @@ export default function RacePage() {
         setCountdown(null);
         setIsRacing(true);
         setStartTime(Date.now());
+        setCurrentIndex(0);
+        setErrors(0);
+        currentIndexRef.current = 0;
+        errorsRef.current = 0;
         if (race) {
           setRace({ ...race, status: "racing" });
+          setCharStates(new Array(race.paragraphContent.length).fill('pending'));
         }
         toast.success("Race started! Type as fast as you can!");
         break;
@@ -633,6 +659,13 @@ export default function RacePage() {
         if (race) {
           const newContent = race.paragraphContent + " " + message.additionalContent;
           setRace({ ...race, paragraphContent: newContent });
+          setCharStates(prev => {
+            const newStates = [...prev];
+            for (let i = prev.length; i < newContent.length; i++) {
+              newStates[i] = 'pending';
+            }
+            return newStates;
+          });
           toast.info("More text added! Keep typing!", { duration: 2000 });
           extensionRequestedRef.current = false;
         }
@@ -663,6 +696,17 @@ export default function RacePage() {
             particleCount: 100,
             spread: 70,
             origin: { y: 0.6 }
+          });
+          toast.success("🏆 Congratulations! You won the race!", {
+            duration: 5000,
+          });
+        } else if (myResult?.finishPosition) {
+          toast.success(`Race complete! You finished #${myResult.finishPosition}`, {
+            duration: 4000,
+          });
+        } else {
+          toast.info("Race complete! Check the results.", {
+            duration: 3000,
           });
         }
         break;
@@ -955,10 +999,6 @@ export default function RacePage() {
   }
 
   if (race.status === "racing" || isRacing) {
-    const textBefore = race.paragraphContent.substring(0, currentIndex);
-    const textCurrent = race.paragraphContent[currentIndex] || "";
-    const textAfter = race.paragraphContent.substring(currentIndex + 1);
-
     return (
       <TooltipProvider delayDuration={300}>
         <div className="min-h-screen bg-background">
@@ -1113,21 +1153,49 @@ export default function RacePage() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card 
+                className="cursor-text" 
+                onClick={() => hiddenInputRef.current?.focus()}
+              >
                 <CardContent className="pt-6">
                   <div className="text-2xl leading-relaxed font-mono select-none" data-testid="text-paragraph">
-                    <span className="text-green-500">{textBefore}</span>
-                    <span className="bg-primary text-primary-foreground px-1">{textCurrent}</span>
-                    <span className="text-muted-foreground">{textAfter}</span>
+                    {race.paragraphContent.split('').map((char, idx) => {
+                      const state = charStates[idx] || 'pending';
+                      const isCurrent = idx === currentIndex;
+                      
+                      let className = '';
+                      if (state === 'correct') {
+                        className = 'text-foreground';
+                      } else if (state === 'incorrect') {
+                        className = 'text-red-500 bg-red-500/20';
+                      } else if (isCurrent) {
+                        className = 'bg-primary text-primary-foreground';
+                      } else {
+                        className = 'text-muted-foreground/50';
+                      }
+                      
+                      if (isCurrent && state === 'pending') {
+                        return (
+                          <span 
+                            key={idx} 
+                            className={`${className} relative`}
+                          >
+                            <span className="absolute left-0 top-0 w-0.5 h-full bg-primary animate-pulse" />
+                            {char === ' ' ? '\u00A0' : char}
+                          </span>
+                        );
+                      }
+                      
+                      return (
+                        <span 
+                          key={idx} 
+                          className={className}
+                        >
+                          {char === ' ' ? '\u00A0' : char}
+                        </span>
+                      );
+                    })}
                   </div>
-                  {isRacing && (
-                    <div className="flex items-center justify-center gap-2 mt-4">
-                      <Info className="h-4 w-4 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground text-center">
-                        Just start typing! Press Backspace to correct mistakes.
-                      </p>
-                    </div>
-                  )}
                   <input
                     ref={hiddenInputRef}
                     type="text"
