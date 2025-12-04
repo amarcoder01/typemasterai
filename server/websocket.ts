@@ -990,14 +990,107 @@ class RaceWebSocketServer {
         }, delay);
       } else {
         console.log(`[Bot Chat] Bot ${respondingBot.username} (${respondingBot.id}) has no profile, using fallback`);
-        await this.sendDirectBotResponse(raceId, respondingBot);
+        await this.sendDirectBotResponse(raceId, respondingBot, humanMessage);
       }
     } catch (error) {
       console.error("[Bot Chat] Error triggering bot responses:", error);
     }
   }
 
-  private async sendDirectBotResponse(raceId: number, bot: any) {
+  private detectMessageIntent(content: string): string {
+    const lower = content.toLowerCase();
+    
+    if (/\b(hi|hello|hey|sup|yo|hola|greetings|what'?s up)\b/.test(lower)) {
+      return 'greetings';
+    }
+    if (/\b(good\s*luck|gl|best of luck|fingers crossed|luck)\b/.test(lower)) {
+      return 'goodLuck';
+    }
+    if (/\b(gg|good\s*game|well\s*played|nice\s*race|great\s*race|congrat)\b/.test(lower)) {
+      return 'finishing';
+    }
+    if (/\b(nice|great|awesome|cool|wow|amazing|impressive|sick|fire)\b/.test(lower)) {
+      return 'reactions';
+    }
+    if (/\b(let'?s\s*go|come\s*on|race|challenge|beat|fast|ready|start|bring)\b/.test(lower)) {
+      return 'competitive';
+    }
+    if (/\b(you\s*can|keep|going|try|practice|effort|hope|wish)\b/.test(lower)) {
+      return 'encouragement';
+    }
+    if (/\?/.test(lower)) {
+      return 'question';
+    }
+    
+    return 'casual';
+  }
+
+  private getContextualResponse(intent: string): string {
+    const responses: Record<string, string[]> = {
+      greetings: [
+        "Hey! 👋",
+        "Hello there!",
+        "Hi! Ready to race?",
+        "Hey, what's up!",
+        "Hi! Let's have a good race!",
+        "Hello! Glad you're here!",
+      ],
+      goodLuck: [
+        "Thanks! You too! 🍀",
+        "Good luck to you as well!",
+        "Thanks, same to you!",
+        "Appreciate it! Let's go! 🔥",
+        "Thanks! May the best typist win!",
+      ],
+      finishing: [
+        "GG! That was fun!",
+        "Good game everyone!",
+        "Well played! 👏",
+        "Great race!",
+        "That was intense!",
+      ],
+      reactions: [
+        "Right?! 😄",
+        "Thanks!",
+        "I know, this is fun!",
+        "Haha yeah!",
+        "Totally! 🔥",
+      ],
+      competitive: [
+        "Let's do this! 💪",
+        "I'm ready! Bring it on!",
+        "You're on! 🏁",
+        "Challenge accepted!",
+        "Let's see what you've got!",
+        "Game on! 🎯",
+      ],
+      encouragement: [
+        "Thanks for the support!",
+        "We've got this!",
+        "Let's all do our best!",
+        "Appreciate the positivity! 🙌",
+      ],
+      question: [
+        "Good question!",
+        "Not sure, let's just race! 😄",
+        "Hmm, good one!",
+        "Let's find out together!",
+      ],
+      casual: [
+        "For sure! 😊",
+        "Sounds good!",
+        "Yeah!",
+        "Totally!",
+        "Haha, nice!",
+        "Let's go! 🚀",
+      ],
+    };
+
+    const categoryResponses = responses[intent] || responses.casual;
+    return categoryResponses[Math.floor(Math.random() * categoryResponses.length)];
+  }
+
+  private async sendDirectBotResponse(raceId: number, bot: any, userMessage: string) {
     const now = Date.now();
     const lastRaceChat = this.raceChatCooldowns.get(raceId) || 0;
     
@@ -1014,25 +1107,11 @@ class RaceWebSocketServer {
 
     this.raceChatCooldowns.set(raceId, now);
 
-    const responses = [
-      "Hey! Good luck! 🎯",
-      "Hi there! Ready to type fast?",
-      "Hello! Let's race!",
-      "Nice! Let's do this! 💪",
-      "Good luck everyone!",
-      "This is going to be fun!",
-      "Let's go! 🔥",
-      "Hey! Excited to race with you!",
-      "Hi! May the fastest fingers win!",
-      "Ready when you are! 🚀",
-      "Let's see who's the fastest!",
-      "Bring it on! 😎",
-      "Can't wait to start!",
-      "Hello! Best of luck to everyone!",
-    ];
-
-    const response = responses[Math.floor(Math.random() * responses.length)];
+    const intent = this.detectMessageIntent(userMessage);
+    const response = this.getContextualResponse(intent);
     const delay = 1000 + Math.random() * 2000;
+    
+    console.log(`[Bot Chat] Detected intent "${intent}" for message: "${userMessage.substring(0, 30)}..."`);
 
     console.log(`[Bot Chat] Direct response scheduled for ${bot.username} in ${delay}ms`);
 
