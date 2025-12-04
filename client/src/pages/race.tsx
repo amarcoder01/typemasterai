@@ -319,7 +319,7 @@ function RaceChat({
         type: "chat_message",
         raceId,
         participantId,
-        message: trimmedInput,
+        content: trimmedInput,
       });
       setInput("");
     } catch (error) {
@@ -1256,13 +1256,14 @@ export default function RacePage() {
         setParticipants(prev => prev.filter(p => p.id !== message.participantId));
         break;
       case "chat_message":
+        const chatData = message.message || message;
         setChatMessages(prev => [...prev, {
-          id: message.id || Date.now(),
-          username: message.username,
-          avatarColor: message.avatarColor,
-          message: message.message,
-          isSystem: message.isSystem || false,
-          createdAt: message.createdAt || new Date().toISOString(),
+          id: chatData.id || Date.now(),
+          username: chatData.username,
+          avatarColor: chatData.avatarColor,
+          message: chatData.content || chatData.message,
+          isSystem: chatData.isSystem || false,
+          createdAt: chatData.createdAt || new Date().toISOString(),
         }]);
         break;
       case "rating_update":
