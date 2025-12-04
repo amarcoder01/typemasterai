@@ -536,7 +536,8 @@ class RaceWebSocketServer {
             raceId,
             freshRace.paragraphContent.length,
             (data) => this.broadcastToRace(raceId, data),
-            (botRaceId, botParticipantId, position) => this.handleBotFinished(botRaceId, botParticipantId, position)
+            (botRaceId, botParticipantId, position) => this.handleBotFinished(botRaceId, botParticipantId, position),
+            bot.username
           );
         });
       }

@@ -160,12 +160,19 @@ class BotService {
     raceId: number,
     paragraphLength: number,
     broadcastCallback: (data: any) => void,
-    onBotFinished?: (raceId: number, participantId: number, position: number) => void
+    onBotFinished?: (raceId: number, participantId: number, position: number) => void,
+    botUsername?: string
   ) {
-    const profile = this.botProfiles.get(participantId);
+    let profile = this.botProfiles.get(participantId);
     if (!profile) {
-      console.error(`[Bot Typing] No profile found for bot ${participantId}. Known profiles: ${Array.from(this.botProfiles.keys()).join(', ')}`);
-      return;
+      if (botUsername) {
+        console.log(`[Bot Typing] Recreating profile for bot ${participantId} (${botUsername})`);
+        profile = this.createBotProfile(botUsername);
+        this.botProfiles.set(participantId, profile);
+      } else {
+        console.error(`[Bot Typing] No profile found for bot ${participantId} and no username provided. Known profiles: ${Array.from(this.botProfiles.keys()).join(', ')}`);
+        return;
+      }
     }
     console.log(`[Bot Typing] Bot ${profile.username} (${participantId}) starting with target ${profile.targetWPM} WPM, paragraph length ${paragraphLength}`);
 
