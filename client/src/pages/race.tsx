@@ -244,6 +244,8 @@ export default function RacePage() {
   const maxReconnectAttempts = 5;
   const pendingMessagesRef = useRef<string[]>([]);
   const seenParticipantJoinsRef = useRef<Set<number>>(new Set());
+  const hasJoinedRef = useRef(false);
+  const lastJoinedRaceIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -276,6 +278,13 @@ export default function RacePage() {
 
   useEffect(() => {
     if (ws && myParticipant && race && ws.readyState === WebSocket.OPEN) {
+      if (hasJoinedRef.current && lastJoinedRaceIdRef.current === race.id) {
+        return;
+      }
+      
+      hasJoinedRef.current = true;
+      lastJoinedRaceIdRef.current = race.id;
+      
       sendWsMessage({
         type: "join",
         raceId: race.id,
@@ -524,6 +533,7 @@ export default function RacePage() {
       console.log("WebSocket disconnected", event.code, event.reason);
       setWsConnected(false);
       setWs(null);
+      hasJoinedRef.current = false;
       
       if (event.code !== 1000 && race?.status !== "finished") {
         attemptReconnect();
