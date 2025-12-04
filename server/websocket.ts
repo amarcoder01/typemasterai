@@ -1,5 +1,6 @@
 import { WebSocketServer, WebSocket } from "ws";
 import DOMPurify from "isomorphic-dompurify";
+import OpenAI from "openai";
 import { storage } from "./storage";
 import { botService } from "./bot-service";
 import { raceCache } from "./race-cache";
@@ -9,6 +10,11 @@ import { metricsCollector } from "./metrics";
 import { eloRatingService } from "./elo-rating-service";
 import { antiCheatService } from "./anticheat-service";
 import type { Server } from "http";
+
+const openai = new OpenAI({
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+});
 
 interface RaceClient {
   ws: WebSocket;
@@ -997,32 +1003,34 @@ class RaceWebSocketServer {
     }
   }
 
-  private detectMessageIntent(content: string): string {
-    const lower = content.toLowerCase();
-    
-    if (/\b(hi|hello|hey|sup|yo|hola|greetings|what'?s up)\b/.test(lower)) {
-      return 'greetings';
+  private async generateAIBotResponse(userMessage: string, botName: string): Promise<string | null> {
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are ${botName}, a friendly player in a multiplayer typing race game chat. Respond naturally and briefly (1 sentence max, under 50 chars). Be casual and friendly. Use occasional emojis. Don't mention being AI or a bot. Match the energy of the message - if they're excited, be excited back. If they say hi, say hi back. Keep it natural like a real gamer would chat.`
+          },
+          {
+            role: "user",
+            content: userMessage
+          }
+        ],
+        max_tokens: 30,
+        temperature: 0.9,
+      });
+
+      const reply = response.choices[0]?.message?.content?.trim();
+      if (reply && reply.length > 0 && reply.length < 100) {
+        console.log(`[Bot Chat AI] Generated response for ${botName}: "${reply}"`);
+        return reply;
+      }
+      return null;
+    } catch (error) {
+      console.error("[Bot Chat AI] OpenAI error:", error);
+      return null;
     }
-    if (/\b(good\s*luck|gl|best of luck|fingers crossed|luck)\b/.test(lower)) {
-      return 'goodLuck';
-    }
-    if (/\b(gg|good\s*game|well\s*played|nice\s*race|great\s*race|congrat)\b/.test(lower)) {
-      return 'finishing';
-    }
-    if (/\b(nice|great|awesome|cool|wow|amazing|impressive|sick|fire)\b/.test(lower)) {
-      return 'reactions';
-    }
-    if (/\b(let'?s\s*go|come\s*on|race|challenge|beat|fast|ready|start|bring)\b/.test(lower)) {
-      return 'competitive';
-    }
-    if (/\b(you\s*can|keep|going|try|practice|effort|hope|wish)\b/.test(lower)) {
-      return 'encouragement';
-    }
-    if (/\?/.test(lower)) {
-      return 'question';
-    }
-    
-    return 'casual';
   }
 
   private getContextualResponse(intent: string): string {
@@ -1090,6 +1098,34 @@ class RaceWebSocketServer {
     return categoryResponses[Math.floor(Math.random() * categoryResponses.length)];
   }
 
+  private detectMessageIntent(content: string): string {
+    const lower = content.toLowerCase();
+    
+    if (/\b(hi|hello|hey|sup|yo|hola|greetings|what'?s up)\b/.test(lower)) {
+      return 'greetings';
+    }
+    if (/\b(good\s*luck|gl|best of luck|fingers crossed|luck)\b/.test(lower)) {
+      return 'goodLuck';
+    }
+    if (/\b(gg|good\s*game|well\s*played|nice\s*race|great\s*race|congrat)\b/.test(lower)) {
+      return 'finishing';
+    }
+    if (/\b(nice|great|awesome|cool|wow|amazing|impressive|sick|fire)\b/.test(lower)) {
+      return 'reactions';
+    }
+    if (/\b(let'?s\s*go|come\s*on|race|challenge|beat|fast|ready|start|bring)\b/.test(lower)) {
+      return 'competitive';
+    }
+    if (/\b(you\s*can|keep|going|try|practice|effort|hope|wish)\b/.test(lower)) {
+      return 'encouragement';
+    }
+    if (/\?/.test(lower)) {
+      return 'question';
+    }
+    
+    return 'casual';
+  }
+
   private async sendDirectBotResponse(raceId: number, bot: any, userMessage: string) {
     const now = Date.now();
     const lastRaceChat = this.raceChatCooldowns.get(raceId) || 0;
@@ -1099,7 +1135,7 @@ class RaceWebSocketServer {
       return;
     }
 
-    const responseChance = 0.9;
+    const responseChance = 0.95;
     if (Math.random() > responseChance) {
       console.log(`[Bot Chat] Bot ${bot.username} decided not to respond (random chance)`);
       return;
@@ -1107,13 +1143,18 @@ class RaceWebSocketServer {
 
     this.raceChatCooldowns.set(raceId, now);
 
-    const intent = this.detectMessageIntent(userMessage);
-    const response = this.getContextualResponse(intent);
-    const delay = 1000 + Math.random() * 2000;
+    // Try AI-generated response first, fallback to pattern matching
+    let response = await this.generateAIBotResponse(userMessage, bot.username);
     
-    console.log(`[Bot Chat] Detected intent "${intent}" for message: "${userMessage.substring(0, 30)}..."`);
+    if (!response) {
+      const intent = this.detectMessageIntent(userMessage);
+      response = this.getContextualResponse(intent);
+      console.log(`[Bot Chat] Using fallback response for intent "${intent}"`);
+    }
+    
+    const delay = 1000 + Math.random() * 2000;
 
-    console.log(`[Bot Chat] Direct response scheduled for ${bot.username} in ${delay}ms`);
+    console.log(`[Bot Chat] Response scheduled for ${bot.username} in ${delay}ms: "${response}"`);
 
     setTimeout(async () => {
       try {
