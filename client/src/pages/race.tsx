@@ -1207,68 +1207,69 @@ export default function RacePage() {
                 </CardContent>
               </Card>
 
-              <Card 
-                className="cursor-text" 
+              <div 
+                className="cursor-text p-6 rounded-lg" 
                 onClick={() => hiddenInputRef.current?.focus()}
               >
-                <CardContent className="pt-6">
-                  <div className="text-2xl leading-relaxed font-mono select-none" data-testid="text-paragraph">
-                    {race.paragraphContent.split('').map((char, idx) => {
-                      const state = charStates[idx] || 'pending';
-                      const isCurrent = idx === currentIndex;
-                      
-                      let className = '';
-                      if (state === 'correct') {
-                        className = 'text-foreground';
-                      } else if (state === 'incorrect') {
-                        className = 'text-red-500 bg-red-500/20';
-                      } else if (isCurrent) {
-                        className = 'bg-primary text-primary-foreground';
-                      } else {
-                        className = 'text-muted-foreground/50';
-                      }
-                      
-                      if (isCurrent && state === 'pending') {
-                        return (
-                          <span 
-                            key={idx} 
-                            className={`${className} relative`}
-                          >
-                            <span className="absolute left-0 top-0 w-0.5 h-full bg-primary animate-pulse" />
-                            {char === ' ' ? '\u00A0' : char}
-                          </span>
-                        );
-                      }
-                      
+                <div 
+                  className="text-xl leading-[1.8] font-mono select-none" 
+                  data-testid="text-paragraph"
+                >
+                  {race.paragraphContent.split('').map((char, idx) => {
+                    const state = charStates[idx] || 'pending';
+                    const isCurrent = idx === currentIndex;
+                    
+                    let className = '';
+                    if (state === 'correct') {
+                      className = 'text-foreground';
+                    } else if (state === 'incorrect') {
+                      className = 'text-red-500 bg-red-500/20';
+                    } else if (isCurrent) {
+                      className = 'text-muted-foreground relative';
+                    } else {
+                      className = 'text-muted-foreground/60';
+                    }
+                    
+                    if (isCurrent && state === 'pending') {
                       return (
                         <span 
                           key={idx} 
-                          className={className}
+                          className={`${className} relative`}
                         >
+                          <span className="absolute left-0 top-0 w-0.5 h-full bg-primary animate-pulse" />
                           {char === ' ' ? '\u00A0' : char}
                         </span>
                       );
-                    })}
-                  </div>
-                  <input
-                    ref={hiddenInputRef}
-                    type="text"
-                    onInput={handleTyping}
-                    onKeyDown={handleKeyDown}
-                    onCompositionStart={handleCompositionStart}
-                    onCompositionEnd={handleCompositionEnd}
-                    onPaste={handlePaste}
-                    onCut={handleCut}
-                    className="absolute opacity-0 pointer-events-none"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    spellCheck="false"
-                    data-testid="input-typing"
-                    aria-label="Typing input"
-                  />
-                </CardContent>
-              </Card>
+                    }
+                    
+                    return (
+                      <span 
+                        key={idx} 
+                        className={className}
+                      >
+                        {char === ' ' ? '\u00A0' : char}
+                      </span>
+                    );
+                  })}
+                </div>
+                <input
+                  ref={hiddenInputRef}
+                  type="text"
+                  onInput={handleTyping}
+                  onKeyDown={handleKeyDown}
+                  onCompositionStart={handleCompositionStart}
+                  onCompositionEnd={handleCompositionEnd}
+                  onPaste={handlePaste}
+                  onCut={handleCut}
+                  className="absolute opacity-0 pointer-events-none"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
+                  data-testid="input-typing"
+                  aria-label="Typing input"
+                />
+              </div>
             </div>
           </div>
         </div>
