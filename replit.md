@@ -35,7 +35,7 @@ Monitoring endpoint: `GET /api/races/stats` provides real-time metrics for all s
 ### Enhanced Competitive Multiplayer Features (December 2025)
 The multiplayer racing system now includes competitive gaming features comparable to TypeRacer and Monkeytype:
 
-- **ELO Rating System** (`server/elo-rating-service.ts`): Full ELO-based skill rating with 1200 starting rating, K-factor scaling (40 for new players, 20 for established), and tier system (Bronze/Silver/Gold/Platinum/Diamond/Master). Includes rating decay for inactive players.
+- **ELO Rating System** (`server/elo-rating-service.ts`): Full ELO-based skill rating with 1200 starting rating, 3000 rating cap, K-factor scaling (64 provisional, 32 regular, 24 established), and tier system (Bronze/Silver/Gold/Platinum/Diamond/Grandmaster). Features idempotency protection via processedRaces Map + DB match history checks to prevent duplicate race processing.
 - **Skill-Based Matchmaking**: Players are matched within ±200 rating tolerance. API endpoint: `GET /api/matchmaking/pool` returns compatible players.
 - **Anti-Cheat Validation** (`server/anticheat-service.ts`): Keystroke timing analysis with minimum 10ms interval detection, server-side WPM recalculation, synthetic input detection via `isTrusted` flag, and cheating probability scoring.
 - **Race Replays** (`server/websocket.ts`): Keystroke-level race recording stored in `race_replays` table. API endpoint: `GET /api/replays/:raceId` retrieves replay data for playback.
