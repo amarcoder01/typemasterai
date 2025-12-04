@@ -202,6 +202,9 @@ interface Race {
   paragraphContent: string;
   maxPlayers: number;
   isPrivate: number;
+  raceType?: string;
+  timeLimitSeconds?: number | null;
+  startedAt?: string | null;
 }
 
 interface Participant {
@@ -826,6 +829,7 @@ export default function RacePage() {
   const [liveWpm, setLiveWpm] = useState(0);
   const [liveAccuracy, setLiveAccuracy] = useState(100);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const textContainerRef = useRef<HTMLDivElement>(null);
   const caretRef = useRef<HTMLSpanElement>(null);
   const [errorState, setErrorState] = useState<ErrorState | null>(null);
@@ -929,10 +933,30 @@ export default function RacePage() {
       
       setLiveWpm(wpm);
       setLiveAccuracy(Math.max(0, accuracy));
+      
+      // Update time remaining for timed races
+      if (race?.raceType === "timed" && race.timeLimitSeconds) {
+        const remaining = Math.max(0, race.timeLimitSeconds - elapsed);
+        setTimeRemaining(remaining);
+        
+        // Handle time running out
+        if (remaining <= 0 && myParticipant && !myParticipant.isFinished) {
+          // Send finish message via WebSocket when time runs out
+          sendWsMessage({
+            type: "timed_finish",
+            raceId: race.id,
+            participantId: myParticipant.id,
+            progress: idx,
+            wpm: wpm,
+            accuracy: accuracy,
+            errors: errs
+          });
+        }
+      }
     }, 100);
     
     return () => clearInterval(interval);
-  }, [isRacing, startTime]);
+  }, [isRacing, startTime, race?.raceType, race?.timeLimitSeconds, race?.id, myParticipant]);
 
   useEffect(() => {
     if (caretRef.current && textContainerRef.current) {
@@ -1839,18 +1863,50 @@ export default function RacePage() {
             <div className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Flag className="h-5 w-5 text-primary" />
-                    Live Race Progress
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-xs">
-                        <p className="font-medium">Real-time Leaderboard</p>
-                        <p className="text-zinc-400">Track all racers' progress, speed, and accuracy as they type</p>
-                      </TooltipContent>
-                    </Tooltip>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Flag className="h-5 w-5 text-primary" />
+                      {race.raceType === "timed" ? "Timed Race" : "Live Race Progress"}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <p className="font-medium">Real-time Leaderboard</p>
+                          <p className="text-zinc-400">
+                            {race.raceType === "timed" 
+                              ? "Type as much as you can before time runs out!" 
+                              : "Track all racers' progress, speed, and accuracy as they type"}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    {race.raceType === "timed" && timeRemaining !== null && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-lg cursor-help ${
+                            timeRemaining <= 10 
+                              ? 'bg-red-500/20 text-red-400 animate-pulse' 
+                              : timeRemaining <= 30 
+                                ? 'bg-yellow-500/20 text-yellow-400' 
+                                : 'bg-primary/20 text-primary'
+                          }`}>
+                            <Timer className="h-5 w-5" />
+                            <span data-testid="time-remaining">
+                              {Math.floor(timeRemaining / 60)}:{String(Math.floor(timeRemaining % 60)).padStart(2, '0')}
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p className="font-medium">Time Remaining</p>
+                          <p className="text-zinc-400">
+                            {timeRemaining <= 10 
+                              ? "Hurry! Almost out of time!" 
+                              : "Keep typing to maximize your WPM!"}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
