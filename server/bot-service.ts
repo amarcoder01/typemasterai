@@ -343,6 +343,7 @@ class BotService {
 
   /**
    * Calculate the delay for typing a single character based on human-like patterns
+   * PRODUCTION-READY: Optimized for realistic but consistent timing
    */
   private calculateCharacterDelay(
     profile: BotProfile,
@@ -352,169 +353,59 @@ class BotService {
     paragraphText: string,
     charIndex: number
   ): number {
-    const skillProfile = profile.skillProfile;
-    
-    // Base delay from current momentum WPM (characters per minute / 60000 for ms)
+    // Base delay from target WPM (chars per minute / 60000 for ms)
     // Average word = 5 chars, so chars per minute = WPM * 5
-    let baseDelayMs = 60000 / (profile.currentMomentumWPM * 5);
+    const baseDelayMs = 60000 / (profile.targetWPM * 5);
     
-    // === SPEED CURVE: Warmup -> Peak -> Fatigue ===
+    // === SIMPLE SPEED VARIANCE ===
+    // Small random variance (±15%) to feel human but stay near target WPM
+    const variance = 0.85 + (Math.random() * 0.3); // 0.85 to 1.15
+    
+    // === WARMUP (first 10%): slightly slower start ===
     let speedMultiplier = 1.0;
-    
-    // Warmup phase: slower at the start
-    if (progressPercent < skillProfile.warmupPercent) {
-      const warmupProgress = progressPercent / skillProfile.warmupPercent;
-      // Start at 60-80% speed, ramp up to 100%
-      speedMultiplier = 0.6 + (0.4 * warmupProgress);
-    }
-    // Fatigue phase: slower near the end
-    else if (progressPercent > skillProfile.fatigueThreshold) {
-      const fatigueProgress = (progressPercent - skillProfile.fatigueThreshold) / (1 - skillProfile.fatigueThreshold);
-      // Slow down by 5-15% based on skill (beginners fatigue more)
-      const fatigueAmount = skillProfile.struggleChance * 0.3;
-      speedMultiplier = 1.0 - (fatigueAmount * fatigueProgress);
+    if (progressPercent < 0.1) {
+      speedMultiplier = 0.85 + (progressPercent * 1.5); // 0.85 -> 1.0
     }
     
-    // === FLOW STATE / STRUGGLE STATE ===
-    // Clear expired states first
+    // === FLOW/STRUGGLE STATES (simplified) ===
     if (charIndex >= profile.flowStateEndChar) profile.isInFlowState = false;
     if (charIndex >= profile.struggleEndChar) profile.isStruggling = false;
     
     if (profile.isInFlowState) {
-      // In flow: 15-25% faster
-      speedMultiplier *= 0.75 + (Math.random() * 0.1);
+      speedMultiplier *= 0.88; // 12% faster in flow
     } else if (profile.isStruggling) {
-      // Struggling: 20-40% slower
-      speedMultiplier *= 1.2 + (Math.random() * 0.2);
-    } else {
-      // Check for entering new states
-      // Probabilities are fractions (0.05-0.45), divide by 5 since we check every character
-      // This gives realistic per-word (~5 chars) activation rates
-      if (Math.random() < skillProfile.flowStateChance / 5) {
+      speedMultiplier *= 1.15; // 15% slower when struggling
+    } else if (Math.random() < 0.02) { // 2% chance per char to enter state
+      if (Math.random() < 0.6) {
         profile.isInFlowState = true;
-        profile.isStruggling = false;
-        // Flow lasts 10-30 characters
-        profile.flowStateEndChar = charIndex + 10 + Math.floor(Math.random() * 20);
-      } else if (Math.random() < skillProfile.struggleChance / 5) {
+        profile.flowStateEndChar = charIndex + 15 + Math.floor(Math.random() * 15);
+      } else {
         profile.isStruggling = true;
-        profile.isInFlowState = false;
-        // Struggle lasts 5-15 characters
-        profile.struggleEndChar = charIndex + 5 + Math.floor(Math.random() * 10);
+        profile.struggleEndChar = charIndex + 8 + Math.floor(Math.random() * 8);
       }
     }
     
-    // === CHARACTER DIFFICULTY ===
-    const charLower = currentChar.toLowerCase();
-    const charDifficulty = TYPING_CHARACTERISTICS.charDifficulty.get(charLower) || 1.0;
-    // Upper case requires shift, add slight penalty
-    const caseMultiplier = currentChar !== charLower ? 1.15 : 1.0;
+    // === SMALL PAUSES ===
+    let extraDelay = 0;
     
-    // === CAPITAL ANTICIPATION ===
-    // Slight delay before capital letters (preparing to press shift)
-    let capitalAnticipationDelay = 0;
-    if (currentChar !== charLower) {
-      // 20-60ms extra to prepare shift key
-      capitalAnticipationDelay = 20 + (Math.random() * 40);
+    // Word boundaries: small pause (20% of base delay)
+    if (currentChar === ' ') {
+      extraDelay = baseDelayMs * 0.2;
     }
     
-    // === DIGRAPH ANALYSIS ===
-    let digraphMultiplier = 1.0;
-    let sameFingerPenalty = 0;
-    let handAlternationBonus = 1.0;
-    
-    if (profile.lastCharacter) {
-      const lastCharLower = profile.lastCharacter.toLowerCase();
-      const digraph = lastCharLower + charLower;
-      
-      // Fast digraphs: common combinations that flow naturally
-      if (TYPING_CHARACTERISTICS.fastDigraphs.has(digraph)) {
-        digraphMultiplier = 0.75 + (Math.random() * 0.1); // 15-25% faster
-      }
-      // Slow digraphs: awkward combinations
-      else if (TYPING_CHARACTERISTICS.slowDigraphs.has(digraph)) {
-        digraphMultiplier = 1.3 + (Math.random() * 0.2); // 30-50% slower
-      }
-      
-      // Same-finger penalty: using same finger for consecutive keys is slow
-      if (TYPING_CHARACTERISTICS.sameFingerPairs.has(digraph)) {
-        sameFingerPenalty = baseDelayMs * (0.15 + Math.random() * 0.1); // 15-25% extra
-      }
-      
-      // Hand alternation bonus: switching hands is faster than same hand
-      const lastIsLeft = TYPING_CHARACTERISTICS.leftHandKeys.has(lastCharLower);
-      const currentIsLeft = TYPING_CHARACTERISTICS.leftHandKeys.has(charLower);
-      if (lastIsLeft !== currentIsLeft) {
-        // Hand alternation gives 5-10% speed bonus
-        handAlternationBonus = 0.90 + (Math.random() * 0.05);
-      }
-    }
-    
-    // === PUNCTUATION PAUSE ===
-    let punctuationDelay = 0;
-    if (TYPING_CHARACTERISTICS.punctuationPause.has(currentChar)) {
-      // Punctuation adds 50-150% extra time (thinking + shift key)
-      punctuationDelay = baseDelayMs * (0.5 + Math.random());
-    }
-    
-    // === SENTENCE ENDING PAUSE ===
-    let sentenceEndDelay = 0;
+    // Sentence endings: brief reading pause (30-80ms)
     if (profile.lastCharacter && TYPING_CHARACTERISTICS.sentenceEndings.has(profile.lastCharacter)) {
-      // After sentence endings, longer pause for reading next sentence
-      // Beginners pause longer (300-600ms), pros shorter (100-250ms)
-      const skillIndex = Object.keys(SKILL_PROFILES).indexOf(profile.skillLevel);
-      const minSentencePause = 100 + (4 - skillIndex) * 50;
-      const maxSentencePause = 250 + (4 - skillIndex) * 100;
-      sentenceEndDelay = minSentencePause + (Math.random() * (maxSentencePause - minSentencePause));
+      extraDelay = 30 + Math.random() * 50;
     }
     
-    // === WORD BOUNDARY PAUSE ===
-    let wordBoundaryDelay = 0;
-    if (TYPING_CHARACTERISTICS.wordEndings.has(currentChar)) {
-      // Space between words: 80-180% extra time (next word thinking)
-      wordBoundaryDelay = baseDelayMs * (0.8 + Math.random());
-    }
-    
-    // === GAUSSIAN NOISE (Human variance) ===
-    // Add ±15-35% random variance based on skill level
-    const noiseAmount = skillProfile.wpmVariance;
-    const noise = 1 + (this.gaussianRandom() * noiseAmount * 0.5);
-    // Clamp noise to reasonable range (0.5x to 2x)
-    const clampedNoise = Math.max(0.5, Math.min(2.0, noise));
-    
-    // === THINKING PAUSE (Random longer pauses) ===
-    let thinkingPause = 0;
-    const pauseChance = skillProfile.thinkingPauseRate / 100;
-    if (Math.random() < pauseChance) {
-      // Random thinking pause: 200-800ms based on skill
-      const minPause = 150 + (5 - Object.keys(SKILL_PROFILES).indexOf(profile.skillLevel)) * 50;
-      const maxPause = 400 + (5 - Object.keys(SKILL_PROFILES).indexOf(profile.skillLevel)) * 100;
-      thinkingPause = minPause + (Math.random() * (maxPause - minPause));
-    }
-    
-    // === COMBINE ALL FACTORS ===
-    // Cap the combined speed multiplier to prevent impossibly fast typing
-    // Allow at most 30% faster than base (0.7x minimum multiplier)
-    const combinedMultiplier = speedMultiplier * charDifficulty * caseMultiplier * digraphMultiplier * handAlternationBonus * clampedNoise;
-    const cappedMultiplier = Math.max(0.7, combinedMultiplier);
-    
-    const finalDelay = (baseDelayMs * cappedMultiplier) 
-      + punctuationDelay + wordBoundaryDelay + sentenceEndDelay + sameFingerPenalty + capitalAnticipationDelay + thinkingPause;
-    
-    // Store current char for next digraph calculation
+    // Store for digraph tracking
     profile.lastCharacter = currentChar;
     
-    // Minimum delay based on skill profile's max WPM (with 20% burst allowance)
-    // This ensures bots never exceed ~120% of their target WPM even with all bonuses
-    const maxBurstWPM = profile.targetWPM * 1.2;
-    const minDelayForProfile = 60000 / (maxBurstWPM * 5);
+    // === FINAL CALCULATION ===
+    const finalDelay = (baseDelayMs * speedMultiplier * variance) + extraDelay;
     
-    // Update momentum WPM with smoothing (exponential moving average)
-    const constrainedDelay = Math.max(minDelayForProfile, finalDelay);
-    const instantWPM = 60000 / (constrainedDelay * 5);
-    profile.currentMomentumWPM = profile.currentMomentumWPM * 0.85 + instantWPM * 0.15;
-    
-    // Absolute minimum delay to prevent any edge cases
-    return Math.max(20, constrainedDelay);
+    // Clamp to reasonable range (minimum 30ms, maximum 3x base)
+    return Math.max(30, Math.min(baseDelayMs * 3, finalDelay));
   }
 
   startBotTyping(
