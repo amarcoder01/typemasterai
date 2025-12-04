@@ -2,10 +2,12 @@ import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { NetworkProvider } from "@/lib/network-context";
+import { ErrorProvider } from "@/lib/error-context";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import Layout from "@/components/layout";
@@ -105,13 +107,24 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
           <NetworkProvider>
-            <AuthProvider>
-              <TooltipProvider>
-                <NetworkStatusBanner />
-                <Toaster />
-                <Router />
-              </TooltipProvider>
-            </AuthProvider>
+            <ErrorProvider>
+              <AuthProvider>
+                <TooltipProvider>
+                  <NetworkStatusBanner />
+                  <Toaster />
+                  <SonnerToaster 
+                    position="top-right"
+                    richColors
+                    closeButton
+                    toastOptions={{
+                      duration: 5000,
+                      className: "font-sans",
+                    }}
+                  />
+                  <Router />
+                </TooltipProvider>
+              </AuthProvider>
+            </ErrorProvider>
           </NetworkProvider>
         </ThemeProvider>
       </QueryClientProvider>

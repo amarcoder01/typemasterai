@@ -251,6 +251,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).end();
   });
 
+  app.post("/api/error-report", async (req, res) => {
+    try {
+      const { error, context, timestamp, url, userAgent } = req.body;
+      
+      console.error("[Client Error Report]", {
+        error: error?.message || error,
+        code: error?.code,
+        url,
+        timestamp,
+        userId: (req.user as any)?.id,
+        userAgent,
+        context,
+      });
+      
+      res.status(200).json({ success: true });
+    } catch (err) {
+      console.error("Error processing error report:", err);
+      res.status(200).json({ success: true });
+    }
+  });
+
+  app.get("/api/error-stats", isAuthenticated, async (req, res) => {
+    try {
+      res.json({
+        success: true,
+        stats: {
+          message: "Error statistics available in server logs",
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to retrieve error stats" });
+    }
+  });
+
   app.post("/api/auth/register", authLimiter, async (req, res, next) => {
     try {
       const parsed = insertUserSchema.safeParse(req.body);

@@ -2,6 +2,7 @@ import { type Server } from "node:http";
 
 import express, { type Express, type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { requestIdMiddleware, errorHandler, notFoundHandler } from "./error-middleware";
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -16,8 +17,14 @@ export function log(message: string, source = "express") {
 
 export const app = express();
 
-// Enable trust proxy for rate limiting to work correctly behind proxies
 app.set('trust proxy', 1);
+
+app.use(requestIdMiddleware);
+
+app.use((req, _res, next) => {
+  (req as any).startTime = Date.now();
+  next();
+});
 
 declare module 'http' {
   interface IncomingMessage {
@@ -27,9 +34,10 @@ declare module 'http' {
 app.use(express.json({
   verify: (req, _res, buf) => {
     req.rawBody = buf;
-  }
+  },
+  limit: '10mb',
 }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -66,13 +74,9 @@ export default async function runApp(
 ) {
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
+  app.use("/api/*", notFoundHandler);
+  
+  app.use(errorHandler);
 
   // importantly run the final setup after setting up all the other routes so
   // the catch-all route doesn't interfere with the other routes
