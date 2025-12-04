@@ -975,9 +975,9 @@ class RaceWebSocketServer {
       
       console.log(`[Bot Chat] ${eligibleBots.length} bots eligible to respond`);
 
-      // Realistic response behavior - not everyone responds every time
-      // 25% chance no one responds (like real group chats)
-      if (Math.random() < 0.25) {
+      // Small chance no one responds (like real group chats)
+      // 10% chance no one responds
+      if (Math.random() < 0.10) {
         console.log(`[Bot Chat] No one responded (realistic silence)`);
         return;
       }
@@ -1010,25 +1010,25 @@ class RaceWebSocketServer {
 
       console.log(`[Bot Chat] ${respondingBots.length} bots will respond to: "${message.substring(0, 30)}..."`);
 
-      // Schedule staggered responses with realistic varied timing
+      // Schedule staggered responses with quick timing
       respondingBots.forEach((bot, index) => {
-        // Natural typing delays - quick but not instant
+        // Fast response delays like texting friends
         const typingSpeed = Math.random();
         let delay: number;
         
-        if (typingSpeed < 0.3) {
-          // Quick responder (30%) - 1-2s
-          delay = 1000 + Math.random() * 1000;
-        } else if (typingSpeed < 0.7) {
-          // Normal responder (40%) - 2-4s
-          delay = 2000 + Math.random() * 2000;
+        if (typingSpeed < 0.5) {
+          // Quick responder (50%) - 0.8-1.5s
+          delay = 800 + Math.random() * 700;
+        } else if (typingSpeed < 0.8) {
+          // Normal responder (30%) - 1.5-2.5s
+          delay = 1500 + Math.random() * 1000;
         } else {
-          // Slower responder (30%) - 4-6s
-          delay = 4000 + Math.random() * 2000;
+          // Slower responder (20%) - 2.5-4s
+          delay = 2500 + Math.random() * 1500;
         }
         
-        // Add stagger for multiple responders (1-2s between each)
-        delay += index * (1000 + Math.random() * 1000);
+        // Add stagger for multiple responders (0.5-1s between each)
+        delay += index * (500 + Math.random() * 500);
 
         this.botChatCooldowns.set(bot.id, now);
 
@@ -1085,7 +1085,7 @@ class RaceWebSocketServer {
       if (chainDepth < 1 && Math.random() < 0.3) {
         setTimeout(() => {
           this.triggerBotChatResponses(raceId, response!, true, chainDepth + 1);
-        }, 5000 + Math.random() * 5000);
+        }, 2000 + Math.random() * 2000);
       }
 
     } catch (error) {
