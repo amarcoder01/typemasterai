@@ -248,7 +248,8 @@ function RaceChat({
   sendWsMessage,
   messages,
   isEnabled,
-  isCompact = false
+  isCompact = false,
+  wsConnected = true
 }: {
   raceId: number;
   participantId: number;
@@ -258,10 +259,13 @@ function RaceChat({
   messages: ChatMessage[];
   isEnabled: boolean;
   isCompact?: boolean;
+  wsConnected?: boolean;
 }) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -269,22 +273,47 @@ function RaceChat({
     }
   }, [messages]);
 
+  useEffect(() => {
+    return () => {
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (value.length <= MAX_CHAT_LENGTH) {
       setInput(value);
+      if (sendError) setSendError(null);
     }
   };
 
   const sendMessage = () => {
     const trimmedInput = input.trim();
     if (!trimmedInput || !isEnabled || isSending) return;
+    
+    if (!wsConnected) {
+      setSendError("Connection lost");
+      toast.error("Cannot send message", { 
+        description: "Connection lost. Reconnecting...",
+        icon: <WifiOff className="h-4 w-4" />
+      });
+      return;
+    }
+    
     if (trimmedInput.length > MAX_CHAT_LENGTH) {
-      toast.error("Message too long", { description: `Maximum ${MAX_CHAT_LENGTH} characters allowed` });
+      setSendError("Message too long");
+      toast.error("Message too long", { 
+        description: `Maximum ${MAX_CHAT_LENGTH} characters allowed`,
+        icon: <AlertTriangle className="h-4 w-4" />
+      });
       return;
     }
     
     setIsSending(true);
+    setSendError(null);
+    
     try {
       sendWsMessage({
         type: "chat_message",
@@ -294,9 +323,13 @@ function RaceChat({
       });
       setInput("");
     } catch (error) {
-      toast.error("Failed to send message", { description: "Please try again" });
+      setSendError("Failed to send");
+      toast.error("Failed to send message", { 
+        description: "Please check your connection and try again",
+        icon: <XCircle className="h-4 w-4" />
+      });
     } finally {
-      setTimeout(() => setIsSending(false), 100);
+      retryTimeoutRef.current = setTimeout(() => setIsSending(false), 100);
     }
   };
 
@@ -307,157 +340,354 @@ function RaceChat({
     }
   };
 
+  const getDisabledReason = (): string => {
+    if (!wsConnected) return "Reconnecting to server...";
+    if (isSending) return "Sending message...";
+    if (!isEnabled) return "Chat disabled during active typing";
+    return "";
+  };
+
+  const isInputDisabled = !isEnabled || isSending || !wsConnected;
+
   if (isCompact) {
     return (
-      <div className="border rounded-lg p-2 bg-muted/20">
-        <div className="flex items-center gap-2 mb-2">
-          <MessageCircle className="h-3 w-3 text-muted-foreground" />
-          <span className="text-xs font-medium">Chat</span>
-        </div>
-        <div 
-          ref={scrollRef}
-          className="h-20 overflow-y-auto mb-1 space-y-1"
-        >
-          {messages.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-1">
-              No messages
-            </p>
-          ) : (
-            messages.slice(-10).map((msg, idx) => (
-              <div key={msg.id || idx} className={`text-xs ${msg.isSystem ? 'text-muted-foreground italic' : ''}`}>
-                {!msg.isSystem && (
-                  <span className="font-medium text-primary">
-                    {msg.username}:
-                  </span>
-                )}{" "}
-                <span>{msg.message}</span>
-              </div>
-            ))
-          )}
-        </div>
-        <div className="flex gap-1">
-          <Input
-            value={input}
-            onChange={handleInputChange}
-            onKeyDown={handleKeyDown}
-            placeholder={isEnabled ? "Chat..." : "Disabled"}
-            disabled={!isEnabled || isSending}
-            maxLength={MAX_CHAT_LENGTH}
-            className="text-xs h-6"
-            data-testid="input-chat-compact"
-          />
-          <Button
-            size="sm"
-            onClick={sendMessage}
-            disabled={!isEnabled || !input.trim() || isSending}
-            className="h-6 px-2"
-            data-testid="button-send-chat-compact"
+      <TooltipProvider delayDuration={300}>
+        <div className="border rounded-lg p-2 bg-muted/20">
+          <div className="flex items-center gap-2 mb-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 cursor-help">
+                  <MessageCircle className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs font-medium">Chat</span>
+                  {!wsConnected && <WifiOff className="h-3 w-3 text-yellow-500" />}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                <p className="font-medium">Race Chat</p>
+                <p className="text-zinc-400">
+                  {wsConnected 
+                    ? "Chat with other racers. Press Enter to send."
+                    : "Reconnecting to chat server..."}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <div 
+            ref={scrollRef}
+            className="h-20 overflow-y-auto mb-1 space-y-1"
           >
-            <Send className="h-2.5 w-2.5" />
-          </Button>
+            {messages.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-1">
+                No messages
+              </p>
+            ) : (
+              messages.slice(-10).map((msg, idx) => (
+                <Tooltip key={msg.id || idx}>
+                  <TooltipTrigger asChild>
+                    <div className={`text-xs cursor-default ${msg.isSystem ? 'text-muted-foreground italic' : ''}`}>
+                      {!msg.isSystem && (
+                        <span className="font-medium text-primary">
+                          {msg.username}:
+                        </span>
+                      )}{" "}
+                      <span>{msg.message}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    <p className="text-xs">{msg.isSystem ? "System message" : `From ${msg.username}`}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))
+            )}
+          </div>
+          <div className="flex gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex-1">
+                  <Input
+                    value={input}
+                    onChange={handleInputChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder={isInputDisabled ? getDisabledReason() || "Disabled" : "Chat..."}
+                    disabled={isInputDisabled}
+                    maxLength={MAX_CHAT_LENGTH}
+                    className={`text-xs h-6 ${sendError ? 'border-red-500' : ''}`}
+                    data-testid="input-chat-compact"
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>{isInputDisabled ? getDisabledReason() : "Type your message here"}</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  onClick={sendMessage}
+                  disabled={isInputDisabled || !input.trim()}
+                  className="h-6 px-2"
+                  data-testid="button-send-chat-compact"
+                >
+                  {isSending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Send className="h-2.5 w-2.5" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>{isSending ? "Sending..." : "Send message (Enter)"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
-      </div>
+      </TooltipProvider>
     );
   }
 
   return (
-    <Card className="h-64">
-      <CardHeader className="py-2 px-3">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <MessageCircle className="h-4 w-4" />
-          Race Chat
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-2 h-[calc(100%-4rem)]">
-        <div className="flex flex-col h-full">
-          <div 
-            ref={scrollRef}
-            className="flex-1 overflow-y-auto pr-2 mb-2"
-          >
-            <div className="space-y-2">
-              {messages.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-2">
-                  No messages yet
+    <TooltipProvider delayDuration={300}>
+      <Card className="h-64">
+        <CardHeader className="py-2 px-3">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2 cursor-help">
+                  <MessageCircle className="h-4 w-4" />
+                  Race Chat
+                  {!wsConnected && <WifiOff className="h-3 w-3 text-yellow-500" />}
+                  <Info className="h-3 w-3 text-muted-foreground" />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs">
+                <p className="font-medium">Race Chat</p>
+                <p className="text-zinc-400">
+                  Chat with other participants before and after the race. 
+                  Chat is disabled during active typing to prevent distraction.
                 </p>
-              ) : (
-                messages.map((msg, idx) => (
-                  <div key={msg.id || idx} className={`text-xs ${msg.isSystem ? 'text-muted-foreground italic' : ''}`}>
-                    {!msg.isSystem && (
-                      <span className="font-medium text-primary">
-                        {msg.username}:
-                      </span>
-                    )}{" "}
-                    <span>{msg.message}</span>
+                <p className="text-zinc-400 mt-1">
+                  <span className="text-primary">Tip:</span> Press Enter to send, max {MAX_CHAT_LENGTH} characters.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-2 h-[calc(100%-4rem)]">
+          <div className="flex flex-col h-full">
+            <div 
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto pr-2 mb-2"
+            >
+              <div className="space-y-2">
+                {messages.length === 0 ? (
+                  <div className="text-center py-4">
+                    <MessageCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground">
+                      No messages yet. Say hi!
+                    </p>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="flex gap-1">
-              <Input
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                placeholder={isEnabled ? "Type a message..." : "Chat disabled during race"}
-                disabled={!isEnabled || isSending}
-                maxLength={MAX_CHAT_LENGTH}
-                className="text-xs h-7"
-                data-testid="input-chat"
-              />
-              <Button
-                size="sm"
-                onClick={sendMessage}
-                disabled={!isEnabled || !input.trim() || isSending}
-                className="h-7 px-2"
-                data-testid="button-send-chat"
-              >
-                <Send className="h-3 w-3" />
-              </Button>
-            </div>
-            {input.length > MAX_CHAT_LENGTH * 0.8 && (
-              <div className={`text-xs text-right ${input.length >= MAX_CHAT_LENGTH ? 'text-red-500' : 'text-muted-foreground'}`}>
-                {input.length}/{MAX_CHAT_LENGTH}
+                ) : (
+                  messages.map((msg, idx) => (
+                    <Tooltip key={msg.id || idx}>
+                      <TooltipTrigger asChild>
+                        <div className={`text-xs cursor-default hover:bg-muted/30 rounded px-1 py-0.5 transition-colors ${msg.isSystem ? 'text-muted-foreground italic' : ''}`}>
+                          {!msg.isSystem && (
+                            <span className="font-medium text-primary">
+                              {msg.username}:
+                            </span>
+                          )}{" "}
+                          <span>{msg.message}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">
+                        <p className="text-xs">
+                          {msg.isSystem 
+                            ? "System notification" 
+                            : `Message from ${msg.username}`}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))
+                )}
               </div>
-            )}
+            </div>
+            <div className="space-y-1">
+              {sendError && (
+                <div className="flex items-center gap-1 text-xs text-red-500">
+                  <AlertTriangle className="h-3 w-3" />
+                  <span>{sendError}</span>
+                </div>
+              )}
+              <div className="flex gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex-1">
+                      <Input
+                        value={input}
+                        onChange={handleInputChange}
+                        onKeyDown={handleKeyDown}
+                        placeholder={isInputDisabled ? getDisabledReason() || "Chat disabled during race" : "Type a message..."}
+                        disabled={isInputDisabled}
+                        maxLength={MAX_CHAT_LENGTH}
+                        className={`text-xs h-7 ${sendError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                        data-testid="input-chat"
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="font-medium">
+                      {isInputDisabled ? getDisabledReason() : "Message Input"}
+                    </p>
+                    {!isInputDisabled && (
+                      <p className="text-zinc-400">Press Enter to send</p>
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      onClick={sendMessage}
+                      disabled={isInputDisabled || !input.trim()}
+                      className="h-7 px-2"
+                      data-testid="button-send-chat"
+                    >
+                      {isSending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="font-medium">{isSending ? "Sending..." : "Send Message"}</p>
+                    <p className="text-zinc-400">Or press Enter</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <div className="flex items-center justify-between">
+                {input.length > MAX_CHAT_LENGTH * 0.8 ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className={`text-xs flex items-center gap-1 ${input.length >= MAX_CHAT_LENGTH ? 'text-red-500' : 'text-muted-foreground'}`}>
+                        {input.length >= MAX_CHAT_LENGTH && <AlertTriangle className="h-3 w-3" />}
+                        {input.length}/{MAX_CHAT_LENGTH}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{input.length >= MAX_CHAT_LENGTH ? "Character limit reached!" : `${MAX_CHAT_LENGTH - input.length} characters remaining`}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : <div />}
+                {!wsConnected && (
+                  <div className="text-xs text-yellow-500 flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Reconnecting...
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </TooltipProvider>
   );
 }
+
+const TIER_DESCRIPTIONS: Record<string, string> = {
+  bronze: "Starting tier. Keep practicing to climb!",
+  silver: "You're improving! Aim for Gold next.",
+  gold: "Solid skills! Top 50% of players.",
+  platinum: "Excellent typing speed! Top 25%.",
+  diamond: "Elite typist! Top 10% of all players.",
+  master: "Exceptional! Top 5% of players.",
+  grandmaster: "Legendary status! Top 1% of all typists.",
+};
 
 function RatingChangeDisplay({ ratingInfo, position }: { ratingInfo: RatingInfo | null; position: number | null }) {
   if (!ratingInfo) return null;
 
   const isPositive = (ratingInfo.ratingChange || 0) >= 0;
   const tierColor = ratingInfo.tierInfo?.color || "gray";
+  const tierDescription = TIER_DESCRIPTIONS[ratingInfo.tier.toLowerCase()] || "Keep racing to improve!";
 
   return (
-    <div className="p-3 border rounded-lg bg-muted/30 space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Award className="h-5 w-5 text-primary" />
-          <span className="font-medium">Your Rating</span>
+    <TooltipProvider delayDuration={300}>
+      <div className="p-3 border rounded-lg bg-muted/30 space-y-2">
+        <div className="flex items-center justify-between">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center gap-2 cursor-help">
+                <Award className="h-5 w-5 text-primary" />
+                <span className="font-medium">Your Rating</span>
+                <Info className="h-3 w-3 text-muted-foreground" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs">
+              <p className="font-medium">ELO Skill Rating</p>
+              <p className="text-zinc-400">
+                Your competitive rating based on race performance. 
+                Win against higher-rated players to gain more points.
+              </p>
+              <p className="text-zinc-400 mt-1">
+                <span className="text-primary">Range:</span> 100 - 3000
+              </p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge 
+                variant="outline" 
+                className="capitalize cursor-help"
+                style={{ borderColor: tierColor, color: tierColor }}
+              >
+                {ratingInfo.tierInfo?.name || ratingInfo.tier}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-xs">
+              <p className="font-medium capitalize" style={{ color: tierColor }}>
+                {ratingInfo.tierInfo?.name || ratingInfo.tier} Tier
+              </p>
+              <p className="text-zinc-400">{tierDescription}</p>
+              {ratingInfo.tierInfo?.minRating && (
+                <p className="text-zinc-400 mt-1">
+                  <span className="text-primary">Min rating:</span> {ratingInfo.tierInfo.minRating}
+                </p>
+              )}
+            </TooltipContent>
+          </Tooltip>
         </div>
-        <Badge 
-          variant="outline" 
-          className="capitalize"
-          style={{ borderColor: tierColor, color: tierColor }}
-        >
-          {ratingInfo.tierInfo?.name || ratingInfo.tier}
-        </Badge>
+        <div className="flex items-center justify-between">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="text-2xl font-bold cursor-help">{ratingInfo.rating}</div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p className="font-medium">Current Rating: {ratingInfo.rating}</p>
+              <p className="text-zinc-400">Your skill level compared to other players</p>
+            </TooltipContent>
+          </Tooltip>
+          {ratingInfo.ratingChange !== undefined && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className={`flex items-center gap-1 text-sm font-medium cursor-help ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                  {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                  {isPositive ? '+' : ''}{ratingInfo.ratingChange}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-xs">
+                <p className="font-medium">
+                  {isPositive ? 'Rating Gained' : 'Rating Lost'}
+                </p>
+                <p className="text-zinc-400">
+                  {isPositive 
+                    ? `Great race! You gained ${ratingInfo.ratingChange} points.`
+                    : `You lost ${Math.abs(ratingInfo.ratingChange)} points. Keep practicing!`}
+                </p>
+                {position !== null && (
+                  <p className="text-zinc-400 mt-1">
+                    <span className="text-primary">Finish position:</span> #{position}
+                  </p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </div>
-      <div className="flex items-center justify-between">
-        <div className="text-2xl font-bold">{ratingInfo.rating}</div>
-        {ratingInfo.ratingChange !== undefined && (
-          <div className={`flex items-center gap-1 text-sm font-medium ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-            {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-            {isPositive ? '+' : ''}{ratingInfo.ratingChange}
-          </div>
-        )}
-      </div>
-    </div>
+    </TooltipProvider>
   );
 }
 
@@ -1214,45 +1444,78 @@ export default function RacePage() {
                     </Tooltip>
                   </div>
                   <div className="grid gap-2">
-                    {participants.map((p) => (
-                      <Tooltip key={p.id}>
+                    {participants.length === 0 ? (
+                      <Tooltip>
                         <TooltipTrigger asChild>
-                          <div
-                            className="flex items-center gap-3 p-3 border rounded-lg hover:border-primary/50 transition-colors cursor-default"
-                            data-testid={`participant-${p.id}`}
-                          >
-                            <div className={`h-10 w-10 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium relative`}>
-                              {p.username[0].toUpperCase()}
-                              {p.isBot === 1 && (
-                                <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
-                                  <Bot className="h-3 w-3 text-muted-foreground" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <div className="font-medium flex items-center gap-2">
-                                {p.username}
-                                {p.isBot === 1 && (
-                                  <span className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">AI</span>
-                                )}
-                              </div>
-                              {p.id === myParticipant?.id && (
-                                <div className="text-xs text-primary flex items-center gap-1">
-                                  <User className="h-3 w-3" />
-                                  You
-                                </div>
-                              )}
-                            </div>
+                          <div className="text-center py-6 text-muted-foreground cursor-help border-2 border-dashed border-muted rounded-lg">
+                            <Users className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                            <p className="text-sm font-medium">Waiting for players to join...</p>
+                            <p className="text-xs mt-1 opacity-70">Share the room code to invite friends</p>
                           </div>
                         </TooltipTrigger>
-                        <TooltipContent side="left">
-                          <p className="font-medium">{p.username}</p>
+                        <TooltipContent side="bottom" className="max-w-xs">
+                          <p className="font-medium">Invite Players</p>
                           <p className="text-zinc-400">
-                            {p.isBot === 1 ? "AI Racer" : p.id === myParticipant?.id ? "Your profile" : "Human player"}
+                            Share the room code with friends to invite them. 
+                            When you start the race, AI racers may join to fill empty slots.
                           </p>
                         </TooltipContent>
                       </Tooltip>
-                    ))}
+                    ) : (
+                      participants.map((p) => (
+                        <Tooltip key={p.id}>
+                          <TooltipTrigger asChild>
+                            <div
+                              className={`flex items-center gap-3 p-3 border rounded-lg hover:border-primary/50 transition-colors cursor-default ${
+                                p.id === myParticipant?.id ? 'border-primary/50 bg-primary/5' : ''
+                              }`}
+                              data-testid={`participant-${p.id}`}
+                            >
+                              <div className={`h-10 w-10 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium relative`}>
+                                {p.username[0].toUpperCase()}
+                                {p.isBot === 1 && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 cursor-help">
+                                        <Bot className="h-3 w-3 text-muted-foreground" />
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="right">
+                                      <p className="font-medium">AI Racer</p>
+                                      <p className="text-zinc-400">This is an AI opponent with realistic typing patterns</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="font-medium flex items-center gap-2">
+                                  {p.username}
+                                  {p.isBot === 1 && (
+                                    <Badge variant="secondary" className="text-xs px-1.5 py-0">AI</Badge>
+                                  )}
+                                </div>
+                                {p.id === myParticipant?.id && (
+                                  <div className="text-xs text-primary flex items-center gap-1">
+                                    <User className="h-3 w-3" />
+                                    You
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="max-w-xs">
+                            <p className="font-medium">{p.username}</p>
+                            <p className="text-zinc-400">
+                              {p.isBot === 1 
+                                ? "AI Racer - Competes with realistic typing patterns"
+                                : p.id === myParticipant?.id 
+                                  ? "This is you! Good luck in the race." 
+                                  : "Human player ready to race"}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -1265,6 +1528,7 @@ export default function RacePage() {
                     sendWsMessage={sendWsMessage}
                     messages={chatMessages}
                     isEnabled={true}
+                    wsConnected={wsConnected}
                   />
                 )}
 
@@ -1651,6 +1915,7 @@ export default function RacePage() {
                     sendWsMessage={sendWsMessage}
                     messages={chatMessages}
                     isEnabled={!isRacing}
+                    wsConnected={wsConnected}
                     isCompact={true}
                   />
                 </div>
