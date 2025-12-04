@@ -18,18 +18,27 @@ const PROGRAMMING_LANGUAGES = {
 
 export default function CodeLeaderboard() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>("all");
+  const [offset, setOffset] = useState(0);
+  const limit = 20;
 
   const { data: leaderboardData, isLoading } = useQuery({
-    queryKey: ["codeLeaderboard", selectedLanguage],
+    queryKey: ["codeLeaderboard", selectedLanguage, offset, limit],
     queryFn: async () => {
-      const languageParam = selectedLanguage !== "all" ? `?language=${selectedLanguage}` : "";
-      const response = await fetch(`/api/code/leaderboard${languageParam}`);
+      const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+      if (selectedLanguage !== "all") params.set("language", selectedLanguage);
+      const response = await fetch(`/api/code/leaderboard?${params}`);
       if (!response.ok) throw new Error("Failed to fetch code leaderboard");
       return response.json();
     },
   });
 
-  const leaderboard = leaderboardData?.leaderboard || [];
+  const leaderboard = leaderboardData?.entries || [];
+  const pagination = leaderboardData?.pagination || { total: 0, hasMore: false };
+
+  const handleLanguageChange = (language: string) => {
+    setSelectedLanguage(language);
+    setOffset(0);
+  };
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-5xl">
@@ -52,7 +61,7 @@ export default function CodeLeaderboard() {
             </CardTitle>
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Filter by Language:</label>
-              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+              <Select value={selectedLanguage} onValueChange={handleLanguageChange}>
                 <SelectTrigger className="w-[180px]" data-testid="select-language-filter">
                   <SelectValue />
                 </SelectTrigger>

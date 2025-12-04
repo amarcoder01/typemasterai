@@ -43,12 +43,15 @@ const DIFFICULTY_DESCRIPTIONS: Record<Exclude<Difficulty, 'all'>, string> = {
 export default function StressLeaderboard() {
   const { user } = useAuth();
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('all');
+  const [offset, setOffset] = useState(0);
+  const limit = 50;
 
-  const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery({
-    queryKey: ['stress-leaderboard', selectedDifficulty],
+  const { data: leaderboardData, isLoading: leaderboardLoading, isFetching } = useQuery({
+    queryKey: ['stress-leaderboard', selectedDifficulty, offset, limit],
     queryFn: async () => {
-      const params = selectedDifficulty !== 'all' ? `?difficulty=${selectedDifficulty}` : '';
-      const res = await fetch(`/api/stress-test/leaderboard${params}`, {
+      const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+      if (selectedDifficulty !== 'all') params.set('difficulty', selectedDifficulty);
+      const res = await fetch(`/api/stress-test/leaderboard?${params}`, {
         credentials: 'include',
       });
       if (!res.ok) throw new Error('Failed to fetch leaderboard');
@@ -68,8 +71,14 @@ export default function StressLeaderboard() {
     enabled: !!user,
   });
 
-  const leaderboard = leaderboardData?.leaderboard || [];
+  const leaderboard = leaderboardData?.entries || [];
+  const pagination = leaderboardData?.pagination || { total: 0, hasMore: false };
   const stats = statsData?.stats;
+
+  const handleDifficultyChange = (v: string) => {
+    setSelectedDifficulty(v as Difficulty);
+    setOffset(0);
+  };
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -243,7 +252,7 @@ export default function StressLeaderboard() {
           )}
 
           {/* Difficulty Filter */}
-          <Tabs value={selectedDifficulty} onValueChange={(v) => setSelectedDifficulty(v as Difficulty)} className="mb-8">
+          <Tabs value={selectedDifficulty} onValueChange={handleDifficultyChange} className="mb-8">
             <TabsList className="grid w-full grid-cols-6">
               <Tooltip>
                 <TooltipTrigger asChild>

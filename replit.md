@@ -46,6 +46,32 @@ The multiplayer racing system now includes competitive gaming features comparabl
 
 New Database Tables: `user_ratings`, `race_match_history`, `race_keystrokes`, `race_chat_messages`, `race_spectators`, `race_replays`, `anti_cheat_challenges`.
 
+### Production-Ready Leaderboard System (December 2025)
+The leaderboard system has been enhanced with enterprise-grade features for performance and scalability:
+
+- **Leaderboard Caching Service** (`server/leaderboard-cache.ts`): In-memory LRU cache with type-specific TTLs (global: 30s, stress: 5s, rating: 15s, aroundMe: 10s). Features true LRU eviction, cache statistics tracking (hits/misses/hit rate), and max 100 entries.
+- **Cursor-Based Pagination**: All leaderboards support cursor-based pagination with configurable limits (max 100 per page). Provides stable pagination even as data changes.
+- **Time-Based Leaderboards**: Daily, weekly, and monthly leaderboards with automatic date filtering. API endpoints: `/api/leaderboard?timeframe=daily|weekly|monthly|all`.
+- **"Around Me" Rankings**: Shows users their position relative to nearby competitors (configurable range, default 5). Authenticated endpoint: `/api/leaderboard/around-me`.
+- **HTTP Caching Headers**: All leaderboard endpoints include `Cache-Control`, `X-Cache` (HIT/MISS), and `X-Total-Count` headers for CDN integration.
+- **Verified Score Badges**: Displays verification status from anti-cheat challenges. Users who pass verification challenges get a green checkmark badge on leaderboards.
+- **Multi-Type Support**: Global, stress test, code typing, dictation, and rating leaderboards all share the same caching and pagination infrastructure.
+
+API Endpoints:
+- `GET /api/leaderboard` - Global leaderboard with timeframe filter
+- `GET /api/leaderboard/around-me` - User's surrounding ranks
+- `GET /api/leaderboard/time-based` - Time-filtered leaderboard
+- `GET /api/leaderboard/cache-stats` - Cache performance metrics
+- `GET /api/stress-test/leaderboard/around-me` - Stress test around-me
+- `GET /api/code/leaderboard/around-me` - Code typing around-me
+- `GET /api/dictation/leaderboard/around-me` - Dictation around-me
+- `GET /api/ratings/leaderboard/around-me` - Rating around-me
+
+Frontend Pages:
+- `/leaderboard` - Global leaderboard with timeframe tabs and pagination
+- `/stress-leaderboard` - Stress test leaderboard with difficulty filters
+- `/code/leaderboard` - Code typing leaderboard with language filters
+
 ### System Design Choices
 - **Data Layer**: PostgreSQL database managed with Drizzle ORM. The schema includes tables for users, test results, typing paragraphs, code snippets, code typing tests, races, race participants (with soft-delete), keystroke events, typing analytics, typing insights, practice recommendations, push subscriptions, notification preferences, notification jobs, notification history, achievements, user achievements, challenges, and user gamification.
 - **Validation**: Zod for runtime validation and Drizzle-Zod for schema conversion, enforcing strict TypeScript.

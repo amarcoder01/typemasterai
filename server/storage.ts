@@ -239,6 +239,83 @@ export interface IStorage {
     avatarColor: string | null;
     totalTests: number;
   }>>;
+
+  getLeaderboardPaginated(limit: number, offset: number, timeframe?: string): Promise<Array<{
+    userId: string;
+    username: string;
+    wpm: number;
+    accuracy: number;
+    createdAt: Date;
+    mode: number;
+    avatarColor: string | null;
+    totalTests: number;
+    rank: number;
+    isVerified: boolean;
+  }>>;
+  getLeaderboardCount(timeframe?: string): Promise<number>;
+  getLeaderboardAroundUser(userId: string, range?: number): Promise<{ userRank: number; entries: any[] }>;
+
+  getStressTestLeaderboardPaginated(difficulty: string | undefined, limit: number, offset: number): Promise<Array<{
+    userId: string;
+    username: string;
+    difficulty: string;
+    stressScore: number;
+    wpm: number;
+    accuracy: number;
+    completionRate: number;
+    avatarColor: string | null;
+    createdAt: Date;
+    rank: number;
+    isVerified: boolean;
+  }>>;
+  getStressTestLeaderboardCount(difficulty?: string): Promise<number>;
+  getStressLeaderboardAroundUser(userId: string, difficulty: string | undefined, range?: number): Promise<{ userRank: number; entries: any[] }>;
+
+  getCodeLeaderboardPaginated(language: string | undefined, limit: number, offset: number): Promise<Array<{
+    userId: string;
+    username: string;
+    wpm: number;
+    accuracy: number;
+    programmingLanguage: string;
+    framework: string | null;
+    createdAt: Date;
+    avatarColor: string | null;
+    totalTests: number;
+    rank: number;
+    isVerified: boolean;
+  }>>;
+  getCodeLeaderboardCount(language?: string): Promise<number>;
+  getCodeLeaderboardAroundUser(userId: string, language: string | undefined, range?: number): Promise<{ userRank: number; entries: any[] }>;
+
+  getRatingLeaderboardPaginated(tier: string | undefined, limit: number, offset: number): Promise<any[]>;
+  getRatingLeaderboardCount(tier?: string): Promise<number>;
+  getRatingLeaderboardAroundUser(userId: string, tier: string | undefined, range?: number): Promise<{ userRank: number; entries: any[] }>;
+
+  getDictationLeaderboardPaginated(limit: number, offset: number): Promise<Array<{
+    userId: string;
+    username: string;
+    wpm: number;
+    accuracy: number;
+    speedLevel: string;
+    createdAt: Date;
+    avatarColor: string | null;
+    totalTests: number;
+    rank: number;
+  }>>;
+  getDictationLeaderboardCount(): Promise<number>;
+  getDictationLeaderboardAroundUser(userId: string, range?: number): Promise<{ userRank: number; entries: any[] }>;
+
+  getTimeBasedLeaderboard(timeframe: "daily" | "weekly" | "monthly", limit: number, offset: number): Promise<Array<{
+    userId: string;
+    username: string;
+    wpm: number;
+    accuracy: number;
+    createdAt: Date;
+    avatarColor: string | null;
+    testsInPeriod: number;
+    rank: number;
+  }>>;
+  getTimeBasedLeaderboardCount(timeframe: "daily" | "weekly" | "monthly"): Promise<number>;
   
   getPlatformStats(): Promise<{
     totalUsers: number;
@@ -1095,6 +1172,855 @@ export class DatabaseStorage implements IStorage {
     `);
 
     return leaderboard.rows as any[];
+  }
+
+  async getLeaderboardPaginated(limit: number, offset: number, timeframe?: string): Promise<Array<{
+    userId: string;
+    username: string;
+    wpm: number;
+    accuracy: number;
+    createdAt: Date;
+    mode: number;
+    avatarColor: string | null;
+    totalTests: number;
+    rank: number;
+    isVerified: boolean;
+  }>> {
+    const dateFilter = this.getTimeframeDateFilter(timeframe);
+    
+    const leaderboard = await db.execute(sql`
+      WITH ranked_results AS (
+        SELECT 
+          tr.user_id,
+          tr.wpm,
+          tr.accuracy,
+          tr.created_at,
+          tr.mode,
+          ROW_NUMBER() OVER (
+            PARTITION BY tr.user_id 
+            ORDER BY tr.wpm DESC, tr.created_at DESC
+          ) as user_rank
+        FROM test_results tr
+        WHERE tr.created_at >= ${dateFilter}
+      ),
+      test_counts AS (
+        SELECT 
+          user_id,
+          COUNT(*)::int as total_tests
+        FROM test_results
+        WHERE created_at >= ${dateFilter}
+        GROUP BY user_id
+      ),
+      final_ranking AS (
+        SELECT 
+          rr.user_id,
+          rr.wpm,
+          rr.accuracy,
+          rr.created_at,
+          rr.mode,
+          tc.total_tests,
+          DENSE_RANK() OVER (ORDER BY rr.wpm DESC, rr.created_at ASC) as rank
+        FROM ranked_results rr
+        LEFT JOIN test_counts tc ON rr.user_id = tc.user_id
+        WHERE rr.user_rank = 1
+      )
+      SELECT 
+        fr.user_id as "userId",
+        u.username,
+        fr.wpm,
+        fr.accuracy,
+        fr.created_at as "createdAt",
+        fr.mode,
+        u.avatar_color as "avatarColor",
+        COALESCE(fr.total_tests, 1) as "totalTests",
+        fr.rank,
+        COALESCE(acc.certified_wpm IS NOT NULL, false) as "isVerified"
+      FROM final_ranking fr
+      INNER JOIN users u ON fr.user_id = u.id
+      LEFT JOIN anti_cheat_challenges acc ON fr.user_id = acc.user_id AND acc.passed = true
+      ORDER BY fr.rank ASC, fr.wpm DESC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `);
+
+    return leaderboard.rows as any[];
+  }
+
+  async getLeaderboardCount(timeframe?: string): Promise<number> {
+    const dateFilter = this.getTimeframeDateFilter(timeframe);
+    
+    const result = await db.execute(sql`
+      SELECT COUNT(DISTINCT user_id)::int as count
+      FROM test_results
+      WHERE created_at >= ${dateFilter}
+    `);
+    
+    return (result.rows[0] as any)?.count || 0;
+  }
+
+  async getLeaderboardAroundUser(userId: string, range: number = 5): Promise<{ userRank: number; entries: any[] }> {
+    const rankResult = await db.execute(sql`
+      WITH ranked_results AS (
+        SELECT 
+          tr.user_id,
+          tr.wpm,
+          ROW_NUMBER() OVER (
+            PARTITION BY tr.user_id 
+            ORDER BY tr.wpm DESC
+          ) as user_rank
+        FROM test_results tr
+      ),
+      user_best AS (
+        SELECT user_id, wpm FROM ranked_results WHERE user_rank = 1
+      ),
+      final_ranking AS (
+        SELECT 
+          user_id,
+          wpm,
+          DENSE_RANK() OVER (ORDER BY wpm DESC) as rank
+        FROM user_best
+      )
+      SELECT rank FROM final_ranking WHERE user_id = ${userId}
+    `);
+
+    const userRank = (rankResult.rows[0] as any)?.rank || -1;
+    
+    if (userRank === -1) {
+      return { userRank: -1, entries: [] };
+    }
+
+    const startRank = Math.max(1, userRank - range);
+    const endRank = userRank + range;
+
+    const entries = await db.execute(sql`
+      WITH ranked_results AS (
+        SELECT 
+          tr.user_id,
+          tr.wpm,
+          tr.accuracy,
+          tr.created_at,
+          tr.mode,
+          ROW_NUMBER() OVER (
+            PARTITION BY tr.user_id 
+            ORDER BY tr.wpm DESC, tr.created_at DESC
+          ) as user_rank
+        FROM test_results tr
+      ),
+      test_counts AS (
+        SELECT user_id, COUNT(*)::int as total_tests FROM test_results GROUP BY user_id
+      ),
+      final_ranking AS (
+        SELECT 
+          rr.user_id,
+          rr.wpm,
+          rr.accuracy,
+          rr.created_at,
+          rr.mode,
+          tc.total_tests,
+          DENSE_RANK() OVER (ORDER BY rr.wpm DESC) as rank
+        FROM ranked_results rr
+        LEFT JOIN test_counts tc ON rr.user_id = tc.user_id
+        WHERE rr.user_rank = 1
+      )
+      SELECT 
+        fr.user_id as "userId",
+        u.username,
+        fr.wpm,
+        fr.accuracy,
+        fr.created_at as "createdAt",
+        fr.mode,
+        u.avatar_color as "avatarColor",
+        COALESCE(fr.total_tests, 1) as "totalTests",
+        fr.rank
+      FROM final_ranking fr
+      INNER JOIN users u ON fr.user_id = u.id
+      WHERE fr.rank >= ${startRank} AND fr.rank <= ${endRank}
+      ORDER BY fr.rank ASC
+    `);
+
+    return { userRank, entries: entries.rows as any[] };
+  }
+
+  async getStressTestLeaderboardPaginated(difficulty: string | undefined, limit: number, offset: number): Promise<Array<{
+    userId: string;
+    username: string;
+    difficulty: string;
+    stressScore: number;
+    wpm: number;
+    accuracy: number;
+    completionRate: number;
+    avatarColor: string | null;
+    createdAt: Date;
+    rank: number;
+    isVerified: boolean;
+  }>> {
+    const difficultyFilter = difficulty ? sql`AND st.difficulty = ${difficulty}` : sql``;
+    
+    const leaderboard = await db.execute(sql`
+      WITH ranked_scores AS (
+        SELECT 
+          st.user_id,
+          st.difficulty,
+          st.stress_score,
+          st.wpm,
+          st.accuracy,
+          st.completion_rate,
+          st.created_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY st.user_id, st.difficulty
+            ORDER BY st.stress_score DESC, st.wpm DESC, st.created_at DESC
+          ) as user_rank
+        FROM stress_tests st
+        WHERE 1=1 ${difficultyFilter}
+      ),
+      best_scores AS (
+        SELECT * FROM ranked_scores WHERE user_rank = 1
+      ),
+      final_ranking AS (
+        SELECT 
+          bs.*,
+          DENSE_RANK() OVER (
+            ORDER BY bs.stress_score DESC, bs.wpm DESC, bs.created_at ASC
+          ) as rank
+        FROM best_scores bs
+      )
+      SELECT 
+        fr.user_id as "userId",
+        u.username,
+        fr.difficulty,
+        fr.stress_score as "stressScore",
+        fr.wpm,
+        fr.accuracy,
+        fr.completion_rate as "completionRate",
+        u.avatar_color as "avatarColor",
+        fr.created_at as "createdAt",
+        fr.rank,
+        COALESCE(acc.certified_wpm IS NOT NULL, false) as "isVerified"
+      FROM final_ranking fr
+      INNER JOIN users u ON fr.user_id = u.id
+      LEFT JOIN anti_cheat_challenges acc ON fr.user_id = acc.user_id AND acc.passed = true
+      ORDER BY fr.rank ASC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `);
+
+    return leaderboard.rows as any[];
+  }
+
+  async getStressTestLeaderboardCount(difficulty?: string): Promise<number> {
+    const difficultyFilter = difficulty ? sql`AND difficulty = ${difficulty}` : sql``;
+    
+    const result = await db.execute(sql`
+      SELECT COUNT(DISTINCT user_id)::int as count
+      FROM stress_tests
+      WHERE 1=1 ${difficultyFilter}
+    `);
+    
+    return (result.rows[0] as any)?.count || 0;
+  }
+
+  async getStressLeaderboardAroundUser(userId: string, difficulty: string | undefined, range: number = 5): Promise<{ userRank: number; entries: any[] }> {
+    const difficultyFilter = difficulty ? sql`AND st.difficulty = ${difficulty}` : sql``;
+    
+    const rankResult = await db.execute(sql`
+      WITH ranked_scores AS (
+        SELECT 
+          st.user_id,
+          st.stress_score,
+          ROW_NUMBER() OVER (
+            PARTITION BY st.user_id
+            ORDER BY st.stress_score DESC
+          ) as user_rank
+        FROM stress_tests st
+        WHERE 1=1 ${difficultyFilter}
+      ),
+      user_best AS (
+        SELECT user_id, stress_score FROM ranked_scores WHERE user_rank = 1
+      ),
+      final_ranking AS (
+        SELECT 
+          user_id,
+          stress_score,
+          DENSE_RANK() OVER (ORDER BY stress_score DESC) as rank
+        FROM user_best
+      )
+      SELECT rank FROM final_ranking WHERE user_id = ${userId}
+    `);
+
+    const userRank = (rankResult.rows[0] as any)?.rank || -1;
+    
+    if (userRank === -1) {
+      return { userRank: -1, entries: [] };
+    }
+
+    const startRank = Math.max(1, userRank - range);
+    const endRank = userRank + range;
+
+    const entries = await db.execute(sql`
+      WITH ranked_scores AS (
+        SELECT 
+          st.user_id,
+          st.difficulty,
+          st.stress_score,
+          st.wpm,
+          st.accuracy,
+          st.completion_rate,
+          st.created_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY st.user_id
+            ORDER BY st.stress_score DESC
+          ) as user_rank
+        FROM stress_tests st
+        WHERE 1=1 ${difficultyFilter}
+      ),
+      best_scores AS (
+        SELECT * FROM ranked_scores WHERE user_rank = 1
+      ),
+      final_ranking AS (
+        SELECT 
+          bs.*,
+          DENSE_RANK() OVER (ORDER BY bs.stress_score DESC) as rank
+        FROM best_scores bs
+      )
+      SELECT 
+        fr.user_id as "userId",
+        u.username,
+        fr.difficulty,
+        fr.stress_score as "stressScore",
+        fr.wpm,
+        fr.accuracy,
+        fr.completion_rate as "completionRate",
+        u.avatar_color as "avatarColor",
+        fr.created_at as "createdAt",
+        fr.rank
+      FROM final_ranking fr
+      INNER JOIN users u ON fr.user_id = u.id
+      WHERE fr.rank >= ${startRank} AND fr.rank <= ${endRank}
+      ORDER BY fr.rank ASC
+    `);
+
+    return { userRank, entries: entries.rows as any[] };
+  }
+
+  async getCodeLeaderboardPaginated(language: string | undefined, limit: number, offset: number): Promise<Array<{
+    userId: string;
+    username: string;
+    wpm: number;
+    accuracy: number;
+    programmingLanguage: string;
+    framework: string | null;
+    createdAt: Date;
+    avatarColor: string | null;
+    totalTests: number;
+    rank: number;
+    isVerified: boolean;
+  }>> {
+    const languageFilter = language ? sql`AND ct.programming_language = ${language}` : sql``;
+
+    const leaderboard = await db.execute(sql`
+      WITH ranked_results AS (
+        SELECT 
+          ct.user_id,
+          ct.wpm,
+          ct.accuracy,
+          ct.programming_language,
+          ct.framework,
+          ct.created_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY ct.user_id ${language ? sql`, ct.programming_language` : sql``}
+            ORDER BY ct.wpm DESC, ct.created_at DESC
+          ) as user_rank
+        FROM code_typing_tests ct
+        WHERE 1=1 ${languageFilter}
+      ),
+      test_counts AS (
+        SELECT 
+          user_id,
+          COUNT(*)::int as total_tests
+        FROM code_typing_tests
+        WHERE 1=1 ${languageFilter}
+        GROUP BY user_id
+      ),
+      final_ranking AS (
+        SELECT 
+          rr.user_id,
+          rr.wpm,
+          rr.accuracy,
+          rr.programming_language,
+          rr.framework,
+          rr.created_at,
+          tc.total_tests,
+          DENSE_RANK() OVER (ORDER BY rr.wpm DESC, rr.created_at ASC) as rank
+        FROM ranked_results rr
+        LEFT JOIN test_counts tc ON rr.user_id = tc.user_id
+        WHERE rr.user_rank = 1
+      )
+      SELECT 
+        fr.user_id as "userId",
+        u.username,
+        fr.wpm,
+        fr.accuracy,
+        fr.programming_language as "programmingLanguage",
+        fr.framework,
+        fr.created_at as "createdAt",
+        u.avatar_color as "avatarColor",
+        COALESCE(fr.total_tests, 1) as "totalTests",
+        fr.rank,
+        COALESCE(acc.certified_wpm IS NOT NULL, false) as "isVerified"
+      FROM final_ranking fr
+      INNER JOIN users u ON fr.user_id = u.id
+      LEFT JOIN anti_cheat_challenges acc ON fr.user_id = acc.user_id AND acc.passed = true
+      ORDER BY fr.rank ASC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `);
+
+    return leaderboard.rows as any[];
+  }
+
+  async getCodeLeaderboardCount(language?: string): Promise<number> {
+    const languageFilter = language ? sql`AND programming_language = ${language}` : sql``;
+    
+    const result = await db.execute(sql`
+      SELECT COUNT(DISTINCT user_id)::int as count
+      FROM code_typing_tests
+      WHERE 1=1 ${languageFilter}
+    `);
+    
+    return (result.rows[0] as any)?.count || 0;
+  }
+
+  async getCodeLeaderboardAroundUser(userId: string, language: string | undefined, range: number = 5): Promise<{ userRank: number; entries: any[] }> {
+    const languageFilter = language ? sql`AND ct.programming_language = ${language}` : sql``;
+    
+    const rankResult = await db.execute(sql`
+      WITH ranked_results AS (
+        SELECT 
+          ct.user_id,
+          ct.wpm,
+          ROW_NUMBER() OVER (
+            PARTITION BY ct.user_id
+            ORDER BY ct.wpm DESC
+          ) as user_rank
+        FROM code_typing_tests ct
+        WHERE 1=1 ${languageFilter}
+      ),
+      user_best AS (
+        SELECT user_id, wpm FROM ranked_results WHERE user_rank = 1
+      ),
+      final_ranking AS (
+        SELECT 
+          user_id,
+          wpm,
+          DENSE_RANK() OVER (ORDER BY wpm DESC) as rank
+        FROM user_best
+      )
+      SELECT rank FROM final_ranking WHERE user_id = ${userId}
+    `);
+
+    const userRank = (rankResult.rows[0] as any)?.rank || -1;
+    
+    if (userRank === -1) {
+      return { userRank: -1, entries: [] };
+    }
+
+    const startRank = Math.max(1, userRank - range);
+    const endRank = userRank + range;
+
+    const entries = await db.execute(sql`
+      WITH ranked_results AS (
+        SELECT 
+          ct.user_id,
+          ct.wpm,
+          ct.accuracy,
+          ct.programming_language,
+          ct.framework,
+          ct.created_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY ct.user_id
+            ORDER BY ct.wpm DESC
+          ) as user_rank
+        FROM code_typing_tests ct
+        WHERE 1=1 ${languageFilter}
+      ),
+      test_counts AS (
+        SELECT user_id, COUNT(*)::int as total_tests FROM code_typing_tests GROUP BY user_id
+      ),
+      final_ranking AS (
+        SELECT 
+          rr.user_id,
+          rr.wpm,
+          rr.accuracy,
+          rr.programming_language,
+          rr.framework,
+          rr.created_at,
+          tc.total_tests,
+          DENSE_RANK() OVER (ORDER BY rr.wpm DESC) as rank
+        FROM ranked_results rr
+        LEFT JOIN test_counts tc ON rr.user_id = tc.user_id
+        WHERE rr.user_rank = 1
+      )
+      SELECT 
+        fr.user_id as "userId",
+        u.username,
+        fr.wpm,
+        fr.accuracy,
+        fr.programming_language as "programmingLanguage",
+        fr.framework,
+        fr.created_at as "createdAt",
+        u.avatar_color as "avatarColor",
+        COALESCE(fr.total_tests, 1) as "totalTests",
+        fr.rank
+      FROM final_ranking fr
+      INNER JOIN users u ON fr.user_id = u.id
+      WHERE fr.rank >= ${startRank} AND fr.rank <= ${endRank}
+      ORDER BY fr.rank ASC
+    `);
+
+    return { userRank, entries: entries.rows as any[] };
+  }
+
+  async getRatingLeaderboardPaginated(tier: string | undefined, limit: number, offset: number): Promise<any[]> {
+    let query = db.select().from(userRatings);
+    
+    if (tier) {
+      query = query.where(eq(userRatings.tier, tier)) as typeof query;
+    }
+    
+    const ratings = await query
+      .orderBy(desc(userRatings.rating))
+      .limit(limit)
+      .offset(offset);
+    
+    const enrichedRatings = await Promise.all(
+      ratings.map(async (rating, index) => {
+        const user = await this.getUser(rating.userId);
+        return {
+          ...rating,
+          username: user?.username || "Unknown",
+          avatarColor: user?.avatarColor,
+          rank: offset + index + 1,
+        };
+      })
+    );
+
+    return enrichedRatings;
+  }
+
+  async getRatingLeaderboardCount(tier?: string): Promise<number> {
+    let query = db.select({ count: sql<number>`count(*)::int` }).from(userRatings);
+    
+    if (tier) {
+      query = query.where(eq(userRatings.tier, tier)) as typeof query;
+    }
+    
+    const result = await query;
+    return result[0]?.count || 0;
+  }
+
+  async getRatingLeaderboardAroundUser(userId: string, tier: string | undefined, range: number = 5): Promise<{ userRank: number; entries: any[] }> {
+    const tierFilter = tier ? sql`WHERE tier = ${tier}` : sql``;
+    
+    const rankResult = await db.execute(sql`
+      WITH ranked_ratings AS (
+        SELECT 
+          user_id,
+          rating,
+          DENSE_RANK() OVER (ORDER BY rating DESC) as rank
+        FROM user_ratings
+        ${tierFilter}
+      )
+      SELECT rank FROM ranked_ratings WHERE user_id = ${userId}
+    `);
+
+    const userRank = (rankResult.rows[0] as any)?.rank || -1;
+    
+    if (userRank === -1) {
+      return { userRank: -1, entries: [] };
+    }
+
+    const startRank = Math.max(1, userRank - range);
+    const endRank = userRank + range;
+
+    const entries = await db.execute(sql`
+      WITH ranked_ratings AS (
+        SELECT 
+          ur.user_id,
+          ur.rating,
+          ur.tier,
+          ur.total_races,
+          ur.wins,
+          ur.losses,
+          DENSE_RANK() OVER (ORDER BY ur.rating DESC) as rank
+        FROM user_ratings ur
+        ${tierFilter}
+      )
+      SELECT 
+        rr.user_id as "userId",
+        u.username,
+        rr.rating,
+        rr.tier,
+        rr.total_races as "totalRaces",
+        rr.wins,
+        rr.losses,
+        u.avatar_color as "avatarColor",
+        rr.rank
+      FROM ranked_ratings rr
+      INNER JOIN users u ON rr.user_id = u.id
+      WHERE rr.rank >= ${startRank} AND rr.rank <= ${endRank}
+      ORDER BY rr.rank ASC
+    `);
+
+    return { userRank, entries: entries.rows as any[] };
+  }
+
+  async getDictationLeaderboardPaginated(limit: number, offset: number): Promise<Array<{
+    userId: string;
+    username: string;
+    wpm: number;
+    accuracy: number;
+    speedLevel: string;
+    createdAt: Date;
+    avatarColor: string | null;
+    totalTests: number;
+    rank: number;
+  }>> {
+    const leaderboard = await db.execute(sql`
+      WITH ranked_results AS (
+        SELECT 
+          dt.user_id,
+          dt.wpm,
+          dt.accuracy,
+          dt.speed_level,
+          dt.created_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY dt.user_id 
+            ORDER BY dt.wpm DESC, dt.created_at DESC
+          ) as user_rank
+        FROM dictation_tests dt
+      ),
+      test_counts AS (
+        SELECT user_id, COUNT(*)::int as total_tests FROM dictation_tests GROUP BY user_id
+      ),
+      final_ranking AS (
+        SELECT 
+          rr.user_id,
+          rr.wpm,
+          rr.accuracy,
+          rr.speed_level,
+          rr.created_at,
+          tc.total_tests,
+          DENSE_RANK() OVER (ORDER BY rr.wpm DESC, rr.created_at ASC) as rank
+        FROM ranked_results rr
+        LEFT JOIN test_counts tc ON rr.user_id = tc.user_id
+        WHERE rr.user_rank = 1
+      )
+      SELECT 
+        fr.user_id as "userId",
+        u.username,
+        fr.wpm,
+        fr.accuracy,
+        fr.speed_level as "speedLevel",
+        fr.created_at as "createdAt",
+        u.avatar_color as "avatarColor",
+        COALESCE(fr.total_tests, 1) as "totalTests",
+        fr.rank
+      FROM final_ranking fr
+      INNER JOIN users u ON fr.user_id = u.id
+      ORDER BY fr.rank ASC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `);
+
+    return leaderboard.rows as any[];
+  }
+
+  async getDictationLeaderboardCount(): Promise<number> {
+    const result = await db.execute(sql`
+      SELECT COUNT(DISTINCT user_id)::int as count FROM dictation_tests
+    `);
+    
+    return (result.rows[0] as any)?.count || 0;
+  }
+
+  async getDictationLeaderboardAroundUser(userId: string, range: number = 5): Promise<{ userRank: number; entries: any[] }> {
+    const rankResult = await db.execute(sql`
+      WITH ranked_results AS (
+        SELECT 
+          dt.user_id,
+          dt.wpm,
+          ROW_NUMBER() OVER (
+            PARTITION BY dt.user_id
+            ORDER BY dt.wpm DESC
+          ) as user_rank
+        FROM dictation_tests dt
+      ),
+      user_best AS (
+        SELECT user_id, wpm FROM ranked_results WHERE user_rank = 1
+      ),
+      final_ranking AS (
+        SELECT 
+          user_id,
+          wpm,
+          DENSE_RANK() OVER (ORDER BY wpm DESC) as rank
+        FROM user_best
+      )
+      SELECT rank FROM final_ranking WHERE user_id = ${userId}
+    `);
+
+    const userRank = (rankResult.rows[0] as any)?.rank || -1;
+    
+    if (userRank === -1) {
+      return { userRank: -1, entries: [] };
+    }
+
+    const startRank = Math.max(1, userRank - range);
+    const endRank = userRank + range;
+
+    const entries = await db.execute(sql`
+      WITH ranked_results AS (
+        SELECT 
+          dt.user_id,
+          dt.wpm,
+          dt.accuracy,
+          dt.speed_level,
+          dt.created_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY dt.user_id
+            ORDER BY dt.wpm DESC
+          ) as user_rank
+        FROM dictation_tests dt
+      ),
+      test_counts AS (
+        SELECT user_id, COUNT(*)::int as total_tests FROM dictation_tests GROUP BY user_id
+      ),
+      final_ranking AS (
+        SELECT 
+          rr.user_id,
+          rr.wpm,
+          rr.accuracy,
+          rr.speed_level,
+          rr.created_at,
+          tc.total_tests,
+          DENSE_RANK() OVER (ORDER BY rr.wpm DESC) as rank
+        FROM ranked_results rr
+        LEFT JOIN test_counts tc ON rr.user_id = tc.user_id
+        WHERE rr.user_rank = 1
+      )
+      SELECT 
+        fr.user_id as "userId",
+        u.username,
+        fr.wpm,
+        fr.accuracy,
+        fr.speed_level as "speedLevel",
+        fr.created_at as "createdAt",
+        u.avatar_color as "avatarColor",
+        COALESCE(fr.total_tests, 1) as "totalTests",
+        fr.rank
+      FROM final_ranking fr
+      INNER JOIN users u ON fr.user_id = u.id
+      WHERE fr.rank >= ${startRank} AND fr.rank <= ${endRank}
+      ORDER BY fr.rank ASC
+    `);
+
+    return { userRank, entries: entries.rows as any[] };
+  }
+
+  async getTimeBasedLeaderboard(timeframe: "daily" | "weekly" | "monthly", limit: number, offset: number): Promise<Array<{
+    userId: string;
+    username: string;
+    wpm: number;
+    accuracy: number;
+    createdAt: Date;
+    avatarColor: string | null;
+    testsInPeriod: number;
+    rank: number;
+  }>> {
+    const dateFilter = this.getTimeframeDateFilter(timeframe);
+    
+    const leaderboard = await db.execute(sql`
+      WITH period_results AS (
+        SELECT 
+          tr.user_id,
+          tr.wpm,
+          tr.accuracy,
+          tr.created_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY tr.user_id 
+            ORDER BY tr.wpm DESC, tr.created_at DESC
+          ) as user_rank
+        FROM test_results tr
+        WHERE tr.created_at >= ${dateFilter}
+      ),
+      test_counts AS (
+        SELECT 
+          user_id,
+          COUNT(*)::int as tests_in_period
+        FROM test_results
+        WHERE created_at >= ${dateFilter}
+        GROUP BY user_id
+      ),
+      final_ranking AS (
+        SELECT 
+          pr.user_id,
+          pr.wpm,
+          pr.accuracy,
+          pr.created_at,
+          tc.tests_in_period,
+          DENSE_RANK() OVER (ORDER BY pr.wpm DESC, pr.created_at ASC) as rank
+        FROM period_results pr
+        LEFT JOIN test_counts tc ON pr.user_id = tc.user_id
+        WHERE pr.user_rank = 1
+      )
+      SELECT 
+        fr.user_id as "userId",
+        u.username,
+        fr.wpm,
+        fr.accuracy,
+        fr.created_at as "createdAt",
+        u.avatar_color as "avatarColor",
+        COALESCE(fr.tests_in_period, 1) as "testsInPeriod",
+        fr.rank
+      FROM final_ranking fr
+      INNER JOIN users u ON fr.user_id = u.id
+      ORDER BY fr.rank ASC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `);
+
+    return leaderboard.rows as any[];
+  }
+
+  async getTimeBasedLeaderboardCount(timeframe: "daily" | "weekly" | "monthly"): Promise<number> {
+    const dateFilter = this.getTimeframeDateFilter(timeframe);
+    
+    const result = await db.execute(sql`
+      SELECT COUNT(DISTINCT user_id)::int as count
+      FROM test_results
+      WHERE created_at >= ${dateFilter}
+    `);
+    
+    return (result.rows[0] as any)?.count || 0;
+  }
+
+  private getTimeframeDateFilter(timeframe?: string): Date {
+    const now = new Date();
+    
+    switch (timeframe) {
+      case "daily":
+        const today = new Date(now);
+        today.setHours(0, 0, 0, 0);
+        return today;
+      case "weekly":
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        return weekStart;
+      case "monthly":
+        return new Date(now.getFullYear(), now.getMonth(), 1);
+      default:
+        return new Date(0);
+    }
   }
 
   async getPlatformStats(): Promise<{

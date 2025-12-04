@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { leaderboardCache } from "./leaderboard-cache";
 import { streamChatCompletionWithSearch, shouldPerformWebSearch, generateConversationTitle, type ChatMessage, type StreamEvent } from "./chat-service";
 import { generateTypingParagraph } from "./ai-paragraph-generator";
 import { generateCodeSnippet } from "./ai-code-generator";
@@ -615,12 +616,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/leaderboard", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
-      const leaderboard = await storage.getLeaderboard(limit);
-      res.json({ leaderboard });
+      const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+      const cursor = req.query.cursor as string | undefined;
+      const timeframe = (req.query.timeframe as string) || "all";
+      
+      const actualOffset = cursor ? leaderboardCache.decodeCursor(cursor) : offset;
+      
+      const result = await leaderboardCache.getGlobalLeaderboard({
+        timeframe: timeframe as any,
+        limit,
+        offset: actualOffset,
+      });
+      
+      res.set('Cache-Control', 'public, max-age=30');
+      res.set('X-Cache', result.metadata.cacheHit ? 'HIT' : 'MISS');
+      res.set('X-Total-Count', String(result.pagination.total));
+      
+      res.json(result);
     } catch (error: any) {
       console.error("Get leaderboard error:", error);
       res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  app.get("/api/leaderboard/around-me", isAuthenticated, async (req, res) => {
+    try {
+      const range = Math.min(Math.max(1, parseInt(req.query.range as string) || 5), 20);
+      
+      const result = await leaderboardCache.getAroundMe("global", req.user!.id, { range });
+      
+      res.set('Cache-Control', 'private, max-age=10');
+      res.set('X-Cache', result.cacheHit ? 'HIT' : 'MISS');
+      
+      res.json({
+        userRank: result.userRank,
+        entries: result.entries,
+      });
+    } catch (error: any) {
+      console.error("Get leaderboard around me error:", error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  app.get("/api/leaderboard/time-based", async (req, res) => {
+    try {
+      const timeframe = req.query.timeframe as "daily" | "weekly" | "monthly";
+      const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+      
+      if (!["daily", "weekly", "monthly"].includes(timeframe)) {
+        return res.status(400).json({ message: "Invalid timeframe. Must be daily, weekly, or monthly" });
+      }
+      
+      const entries = await storage.getTimeBasedLeaderboard(timeframe, limit, offset);
+      const total = await storage.getTimeBasedLeaderboardCount(timeframe);
+      
+      res.set('Cache-Control', 'public, max-age=60');
+      
+      res.json({
+        entries,
+        pagination: {
+          total,
+          limit,
+          offset,
+          hasMore: offset + entries.length < total,
+        },
+        metadata: {
+          timeframe,
+          lastUpdated: Date.now(),
+        },
+      });
+    } catch (error: any) {
+      console.error("Get time-based leaderboard error:", error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  app.get("/api/leaderboard/cache-stats", async (req, res) => {
+    try {
+      const stats = leaderboardCache.getStats();
+      res.json({ stats });
+    } catch (error: any) {
+      console.error("Get cache stats error:", error);
+      res.status(500).json({ message: "Failed to fetch cache stats" });
     }
   });
 
@@ -1759,31 +1838,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/ratings/leaderboard", ratingLimiter, async (req, res) => {
     try {
       const tier = req.query.tier as string | undefined;
-      const limitParam = req.query.limit ? parseInt(req.query.limit as string) : 50;
-      const limit = Math.min(Math.max(1, limitParam), 100);
+      const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 50), 100);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+      const cursor = req.query.cursor as string | undefined;
       
       if (tier && !["bronze", "silver", "gold", "platinum", "diamond", "master", "grandmaster"].includes(tier)) {
         return res.status(400).json({ message: "Invalid tier" });
       }
       
-      const ratings = await storage.getRatingLeaderboard(tier, limit);
+      const actualOffset = cursor ? leaderboardCache.decodeCursor(cursor) : offset;
+      
+      const result = await leaderboardCache.getRatingLeaderboard({
+        tier,
+        limit,
+        offset: actualOffset,
+      });
       
       const { eloRatingService } = await import("./elo-rating-service");
-      const enrichedRatings = await Promise.all(
-        ratings.map(async (rating) => {
-          const user = await storage.getUser(rating.userId);
-          return {
-            ...rating,
-            username: user?.username || "Unknown",
-            avatarColor: user?.avatarColor,
-            tierInfo: eloRatingService.getTierInfo(rating.tier),
-          };
-        })
-      );
+      const enrichedEntries = result.entries.map((entry: any) => ({
+        ...entry,
+        tierInfo: eloRatingService.getTierInfo(entry.tier),
+      }));
+      
+      res.set('Cache-Control', 'public, max-age=15');
+      res.set('X-Cache', result.metadata.cacheHit ? 'HIT' : 'MISS');
+      res.set('X-Total-Count', String(result.pagination.total));
 
-      res.json({ leaderboard: enrichedRatings });
+      res.json({
+        ...result,
+        entries: enrichedEntries,
+      });
     } catch (error: any) {
       console.error("Get rating leaderboard error:", error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  app.get("/api/ratings/leaderboard/around-me", isAuthenticated, ratingLimiter, async (req, res) => {
+    try {
+      const tier = req.query.tier as string | undefined;
+      const range = Math.min(Math.max(1, parseInt(req.query.range as string) || 5), 20);
+      
+      const result = await leaderboardCache.getAroundMe("rating", req.user!.id, { tier, range });
+      
+      res.set('Cache-Control', 'private, max-age=10');
+      res.set('X-Cache', result.cacheHit ? 'HIT' : 'MISS');
+      
+      res.json({
+        userRank: result.userRank,
+        entries: result.entries,
+      });
+    } catch (error: any) {
+      console.error("Get rating leaderboard around me error:", error);
       res.status(500).json({ message: "Failed to fetch leaderboard" });
     }
   });
@@ -2118,12 +2224,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/code/leaderboard", async (req, res) => {
     try {
       const language = req.query.language as string | undefined;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
-      const leaderboard = await storage.getCodeLeaderboard(language, limit);
-      res.json({ leaderboard });
+      const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+      const cursor = req.query.cursor as string | undefined;
+      
+      const actualOffset = cursor ? leaderboardCache.decodeCursor(cursor) : offset;
+      
+      const result = await leaderboardCache.getCodeLeaderboard({
+        language,
+        limit,
+        offset: actualOffset,
+      });
+      
+      res.set('Cache-Control', 'public, max-age=30');
+      res.set('X-Cache', result.metadata.cacheHit ? 'HIT' : 'MISS');
+      res.set('X-Total-Count', String(result.pagination.total));
+      
+      res.json(result);
     } catch (error: any) {
       console.error("Get code leaderboard error:", error);
       res.status(500).json({ message: "Failed to fetch code leaderboard" });
+    }
+  });
+
+  app.get("/api/code/leaderboard/around-me", isAuthenticated, async (req, res) => {
+    try {
+      const language = req.query.language as string | undefined;
+      const range = Math.min(Math.max(1, parseInt(req.query.range as string) || 5), 20);
+      
+      const result = await leaderboardCache.getAroundMe("code", req.user!.id, { language, range });
+      
+      res.set('Cache-Control', 'private, max-age=10');
+      res.set('X-Cache', result.cacheHit ? 'HIT' : 'MISS');
+      
+      res.json({
+        userRank: result.userRank,
+        entries: result.entries,
+      });
+    } catch (error: any) {
+      console.error("Get code leaderboard around me error:", error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
     }
   });
 
@@ -2641,12 +2781,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/dictation/leaderboard", async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const leaderboard = await storage.getDictationLeaderboard(limit);
-      res.json({ leaderboard });
+      const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+      const cursor = req.query.cursor as string | undefined;
+      
+      const actualOffset = cursor ? leaderboardCache.decodeCursor(cursor) : offset;
+      
+      const result = await leaderboardCache.getDictationLeaderboard({
+        limit,
+        offset: actualOffset,
+      });
+      
+      res.set('Cache-Control', 'public, max-age=30');
+      res.set('X-Cache', result.metadata.cacheHit ? 'HIT' : 'MISS');
+      res.set('X-Total-Count', String(result.pagination.total));
+      
+      res.json(result);
     } catch (error: any) {
       console.error("Get dictation leaderboard error:", error);
       res.status(500).json({ message: "Failed to fetch dictation leaderboard" });
+    }
+  });
+
+  app.get("/api/dictation/leaderboard/around-me", isAuthenticated, async (req, res) => {
+    try {
+      const range = Math.min(Math.max(1, parseInt(req.query.range as string) || 5), 20);
+      
+      const result = await leaderboardCache.getAroundMe("dictation", req.user!.id, { range });
+      
+      res.set('Cache-Control', 'private, max-age=10');
+      res.set('X-Cache', result.cacheHit ? 'HIT' : 'MISS');
+      
+      res.json({
+        userRank: result.userRank,
+        entries: result.entries,
+      });
+    } catch (error: any) {
+      console.error("Get dictation leaderboard around me error:", error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
     }
   });
 
@@ -2798,41 +2970,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Simple in-memory cache for leaderboard (5 second TTL)
-  const leaderboardCache = new Map<string, { data: any; timestamp: number }>();
-  const LEADERBOARD_CACHE_TTL_MS = 5000; // 5 seconds
-
   app.get("/api/stress-test/leaderboard", async (req, res) => {
     try {
       const difficulty = req.query.difficulty as string | undefined;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 50), 100);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+      const cursor = req.query.cursor as string | undefined;
       
-      // Create cache key from query parameters
-      const cacheKey = `${difficulty || 'all'}:${limit}`;
-      const cached = leaderboardCache.get(cacheKey);
+      const actualOffset = cursor ? leaderboardCache.decodeCursor(cursor) : offset;
       
-      // Return cached data if still valid
-      if (cached && Date.now() - cached.timestamp < LEADERBOARD_CACHE_TTL_MS) {
-        res.set('X-Cache', 'HIT');
-        return res.json({ leaderboard: cached.data });
-      }
+      const result = await leaderboardCache.getStressLeaderboard({
+        difficulty,
+        limit,
+        offset: actualOffset,
+      });
       
-      // Fetch fresh data
-      const leaderboard = await storage.getStressTestLeaderboard(difficulty, limit);
+      res.set('Cache-Control', 'public, max-age=5');
+      res.set('X-Cache', result.metadata.cacheHit ? 'HIT' : 'MISS');
+      res.set('X-Total-Count', String(result.pagination.total));
       
-      // Update cache
-      leaderboardCache.set(cacheKey, { data: leaderboard, timestamp: Date.now() });
-      
-      // Clean up old cache entries (keep only 10 most recent)
-      if (leaderboardCache.size > 10) {
-        const oldestKey = leaderboardCache.keys().next().value;
-        if (oldestKey) leaderboardCache.delete(oldestKey);
-      }
-      
-      res.set('X-Cache', 'MISS');
-      res.json({ leaderboard });
+      res.json(result);
     } catch (error: any) {
       console.error("Get stress test leaderboard error:", error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  app.get("/api/stress-test/leaderboard/around-me", isAuthenticated, async (req, res) => {
+    try {
+      const difficulty = req.query.difficulty as string | undefined;
+      const range = Math.min(Math.max(1, parseInt(req.query.range as string) || 5), 20);
+      
+      const result = await leaderboardCache.getAroundMe("stress", req.user!.id, { difficulty, range });
+      
+      res.set('Cache-Control', 'private, max-age=10');
+      res.set('X-Cache', result.cacheHit ? 'HIT' : 'MISS');
+      
+      res.json({
+        userRank: result.userRank,
+        entries: result.entries,
+      });
+    } catch (error: any) {
+      console.error("Get stress leaderboard around me error:", error);
       res.status(500).json({ message: "Failed to fetch leaderboard" });
     }
   });
