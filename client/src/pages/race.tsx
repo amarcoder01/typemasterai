@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film } from "lucide-react";
+import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -861,6 +861,8 @@ export default function RacePage() {
   const [ratingInfo, setRatingInfo] = useState<RatingInfo | null>(null);
   const [showFinishBanner, setShowFinishBanner] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [transitionMessage, setTransitionMessage] = useState("");
   const [finishBannerData, setFinishBannerData] = useState<{
     position: number | null;
     totalPlayers: number;
@@ -1351,6 +1353,7 @@ export default function RacePage() {
         break;
       case "countdown_start":
         setIsStarting(false);
+        setIsTransitioning(false);
         setCountdown(message.countdown);
         if (message.participants) {
           setParticipants(message.participants);
@@ -1500,9 +1503,11 @@ export default function RacePage() {
   }
 
   function startRace() {
-    if (!participants.length || isStarting) return;
+    if (!participants.length || isStarting || isTransitioning) return;
     
     setIsStarting(true);
+    setIsTransitioning(true);
+    setTransitionMessage("Preparing race...");
     sendWsMessage({
       type: "ready",
       raceId: race?.id,
@@ -1544,6 +1549,26 @@ export default function RacePage() {
         message={loadingMessage}
         subMessage="Connecting to race server..."
       />
+    );
+  }
+
+  // Handle transition state (starting race)
+  if (isTransitioning) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-6">
+          <div className="relative">
+            <div className="h-20 w-20 mx-auto rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Zap className="h-8 w-8 text-primary animate-pulse" />
+            </div>
+          </div>
+          <div>
+            <p className="text-2xl font-bold">{transitionMessage}</p>
+            <p className="text-muted-foreground mt-2">Get ready to type!</p>
+          </div>
+        </div>
+      </div>
     );
   }
 
