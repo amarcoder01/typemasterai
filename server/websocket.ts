@@ -974,14 +974,33 @@ class RaceWebSocketServer {
       
       console.log(`[Bot Chat] ${eligibleBots.length} bots eligible to respond`);
 
-      // Determine how many bots respond (1-3 for humans, 1-2 for bot chains)
-      const maxResponders = senderIsBot ? Math.min(2, eligibleBots.length) : Math.min(3, eligibleBots.length);
-      const numResponders = Math.max(1, Math.floor(Math.random() * maxResponders) + 1);
+      // Realistic response behavior - not everyone responds every time
+      // 25% chance no one responds (like real group chats)
+      if (Math.random() < 0.25) {
+        console.log(`[Bot Chat] No one responded (realistic silence)`);
+        return;
+      }
       
-      // If sender is bot, reduce response probability
-      if (senderIsBot && Math.random() > 0.5) {
+      // If sender is bot, 60% chance to skip (bots don't always reply to bots)
+      if (senderIsBot && Math.random() < 0.6) {
         console.log(`[Bot Chat] Skipping bot-to-bot response (random)`);
         return;
+      }
+
+      // Realistic distribution: 50% chance 1 bot, 35% chance 2 bots, 15% chance 3 bots
+      const roll = Math.random();
+      let numResponders: number;
+      if (roll < 0.50) {
+        numResponders = 1;
+      } else if (roll < 0.85) {
+        numResponders = Math.min(2, eligibleBots.length);
+      } else {
+        numResponders = Math.min(3, eligibleBots.length);
+      }
+      
+      // For bot chains, max 1-2 responders
+      if (senderIsBot) {
+        numResponders = Math.min(numResponders, Math.random() < 0.7 ? 1 : 2);
       }
 
       // Shuffle and select bots
