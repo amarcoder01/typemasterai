@@ -20,7 +20,64 @@ interface BotProfile {
   avatarColor: string;
   targetWPM: number;
   accuracy: number;
+  personality: 'friendly' | 'competitive' | 'casual' | 'encouraging';
+  lastChatTime: number;
 }
+
+const BOT_CHAT_RESPONSES = {
+  greetings: [
+    "Hey! Good luck! 🎯",
+    "Hi there! Ready to type fast?",
+    "Hello! May the fastest fingers win!",
+    "Hey! Let's have a great race!",
+    "Hi! I'm warmed up and ready! 💪",
+  ],
+  encouragement: [
+    "You're doing great!",
+    "Keep going! 💪",
+    "Nice typing speed!",
+    "Looking good!",
+    "You've got this!",
+    "Stay focused! 🎯",
+  ],
+  competitive: [
+    "Catch me if you can! 😄",
+    "I'm feeling fast today!",
+    "Let's see who's the fastest!",
+    "Game on! 🔥",
+    "May the best typist win!",
+  ],
+  casual: [
+    "This is fun!",
+    "I love these typing races!",
+    "Practice makes perfect!",
+    "Typing is my cardio 😅",
+    "Another great race!",
+  ],
+  reactions: [
+    "Nice one!",
+    "Woah!",
+    "Impressive!",
+    "Haha! 😄",
+    "That's cool!",
+    "Wow!",
+  ],
+  goodLuck: [
+    "Good luck everyone!",
+    "Best of luck! 🍀",
+    "Let's all do our best!",
+    "Have fun everyone!",
+  ],
+  finishing: [
+    "GG everyone!",
+    "Good race! 🏁",
+    "That was fun!",
+    "Great race everyone!",
+    "Well played!",
+  ],
+};
+
+const BOT_PERSONALITIES = ['friendly', 'competitive', 'casual', 'encouraging'] as const;
 
 class BotService {
   private activeBots: Map<number, NodeJS.Timeout> = new Map();
@@ -84,12 +141,15 @@ class BotService {
     
     const wpmVariation = Math.random() * 20 - 10;
     const accuracyVariation = Math.random() * 4 - 2;
+    const personality = BOT_PERSONALITIES[Math.floor(Math.random() * BOT_PERSONALITIES.length)];
 
     return {
       username,
       avatarColor: avatarColors[Math.floor(Math.random() * avatarColors.length)],
       targetWPM: Math.max(25, Math.round(selectedSkill.targetWPM + wpmVariation)),
       accuracy: Math.max(85, Math.min(99.5, selectedSkill.accuracy + accuracyVariation)),
+      personality,
+      lastChatTime: 0,
     };
   }
 
@@ -230,6 +290,98 @@ class BotService {
       this.botParagraphLengths.set(participantId, newLength);
       console.log(`[Bot Typing] Updated paragraph length for bot ${participantId} to ${newLength}`);
     }
+  }
+
+  private getRandomResponse(category: keyof typeof BOT_CHAT_RESPONSES): string {
+    const responses = BOT_CHAT_RESPONSES[category];
+    return responses[Math.floor(Math.random() * responses.length)];
+  }
+
+  private detectMessageIntent(content: string): keyof typeof BOT_CHAT_RESPONSES {
+    const lower = content.toLowerCase();
+    
+    if (/\b(hi|hello|hey|sup|yo|hola|greetings)\b/.test(lower)) {
+      return 'greetings';
+    }
+    if (/\b(good\s*luck|gl|best of luck|fingers crossed)\b/.test(lower)) {
+      return 'goodLuck';
+    }
+    if (/\b(gg|good\s*game|well\s*played|nice\s*race|great\s*race)\b/.test(lower)) {
+      return 'finishing';
+    }
+    if (/\b(nice|great|awesome|cool|wow|amazing|impressive)\b/.test(lower)) {
+      return 'reactions';
+    }
+    if (/\b(let'?s\s*go|come\s*on|race|challenge|beat|fast)\b/.test(lower)) {
+      return 'competitive';
+    }
+    if (/\b(you\s*can|keep|going|try|practice|effort)\b/.test(lower)) {
+      return 'encouragement';
+    }
+    
+    return 'casual';
+  }
+
+  generateBotChatResponse(
+    participantId: number,
+    incomingContent: string,
+    raceStatus: string
+  ): { shouldRespond: boolean; response?: string; botUsername?: string } {
+    const profile = this.botProfiles.get(participantId);
+    if (!profile) {
+      return { shouldRespond: false };
+    }
+
+    const now = Date.now();
+    const timeSinceLastChat = now - profile.lastChatTime;
+    const MIN_CHAT_INTERVAL = 15000;
+    
+    if (timeSinceLastChat < MIN_CHAT_INTERVAL) {
+      return { shouldRespond: false };
+    }
+
+    const responseChance = profile.personality === 'friendly' ? 0.7 :
+                           profile.personality === 'competitive' ? 0.5 :
+                           profile.personality === 'encouraging' ? 0.6 : 0.4;
+
+    if (Math.random() > responseChance) {
+      return { shouldRespond: false };
+    }
+
+    let responseCategory = this.detectMessageIntent(incomingContent);
+    
+    if (profile.personality === 'competitive' && Math.random() > 0.5) {
+      responseCategory = 'competitive';
+    } else if (profile.personality === 'encouraging' && Math.random() > 0.5) {
+      responseCategory = 'encouragement';
+    }
+
+    profile.lastChatTime = now;
+
+    return {
+      shouldRespond: true,
+      response: this.getRandomResponse(responseCategory),
+      botUsername: profile.username,
+    };
+  }
+
+  getBotsInRace(participantIds: number[]): { participantId: number; username: string }[] {
+    const bots: { participantId: number; username: string }[] = [];
+    for (const id of participantIds) {
+      const profile = this.botProfiles.get(id);
+      if (profile) {
+        bots.push({ participantId: id, username: profile.username });
+      }
+    }
+    return bots;
+  }
+
+  isBot(participantId: number): boolean {
+    return this.botProfiles.has(participantId);
+  }
+
+  getBotProfile(participantId: number): BotProfile | undefined {
+    return this.botProfiles.get(participantId);
   }
 }
 

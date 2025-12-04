@@ -379,6 +379,38 @@ class RaceWebSocketServer {
     }));
 
     this.updateStats();
+
+    if (!isReconnect && race.status === "waiting") {
+      await this.addBotsIfNeeded(raceId, race, participants);
+    }
+  }
+
+  private async addBotsIfNeeded(raceId: number, race: any, participants: any[]) {
+    const humanCount = participants.filter((p: any) => p.isBot === 0).length;
+    const botCount = participants.filter((p: any) => p.isBot === 1).length;
+    
+    if (humanCount > 0 && botCount === 0 && participants.length < race.maxPlayers) {
+      const botsNeeded = Math.min(3, race.maxPlayers - participants.length);
+      
+      if (botsNeeded > 0) {
+        console.log(`[Bot Lobby] Adding ${botsNeeded} bots to race ${raceId} in waiting room`);
+        const bots = await botService.addBotsToRace(raceId, botsNeeded);
+        console.log(`[Bot Lobby] Added ${bots.length} bots:`, bots.map(b => b.username).join(', '));
+        
+        this.broadcastToRace(raceId, {
+          type: "bots_added",
+          bots,
+        });
+        
+        const updatedParticipants = await storage.getRaceParticipants(raceId);
+        raceCache.updateParticipants(raceId, updatedParticipants);
+        
+        this.broadcastToRace(raceId, {
+          type: "participants_sync",
+          participants: updatedParticipants,
+        });
+      }
+    }
   }
 
   private async handleReady(message: any) {
@@ -865,9 +897,171 @@ class RaceWebSocketServer {
           createdAt: chatMessage.createdAt,
         },
       });
+
+      this.triggerBotChatResponses(raceId, sanitizedContent);
     } catch (error) {
       console.error("[Chat] Message save error:", error);
     }
+  }
+
+  private raceChatCooldowns: Map<number, number> = new Map();
+  private readonly BOT_CHAT_COOLDOWN_MS = 15000;
+
+  private async triggerBotChatResponses(raceId: number, humanMessage: string) {
+    try {
+      const race = await storage.getRace(raceId);
+      if (!race) {
+        console.log(`[Bot Chat] Race ${raceId} not found`);
+        return;
+      }
+
+      if (race.status === "finished" || race.status === "abandoned") {
+        console.log(`[Bot Chat] Race ${raceId} is ${race.status}, skipping bot response`);
+        return;
+      }
+
+      const now = Date.now();
+      const lastRaceChat = this.raceChatCooldowns.get(raceId) || 0;
+      if (now - lastRaceChat < this.BOT_CHAT_COOLDOWN_MS) {
+        console.log(`[Bot Chat] Race ${raceId} is on cooldown, skipping`);
+        return;
+      }
+
+      const participants = await storage.getRaceParticipants(raceId);
+      const botParticipants = participants.filter(p => p.isBot === 1);
+
+      console.log(`[Bot Chat] Race ${raceId} has ${botParticipants.length} bot participants`);
+
+      if (botParticipants.length === 0) return;
+
+      const respondingBot = botParticipants[Math.floor(Math.random() * botParticipants.length)];
+      console.log(`[Bot Chat] Selected bot ${respondingBot.username} (${respondingBot.id}) to potentially respond`);
+
+      const hasProfile = botService.isBot(respondingBot.id);
+      
+      if (hasProfile) {
+        const chatResponse = botService.generateBotChatResponse(
+          respondingBot.id,
+          humanMessage,
+          race.status
+        );
+
+        console.log(`[Bot Chat] Bot response decision: shouldRespond=${chatResponse.shouldRespond}`);
+
+        if (!chatResponse.shouldRespond || !chatResponse.response) {
+          return;
+        }
+
+        this.raceChatCooldowns.set(raceId, now);
+        const delay = 1000 + Math.random() * 2000;
+
+        setTimeout(async () => {
+          try {
+            const currentRace = await storage.getRace(raceId);
+            if (!currentRace || currentRace.status === "finished" || currentRace.status === "abandoned") {
+              console.log(`[Bot Chat] Race ${raceId} ended, skipping delayed response`);
+              return;
+            }
+
+            const botChatMessage = await storage.createRaceChatMessage({
+              raceId,
+              participantId: respondingBot.id,
+              messageType: "text",
+              content: chatResponse.response!,
+            });
+
+            this.broadcastToRace(raceId, {
+              type: "chat_message",
+              message: {
+                id: botChatMessage.id,
+                participantId: respondingBot.id,
+                username: chatResponse.botUsername || respondingBot.username,
+                content: chatResponse.response,
+                messageType: "text",
+                createdAt: botChatMessage.createdAt,
+                isBot: true,
+              },
+            });
+
+            console.log(`[Bot Chat] ${chatResponse.botUsername} responded in race ${raceId}: "${chatResponse.response}"`);
+          } catch (error) {
+            console.error("[Bot Chat] Failed to send bot response:", error);
+          }
+        }, delay);
+      } else {
+        console.log(`[Bot Chat] Bot ${respondingBot.username} (${respondingBot.id}) has no profile, using fallback`);
+        await this.sendDirectBotResponse(raceId, respondingBot);
+      }
+    } catch (error) {
+      console.error("[Bot Chat] Error triggering bot responses:", error);
+    }
+  }
+
+  private async sendDirectBotResponse(raceId: number, bot: any) {
+    const now = Date.now();
+    const lastRaceChat = this.raceChatCooldowns.get(raceId) || 0;
+    
+    if (now - lastRaceChat < this.BOT_CHAT_COOLDOWN_MS) {
+      console.log(`[Bot Chat] Race ${raceId} is on cooldown for fallback, skipping`);
+      return;
+    }
+
+    const responseChance = 0.6;
+    if (Math.random() > responseChance) {
+      console.log(`[Bot Chat] Bot ${bot.username} decided not to respond (random chance)`);
+      return;
+    }
+
+    this.raceChatCooldowns.set(raceId, now);
+
+    const responses = [
+      "Hey! Good luck! 🎯",
+      "Hi there! Ready to type fast?",
+      "Hello! Let's race!",
+      "Nice! Let's do this! 💪",
+      "Good luck everyone!",
+      "This is fun!",
+      "Let's go! 🔥",
+    ];
+
+    const response = responses[Math.floor(Math.random() * responses.length)];
+    const delay = 1000 + Math.random() * 2000;
+
+    console.log(`[Bot Chat] Direct response scheduled for ${bot.username} in ${delay}ms`);
+
+    setTimeout(async () => {
+      try {
+        const currentRace = await storage.getRace(raceId);
+        if (!currentRace || currentRace.status === "finished" || currentRace.status === "abandoned") {
+          console.log(`[Bot Chat] Race ${raceId} ended, skipping delayed fallback response`);
+          return;
+        }
+
+        const botChatMessage = await storage.createRaceChatMessage({
+          raceId,
+          participantId: bot.id,
+          messageType: "text",
+          content: response,
+        });
+
+        this.broadcastToRace(raceId, {
+          type: "chat_message",
+          message: {
+            id: botChatMessage.id,
+            participantId: bot.id,
+            username: bot.username,
+            content: response,
+            messageType: "text",
+            createdAt: botChatMessage.createdAt,
+            isBot: true,
+          },
+        });
+
+        console.log(`[Bot Chat] ${bot.username} responded directly in race ${raceId}: "${response}"`);
+      } catch (error) {
+        console.error("[Bot Chat] Failed to send direct bot response:", error);
+      }
+    }, delay);
   }
 
   private spectators: Map<number, Map<WebSocket, string>> = new Map();
