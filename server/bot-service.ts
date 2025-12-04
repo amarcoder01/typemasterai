@@ -97,7 +97,8 @@ class BotService {
     participantId: number,
     raceId: number,
     paragraphLength: number,
-    broadcastCallback: (data: any) => void
+    broadcastCallback: (data: any) => void,
+    onBotFinished?: (raceId: number, participantId: number, position: number) => void
   ) {
     const profile = this.botProfiles.get(participantId);
     if (!profile) {
@@ -144,6 +145,11 @@ class BotService {
           participantId,
           position,
         });
+        
+        // Notify the race system that a bot finished so it can check if all participants are done
+        if (onBotFinished) {
+          onBotFinished(raceId, participantId, position);
+        }
         
         return;
       }

@@ -497,7 +497,8 @@ class RaceWebSocketServer {
             bot.id,
             raceId,
             freshRace.paragraphContent.length,
-            (data) => this.broadcastToRace(raceId, data)
+            (data) => this.broadcastToRace(raceId, data),
+            (botRaceId, botParticipantId, position) => this.handleBotFinished(botRaceId, botParticipantId, position)
           );
         });
       }
@@ -571,11 +572,14 @@ class RaceWebSocketServer {
       position,
     });
 
-    const updatedCached = raceCache.getRace(raceId);
-    const updatedParticipants = updatedCached?.participants || await storage.getRaceParticipants(raceId);
-    const allFinished = updatedParticipants.every(p => p.isFinished === 1);
+    // Always fetch fresh participants from DB to ensure accurate allFinished check
+    const freshParticipants = await storage.getRaceParticipants(raceId);
+    const allFinished = freshParticipants.every(p => p.isFinished === 1);
+    
+    console.log(`[Human Finish] All finished check: ${allFinished}, participants: ${freshParticipants.map(p => `${p.username}:${p.isFinished}`).join(', ')}`);
 
     if (allFinished) {
+      const updatedParticipants = freshParticipants;
       const finishedAt = new Date();
       await storage.updateRaceStatus(raceId, "finished", undefined, finishedAt);
       raceCache.updateRaceStatus(raceId, "finished", undefined, finishedAt);
@@ -590,6 +594,55 @@ class RaceWebSocketServer {
         results: sortedResults,
       });
 
+      this.processRaceCompletion(raceId, sortedResults).catch(err => {
+        console.error(`[RaceFinish] Error processing race completion:`, err);
+      });
+    }
+  }
+
+  private async handleBotFinished(raceId: number, participantId: number, position: number) {
+    console.log(`[Bot Finish] Bot ${participantId} finished race ${raceId} in position ${position}`);
+    
+    // Check if race already finished
+    const race = await storage.getRace(raceId);
+    if (!race || race.status === "finished") {
+      return; // Race already finished
+    }
+    
+    // Persist bot finish to database (critical for allFinished check)
+    const { position: dbPosition, isNewFinish } = await storage.finishParticipant(participantId);
+    
+    if (!isNewFinish) {
+      console.log(`[Bot Finish] Bot ${participantId} already finished, skipping`);
+      return;
+    }
+    
+    // Update the cache with the bot's finish status
+    raceCache.finishParticipant(raceId, participantId, dbPosition);
+    
+    // Always fetch fresh participants from DB to ensure accurate allFinished check
+    const freshParticipants = await storage.getRaceParticipants(raceId);
+    const allFinished = freshParticipants.every(p => p.isFinished === 1);
+    
+    console.log(`[Bot Finish] All finished check: ${allFinished}, participants: ${freshParticipants.map(p => `${p.username}:${p.isFinished}`).join(', ')}`);
+    
+    if (allFinished) {
+      const finishedAt = new Date();
+      await storage.updateRaceStatus(raceId, "finished", undefined, finishedAt);
+      raceCache.updateRaceStatus(raceId, "finished", undefined, finishedAt);
+      
+      botService.stopAllBotsInRace(raceId, freshParticipants);
+      this.cleanupExtensionState(raceId);
+      
+      const sortedResults = freshParticipants.sort((a, b) => (a.finishPosition || 999) - (b.finishPosition || 999));
+      
+      console.log(`[Bot Finish] Broadcasting race_finished for race ${raceId}`);
+      
+      this.broadcastToRace(raceId, {
+        type: "race_finished",
+        results: sortedResults,
+      });
+      
       this.processRaceCompletion(raceId, sortedResults).catch(err => {
         console.error(`[RaceFinish] Error processing race completion:`, err);
       });
@@ -664,6 +717,16 @@ class RaceWebSocketServer {
         return;
       }
 
+      // Don't extend if any participant has already finished - race should end soon
+      const cachedData = raceCache.getRace(raceId);
+      const participants = cachedData?.participants || await storage.getRaceParticipants(raceId);
+      const hasFinisher = participants.some(p => p.isFinished === 1);
+      
+      if (hasFinisher) {
+        console.log(`[Paragraph Extend] Race ${raceId} has finished participants, skipping extension`);
+        return;
+      }
+
       const additionalParagraph = await storage.getRandomParagraph("english", "quote");
       if (!additionalParagraph) {
         ws.send(JSON.stringify({ type: "error", message: "No additional content available" }));
@@ -690,8 +753,9 @@ class RaceWebSocketServer {
         previousLength,
       });
 
-      const participants = await storage.getRaceParticipants(raceId);
-      const bots = participants.filter(p => p.isBot === 1 && p.isFinished !== 1);
+      // Re-fetch participants to update bots with new paragraph length
+      const currentParticipants = await storage.getRaceParticipants(raceId);
+      const bots = currentParticipants.filter(p => p.isBot === 1 && p.isFinished !== 1);
       
       bots.forEach(bot => {
         botService.updateParagraphLength(bot.id, newTotalLength);

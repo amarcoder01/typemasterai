@@ -691,6 +691,131 @@ function RatingChangeDisplay({ ratingInfo, position }: { ratingInfo: RatingInfo 
   );
 }
 
+function RaceFinishBanner({ 
+  position, 
+  totalPlayers, 
+  wpm, 
+  accuracy, 
+  isWinner,
+  onDismiss 
+}: { 
+  position: number | null; 
+  totalPlayers: number;
+  wpm: number;
+  accuracy: number;
+  isWinner: boolean;
+  onDismiss: () => void;
+}) {
+  const [isVisible, setIsVisible] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+
+  useEffect(() => {
+    setTimeout(() => setIsVisible(true), 100);
+    setTimeout(() => setShowStats(true), 800);
+    
+    if (isWinner) {
+      const duration = 3000;
+      const animationEnd = Date.now() + duration;
+      
+      const runConfetti = () => {
+        confetti({
+          particleCount: 3,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: ['#FFD700', '#FFA500', '#FF6347']
+        });
+        confetti({
+          particleCount: 3,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: ['#FFD700', '#FFA500', '#FF6347']
+        });
+        
+        if (Date.now() < animationEnd) {
+          requestAnimationFrame(runConfetti);
+        }
+      };
+      runConfetti();
+    }
+  }, [isWinner]);
+
+  const getPositionDisplay = () => {
+    if (!position) return { emoji: '🏁', text: 'Race Complete!', color: 'text-blue-400' };
+    switch (position) {
+      case 1: return { emoji: '🏆', text: '1st Place!', color: 'text-yellow-400' };
+      case 2: return { emoji: '🥈', text: '2nd Place!', color: 'text-gray-300' };
+      case 3: return { emoji: '🥉', text: '3rd Place!', color: 'text-amber-600' };
+      default: return { emoji: '🏁', text: `#${position} of ${totalPlayers}`, color: 'text-blue-400' };
+    }
+  };
+
+  const positionInfo = getPositionDisplay();
+
+  return (
+    <div 
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm transition-opacity duration-500 ${isVisible ? 'opacity-100' : 'opacity-0'}`}
+      onClick={onDismiss}
+      data-testid="race-finish-banner"
+    >
+      <div 
+        className={`text-center transform transition-all duration-700 ${isVisible ? 'scale-100 translate-y-0' : 'scale-75 translate-y-10'}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={`text-8xl mb-4 animate-bounce`}>
+          {positionInfo.emoji}
+        </div>
+        
+        <h1 className={`text-5xl md:text-6xl font-bold ${positionInfo.color} mb-2 drop-shadow-lg`}>
+          {positionInfo.text}
+        </h1>
+        
+        {isWinner && (
+          <p className="text-xl text-yellow-300 mb-4 animate-pulse">
+            ✨ Congratulations, Champion! ✨
+          </p>
+        )}
+        
+        <div className={`mt-6 transition-all duration-500 ${showStats ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <div className="flex items-center justify-center gap-8 text-white">
+            <div className="text-center">
+              <div className="text-4xl font-bold text-primary">{wpm}</div>
+              <div className="text-sm text-muted-foreground flex items-center gap-1 justify-center">
+                <Gauge className="h-4 w-4" />
+                WPM
+              </div>
+            </div>
+            <div className="w-px h-12 bg-muted-foreground/30" />
+            <div className="text-center">
+              <div className="text-4xl font-bold text-green-400">{accuracy}%</div>
+              <div className="text-sm text-muted-foreground flex items-center gap-1 justify-center">
+                <Target className="h-4 w-4" />
+                Accuracy
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className={`mt-8 transition-all duration-500 delay-300 ${showStats ? 'opacity-100' : 'opacity-0'}`}>
+          <Button 
+            size="lg" 
+            onClick={onDismiss}
+            className="px-8 py-3 text-lg"
+            data-testid="button-view-results"
+          >
+            <Trophy className="h-5 w-5 mr-2" />
+            View Full Results
+          </Button>
+          <p className="text-xs text-muted-foreground mt-3">
+            Click anywhere to continue
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RacePage() {
   const [, params] = useRoute("/race/:id");
   const [, setLocation] = useLocation();
@@ -733,6 +858,13 @@ export default function RacePage() {
   const extensionThreshold = 0.85;
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [ratingInfo, setRatingInfo] = useState<RatingInfo | null>(null);
+  const [showFinishBanner, setShowFinishBanner] = useState(false);
+  const [finishBannerData, setFinishBannerData] = useState<{
+    position: number | null;
+    totalPlayers: number;
+    wpm: number;
+    accuracy: number;
+  } | null>(null);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -929,6 +1061,39 @@ export default function RacePage() {
       setCharStates(new Array(race.paragraphContent.length).fill('pending'));
     }
   }, [race?.paragraphContent]);
+
+  // Handle case where race is already finished when loaded (e.g., after reconnect or page refresh)
+  useEffect(() => {
+    if (race?.status === "finished" && !showFinishBanner) {
+      console.log("[Race Debug] Detected finished race from API/state");
+      
+      // If participants are empty, refetch race data to get results
+      if (participants.length === 0) {
+        console.log("[Race Debug] No participants loaded, refetching race data");
+        fetchRaceData();
+        return;
+      }
+      
+      console.log("[Race Debug] Showing finish banner with", participants.length, "participants");
+      const sortedParticipants = [...participants].sort((a, b) => (a.finishPosition || 999) - (b.finishPosition || 999));
+      
+      // Try to find my result, or use the first participant if myParticipant is null
+      const myResult = myParticipant 
+        ? sortedParticipants.find(p => p.id === myParticipant.id)
+        : sortedParticipants[0]; // Fallback for when myParticipant isn't loaded
+      
+      if (myResult) {
+        setFinishBannerData({
+          position: myResult.finishPosition || null,
+          totalPlayers: participants.length,
+          wpm: myResult.wpm,
+          accuracy: myResult.accuracy,
+        });
+        setShowFinishBanner(true);
+        setIsRacing(false);
+      }
+    }
+  }, [race?.status, myParticipant, participants, showFinishBanner]);
 
   useEffect(() => {
     if (!race || !myParticipant || myParticipant.isFinished) return;
@@ -1223,24 +1388,15 @@ export default function RacePage() {
           setRace({ ...race, status: "finished" });
         }
         const myResult = message.results.find((p: Participant) => p.id === myParticipant?.id);
-        if (myResult?.finishPosition === 1) {
-          confetti({
-            particleCount: 100,
-            spread: 70,
-            origin: { y: 0.6 }
-          });
-          toast.success("🏆 Congratulations! You won the race!", {
-            duration: 5000,
-          });
-        } else if (myResult?.finishPosition) {
-          toast.success(`Race complete! You finished #${myResult.finishPosition}`, {
-            duration: 4000,
-          });
-        } else {
-          toast.info("Race complete! Check the results.", {
-            duration: 3000,
-          });
-        }
+        
+        setFinishBannerData({
+          position: myResult?.finishPosition || null,
+          totalPlayers: message.results.length,
+          wpm: myResult?.wpm || 0,
+          accuracy: myResult?.accuracy || 0,
+        });
+        setShowFinishBanner(true);
+        
         if (user) {
           fetch("/api/ratings/me")
             .then(res => res.json())
@@ -1559,7 +1715,7 @@ export default function RacePage() {
     );
   }
 
-  if (countdown !== null) {
+  if (countdown !== null || race.status === "countdown") {
     return (
       <TooltipProvider delayDuration={300}>
         <div className="min-h-screen flex items-center justify-center bg-background">
@@ -1586,11 +1742,11 @@ export default function RacePage() {
             
             {/* Countdown number */}
             <div className="text-9xl font-bold text-primary animate-pulse" data-testid="countdown-number">
-              {countdown === 0 ? "GO!" : countdown}
+              {countdown === 0 ? "GO!" : countdown ?? "..."}
             </div>
             
             {/* Dynamic instruction */}
-            {countdown > 0 ? (
+            {countdown === null || countdown > 0 ? (
               <p className="text-muted-foreground text-lg flex items-center justify-center gap-2">
                 <Sparkles className="h-5 w-5" />
                 Position your fingers on the keyboard!
@@ -1935,6 +2091,16 @@ export default function RacePage() {
 
     return (
       <TooltipProvider delayDuration={300}>
+        {showFinishBanner && finishBannerData && (
+          <RaceFinishBanner
+            position={finishBannerData.position}
+            totalPlayers={finishBannerData.totalPlayers}
+            wpm={finishBannerData.wpm}
+            accuracy={finishBannerData.accuracy}
+            isWinner={finishBannerData.position === 1}
+            onDismiss={() => setShowFinishBanner(false)}
+          />
+        )}
         <div className="min-h-screen bg-background">
           <div className="container max-w-4xl mx-auto px-4 py-8">
             <div className="flex items-center gap-4 mb-4">
