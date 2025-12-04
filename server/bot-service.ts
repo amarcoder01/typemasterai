@@ -346,30 +346,32 @@ class BotService {
     }
     
     // === FLOW STATE / STRUGGLE STATE ===
-    if (profile.isInFlowState && charIndex < profile.flowStateEndChar) {
+    // Clear expired states first
+    if (charIndex >= profile.flowStateEndChar) profile.isInFlowState = false;
+    if (charIndex >= profile.struggleEndChar) profile.isStruggling = false;
+    
+    if (profile.isInFlowState) {
       // In flow: 15-25% faster
       speedMultiplier *= 0.75 + (Math.random() * 0.1);
-    } else if (profile.isStruggling && charIndex < profile.struggleEndChar) {
+    } else if (profile.isStruggling) {
       // Struggling: 20-40% slower
       speedMultiplier *= 1.2 + (Math.random() * 0.2);
     } else {
       // Check for entering new states
-      if (Math.random() < skillProfile.flowStateChance / 100) {
+      // Probabilities are fractions (0.05-0.45), divide by 5 since we check every character
+      // This gives realistic per-word (~5 chars) activation rates
+      if (Math.random() < skillProfile.flowStateChance / 5) {
         profile.isInFlowState = true;
         profile.isStruggling = false;
         // Flow lasts 10-30 characters
         profile.flowStateEndChar = charIndex + 10 + Math.floor(Math.random() * 20);
-      } else if (Math.random() < skillProfile.struggleChance / 100) {
+      } else if (Math.random() < skillProfile.struggleChance / 5) {
         profile.isStruggling = true;
         profile.isInFlowState = false;
         // Struggle lasts 5-15 characters
         profile.struggleEndChar = charIndex + 5 + Math.floor(Math.random() * 10);
       }
     }
-    
-    // Clear expired states
-    if (charIndex >= profile.flowStateEndChar) profile.isInFlowState = false;
-    if (charIndex >= profile.struggleEndChar) profile.isStruggling = false;
     
     // === CHARACTER DIFFICULTY ===
     const charLower = currentChar.toLowerCase();
