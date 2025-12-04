@@ -1207,97 +1207,27 @@ export default function RacePage() {
                 </CardContent>
               </Card>
 
-              <Card 
-                className={`cursor-text transition-all duration-200 ${
+              <div 
+                className={`cursor-text transition-all duration-200 rounded-lg ${
                   isFocused 
-                    ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' 
-                    : 'hover:border-primary/50'
+                    ? 'ring-2 ring-primary/50 ring-offset-2 ring-offset-background' 
+                    : ''
                 }`}
                 onClick={() => hiddenInputRef.current?.focus()}
                 role="application"
                 aria-label="Typing test area"
               >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-6">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-2 cursor-help">
-                            <Gauge className="h-5 w-5 text-primary" />
-                            <div>
-                              <div className="text-2xl font-bold tabular-nums">{liveWpm}</div>
-                              <div className="text-xs text-muted-foreground">WPM</div>
-                            </div>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="font-medium">Words Per Minute</p>
-                          <p className="text-zinc-400">Your current typing speed</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-2 cursor-help">
-                            <Target className={`h-5 w-5 ${liveAccuracy >= 95 ? 'text-green-500' : liveAccuracy >= 85 ? 'text-yellow-500' : 'text-red-500'}`} />
-                            <div>
-                              <div className="text-2xl font-bold tabular-nums">{liveAccuracy}%</div>
-                              <div className="text-xs text-muted-foreground">Accuracy</div>
-                            </div>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="font-medium">Accuracy</p>
-                          <p className="text-zinc-400">Percentage of correct keystrokes</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-2 cursor-help">
-                            <Timer className="h-5 w-5 text-muted-foreground" />
-                            <div>
-                              <div className="text-2xl font-bold tabular-nums">{Math.floor(elapsedTime)}s</div>
-                              <div className="text-xs text-muted-foreground">Time</div>
-                            </div>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="font-medium">Elapsed Time</p>
-                          <p className="text-zinc-400">Seconds since race started</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-2 cursor-help">
-                            <AlertTriangle className={`h-5 w-5 ${errors === 0 ? 'text-green-500' : 'text-red-500'}`} />
-                            <div>
-                              <div className="text-2xl font-bold tabular-nums">{errors}</div>
-                              <div className="text-xs text-muted-foreground">Errors</div>
-                            </div>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="font-medium">Error Count</p>
-                          <p className="text-zinc-400">Total mistakes made</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                    
-                    {!isFocused && (
-                      <div className="flex items-center gap-2 text-muted-foreground animate-pulse">
-                        <Info className="h-4 w-4" />
-                        <span className="text-sm">Click here or press any key to focus</span>
-                      </div>
-                    )}
+                {!isFocused && (
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground animate-pulse py-3">
+                    <Info className="h-4 w-4" />
+                    <span className="text-sm">Click here or press any key to focus</span>
                   </div>
-                </CardHeader>
+                )}
                 
-                <CardContent className="pt-0">
+                <div>
                   <div 
                     ref={textContainerRef}
-                    className="text-2xl leading-[2] font-mono select-none max-h-[200px] overflow-y-auto scroll-smooth p-4 bg-muted/30 rounded-lg" 
+                    className="text-xl leading-[2] font-mono select-none max-h-[280px] overflow-y-auto scroll-smooth p-8 bg-zinc-900 rounded-lg" 
                     data-testid="text-paragraph"
                     role="textbox"
                     aria-readonly="true"
@@ -1340,18 +1270,18 @@ export default function RacePage() {
                           let className = 'transition-colors duration-75 ';
                           
                           if (state === 'correct') {
-                            className += 'text-foreground';
+                            className += 'text-zinc-100';
                           } else if (state === 'incorrect') {
                             className += 'text-red-500 bg-red-500/20 rounded-sm';
                             if (isSpace) {
                               className += ' border-b-2 border-red-500';
                             }
                           } else if (isCurrent) {
-                            className += 'text-muted-foreground/80';
+                            className += 'text-zinc-500';
                           } else if (isCurrentWord && !isPureSpace) {
-                            className += 'text-muted-foreground/70';
+                            className += 'text-zinc-500';
                           } else {
-                            className += 'text-muted-foreground/40';
+                            className += 'text-zinc-600';
                           }
                           
                           if (isCurrent) {
@@ -1362,7 +1292,7 @@ export default function RacePage() {
                                 className={`${className} relative`}
                               >
                                 <span 
-                                  className={`absolute left-0 top-0 w-[2px] h-full bg-primary transition-all duration-100 ${
+                                  className={`absolute left-0 top-0 w-[2px] h-full bg-yellow-400 transition-all duration-100 ${
                                     isFocused ? 'animate-caret-smooth' : 'opacity-50'
                                   }`}
                                 />
@@ -1386,14 +1316,7 @@ export default function RacePage() {
                         }
                         
                         return (
-                          <span 
-                            key={`word-${wordIdx}`}
-                            className={`${
-                              isCurrentWord 
-                                ? 'underline underline-offset-4 decoration-primary/50 decoration-2' 
-                                : ''
-                            }`}
-                          >
+                          <span key={`word-${wordIdx}`}>
                             {renderedChars}
                           </span>
                         );
@@ -1425,8 +1348,8 @@ export default function RacePage() {
                     aria-label="Typing input for race"
                     aria-describedby="typing-instructions"
                   />
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           </div>
         </div>
