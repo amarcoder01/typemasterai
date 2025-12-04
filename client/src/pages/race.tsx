@@ -7,7 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles } from "lucide-react";
+import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
@@ -215,6 +218,218 @@ interface Participant {
   finishPosition: number | null;
 }
 
+interface ChatMessage {
+  id: number;
+  username: string;
+  avatarColor: string | null;
+  message: string;
+  isSystem: boolean;
+  createdAt: string;
+}
+
+interface RatingInfo {
+  rating: number;
+  tier: string;
+  tierInfo?: {
+    name: string;
+    color: string;
+    minRating: number;
+  };
+  ratingChange?: number;
+}
+
+function RaceChat({
+  raceId,
+  participantId,
+  username,
+  avatarColor,
+  sendWsMessage,
+  messages,
+  isEnabled,
+  isCompact = false
+}: {
+  raceId: number;
+  participantId: number;
+  username: string;
+  avatarColor: string | null;
+  sendWsMessage: (msg: any) => void;
+  messages: ChatMessage[];
+  isEnabled: boolean;
+  isCompact?: boolean;
+}) {
+  const [input, setInput] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const sendMessage = () => {
+    if (!input.trim() || !isEnabled) return;
+    
+    sendWsMessage({
+      type: "chat_message",
+      raceId,
+      participantId,
+      message: input.trim(),
+    });
+    setInput("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  if (isCompact) {
+    return (
+      <div className="border rounded-lg p-2 bg-muted/20">
+        <div className="flex items-center gap-2 mb-2">
+          <MessageCircle className="h-3 w-3 text-muted-foreground" />
+          <span className="text-xs font-medium">Chat</span>
+        </div>
+        <div 
+          ref={scrollRef}
+          className="h-20 overflow-y-auto mb-1 space-y-1"
+        >
+          {messages.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-1">
+              No messages
+            </p>
+          ) : (
+            messages.slice(-10).map((msg, idx) => (
+              <div key={msg.id || idx} className={`text-xs ${msg.isSystem ? 'text-muted-foreground italic' : ''}`}>
+                {!msg.isSystem && (
+                  <span className="font-medium text-primary">
+                    {msg.username}:
+                  </span>
+                )}{" "}
+                <span>{msg.message}</span>
+              </div>
+            ))
+          )}
+        </div>
+        <div className="flex gap-1">
+          <Input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={isEnabled ? "Chat..." : "Disabled"}
+            disabled={!isEnabled}
+            className="text-xs h-6"
+            data-testid="input-chat-compact"
+          />
+          <Button
+            size="sm"
+            onClick={sendMessage}
+            disabled={!isEnabled || !input.trim()}
+            className="h-6 px-2"
+            data-testid="button-send-chat-compact"
+          >
+            <Send className="h-2.5 w-2.5" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Card className="h-64">
+      <CardHeader className="py-2 px-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <MessageCircle className="h-4 w-4" />
+          Race Chat
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-2 h-[calc(100%-4rem)]">
+        <div className="flex flex-col h-full">
+          <div 
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto pr-2 mb-2"
+          >
+            <div className="space-y-2">
+              {messages.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-2">
+                  No messages yet
+                </p>
+              ) : (
+                messages.map((msg, idx) => (
+                  <div key={msg.id || idx} className={`text-xs ${msg.isSystem ? 'text-muted-foreground italic' : ''}`}>
+                    {!msg.isSystem && (
+                      <span className="font-medium text-primary">
+                        {msg.username}:
+                      </span>
+                    )}{" "}
+                    <span>{msg.message}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <div className="flex gap-1">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={isEnabled ? "Type a message..." : "Chat disabled during race"}
+              disabled={!isEnabled}
+              className="text-xs h-7"
+              data-testid="input-chat"
+            />
+            <Button
+              size="sm"
+              onClick={sendMessage}
+              disabled={!isEnabled || !input.trim()}
+              className="h-7 px-2"
+              data-testid="button-send-chat"
+            >
+              <Send className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RatingChangeDisplay({ ratingInfo, position }: { ratingInfo: RatingInfo | null; position: number | null }) {
+  if (!ratingInfo) return null;
+
+  const isPositive = (ratingInfo.ratingChange || 0) >= 0;
+  const tierColor = ratingInfo.tierInfo?.color || "gray";
+
+  return (
+    <div className="p-3 border rounded-lg bg-muted/30 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Award className="h-5 w-5 text-primary" />
+          <span className="font-medium">Your Rating</span>
+        </div>
+        <Badge 
+          variant="outline" 
+          className="capitalize"
+          style={{ borderColor: tierColor, color: tierColor }}
+        >
+          {ratingInfo.tierInfo?.name || ratingInfo.tier}
+        </Badge>
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="text-2xl font-bold">{ratingInfo.rating}</div>
+        {ratingInfo.ratingChange !== undefined && (
+          <div className={`flex items-center gap-1 text-sm font-medium ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+            {isPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+            {isPositive ? '+' : ''}{ratingInfo.ratingChange}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function RacePage() {
   const [, params] = useRoute("/race/:id");
   const [, setLocation] = useLocation();
@@ -255,6 +470,8 @@ export default function RacePage() {
   const lastJoinedRaceIdRef = useRef<number | null>(null);
   const extensionRequestedRef = useRef(false);
   const extensionThreshold = 0.85;
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [ratingInfo, setRatingInfo] = useState<RatingInfo | null>(null);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -763,9 +980,39 @@ export default function RacePage() {
             duration: 3000,
           });
         }
+        if (user) {
+          fetch("/api/ratings/me")
+            .then(res => res.json())
+            .then(data => {
+              if (data.rating) {
+                setRatingInfo(data.rating);
+              }
+            })
+            .catch(err => console.error("Failed to fetch rating:", err));
+        }
         break;
       case "participant_left":
         setParticipants(prev => prev.filter(p => p.id !== message.participantId));
+        break;
+      case "chat_message":
+        setChatMessages(prev => [...prev, {
+          id: message.id || Date.now(),
+          username: message.username,
+          avatarColor: message.avatarColor,
+          message: message.message,
+          isSystem: message.isSystem || false,
+          createdAt: message.createdAt || new Date().toISOString(),
+        }]);
+        break;
+      case "rating_update":
+        if (message.userId === user?.id) {
+          setRatingInfo({
+            rating: message.newRating,
+            tier: message.tier,
+            tierInfo: message.tierInfo,
+            ratingChange: message.ratingChange,
+          });
+        }
         break;
     }
   }
@@ -977,6 +1224,18 @@ export default function RacePage() {
                     ))}
                   </div>
                 </div>
+
+                {myParticipant && (
+                  <RaceChat
+                    raceId={race.id}
+                    participantId={myParticipant.id}
+                    username={myParticipant.username}
+                    avatarColor={myParticipant.avatarColor}
+                    sendWsMessage={sendWsMessage}
+                    messages={chatMessages}
+                    isEnabled={true}
+                  />
+                )}
 
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1350,6 +1609,21 @@ export default function RacePage() {
                   />
                 </div>
               </div>
+              
+              {myParticipant && (
+                <div className="mt-4">
+                  <RaceChat
+                    raceId={race.id}
+                    participantId={myParticipant.id}
+                    username={myParticipant.username}
+                    avatarColor={myParticipant.avatarColor}
+                    sendWsMessage={sendWsMessage}
+                    messages={chatMessages}
+                    isEnabled={!isRacing}
+                    isCompact={true}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1470,6 +1744,10 @@ export default function RacePage() {
                     </Tooltip>
                   ))}
                 </div>
+
+                {user && ratingInfo && (
+                  <RatingChangeDisplay ratingInfo={ratingInfo} position={myPosition} />
+                )}
 
                 <div className="flex gap-3">
                   <Tooltip>

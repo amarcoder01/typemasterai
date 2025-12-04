@@ -32,6 +32,20 @@ The multiplayer racing system includes comprehensive scalability features design
 
 Monitoring endpoint: `GET /api/races/stats` provides real-time metrics for all scalability components.
 
+### Enhanced Competitive Multiplayer Features (December 2025)
+The multiplayer racing system now includes competitive gaming features comparable to TypeRacer and Monkeytype:
+
+- **ELO Rating System** (`server/elo-rating-service.ts`): Full ELO-based skill rating with 1200 starting rating, K-factor scaling (40 for new players, 20 for established), and tier system (Bronze/Silver/Gold/Platinum/Diamond/Master). Includes rating decay for inactive players.
+- **Skill-Based Matchmaking**: Players are matched within ±200 rating tolerance. API endpoint: `GET /api/matchmaking/pool` returns compatible players.
+- **Anti-Cheat Validation** (`server/anticheat-service.ts`): Keystroke timing analysis with minimum 10ms interval detection, server-side WPM recalculation, synthetic input detection via `isTrusted` flag, and cheating probability scoring.
+- **Race Replays** (`server/websocket.ts`): Keystroke-level race recording stored in `race_replays` table. API endpoint: `GET /api/replays/:raceId` retrieves replay data for playback.
+- **In-Race Chat**: Real-time WebSocket chat with message history persisted to `race_chat_messages` table. Chat UI in waiting room and during races (disabled while typing).
+- **Spectator Mode**: Users can watch live races without participating. WebSocket handlers for join/leave spectating.
+- **Match History**: Detailed race results with rating changes stored in `race_match_history` table. API endpoint: `GET /api/match-history`.
+- **Rating Leaderboard**: Global and tier-specific leaderboards. API endpoint: `GET /api/ratings/leaderboard`.
+
+New Database Tables: `user_ratings`, `race_match_history`, `race_keystrokes`, `race_chat_messages`, `race_spectators`, `race_replays`, `anti_cheat_challenges`.
+
 ### System Design Choices
 - **Data Layer**: PostgreSQL database managed with Drizzle ORM. The schema includes tables for users, test results, typing paragraphs, code snippets, code typing tests, races, race participants (with soft-delete), keystroke events, typing analytics, typing insights, practice recommendations, push subscriptions, notification preferences, notification jobs, notification history, achievements, user achievements, challenges, and user gamification.
 - **Validation**: Zod for runtime validation and Drizzle-Zod for schema conversion, enforcing strict TypeScript.
