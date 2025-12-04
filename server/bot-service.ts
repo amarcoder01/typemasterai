@@ -26,54 +26,56 @@ interface BotProfile {
 
 const BOT_CHAT_RESPONSES = {
   greetings: [
-    "Hey! Good luck! 🎯",
-    "Hi there! Ready to type fast?",
-    "Hello! May the fastest fingers win!",
-    "Hey! Let's have a great race!",
-    "Hi! I'm warmed up and ready! 💪",
+    "yoo 👋",
+    "heyyy",
+    "yo whats up",
+    "heyy ready to go?",
+    "sup!",
+    "ayy whats good",
   ],
   encouragement: [
-    "You're doing great!",
-    "Keep going! 💪",
-    "Nice typing speed!",
-    "Looking good!",
-    "You've got this!",
-    "Stay focused! 🎯",
+    "we got this",
+    "lets get it!",
+    "keep going 💪",
+    "u got it",
+    "nice nice",
   ],
   competitive: [
-    "Catch me if you can! 😄",
-    "I'm feeling fast today!",
-    "Let's see who's the fastest!",
-    "Game on! 🔥",
-    "May the best typist win!",
+    "lets gooo 💪",
+    "oh its on",
+    "bet 🏁",
+    "bring it lol",
+    "we'll see about that 😤",
+    "im ready",
   ],
   casual: [
-    "This is fun!",
-    "I love these typing races!",
-    "Practice makes perfect!",
-    "Typing is my cardio 😅",
-    "Another great race!",
+    "haha yea",
+    "fr",
+    "lol",
+    "true",
+    "bet",
+    "nice 🚀",
   ],
   reactions: [
-    "Nice one!",
-    "Woah!",
-    "Impressive!",
-    "Haha! 😄",
-    "That's cool!",
-    "Wow!",
+    "fr fr 😄",
+    "haha ikr",
+    "lol yea",
+    "haha yess",
+    "facts 🔥",
   ],
   goodLuck: [
-    "Good luck everyone!",
-    "Best of luck! 🍀",
-    "Let's all do our best!",
-    "Have fun everyone!",
+    "gl to u too 🍀",
+    "haha thanks u2",
+    "same to u!",
+    "ty lets gooo 🔥",
+    "gl gl",
   ],
   finishing: [
-    "GG everyone!",
-    "Good race! 🏁",
-    "That was fun!",
-    "Great race everyone!",
-    "Well played!",
+    "gg that was fun",
+    "gg everyone!",
+    "gg wp 👏",
+    "good race fr",
+    "lol that was intense",
   ],
 };
 
@@ -340,9 +342,8 @@ class BotService {
       return { shouldRespond: false };
     }
 
-    const responseChance = profile.personality === 'friendly' ? 0.7 :
-                           profile.personality === 'competitive' ? 0.5 :
-                           profile.personality === 'encouraging' ? 0.6 : 0.4;
+    // 95% response rate for more reliable chat experience
+    const responseChance = 0.95;
 
     if (Math.random() > responseChance) {
       return { shouldRespond: false };

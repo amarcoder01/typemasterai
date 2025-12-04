@@ -1010,19 +1010,38 @@ class RaceWebSocketServer {
         messages: [
           {
             role: "system",
-            content: `You are ${botName}, a friendly player in a multiplayer typing race game chat. Respond naturally and briefly (1 sentence max, under 50 chars). Be casual and friendly. Use occasional emojis. Don't mention being AI or a bot. Match the energy of the message - if they're excited, be excited back. If they say hi, say hi back. Keep it natural like a real gamer would chat.`
+            content: `You're ${botName}, hanging out in a typing race game lobby. Chat like you're texting a friend - super chill and casual. 
+
+Rules:
+- MAX 6-8 words, like real texts
+- Use slang: "lol", "haha", "nah", "yoo", "bet", "fr", "lowkey", "ngl"
+- Skip periods at end
+- Occasional emoji but not too many
+- Sound like a real person, not helpful or formal
+- Match their vibe - if they're hyped, be hyped
+- Can be playfully competitive or just chill
+
+Examples of good responses:
+- "yoo lets goo 🔥"
+- "haha gl everyone"
+- "bet im ready"
+- "lol we'll see about that"
+- "ngl im kinda nervous"
+- "oh its on 😤"
+
+Never sound like an assistant or use phrases like "I'm here to" or "feel free to".`
           },
           {
             role: "user",
             content: userMessage
           }
         ],
-        max_tokens: 30,
-        temperature: 0.9,
+        max_tokens: 25,
+        temperature: 1.0,
       });
 
       const reply = response.choices[0]?.message?.content?.trim();
-      if (reply && reply.length > 0 && reply.length < 100) {
+      if (reply && reply.length > 0 && reply.length < 80) {
         console.log(`[Bot Chat AI] Generated response for ${botName}: "${reply}"`);
         return reply;
       }
@@ -1036,61 +1055,61 @@ class RaceWebSocketServer {
   private getContextualResponse(intent: string): string {
     const responses: Record<string, string[]> = {
       greetings: [
-        "Hey! 👋",
-        "Hello there!",
-        "Hi! Ready to race?",
-        "Hey, what's up!",
-        "Hi! Let's have a good race!",
-        "Hello! Glad you're here!",
+        "yoo 👋",
+        "heyyy",
+        "yo whats up",
+        "heyy ready to go?",
+        "sup!",
+        "ayy whats good",
       ],
       goodLuck: [
-        "Thanks! You too! 🍀",
-        "Good luck to you as well!",
-        "Thanks, same to you!",
-        "Appreciate it! Let's go! 🔥",
-        "Thanks! May the best typist win!",
+        "gl to u too 🍀",
+        "haha thanks u2",
+        "same to u!",
+        "ty lets gooo 🔥",
+        "gl gl",
       ],
       finishing: [
-        "GG! That was fun!",
-        "Good game everyone!",
-        "Well played! 👏",
-        "Great race!",
-        "That was intense!",
+        "gg that was fun",
+        "gg everyone!",
+        "gg wp 👏",
+        "good race fr",
+        "lol that was intense",
       ],
       reactions: [
-        "Right?! 😄",
-        "Thanks!",
-        "I know, this is fun!",
-        "Haha yeah!",
-        "Totally! 🔥",
+        "fr fr 😄",
+        "haha ikr",
+        "lol yea",
+        "haha yess",
+        "facts 🔥",
       ],
       competitive: [
-        "Let's do this! 💪",
-        "I'm ready! Bring it on!",
-        "You're on! 🏁",
-        "Challenge accepted!",
-        "Let's see what you've got!",
-        "Game on! 🎯",
+        "lets gooo 💪",
+        "oh its on",
+        "bet 🏁",
+        "bring it lol",
+        "we'll see about that 😤",
+        "im ready",
       ],
       encouragement: [
-        "Thanks for the support!",
-        "We've got this!",
-        "Let's all do our best!",
-        "Appreciate the positivity! 🙌",
+        "we got this",
+        "lets get it!",
+        "yea lets do it",
+        "facts 🙌",
       ],
       question: [
-        "Good question!",
-        "Not sure, let's just race! 😄",
-        "Hmm, good one!",
-        "Let's find out together!",
+        "lol idk",
+        "haha who knows",
+        "we'll see",
+        "good question lol",
       ],
       casual: [
-        "For sure! 😊",
-        "Sounds good!",
-        "Yeah!",
-        "Totally!",
-        "Haha, nice!",
-        "Let's go! 🚀",
+        "haha yea",
+        "fr",
+        "lol",
+        "true",
+        "bet",
+        "nice 🚀",
       ],
     };
 
