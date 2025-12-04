@@ -1012,23 +1012,23 @@ class RaceWebSocketServer {
 
       // Schedule staggered responses with realistic varied timing
       respondingBots.forEach((bot, index) => {
-        // Realistic typing delays - people take time to read and think before responding
+        // Natural typing delays - quick but not instant
         const typingSpeed = Math.random();
         let delay: number;
         
-        if (typingSpeed < 0.2) {
-          // Quick responder (20%) - 2-4s (they saw it right away)
+        if (typingSpeed < 0.3) {
+          // Quick responder (30%) - 1-2s
+          delay = 1000 + Math.random() * 1000;
+        } else if (typingSpeed < 0.7) {
+          // Normal responder (40%) - 2-4s
           delay = 2000 + Math.random() * 2000;
-        } else if (typingSpeed < 0.6) {
-          // Normal responder (40%) - 4-7s (reading, thinking, typing)
-          delay = 4000 + Math.random() * 3000;
         } else {
-          // Slow responder (40%) - 7-12s (busy, distracted, or thinking)
-          delay = 7000 + Math.random() * 5000;
+          // Slower responder (30%) - 4-6s
+          delay = 4000 + Math.random() * 2000;
         }
         
-        // Add stagger for multiple responders (1.5-3s between each)
-        delay += index * (1500 + Math.random() * 1500);
+        // Add stagger for multiple responders (1-2s between each)
+        delay += index * (1000 + Math.random() * 1000);
 
         this.botChatCooldowns.set(bot.id, now);
 
