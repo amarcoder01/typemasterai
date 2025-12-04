@@ -1632,6 +1632,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Active races route must be before :id route to avoid matching "active" as an id
+  app.get("/api/races/active", async (req, res) => {
+    try {
+      const activeRaces = await storage.getActiveRaces();
+      res.json(activeRaces);
+    } catch (error: any) {
+      console.error("Get active races error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/races/:id", async (req, res) => {
     try {
       const id = req.params.id;
@@ -1654,16 +1665,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(raceData);
     } catch (error: any) {
       console.error("Get race error:", error);
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.get("/api/races/active", async (req, res) => {
-    try {
-      const activeRaces = await storage.getActiveRaces();
-      res.json(activeRaces);
-    } catch (error: any) {
-      console.error("Get active races error:", error);
       res.status(500).json({ message: error.message });
     }
   });
