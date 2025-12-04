@@ -28,6 +28,8 @@ interface RaceRoom {
   raceId: number;
   clients: Map<number, RaceClient>;
   countdownTimer?: NodeJS.Timeout;
+  timedRaceTimer?: NodeJS.Timeout;
+  raceStartTime?: number;
   shardId: number;
 }
 
@@ -176,6 +178,9 @@ class RaceWebSocketServer {
       if (raceRoom.countdownTimer) {
         clearInterval(raceRoom.countdownTimer);
       }
+      if (raceRoom.timedRaceTimer) {
+        clearTimeout(raceRoom.timedRaceTimer);
+      }
     }
     
     this.races.clear();
@@ -243,6 +248,9 @@ class RaceWebSocketServer {
         if (raceRoom.countdownTimer) {
           clearInterval(raceRoom.countdownTimer);
         }
+        if (raceRoom.timedRaceTimer) {
+          clearTimeout(raceRoom.timedRaceTimer);
+        }
         this.races.delete(raceId);
         this.cleanupExtensionState(raceId);
       }
@@ -265,7 +273,51 @@ class RaceWebSocketServer {
     this.stats.totalParticipants = totalParticipants;
   }
 
+  // SECURITY: Validate that the message comes from an authenticated participant
+  private validateAuthenticatedMessage(ws: WebSocket, message: any): boolean {
+    const authParticipantId = (ws as any).authenticatedParticipantId;
+    const authRaceId = (ws as any).authenticatedRaceId;
+    
+    // Skip validation for join messages (authentication happens there)
+    if (message.type === "join") {
+      return true;
+    }
+    
+    // Spectate and get_replay don't require prior authentication
+    if (message.type === "spectate" || message.type === "get_replay" || message.type === "stop_spectate" || message.type === "get_rating") {
+      return true;
+    }
+    
+    // Must be authenticated for all other messages
+    if (!authParticipantId) {
+      console.warn(`[WS Security] Unauthenticated message rejected: ${message.type}`);
+      ws.send(JSON.stringify({ type: "error", message: "Not authenticated. Please join a race first." }));
+      return false;
+    }
+    
+    // Validate participantId in message matches authenticated ID
+    if (message.participantId && message.participantId !== authParticipantId) {
+      console.warn(`[WS Security] Participant ID mismatch: auth=${authParticipantId}, message=${message.participantId}`);
+      ws.send(JSON.stringify({ type: "error", message: "Invalid participant ID" }));
+      return false;
+    }
+    
+    // Validate raceId in message matches authenticated race
+    if (message.raceId && message.raceId !== authRaceId) {
+      console.warn(`[WS Security] Race ID mismatch: auth=${authRaceId}, message=${message.raceId}`);
+      ws.send(JSON.stringify({ type: "error", message: "Invalid race ID" }));
+      return false;
+    }
+    
+    return true;
+  }
+
   private async handleMessage(ws: WebSocket, message: any) {
+    // SECURITY: Validate authentication before processing
+    if (!this.validateAuthenticatedMessage(ws, message)) {
+      return;
+    }
+    
     switch (message.type) {
       case "join":
         await this.handleJoin(ws, message);
@@ -336,6 +388,25 @@ class RaceWebSocketServer {
       raceCache.setRace(race, participants);
     }
 
+    // SECURITY: Verify participant exists and belongs to this race
+    const participant = participants.find(p => p.id === participantId);
+    if (!participant) {
+      console.warn(`[WS Security] Join rejected: participant ${participantId} not found in race ${raceId}`);
+      ws.send(JSON.stringify({ type: "error", message: "Invalid participant" }));
+      return;
+    }
+
+    // SECURITY: Verify username matches (prevents impersonation)
+    if (participant.username !== username) {
+      console.warn(`[WS Security] Join rejected: username mismatch for participant ${participantId}. Expected: ${participant.username}, Got: ${username}`);
+      ws.send(JSON.stringify({ type: "error", message: "Username mismatch" }));
+      return;
+    }
+
+    // Store authenticated participant ID on the WebSocket for future validation
+    (ws as any).authenticatedParticipantId = participantId;
+    (ws as any).authenticatedRaceId = raceId;
+
     let raceRoom = this.races.get(raceId);
     if (!raceRoom) {
       raceRoom = {
@@ -358,18 +429,18 @@ class RaceWebSocketServer {
     };
     raceRoom.clients.set(participantId, client);
 
-    let participant = participants.find(p => p.id === participantId);
-    
-    if (!participant) {
+    // Re-fetch participant from fresh list if needed
+    let currentParticipant = participant;
+    if (!currentParticipant) {
       participants = await storage.getRaceParticipants(raceId);
-      participant = participants.find(p => p.id === participantId);
+      currentParticipant = participants.find(p => p.id === participantId);
       raceCache.updateParticipants(raceId, participants);
     }
     
     if (!isReconnect) {
       this.broadcastToRace(raceId, {
         type: "participant_joined",
-        participant,
+        participant: currentParticipant,
         participants,
       });
       console.log(`[WS] New join: ${username} (${participantId}) in race ${raceId}`);
@@ -665,8 +736,12 @@ class RaceWebSocketServer {
         await storage.updateRaceStatus(raceId, "racing", startedAt);
         raceCache.updateRaceStatus(raceId, "racing", startedAt);
         
+        // Store race start time for server-side timer validation
+        raceRoom.raceStartTime = Date.now();
+        
         this.broadcastToRace(raceId, {
           type: "race_start",
+          serverTimestamp: raceRoom.raceStartTime,
         });
 
         const freshRace = await storage.getRace(raceId);
@@ -693,6 +768,17 @@ class RaceWebSocketServer {
             freshRace.paragraphContent // Pass the actual paragraph text for character-level simulation
           );
         });
+
+        // Set up server-side timer for timed races
+        if (freshRace.raceType === "timed" && freshRace.timeLimitSeconds) {
+          const timeLimit = freshRace.timeLimitSeconds * 1000;
+          console.log(`[Timed Race] Setting server-side timer for race ${raceId}: ${freshRace.timeLimitSeconds}s`);
+          
+          raceRoom.timedRaceTimer = setTimeout(async () => {
+            console.log(`[Timed Race] Server timer expired for race ${raceId}, force-finishing all participants`);
+            await this.forceFinishTimedRace(raceId);
+          }, timeLimit + 1000); // Add 1 second buffer for client-server latency
+        }
       }
     }, 1000);
   }
@@ -793,9 +879,9 @@ class RaceWebSocketServer {
   }
 
   private async handleTimedFinish(message: any) {
-    const { raceId, participantId, progress, wpm, accuracy, errors } = message;
+    const { raceId, participantId, progress, accuracy, errors } = message;
     
-    console.log(`[Timed Finish] Participant ${participantId} finished timed race ${raceId} with WPM: ${wpm}`);
+    console.log(`[Timed Finish] Participant ${participantId} finished timed race ${raceId}`);
 
     const cachedRace = raceCache.getRace(raceId);
     let race = cachedRace?.race;
@@ -808,9 +894,30 @@ class RaceWebSocketServer {
       return;
     }
 
-    // Update participant's final stats
-    await storage.updateParticipantProgress(participantId, progress, wpm, accuracy, errors);
-    raceCache.bufferProgress(participantId, progress, wpm, accuracy, errors);
+    // Get race room for server-side timing validation
+    const raceRoom = this.races.get(raceId);
+    
+    // SERVER-SIDE WPM CALCULATION (don't trust client values)
+    // Use the race start time stored on the server
+    const elapsedSeconds = raceRoom?.raceStartTime 
+      ? (Date.now() - raceRoom.raceStartTime) / 1000
+      : race.timeLimitSeconds || 60;
+    
+    // Calculate WPM based on server-side elapsed time and client progress
+    const correctChars = Math.max(0, progress - errors);
+    const serverCalculatedWpm = elapsedSeconds > 0 
+      ? Math.round((correctChars / 5) / (elapsedSeconds / 60)) 
+      : 0;
+    
+    // Validate progress is reasonable (max 15 chars per second is extremely fast)
+    const maxReasonableProgress = Math.ceil(elapsedSeconds * 15);
+    const validatedProgress = Math.min(progress, maxReasonableProgress);
+    
+    console.log(`[Timed Finish] Server validation: elapsed=${elapsedSeconds.toFixed(1)}s, progress=${progress}, validated=${validatedProgress}, serverWPM=${serverCalculatedWpm}`);
+
+    // Update participant's final stats with SERVER-CALCULATED WPM
+    await storage.updateParticipantProgress(participantId, validatedProgress, serverCalculatedWpm, accuracy, errors);
+    raceCache.bufferProgress(participantId, validatedProgress, serverCalculatedWpm, accuracy, errors);
 
     // Mark participant as finished
     const { position, isNewFinish } = await storage.finishParticipant(participantId);
@@ -825,7 +932,7 @@ class RaceWebSocketServer {
       type: "participant_finished",
       participantId,
       position,
-      wpm,
+      wpm: serverCalculatedWpm,
       accuracy,
     });
 
@@ -836,6 +943,13 @@ class RaceWebSocketServer {
     console.log(`[Timed Finish] All finished check: ${allFinished}, participants: ${freshParticipants.map(p => `${p.username}:${p.isFinished}`).join(', ')}`);
 
     if (allFinished) {
+      // Clear server-side timed race timer if it exists
+      const raceRoom = this.races.get(raceId);
+      if (raceRoom?.timedRaceTimer) {
+        clearTimeout(raceRoom.timedRaceTimer);
+        raceRoom.timedRaceTimer = undefined;
+      }
+      
       const finishedAt = new Date();
       await storage.updateRaceStatus(raceId, "finished", undefined, finishedAt);
       raceCache.updateRaceStatus(raceId, "finished", undefined, finishedAt);
@@ -862,6 +976,86 @@ class RaceWebSocketServer {
         console.error(`[TimedRaceFinish] Error processing race completion:`, err);
       });
     }
+  }
+
+  // Force finish a timed race when server timer expires (anti-cheat: don't trust client timer)
+  private async forceFinishTimedRace(raceId: number) {
+    const race = await storage.getRace(raceId);
+    if (!race || race.status === "finished") {
+      console.log(`[Timed Race] Race ${raceId} already finished, skipping force finish`);
+      return;
+    }
+
+    const raceRoom = this.races.get(raceId);
+    if (!raceRoom) {
+      console.log(`[Timed Race] No race room found for ${raceId}`);
+      return;
+    }
+
+    // Clear the timer
+    if (raceRoom.timedRaceTimer) {
+      clearTimeout(raceRoom.timedRaceTimer);
+      raceRoom.timedRaceTimer = undefined;
+    }
+
+    console.log(`[Timed Race] Force finishing race ${raceId}`);
+
+    const participants = await storage.getRaceParticipants(raceId);
+    const elapsedSeconds = race.timeLimitSeconds || 60;
+
+    // Finish all unfinished participants with their current progress
+    for (const participant of participants) {
+      if (participant.isFinished === 0) {
+        // Calculate WPM based on their last known progress
+        const correctChars = Math.max(0, participant.progress - participant.errors);
+        const serverCalculatedWpm = elapsedSeconds > 0 
+          ? Math.round((correctChars / 5) / (elapsedSeconds / 60)) 
+          : 0;
+        
+        console.log(`[Timed Race] Force finishing participant ${participant.username}: progress=${participant.progress}, calculated WPM=${serverCalculatedWpm}`);
+
+        // Update with server-calculated values
+        await storage.updateParticipantProgress(
+          participant.id,
+          participant.progress,
+          serverCalculatedWpm,
+          participant.accuracy,
+          participant.errors
+        );
+        
+        await storage.finishParticipant(participant.id);
+        participant.wpm = serverCalculatedWpm;
+        participant.isFinished = 1;
+      }
+    }
+
+    // Update race status
+    const finishedAt = new Date();
+    await storage.updateRaceStatus(raceId, "finished", undefined, finishedAt);
+    raceCache.updateRaceStatus(raceId, "finished", undefined, finishedAt);
+
+    botService.stopAllBotsInRace(raceId, participants);
+    this.cleanupExtensionState(raceId);
+
+    // Sort by WPM for timed races (highest WPM wins)
+    const sortedResults = participants.sort((a, b) => b.wpm - a.wpm);
+
+    // Persist WPM-based rankings
+    for (let i = 0; i < sortedResults.length; i++) {
+      sortedResults[i].finishPosition = i + 1;
+      await storage.updateParticipantFinishPosition(sortedResults[i].id, i + 1);
+    }
+
+    this.broadcastToRace(raceId, {
+      type: "race_finished",
+      results: sortedResults,
+      isTimedRace: true,
+      serverEnforced: true,
+    });
+
+    this.processRaceCompletion(raceId, sortedResults).catch(err => {
+      console.error(`[TimedRaceFinish] Error processing race completion:`, err);
+    });
   }
 
   private async handleBotFinished(raceId: number, participantId: number, position: number) {
@@ -932,6 +1126,9 @@ class RaceWebSocketServer {
       if (raceRoom.clients.size === 0) {
         if (raceRoom.countdownTimer) {
           clearInterval(raceRoom.countdownTimer);
+        }
+        if (raceRoom.timedRaceTimer) {
+          clearTimeout(raceRoom.timedRaceTimer);
         }
         this.races.delete(raceId);
         this.cleanupExtensionState(raceId);
@@ -1658,6 +1855,9 @@ NEVER sound like AI. No "I'd be happy to" or formal language.`
           if (raceRoom.clients.size === 0) {
             if (raceRoom.countdownTimer) {
               clearInterval(raceRoom.countdownTimer);
+            }
+            if (raceRoom.timedRaceTimer) {
+              clearTimeout(raceRoom.timedRaceTimer);
             }
             this.races.delete(raceId);
             this.cleanupExtensionState(raceId);
