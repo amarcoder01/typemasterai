@@ -1006,7 +1006,7 @@ class RaceWebSocketServer {
       return;
     }
 
-    const responseChance = 0.6;
+    const responseChance = 0.9;
     if (Math.random() > responseChance) {
       console.log(`[Bot Chat] Bot ${bot.username} decided not to respond (random chance)`);
       return;
@@ -1020,8 +1020,15 @@ class RaceWebSocketServer {
       "Hello! Let's race!",
       "Nice! Let's do this! 💪",
       "Good luck everyone!",
-      "This is fun!",
+      "This is going to be fun!",
       "Let's go! 🔥",
+      "Hey! Excited to race with you!",
+      "Hi! May the fastest fingers win!",
+      "Ready when you are! 🚀",
+      "Let's see who's the fastest!",
+      "Bring it on! 😎",
+      "Can't wait to start!",
+      "Hello! Best of luck to everyone!",
     ];
 
     const response = responses[Math.floor(Math.random() * responses.length)];
