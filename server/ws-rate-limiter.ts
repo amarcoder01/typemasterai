@@ -27,6 +27,7 @@ const MESSAGE_TYPE_LIMITS: Record<string, RateLimitConfig> = {
   ready: { maxTokens: 3, refillRate: 1, refillInterval: 1000 },
   finish: { maxTokens: 3, refillRate: 1, refillInterval: 1000 },
   leave: { maxTokens: 3, refillRate: 1, refillInterval: 1000 },
+  chat_message: { maxTokens: 20, refillRate: 2, refillInterval: 500 }, // 4 per second, burst of 20
   default: { maxTokens: 10, refillRate: 5, refillInterval: 200 },
 };
 

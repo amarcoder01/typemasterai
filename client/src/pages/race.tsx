@@ -262,24 +262,14 @@ function RaceChat({
   wsConnected?: boolean;
 }) {
   const [input, setInput] = useState("");
-  const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
-
-  useEffect(() => {
-    return () => {
-      if (retryTimeoutRef.current) {
-        clearTimeout(retryTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -291,7 +281,7 @@ function RaceChat({
 
   const sendMessage = () => {
     const trimmedInput = input.trim();
-    if (!trimmedInput || !isEnabled || isSending) return;
+    if (!trimmedInput || !isEnabled) return;
     
     if (!wsConnected) {
       setSendError("Connection lost");
@@ -311,7 +301,6 @@ function RaceChat({
       return;
     }
     
-    setIsSending(true);
     setSendError(null);
     
     try {
@@ -328,8 +317,6 @@ function RaceChat({
         description: "Please check your connection and try again",
         icon: <XCircle className="h-4 w-4" />
       });
-    } finally {
-      retryTimeoutRef.current = setTimeout(() => setIsSending(false), 100);
     }
   };
 
@@ -342,12 +329,11 @@ function RaceChat({
 
   const getDisabledReason = (): string => {
     if (!wsConnected) return "Reconnecting to server...";
-    if (isSending) return "Sending message...";
     if (!isEnabled) return "Chat disabled during active typing";
     return "";
   };
 
-  const isInputDisabled = !isEnabled || isSending || !wsConnected;
+  const isInputDisabled = !isEnabled || !wsConnected;
 
   if (isCompact) {
     return (
@@ -429,11 +415,11 @@ function RaceChat({
                   className="h-6 px-2"
                   data-testid="button-send-chat-compact"
                 >
-                  {isSending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Send className="h-2.5 w-2.5" />}
+                  <Send className="h-2.5 w-2.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p>{isSending ? "Sending..." : "Send message (Enter)"}</p>
+                <p>Send message (Enter)</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -549,11 +535,11 @@ function RaceChat({
                       className="h-7 px-2"
                       data-testid="button-send-chat"
                     >
-                      {isSending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                      <Send className="h-3 w-3" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    <p className="font-medium">{isSending ? "Sending..." : "Send Message"}</p>
+                    <p className="font-medium">Send Message</p>
                     <p className="text-zinc-400">Or press Enter</p>
                   </TooltipContent>
                 </Tooltip>
