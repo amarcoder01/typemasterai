@@ -1552,8 +1552,8 @@ export default function RacePage() {
     );
   }
 
-  // Handle transition state (starting race)
-  if (isTransitioning) {
+  // Handle transition state (starting race) - but not if countdown has started
+  if (isTransitioning && countdown === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-6">
@@ -1569,6 +1569,55 @@ export default function RacePage() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Handle countdown state - check this BEFORE waiting room
+  if (countdown !== null || race.status === "countdown") {
+    return (
+      <TooltipProvider delayDuration={300}>
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="text-center space-y-6">
+            {/* Preparation tip with tooltip */}
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2 cursor-help bg-muted/30 px-4 py-2 rounded-full">
+                    <Info className="h-4 w-4" />
+                    <span className="text-sm">Get ready to type!</span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs">
+                  <p className="font-medium">Preparation Tips</p>
+                  <ul className="text-zinc-400 text-sm list-disc list-inside mt-1">
+                    <li>Position your fingers on the home row</li>
+                    <li>Focus on the first few words</li>
+                    <li>Race begins automatically when timer hits zero</li>
+                  </ul>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            
+            {/* Countdown number */}
+            <div className="text-9xl font-bold text-primary animate-pulse" data-testid="countdown-number">
+              {countdown === 0 ? "GO!" : countdown ?? "..."}
+            </div>
+            
+            {/* Dynamic instruction */}
+            {countdown === null || countdown > 0 ? (
+              <p className="text-muted-foreground text-lg flex items-center justify-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                Position your fingers on the keyboard!
+              </p>
+            ) : (
+              <p className="text-green-500 text-lg font-medium flex items-center justify-center gap-2">
+                <Play className="h-5 w-5" />
+                Start typing now!
+              </p>
+            )}
+          </div>
+        </div>
+      </TooltipProvider>
     );
   }
 
@@ -1746,54 +1795,6 @@ export default function RacePage() {
                 </Tooltip>
               </CardContent>
             </Card>
-          </div>
-        </div>
-      </TooltipProvider>
-    );
-  }
-
-  if (countdown !== null || race.status === "countdown") {
-    return (
-      <TooltipProvider delayDuration={300}>
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <div className="text-center space-y-6">
-            {/* Preparation tip with tooltip */}
-            <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2 cursor-help bg-muted/30 px-4 py-2 rounded-full">
-                    <Info className="h-4 w-4" />
-                    <span className="text-sm">Get ready to type!</span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p className="font-medium">Preparation Tips</p>
-                  <ul className="text-zinc-400 text-sm list-disc list-inside mt-1">
-                    <li>Position your fingers on the home row</li>
-                    <li>Focus on the first few words</li>
-                    <li>Race begins automatically when timer hits zero</li>
-                  </ul>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            
-            {/* Countdown number */}
-            <div className="text-9xl font-bold text-primary animate-pulse" data-testid="countdown-number">
-              {countdown === 0 ? "GO!" : countdown ?? "..."}
-            </div>
-            
-            {/* Dynamic instruction */}
-            {countdown === null || countdown > 0 ? (
-              <p className="text-muted-foreground text-lg flex items-center justify-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                Position your fingers on the keyboard!
-              </p>
-            ) : (
-              <p className="text-green-500 text-lg font-medium flex items-center justify-center gap-2">
-                <Play className="h-5 w-5" />
-                Start typing now!
-              </p>
-            )}
           </div>
         </div>
       </TooltipProvider>
