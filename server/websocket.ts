@@ -444,15 +444,24 @@ class RaceWebSocketServer {
           type: "race_start",
         });
 
+        const freshRace = await storage.getRace(raceId);
+        if (!freshRace || !freshRace.paragraphContent) {
+          console.error(`[Bot Typing] Cannot start bots - race ${raceId} has no paragraph content`);
+          return;
+        }
+
         const cachedData = raceCache.getRace(raceId);
         const allParticipants = cachedData?.participants || await storage.getRaceParticipants(raceId);
         const bots = allParticipants.filter(p => p.isBot === 1);
         
+        console.log(`[Bot Typing] Starting ${bots.length} bots for race ${raceId}, paragraph length: ${freshRace.paragraphContent.length}`);
+        
         bots.forEach(bot => {
+          console.log(`[Bot Typing] Starting bot ${bot.username} (${bot.id})`);
           botService.startBotTyping(
             bot.id,
             raceId,
-            race.paragraphContent.length,
+            freshRace.paragraphContent.length,
             (data) => this.broadcastToRace(raceId, data)
           );
         });

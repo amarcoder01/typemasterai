@@ -99,7 +99,11 @@ class BotService {
     broadcastCallback: (data: any) => void
   ) {
     const profile = this.botProfiles.get(participantId);
-    if (!profile) return;
+    if (!profile) {
+      console.error(`[Bot Typing] No profile found for bot ${participantId}. Known profiles: ${Array.from(this.botProfiles.keys()).join(', ')}`);
+      return;
+    }
+    console.log(`[Bot Typing] Bot ${profile.username} (${participantId}) starting with target ${profile.targetWPM} WPM, paragraph length ${paragraphLength}`);
 
     const baseDelay = 60000 / (profile.targetWPM * 5);
     
@@ -109,6 +113,7 @@ class BotService {
 
     const simulate = async () => {
       if (!this.botProfiles.has(participantId)) {
+        console.log(`[Bot Typing] Bot ${participantId} profile removed, stopping simulation`);
         return;
       }
 
