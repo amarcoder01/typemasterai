@@ -238,6 +238,8 @@ interface RatingInfo {
   ratingChange?: number;
 }
 
+const MAX_CHAT_LENGTH = 500;
+
 function RaceChat({
   raceId,
   participantId,
@@ -258,6 +260,7 @@ function RaceChat({
   isCompact?: boolean;
 }) {
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -266,16 +269,35 @@ function RaceChat({
     }
   }, [messages]);
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value.length <= MAX_CHAT_LENGTH) {
+      setInput(value);
+    }
+  };
+
   const sendMessage = () => {
-    if (!input.trim() || !isEnabled) return;
+    const trimmedInput = input.trim();
+    if (!trimmedInput || !isEnabled || isSending) return;
+    if (trimmedInput.length > MAX_CHAT_LENGTH) {
+      toast.error("Message too long", { description: `Maximum ${MAX_CHAT_LENGTH} characters allowed` });
+      return;
+    }
     
-    sendWsMessage({
-      type: "chat_message",
-      raceId,
-      participantId,
-      message: input.trim(),
-    });
-    setInput("");
+    setIsSending(true);
+    try {
+      sendWsMessage({
+        type: "chat_message",
+        raceId,
+        participantId,
+        message: trimmedInput,
+      });
+      setInput("");
+    } catch (error) {
+      toast.error("Failed to send message", { description: "Please try again" });
+    } finally {
+      setTimeout(() => setIsSending(false), 100);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -316,17 +338,18 @@ function RaceChat({
         <div className="flex gap-1">
           <Input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder={isEnabled ? "Chat..." : "Disabled"}
-            disabled={!isEnabled}
+            disabled={!isEnabled || isSending}
+            maxLength={MAX_CHAT_LENGTH}
             className="text-xs h-6"
             data-testid="input-chat-compact"
           />
           <Button
             size="sm"
             onClick={sendMessage}
-            disabled={!isEnabled || !input.trim()}
+            disabled={!isEnabled || !input.trim() || isSending}
             className="h-6 px-2"
             data-testid="button-send-chat-compact"
           >
@@ -370,25 +393,33 @@ function RaceChat({
               )}
             </div>
           </div>
-          <div className="flex gap-1">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={isEnabled ? "Type a message..." : "Chat disabled during race"}
-              disabled={!isEnabled}
-              className="text-xs h-7"
-              data-testid="input-chat"
-            />
-            <Button
-              size="sm"
-              onClick={sendMessage}
-              disabled={!isEnabled || !input.trim()}
-              className="h-7 px-2"
-              data-testid="button-send-chat"
-            >
-              <Send className="h-3 w-3" />
-            </Button>
+          <div className="space-y-1">
+            <div className="flex gap-1">
+              <Input
+                value={input}
+                onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder={isEnabled ? "Type a message..." : "Chat disabled during race"}
+                disabled={!isEnabled || isSending}
+                maxLength={MAX_CHAT_LENGTH}
+                className="text-xs h-7"
+                data-testid="input-chat"
+              />
+              <Button
+                size="sm"
+                onClick={sendMessage}
+                disabled={!isEnabled || !input.trim() || isSending}
+                className="h-7 px-2"
+                data-testid="button-send-chat"
+              >
+                <Send className="h-3 w-3" />
+              </Button>
+            </div>
+            {input.length > MAX_CHAT_LENGTH * 0.8 && (
+              <div className={`text-xs text-right ${input.length >= MAX_CHAT_LENGTH ? 'text-red-500' : 'text-muted-foreground'}`}>
+                {input.length}/{MAX_CHAT_LENGTH}
+              </div>
+            )}
           </div>
         </div>
       </CardContent>

@@ -133,7 +133,7 @@ export class EloRatingService {
 
       const K = this.getKFactor(playerRating);
       const ratingChange = Math.round(K * (actualScore - expectedScore));
-      const newRating = Math.max(100, Math.min(4000, playerRating.rating + ratingChange));
+      const newRating = Math.max(100, Math.min(3000, playerRating.rating + ratingChange));
       
       const isWin = result.position === 1;
       const isLoss = result.position === totalPlayers;
