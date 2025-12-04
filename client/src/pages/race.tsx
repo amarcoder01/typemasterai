@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles } from "lucide-react";
+import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
@@ -243,6 +243,7 @@ export default function RacePage() {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const maxReconnectAttempts = 5;
   const pendingMessagesRef = useRef<string[]>([]);
+  const seenParticipantJoinsRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -565,10 +566,21 @@ export default function RacePage() {
       case "joined":
         setRace(message.race);
         setParticipants(message.participants);
+        if (message.participants) {
+          message.participants.forEach((p: Participant) => {
+            seenParticipantJoinsRef.current.add(p.id);
+          });
+        }
         break;
       case "participant_joined":
         setParticipants(message.participants);
-        toast.success(`${message.participant.username} joined the race!`);
+        if (message.participant && !seenParticipantJoinsRef.current.has(message.participant.id)) {
+          seenParticipantJoinsRef.current.add(message.participant.id);
+          toast.success(`${message.participant.username} joined the race!`);
+        }
+        break;
+      case "participants_sync":
+        setParticipants(message.participants);
         break;
       case "bots_added":
         fetchRaceData();

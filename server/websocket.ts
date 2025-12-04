@@ -302,6 +302,9 @@ class RaceWebSocketServer {
       this.races.set(raceId, raceRoom);
     }
 
+    const existingClient = raceRoom.clients.get(participantId);
+    const isReconnect = !!existingClient;
+
     const client: RaceClient = { 
       ws, 
       raceId, 
@@ -319,11 +322,20 @@ class RaceWebSocketServer {
       raceCache.updateParticipants(raceId, participants);
     }
     
-    this.broadcastToRace(raceId, {
-      type: "participant_joined",
-      participant,
-      participants,
-    });
+    if (!isReconnect) {
+      this.broadcastToRace(raceId, {
+        type: "participant_joined",
+        participant,
+        participants,
+      });
+      console.log(`[WS] New join: ${username} (${participantId}) in race ${raceId}`);
+    } else {
+      ws.send(JSON.stringify({
+        type: "participants_sync",
+        participants,
+      }));
+      console.log(`[WS] Reconnect: ${username} (${participantId}) in race ${raceId}`);
+    }
 
     ws.send(JSON.stringify({
       type: "joined",
