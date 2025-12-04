@@ -1012,23 +1012,23 @@ class RaceWebSocketServer {
 
       // Schedule staggered responses with realistic varied timing
       respondingBots.forEach((bot, index) => {
-        // Realistic typing delays - some fast typers, some slow
+        // Realistic typing delays - people take time to read and think before responding
         const typingSpeed = Math.random();
         let delay: number;
         
-        if (typingSpeed < 0.3) {
-          // Fast responder (30%) - 0.5-1.5s
-          delay = 500 + Math.random() * 1000;
-        } else if (typingSpeed < 0.7) {
-          // Normal responder (40%) - 1.5-3s
-          delay = 1500 + Math.random() * 1500;
+        if (typingSpeed < 0.2) {
+          // Quick responder (20%) - 2-4s (they saw it right away)
+          delay = 2000 + Math.random() * 2000;
+        } else if (typingSpeed < 0.6) {
+          // Normal responder (40%) - 4-7s (reading, thinking, typing)
+          delay = 4000 + Math.random() * 3000;
         } else {
-          // Slow responder (30%) - 3-6s
-          delay = 3000 + Math.random() * 3000;
+          // Slow responder (40%) - 7-12s (busy, distracted, or thinking)
+          delay = 7000 + Math.random() * 5000;
         }
         
-        // Add stagger for multiple responders
-        delay += index * (500 + Math.random() * 1000);
+        // Add stagger for multiple responders (1.5-3s between each)
+        delay += index * (1500 + Math.random() * 1500);
 
         this.botChatCooldowns.set(bot.id, now);
 
@@ -1085,7 +1085,7 @@ class RaceWebSocketServer {
       if (chainDepth < 1 && Math.random() < 0.3) {
         setTimeout(() => {
           this.triggerBotChatResponses(raceId, response!, true, chainDepth + 1);
-        }, 2000 + Math.random() * 2000);
+        }, 5000 + Math.random() * 5000);
       }
 
     } catch (error) {
