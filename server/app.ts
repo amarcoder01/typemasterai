@@ -3,6 +3,8 @@ import { type Server } from "node:http";
 import express, { type Express, type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { requestIdMiddleware, errorHandler, notFoundHandler } from "./error-middleware";
+import { metricsCollector } from "./metrics";
+import { registerShutdownHandlers } from "./graceful-shutdown";
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -44,6 +46,8 @@ app.use((req, res, next) => {
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
+  metricsCollector.recordRequest();
+
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;
@@ -52,6 +56,12 @@ app.use((req, res, next) => {
 
   res.on("finish", () => {
     const duration = Date.now() - start;
+    metricsCollector.recordResponseTime(duration);
+    
+    if (res.statusCode >= 500) {
+      metricsCollector.recordError();
+    }
+    
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
@@ -72,7 +82,11 @@ app.use((req, res, next) => {
 export default async function runApp(
   setup: (app: Express, server: Server) => Promise<void>,
 ) {
+  metricsCollector.initialize();
+  
   const server = await registerRoutes(app);
+
+  registerShutdownHandlers(server);
 
   app.use("/api/*", notFoundHandler);
   

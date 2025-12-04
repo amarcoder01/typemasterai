@@ -72,6 +72,12 @@ class RaceCache {
     this.flushProgressUpdates();
   }
 
+  async flushAll(): Promise<void> {
+    console.log("[RaceCache] Flushing all progress updates before shutdown...");
+    await this.flushProgressUpdates();
+    console.log(`[RaceCache] Flushed ${this.progressBuffer.size} pending updates`);
+  }
+
   setRace(race: Race, participants: RaceParticipant[] = []): void {
     const existing = this.cache.get(race.id);
     const now = Date.now();

@@ -1650,10 +1650,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Health check endpoints for load balancers and monitoring
+  app.get("/health", async (req, res) => {
+    try {
+      const { performHealthCheck } = await import("./health-check");
+      const includeMetrics = req.query.metrics === "true";
+      const result = await performHealthCheck(includeMetrics);
+      
+      const statusCode = result.status === "healthy" ? 200 : result.status === "degraded" ? 200 : 503;
+      res.status(statusCode).json(result);
+    } catch (error: any) {
+      res.status(503).json({ status: "unhealthy", error: error.message });
+    }
+  });
+
+  app.get("/health/live", async (req, res) => {
+    try {
+      const { performLivenessCheck } = await import("./health-check");
+      const result = await performLivenessCheck();
+      res.status(result.alive ? 200 : 503).json(result);
+    } catch (error: any) {
+      res.status(503).json({ alive: false, error: error.message });
+    }
+  });
+
+  app.get("/health/ready", async (req, res) => {
+    try {
+      const { performReadinessCheck } = await import("./health-check");
+      const result = await performReadinessCheck();
+      res.status(result.ready ? 200 : 503).json(result);
+    } catch (error: any) {
+      res.status(503).json({ ready: false, error: error.message });
+    }
+  });
+
   // Scalability stats endpoint for monitoring
   app.get("/api/races/stats", async (req, res) => {
     try {
       const { raceWebSocket } = await import("./websocket");
+      const { metricsCollector } = await import("./metrics");
       
       res.json({
         websocket: raceWebSocket.getStats(),
@@ -1662,6 +1697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cleanup: raceWebSocket.getCleanupStats(),
         loadState: raceWebSocket.getLoadState(),
         isUnderPressure: raceWebSocket.isUnderPressure(),
+        metrics: metricsCollector.getStats(),
       });
     } catch (error: any) {
       console.error("Get race stats error:", error);

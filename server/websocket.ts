@@ -4,6 +4,7 @@ import { botService } from "./bot-service";
 import { raceCache } from "./race-cache";
 import { wsRateLimiter } from "./ws-rate-limiter";
 import { raceCleanupScheduler } from "./race-cleanup";
+import { metricsCollector } from "./metrics";
 import type { Server } from "http";
 
 interface RaceClient {
@@ -114,6 +115,7 @@ class RaceWebSocketServer {
           }
 
           this.stats.messagesProcessed++;
+          metricsCollector.recordWsMessage();
           await this.handleMessage(ws, message);
         } catch (error) {
           console.error("WebSocket message error:", error);
