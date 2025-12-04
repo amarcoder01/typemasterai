@@ -491,7 +491,6 @@ class RaceWebSocketServer {
       }
     }
 
-    await storage.updateRaceStatus(raceId, "countdown");
     raceCache.updateRaceStatus(raceId, "countdown");
 
     this.broadcastToRace(raceId, {
@@ -499,6 +498,10 @@ class RaceWebSocketServer {
       countdown: 3,
       participants,
     });
+
+    storage.updateRaceStatus(raceId, "countdown").catch(err => 
+      console.error(`[WS] Failed to update race status to countdown:`, err)
+    );
 
     let countdown = 3;
     raceRoom.countdownTimer = setInterval(async () => {

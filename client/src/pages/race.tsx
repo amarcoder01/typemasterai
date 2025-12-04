@@ -860,6 +860,7 @@ export default function RacePage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [ratingInfo, setRatingInfo] = useState<RatingInfo | null>(null);
   const [showFinishBanner, setShowFinishBanner] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const [finishBannerData, setFinishBannerData] = useState<{
     position: number | null;
     totalPlayers: number;
@@ -1349,6 +1350,7 @@ export default function RacePage() {
         toast.info("More players joined!", { duration: 2000 });
         break;
       case "countdown_start":
+        setIsStarting(false);
         setCountdown(message.countdown);
         if (message.participants) {
           setParticipants(message.participants);
@@ -1498,8 +1500,9 @@ export default function RacePage() {
   }
 
   function startRace() {
-    if (!participants.length) return;
+    if (!participants.length || isStarting) return;
     
+    setIsStarting(true);
     sendWsMessage({
       type: "ready",
       raceId: race?.id,
@@ -1693,13 +1696,22 @@ export default function RacePage() {
                   <TooltipTrigger asChild>
                     <Button
                       onClick={startRace}
-                      disabled={participants.length < 1}
+                      disabled={participants.length < 1 || isStarting}
                       size="lg"
                       className="w-full"
                       data-testid="button-start-race"
                     >
-                      <Play className="h-4 w-4 mr-2" />
-                      Start Race
+                      {isStarting ? (
+                        <>
+                          <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          Starting...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4 mr-2" />
+                          Start Race
+                        </>
+                      )}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
