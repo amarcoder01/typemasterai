@@ -459,6 +459,7 @@ export const raceParticipants = pgTable("race_participants", {
   raceIdIdx: index("participant_race_id_idx").on(table.raceId),
   userIdIdx: index("participant_user_id_idx").on(table.userId),
   raceStatusIdx: index("participant_race_status_idx").on(table.raceId, table.isFinished),
+  raceActiveIdx: index("participant_race_active_idx").on(table.raceId, table.isActive),
 }));
 
 export const insertRaceSchema = createInsertSchema(races, {

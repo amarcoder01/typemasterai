@@ -127,7 +127,7 @@ import {
   type AuditLog,
   type InsertAuditLog,
 } from "@shared/schema";
-import { eq, desc, sql, and, notInArray } from "drizzle-orm";
+import { eq, desc, sql, and, notInArray, or } from "drizzle-orm";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -279,6 +279,11 @@ export interface IStorage {
   reactivateRaceParticipant(id: number): Promise<RaceParticipant>;
   findInactiveParticipant(raceId: number, userId?: string, guestName?: string): Promise<RaceParticipant | undefined>;
   getRaceWithParticipants(raceId: number): Promise<{ race: Race; participants: RaceParticipant[] } | undefined>;
+  
+  // Scalability methods for race cache
+  getStaleRaces(waitingTimeout: number, countdownTimeout: number, racingTimeout: number): Promise<Race[]>;
+  cleanupOldFinishedRaces(retentionMs: number): Promise<number>;
+  bulkUpdateParticipantProgress(updates: Map<number, { progress: number; wpm: number; accuracy: number; errors: number }>): Promise<void>;
   
   createCodeSnippet(snippet: InsertCodeSnippet): Promise<CodeSnippet>;
   getCodeSnippet(id: number): Promise<CodeSnippet | undefined>;
@@ -1586,6 +1591,87 @@ export class DatabaseStorage implements IStorage {
 
     const participants = await this.getRaceParticipants(raceId);
     return { race, participants };
+  }
+
+  async getStaleRaces(waitingTimeout: number, countdownTimeout: number, racingTimeout: number): Promise<Race[]> {
+    const now = new Date();
+    const waitingCutoff = new Date(now.getTime() - waitingTimeout);
+    const countdownCutoff = new Date(now.getTime() - countdownTimeout);
+    const racingCutoff = new Date(now.getTime() - racingTimeout);
+
+    return await db
+      .select()
+      .from(races)
+      .where(
+        or(
+          and(eq(races.status, "waiting"), sql`${races.createdAt} < ${waitingCutoff}`),
+          and(eq(races.status, "countdown"), sql`${races.createdAt} < ${countdownCutoff}`),
+          and(eq(races.status, "racing"), sql`${races.startedAt} < ${racingCutoff}`)
+        )
+      )
+      .limit(100);
+  }
+
+  async cleanupOldFinishedRaces(retentionMs: number): Promise<number> {
+    const cutoff = new Date(Date.now() - retentionMs);
+    
+    const result = await db
+      .delete(races)
+      .where(
+        and(
+          eq(races.status, "finished"),
+          sql`${races.finishedAt} < ${cutoff}`
+        )
+      )
+      .returning({ id: races.id });
+    
+    return result.length;
+  }
+
+  async bulkUpdateParticipantProgress(updates: Map<number, { progress: number; wpm: number; accuracy: number; errors: number }>): Promise<void> {
+    if (updates.size === 0) return;
+
+    const entries = Array.from(updates.entries());
+    
+    if (entries.length === 1) {
+      const [id, data] = entries[0];
+      await db
+        .update(raceParticipants)
+        .set({
+          progress: data.progress,
+          wpm: data.wpm,
+          accuracy: data.accuracy,
+          errors: data.errors,
+        })
+        .where(eq(raceParticipants.id, id));
+      return;
+    }
+
+    const BATCH_SIZE = 10;
+    const MAX_CONCURRENT = 3;
+
+    const batches: typeof entries[] = [];
+    for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+      batches.push(entries.slice(i, i + BATCH_SIZE));
+    }
+
+    for (let i = 0; i < batches.length; i += MAX_CONCURRENT) {
+      const concurrentBatches = batches.slice(i, i + MAX_CONCURRENT);
+      
+      await Promise.all(concurrentBatches.map(async (batch) => {
+        for (const [id, data] of batch) {
+          await db
+            .update(raceParticipants)
+            .set({
+              progress: data.progress,
+              wpm: data.wpm,
+              accuracy: data.accuracy,
+              errors: data.errors,
+            })
+            .where(eq(raceParticipants.id, id));
+        }
+      }));
+    }
   }
 
   async createCodeSnippet(snippet: InsertCodeSnippet): Promise<CodeSnippet> {
