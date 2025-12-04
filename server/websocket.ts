@@ -415,7 +415,145 @@ class RaceWebSocketServer {
           type: "participants_sync",
           participants: updatedParticipants,
         });
+        
+        // Schedule proactive bot greetings (bots say hi on their own)
+        this.scheduleProactiveBotChat(raceId, bots);
       }
+    }
+  }
+
+  // Proactive bot chat - bots initiate conversations without waiting for user
+  private proactiveChatTimers: Map<number, NodeJS.Timeout[]> = new Map();
+  
+  private scheduleProactiveBotChat(raceId: number, bots: any[]) {
+    const timers: NodeJS.Timeout[] = [];
+    
+    // Schedule greeting messages from bots (staggered timing)
+    bots.forEach((bot, index) => {
+      // 40% chance each bot sends a greeting
+      if (Math.random() < 0.4) {
+        const delay = 2000 + (index * 1500) + Math.random() * 2000; // 2-6 seconds staggered
+        const timer = setTimeout(() => {
+          this.sendProactiveBotMessage(raceId, bot, 'greeting');
+        }, delay);
+        timers.push(timer);
+      }
+    });
+    
+    // Schedule random idle chat (bots chat among themselves while waiting)
+    const idleChatTimer = setTimeout(() => {
+      this.startIdleBotChat(raceId);
+    }, 8000 + Math.random() * 5000); // Start after 8-13 seconds
+    timers.push(idleChatTimer);
+    
+    this.proactiveChatTimers.set(raceId, timers);
+  }
+  
+  private async sendProactiveBotMessage(raceId: number, bot: any, messageType: 'greeting' | 'idle' | 'hype') {
+    try {
+      const race = await storage.getRace(raceId);
+      if (!race || race.status !== 'waiting') return;
+      
+      // Check cooldown
+      const now = Date.now();
+      const lastChat = this.botChatCooldowns.get(bot.id) || 0;
+      if (now - lastChat < 4000) return; // 4 second cooldown for proactive
+      
+      const greetings = [
+        "yo", "hey", "sup", "yooo", "heyyy", "ayy", "wassup",
+        "yo whats up", "hey everyone", "sup guys", "yoo",
+      ];
+      const idleMessages = [
+        "lets goo", "im ready", "who else is hyped", "this gonna be good",
+        "anyone fast here", "gl everyone", "lets get it", "ready when u are",
+        "whos gonna win this", "feeling good today", "ez race incoming",
+      ];
+      const hypeMessages = [
+        "LETS GOOO", "im so ready rn", "bring it", "ez dub incoming",
+        "yall ready for this?", "no mercy 😤", "time to type fast",
+      ];
+      
+      let messages: string[];
+      switch (messageType) {
+        case 'greeting':
+          messages = greetings;
+          break;
+        case 'hype':
+          messages = hypeMessages;
+          break;
+        default:
+          messages = idleMessages;
+      }
+      
+      const content = messages[Math.floor(Math.random() * messages.length)];
+      
+      this.botChatCooldowns.set(bot.id, now);
+      
+      const chatMessage = await storage.createRaceChatMessage({
+        raceId,
+        participantId: bot.id,
+        messageType: "text",
+        content,
+      });
+      
+      this.broadcastToRace(raceId, {
+        type: "chat_message",
+        message: {
+          id: chatMessage.id,
+          participantId: bot.id,
+          username: bot.username,
+          content,
+          messageType: "text",
+          createdAt: chatMessage.createdAt,
+        },
+      });
+      
+      console.log(`[Bot Proactive] ${bot.username}: "${content}"`);
+      
+    } catch (error) {
+      console.error("[Bot Proactive] Error:", error);
+    }
+  }
+  
+  private async startIdleBotChat(raceId: number) {
+    try {
+      const race = await storage.getRace(raceId);
+      if (!race || race.status !== 'waiting') {
+        this.clearProactiveChatTimers(raceId);
+        return;
+      }
+      
+      const participants = await storage.getRaceParticipants(raceId);
+      const bots = participants.filter(p => p.isBot === 1);
+      
+      if (bots.length === 0) return;
+      
+      // Pick a random bot to send an idle message (30% chance)
+      if (Math.random() < 0.3) {
+        const bot = bots[Math.floor(Math.random() * bots.length)];
+        await this.sendProactiveBotMessage(raceId, bot, 'idle');
+      }
+      
+      // Schedule next idle chat (every 10-20 seconds)
+      const nextDelay = 10000 + Math.random() * 10000;
+      const timer = setTimeout(() => {
+        this.startIdleBotChat(raceId);
+      }, nextDelay);
+      
+      const timers = this.proactiveChatTimers.get(raceId) || [];
+      timers.push(timer);
+      this.proactiveChatTimers.set(raceId, timers);
+      
+    } catch (error) {
+      console.error("[Bot Idle Chat] Error:", error);
+    }
+  }
+  
+  private clearProactiveChatTimers(raceId: number) {
+    const timers = this.proactiveChatTimers.get(raceId);
+    if (timers) {
+      timers.forEach(timer => clearTimeout(timer));
+      this.proactiveChatTimers.delete(raceId);
     }
   }
 
@@ -492,6 +630,9 @@ class RaceWebSocketServer {
     }
 
     raceCache.updateRaceStatus(raceId, "countdown");
+    
+    // Clear proactive chat timers when race starts
+    this.clearProactiveChatTimers(raceId);
 
     this.broadcastToRace(raceId, {
       type: "countdown_start",
