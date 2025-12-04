@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Zap, Users, Lock, Trophy, Loader2, Info, Globe, Shield, Clock, WifiOff, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Zap, Users, Lock, Trophy, Loader2, Info, Shield, WifiOff, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 // Error codes for specific error handling
@@ -55,15 +55,6 @@ function getErrorIcon(code: MultiplayerErrorCode) {
   }
 }
 
-interface Race {
-  id: number;
-  roomCode: string;
-  status: string;
-  paragraphContent: string;
-  maxPlayers: number;
-  isPrivate: number;
-}
-
 interface Participant {
   id: number;
   raceId: number;
@@ -96,36 +87,6 @@ export default function MultiplayerPage() {
   const [isPrivate, setIsPrivate] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<"quickMatch" | "createRoom" | "joinRoom" | null>(null);
-  const [activeRaces, setActiveRaces] = useState<(Race & { participantCount: number })[]>([]);
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [lastSuccessfulFetch, setLastSuccessfulFetch] = useState<Date | null>(null);
-
-  useEffect(() => {
-    fetchActiveRaces();
-    const interval = setInterval(fetchActiveRaces, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  async function fetchActiveRaces() {
-    try {
-      const response = await fetch("/api/races/active");
-      if (response.ok) {
-        const races = await response.json();
-        setActiveRaces(races);
-        setFetchError(null);
-        setLastSuccessfulFetch(new Date());
-      } else {
-        setFetchError("Unable to load races");
-      }
-    } catch (error) {
-      if (!isOnline) {
-        setFetchError("You're offline");
-      } else {
-        setFetchError("Connection error");
-      }
-      console.error("Failed to fetch active races:", error);
-    }
-  }
 
   async function quickMatch() {
     if (!isOnline) {
@@ -303,29 +264,6 @@ export default function MultiplayerPage() {
             </Alert>
           )}
           
-          {/* Fetch error banner */}
-          {fetchError && isOnline && (
-            <Alert className="mb-6 border-orange-500/50 bg-orange-500/10">
-              <AlertTriangle className="h-4 w-4 text-orange-500" />
-              <AlertTitle className="flex items-center gap-2">
-                {fetchError}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" onClick={fetchActiveRaces} className="h-6 px-2">
-                      <RefreshCw className="h-3.5 w-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Retry loading active races</p>
-                  </TooltipContent>
-                </Tooltip>
-              </AlertTitle>
-              <AlertDescription>
-                Active races may not be up to date. Other features still work.
-              </AlertDescription>
-            </Alert>
-          )}
-          
           <div className="text-center mb-12">
             <div className="flex items-center justify-center gap-3 mb-4">
               <Tooltip>
@@ -430,63 +368,6 @@ export default function MultiplayerPage() {
                       <p>Click to instantly join or create a race</p>
                     </TooltipContent>
                   </Tooltip>
-
-                  {activeRaces.length > 0 && (
-                    <div className="mt-6">
-                      <div className="flex items-center gap-2 mb-3">
-                        <h3 className="text-sm font-medium">Active Public Races</h3>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Globe className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent side="right">
-                            <p>Open races anyone can join</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <div className="space-y-2">
-                        {activeRaces
-                          .filter(r => r.isPrivate === 0)
-                          .map(race => (
-                            <Tooltip key={race.id}>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center justify-between p-3 border rounded-lg hover:border-primary/50 transition-colors cursor-pointer">
-                                  <div>
-                                    <div className="font-medium flex items-center gap-2">
-                                      Room {race.roomCode}
-                                      {race.status === "waiting" && (
-                                        <span className="inline-flex items-center gap-1 text-xs text-green-500">
-                                          <Clock className="h-3 w-3" />
-                                          Waiting
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground">
-                                      {race.participantCount}/{race.maxPlayers} players
-                                    </div>
-                                  </div>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => joinRoom(race.roomCode)}
-                                    data-testid={`button-join-race-${race.roomCode}`}
-                                  >
-                                    Join
-                                  </Button>
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent side="left" className="max-w-xs">
-                                <div className="space-y-1">
-                                  <p className="font-medium">Room {race.roomCode}</p>
-                                  <p className="text-zinc-400">{race.participantCount} of {race.maxPlayers} players joined</p>
-                                  <p className="text-zinc-400">Status: {race.status === "waiting" ? "Waiting for players" : race.status}</p>
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          ))}
-                      </div>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </TabsContent>
