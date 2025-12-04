@@ -43,6 +43,24 @@ import { securityHeaders, csrfProtection } from "./auth-security";
 
 const PgSession = ConnectPgSimple(session);
 
+// Generate realistic-looking guest usernames
+const guestNamePrefixes = [
+  'swift', 'quick', 'fast', 'speedy', 'rapid', 'turbo', 'nitro', 'zoom', 'dash', 'flash',
+  'pro', 'ace', 'champ', 'star', 'ninja', 'wizard', 'master', 'legend', 'elite', 'epic',
+  'cool', 'super', 'mega', 'ultra', 'hyper', 'cyber', 'tech', 'pixel', 'neon', 'cosmic'
+];
+const guestNameSuffixes = [
+  'typer', 'fingers', 'keys', 'writer', 'racer', 'runner', 'coder', 'dev', 'fox', 'wolf',
+  'hawk', 'eagle', 'tiger', 'lion', 'bear', 'shark', 'dragon', 'phoenix', 'storm', 'thunder'
+];
+
+function generateGuestUsername(): string {
+  const prefix = guestNamePrefixes[Math.floor(Math.random() * guestNamePrefixes.length)];
+  const suffix = guestNameSuffixes[Math.floor(Math.random() * guestNameSuffixes.length)];
+  const num = Math.floor(Math.random() * 99) + 1;
+  return `${prefix}${suffix}${num}`;
+}
+
 declare global {
   namespace Express {
     interface User {
@@ -1517,10 +1535,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (user) {
         username = user.username;
-      } else if (guestId) {
-        username = `Guest_${guestId}`;
       } else {
-        username = `Guest_${Math.random().toString(36).substring(2, 8)}`;
+        username = generateGuestUsername();
       }
       
       const avatarColor = user?.avatarColor || "bg-primary";
@@ -1620,10 +1636,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (user) {
         username = user.username;
-      } else if (guestId) {
-        username = `Guest_${guestId}`;
       } else {
-        username = `Guest_${Math.random().toString(36).substring(2, 8)}`;
+        username = generateGuestUsername();
       }
       
       const avatarColor = user?.avatarColor || "bg-primary";
@@ -1673,10 +1687,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (user) {
         username = user.username;
-      } else if (guestId) {
-        username = `Guest_${guestId}`;
       } else {
-        username = `Guest_${Math.random().toString(36).substring(2, 8)}`;
+        username = generateGuestUsername();
       }
       
       const avatarColor = user?.avatarColor || "bg-primary";

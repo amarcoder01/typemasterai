@@ -1327,7 +1327,7 @@ export default function RacePage() {
         break;
       case "bots_added":
         fetchRaceData();
-        toast.info("AI racers joined to fill the lobby!", { duration: 2000 });
+        toast.info("More players joined!", { duration: 2000 });
         break;
       case "countdown_start":
         setCountdown(message.countdown);
@@ -1560,7 +1560,7 @@ export default function RacePage() {
                         </TooltipTrigger>
                         <TooltipContent side="right" className="max-w-xs">
                           <p className="font-medium">Waiting Room</p>
-                          <p className="text-zinc-400">Share your room code with friends. AI racers may join to fill empty slots when you start.</p>
+                          <p className="text-zinc-400">Share your room code with friends to invite them to race!</p>
                         </TooltipContent>
                       </Tooltip>
                     </CardTitle>
@@ -1613,8 +1613,7 @@ export default function RacePage() {
                         <TooltipContent side="bottom" className="max-w-xs">
                           <p className="font-medium">Invite Players</p>
                           <p className="text-zinc-400">
-                            Share the room code with friends to invite them. 
-                            When you start the race, AI racers may join to fill empty slots.
+                            Share the room code with friends to invite them.
                           </p>
                         </TooltipContent>
                       </Tooltip>
@@ -1630,26 +1629,10 @@ export default function RacePage() {
                             >
                               <div className={`h-10 w-10 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium relative`}>
                                 {p.username[0].toUpperCase()}
-                                {p.isBot === 1 && (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5 cursor-help">
-                                        <Bot className="h-3 w-3 text-muted-foreground" />
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="right">
-                                      <p className="font-medium">AI Racer</p>
-                                      <p className="text-zinc-400">This is an AI opponent with realistic typing patterns</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                )}
                               </div>
                               <div className="flex-1">
                                 <div className="font-medium flex items-center gap-2">
                                   {p.username}
-                                  {p.isBot === 1 && (
-                                    <Badge variant="secondary" className="text-xs px-1.5 py-0">AI</Badge>
-                                  )}
                                 </div>
                                 {p.id === myParticipant?.id && (
                                   <div className="text-xs text-primary flex items-center gap-1">
@@ -1663,11 +1646,9 @@ export default function RacePage() {
                           <TooltipContent side="left" className="max-w-xs">
                             <p className="font-medium">{p.username}</p>
                             <p className="text-zinc-400">
-                              {p.isBot === 1 
-                                ? "AI Racer - Competes with realistic typing patterns"
-                                : p.id === myParticipant?.id 
-                                  ? "This is you! Good luck in the race." 
-                                  : "Human player ready to race"}
+                              {p.id === myParticipant?.id 
+                                ? "This is you! Good luck in the race." 
+                                : "Ready to race"}
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -1843,16 +1824,11 @@ export default function RacePage() {
                                   <TooltipTrigger asChild>
                                     <div className={`h-6 w-6 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white text-xs cursor-help relative`}>
                                       {p.username[0].toUpperCase()}
-                                      {p.isBot === 1 && (
-                                        <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5">
-                                          <Bot className="h-2.5 w-2.5 text-muted-foreground" />
-                                        </div>
-                                      )}
                                     </div>
                                   </TooltipTrigger>
                                   <TooltipContent side="left">
                                     <p className="font-medium">{p.username}</p>
-                                    <p className="text-zinc-400">{p.isBot === 1 ? "AI Racer" : "Human player"}</p>
+                                    <p className="text-zinc-400">{p.id === myParticipant?.id ? "You" : "Racer"}</p>
                                   </TooltipContent>
                                 </Tooltip>
                                 <span className="font-medium">{p.username}</span>
@@ -2159,18 +2135,10 @@ export default function RacePage() {
                           </div>
                           <div className={`h-12 w-12 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium relative`}>
                             {p.username[0].toUpperCase()}
-                            {p.isBot === 1 && (
-                              <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
-                                <Bot className="h-3 w-3 text-muted-foreground" />
-                              </div>
-                            )}
                           </div>
                           <div className="flex-1">
                             <div className="font-medium flex items-center gap-2">
                               {p.username}
-                              {p.isBot === 1 && (
-                                <span className="text-xs bg-muted px-1.5 py-0.5 rounded text-muted-foreground">AI</span>
-                              )}
                             </div>
                             {p.id === myParticipant?.id && (
                               <div className="text-xs text-primary flex items-center gap-1">
@@ -2195,7 +2163,7 @@ export default function RacePage() {
                         <div className="space-y-1">
                           <p className="font-medium">{p.username} - #{idx + 1}</p>
                           <p className="text-zinc-400">
-                            {p.isBot === 1 ? "AI Racer" : p.id === myParticipant?.id ? "Your result" : "Human player"}
+                            {p.id === myParticipant?.id ? "Your result" : "Racer"}
                           </p>
                           <div className="pt-1 border-t border-zinc-700 mt-1">
                             <p className="text-zinc-300">Speed: {p.wpm} words per minute</p>
