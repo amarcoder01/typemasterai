@@ -1009,10 +1009,25 @@ class RaceWebSocketServer {
 
       console.log(`[Bot Chat] ${respondingBots.length} bots will respond to: "${message.substring(0, 30)}..."`);
 
-      // Schedule staggered responses
+      // Schedule staggered responses with realistic varied timing
       respondingBots.forEach((bot, index) => {
-        const baseDelay = 800 + index * 1200; // stagger: 0.8s, 2s, 3.2s
-        const delay = baseDelay + Math.random() * 1000;
+        // Realistic typing delays - some fast typers, some slow
+        const typingSpeed = Math.random();
+        let delay: number;
+        
+        if (typingSpeed < 0.3) {
+          // Fast responder (30%) - 0.5-1.5s
+          delay = 500 + Math.random() * 1000;
+        } else if (typingSpeed < 0.7) {
+          // Normal responder (40%) - 1.5-3s
+          delay = 1500 + Math.random() * 1500;
+        } else {
+          // Slow responder (30%) - 3-6s
+          delay = 3000 + Math.random() * 3000;
+        }
+        
+        // Add stagger for multiple responders
+        delay += index * (500 + Math.random() * 1000);
 
         this.botChatCooldowns.set(bot.id, now);
 
@@ -1078,45 +1093,56 @@ class RaceWebSocketServer {
   }
 
   private async generateAIBotResponse(userMessage: string, botName: string): Promise<string | null> {
+    // Random personality for this response
+    const personalities = [
+      { style: "hyped", desc: "super excited and energetic, uses caps sometimes, lots of emojis" },
+      { style: "chill", desc: "laid back and cool, minimal words, very casual" },
+      { style: "competitive", desc: "playfully trash-talking, confident, wants to win" },
+      { style: "friendly", desc: "warm and supportive, encouraging others" },
+      { style: "quiet", desc: "few words, observant, occasional short comment" },
+      { style: "funny", desc: "jokes around, uses humor, playful teasing" },
+    ];
+    const personality = personalities[Math.floor(Math.random() * personalities.length)];
+    
     try {
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: `You're ${botName}, hanging out in a typing race game lobby. Chat like you're texting a friend - super chill and casual. 
+            content: `You're ${botName} in a typing race game chat. Personality: ${personality.style} - ${personality.desc}
 
-Rules:
-- MAX 6-8 words, like real texts
-- Use slang: "lol", "haha", "nah", "yoo", "bet", "fr", "lowkey", "ngl"
-- Skip periods at end
-- Occasional emoji but not too many
-- Sound like a real person, not helpful or formal
-- Match their vibe - if they're hyped, be hyped
-- Can be playfully competitive or just chill
+BE HUMAN - text like you're in a group chat with friends:
+- 2-8 words max, super short
+- Use: lol, haha, nah, yoo, bet, fr, lowkey, ngl, gg, rip, damn, nice, bruh, yo
+- Skip punctuation, lowercase mostly
+- Emoji only sometimes (30% of messages)
+- Can have small typos occasionally
+- React naturally - agree, disagree, joke, ignore parts
+- Don't always directly answer - sometimes just react
+- Match their energy or contrast it
 
-Examples of good responses:
-- "yoo lets goo 🔥"
-- "haha gl everyone"
-- "bet im ready"
-- "lol we'll see about that"
-- "ngl im kinda nervous"
-- "oh its on 😤"
+${personality.style === 'hyped' ? 'Examples: "LETS GOOO", "yooo im ready 🔥", "this is gonna be good"' : ''}
+${personality.style === 'chill' ? 'Examples: "yea", "cool", "aight", "we chilling"' : ''}
+${personality.style === 'competitive' ? 'Examples: "ez clap", "yall arent ready", "watch me", "too slow 😤"' : ''}
+${personality.style === 'friendly' ? 'Examples: "gl everyone!", "u got this", "have fun yall"' : ''}
+${personality.style === 'quiet' ? 'Examples: "yo", "hm", "nice", "k"' : ''}
+${personality.style === 'funny' ? 'Examples: "lmao", "bro what 😂", "im literally so bad", "rip my fingers"' : ''}
 
-Never sound like an assistant or use phrases like "I'm here to" or "feel free to".`
+NEVER sound like AI. No "I'd be happy to" or formal language.`
           },
           {
             role: "user",
             content: userMessage
           }
         ],
-        max_tokens: 25,
-        temperature: 1.0,
+        max_tokens: 20,
+        temperature: 1.1,
       });
 
       const reply = response.choices[0]?.message?.content?.trim();
-      if (reply && reply.length > 0 && reply.length < 80) {
-        console.log(`[Bot Chat AI] Generated response for ${botName}: "${reply}"`);
+      if (reply && reply.length > 0 && reply.length < 60) {
+        console.log(`[Bot Chat AI] ${botName} (${personality.style}): "${reply}"`);
         return reply;
       }
       return null;
@@ -1129,61 +1155,36 @@ Never sound like an assistant or use phrases like "I'm here to" or "feel free to
   private getContextualResponse(intent: string): string {
     const responses: Record<string, string[]> = {
       greetings: [
-        "yoo 👋",
-        "heyyy",
-        "yo whats up",
-        "heyy ready to go?",
-        "sup!",
-        "ayy whats good",
+        "yo", "yoo", "heyyy", "sup", "ayy", "hey", "yooo",
+        "yo whats up", "heyy", "wassup", "hi", "ayy whats good",
       ],
       goodLuck: [
-        "gl to u too 🍀",
-        "haha thanks u2",
-        "same to u!",
-        "ty lets gooo 🔥",
-        "gl gl",
+        "gl", "u2", "same", "ty", "gl gl", "thanks u too",
+        "haha gl", "yea gl", "🍀", "gl everyone",
       ],
       finishing: [
-        "gg that was fun",
-        "gg everyone!",
-        "gg wp 👏",
-        "good race fr",
-        "lol that was intense",
+        "gg", "ggs", "gg wp", "good game", "nice race",
+        "that was fun", "gg everyone", "wp", "good one",
       ],
       reactions: [
-        "fr fr 😄",
-        "haha ikr",
-        "lol yea",
-        "haha yess",
-        "facts 🔥",
+        "fr", "lol", "haha", "nice", "damn", "yea",
+        "true", "facts", "ikr", "real", "same", "mood",
       ],
       competitive: [
-        "lets gooo 💪",
-        "oh its on",
-        "bet 🏁",
-        "bring it lol",
-        "we'll see about that 😤",
-        "im ready",
+        "lets go", "ez", "bet", "watch", "im ready",
+        "bring it", "too ez", "😤", "we'll see", "ok bet",
       ],
       encouragement: [
-        "we got this",
-        "lets get it!",
-        "yea lets do it",
-        "facts 🙌",
+        "u got this", "lets get it", "we got this", "go go",
+        "cmon", "yea", "lets gooo", "💪",
       ],
       question: [
-        "lol idk",
-        "haha who knows",
-        "we'll see",
-        "good question lol",
+        "idk", "maybe", "hm", "who knows", "lol idk",
+        "not sure", "🤷", "we'll see",
       ],
       casual: [
-        "haha yea",
-        "fr",
-        "lol",
-        "true",
-        "bet",
-        "nice 🚀",
+        "yea", "lol", "haha", "nice", "ok", "bet", "fr",
+        "true", "aight", "cool", "k", "ye", "word", "fasho",
       ],
     };
 
