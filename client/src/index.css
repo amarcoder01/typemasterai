@@ -250,8 +250,11 @@
 
 /* Reduced motion support for accessibility */
 @media (prefers-reduced-motion: reduce) {
-  .animate-caret-blink {
+  .animate-caret-blink,
+  .animate-caret-smooth,
+  [class*="animate-[caret-blink"] {
     animation: none !important;
+    opacity: 1 !important;
   }
 }
 
