@@ -485,6 +485,233 @@ export type Race = typeof races.$inferSelect;
 export type InsertRaceParticipant = z.infer<typeof insertRaceParticipantSchema>;
 export type RaceParticipant = typeof raceParticipants.$inferSelect;
 
+// ============================================================================
+// MULTIPLAYER RACING ENHANCED FEATURES
+// ============================================================================
+
+// User ELO Rating System
+export const userRatings = pgTable("user_ratings", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  
+  // ELO Rating
+  rating: integer("rating").notNull().default(1200),
+  peakRating: integer("peak_rating").notNull().default(1200),
+  
+  // Rating tier (calculated from rating)
+  tier: varchar("tier", { length: 20 }).notNull().default("bronze"), // bronze, silver, gold, platinum, diamond, master, grandmaster
+  
+  // Stats
+  totalRaces: integer("total_races").notNull().default(0),
+  wins: integer("wins").notNull().default(0),
+  losses: integer("losses").notNull().default(0),
+  draws: integer("draws").notNull().default(0),
+  winStreak: integer("win_streak").notNull().default(0),
+  bestWinStreak: integer("best_win_streak").notNull().default(0),
+  
+  // Provisional status (first 10 games have higher K-factor)
+  isProvisional: boolean("is_provisional").default(true).notNull(),
+  provisionalGames: integer("provisional_games").notNull().default(0),
+  
+  // Decay tracking
+  lastRaceAt: timestamp("last_race_at"),
+  ratingDecay: integer("rating_decay").notNull().default(0),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => ({
+  ratingIdx: index("user_ratings_rating_idx").on(table.rating),
+  tierIdx: index("user_ratings_tier_idx").on(table.tier),
+  winsIdx: index("user_ratings_wins_idx").on(table.wins),
+}));
+
+// Race Match History (for ELO calculations and stats)
+export const raceMatchHistory = pgTable("race_match_history", {
+  id: serial("id").primaryKey(),
+  raceId: integer("race_id").notNull().references(() => races.id, { onDelete: "cascade" }),
+  
+  // Player info
+  participantId: integer("participant_id").notNull().references(() => raceParticipants.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  
+  // Result
+  finishPosition: integer("finish_position").notNull(),
+  wpm: integer("wpm").notNull(),
+  accuracy: real("accuracy").notNull(),
+  
+  // Rating change
+  ratingBefore: integer("rating_before"),
+  ratingAfter: integer("rating_after"),
+  ratingChange: integer("rating_change"),
+  
+  // Opponents info (stored for historical reference)
+  opponentCount: integer("opponent_count").notNull().default(0),
+  avgOpponentRating: integer("avg_opponent_rating"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  raceIdIdx: index("race_match_race_id_idx").on(table.raceId),
+  userIdIdx: index("race_match_user_id_idx").on(table.userId),
+  createdAtIdx: index("race_match_created_at_idx").on(table.createdAt),
+}));
+
+// Race Keystroke Log (for anti-cheat and replays)
+export const raceKeystrokes = pgTable("race_keystrokes", {
+  id: serial("id").primaryKey(),
+  raceId: integer("race_id").notNull().references(() => races.id, { onDelete: "cascade" }),
+  participantId: integer("participant_id").notNull().references(() => raceParticipants.id, { onDelete: "cascade" }),
+  
+  // Keystroke data (stored as JSON array for efficiency)
+  keystrokes: jsonb("keystrokes").notNull(), // [{key, expected, timestamp, correct, position}]
+  
+  // Anti-cheat metrics (calculated server-side)
+  avgInterval: real("avg_interval"), // average ms between keystrokes
+  minInterval: real("min_interval"), // minimum ms between keystrokes
+  stdDevInterval: real("std_dev_interval"), // consistency of typing rhythm
+  suspiciousPatterns: integer("suspicious_patterns").notNull().default(0),
+  
+  // Validation
+  serverCalculatedWpm: integer("server_calculated_wpm"),
+  clientReportedWpm: integer("client_reported_wpm"),
+  wpmDiscrepancy: real("wpm_discrepancy"),
+  
+  // Anti-cheat flags
+  isFlagged: boolean("is_flagged").default(false).notNull(),
+  flagReasons: jsonb("flag_reasons"), // ["inhuman_speed", "perfect_accuracy", etc.]
+  requiresReview: boolean("requires_review").default(false).notNull(),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  raceIdIdx: index("race_keystrokes_race_id_idx").on(table.raceId),
+  participantIdIdx: index("race_keystrokes_participant_id_idx").on(table.participantId),
+  flaggedIdx: index("race_keystrokes_flagged_idx").on(table.isFlagged),
+}));
+
+// Race Chat Messages
+export const raceChatMessages = pgTable("race_chat_messages", {
+  id: serial("id").primaryKey(),
+  raceId: integer("race_id").notNull().references(() => races.id, { onDelete: "cascade" }),
+  participantId: integer("participant_id").references(() => raceParticipants.id, { onDelete: "set null" }),
+  
+  // Message content
+  messageType: varchar("message_type", { length: 20 }).notNull().default("text"), // text, emote, system
+  content: text("content").notNull(),
+  
+  // For emotes
+  emoteCode: varchar("emote_code", { length: 50 }),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  raceIdIdx: index("race_chat_race_id_idx").on(table.raceId),
+  createdAtIdx: index("race_chat_created_at_idx").on(table.createdAt),
+}));
+
+// Race Spectators
+export const raceSpectators = pgTable("race_spectators", {
+  id: serial("id").primaryKey(),
+  raceId: integer("race_id").notNull().references(() => races.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  
+  // Guest spectator tracking
+  sessionId: varchar("session_id", { length: 64 }),
+  
+  joinedAt: timestamp("joined_at").notNull().defaultNow(),
+  leftAt: timestamp("left_at"),
+  
+  isActive: boolean("is_active").default(true).notNull(),
+}, (table) => ({
+  raceIdIdx: index("race_spectators_race_id_idx").on(table.raceId),
+  activeIdx: index("race_spectators_active_idx").on(table.raceId, table.isActive),
+}));
+
+// Race Replays (stored for completed races)
+export const raceReplays = pgTable("race_replays", {
+  id: serial("id").primaryKey(),
+  raceId: integer("race_id").notNull().unique().references(() => races.id, { onDelete: "cascade" }),
+  
+  // Race metadata snapshot
+  paragraphContent: text("paragraph_content").notNull(),
+  duration: integer("duration"), // total race duration in ms
+  
+  // All participants' keystroke data for replay
+  participantData: jsonb("participant_data").notNull(), // [{participantId, username, keystrokes, wpm, accuracy, position}]
+  
+  // Replay accessibility
+  isPublic: boolean("is_public").default(false).notNull(),
+  viewCount: integer("view_count").notNull().default(0),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  raceIdIdx: index("race_replays_race_id_idx").on(table.raceId),
+  publicIdx: index("race_replays_public_idx").on(table.isPublic),
+}));
+
+// Anti-Cheat Verification Challenges (CAPTCHA for high WPM)
+export const antiCheatChallenges = pgTable("anti_cheat_challenges", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  
+  // Challenge details
+  challengeText: text("challenge_text").notNull(),
+  challengeType: varchar("challenge_type", { length: 20 }).notNull().default("typing"), // typing, captcha
+  
+  // Result
+  triggered: boolean("triggered").default(false).notNull(),
+  triggeredWpm: integer("triggered_wpm"),
+  passed: boolean("passed"),
+  challengeWpm: integer("challenge_wpm"),
+  
+  // Certification (if passed, user is certified up to 25% above their challenge WPM)
+  certifiedWpm: integer("certified_wpm"),
+  certifiedUntil: timestamp("certified_until"),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => ({
+  userIdIdx: index("anti_cheat_user_id_idx").on(table.userId),
+  certifiedIdx: index("anti_cheat_certified_idx").on(table.userId, table.certifiedUntil),
+}));
+
+// Insert schemas and types for new tables
+export const insertUserRatingSchema = createInsertSchema(userRatings, {
+  rating: z.number().int().min(0).max(5000),
+  tier: z.enum(["bronze", "silver", "gold", "platinum", "diamond", "master", "grandmaster"]),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const insertRaceMatchHistorySchema = createInsertSchema(raceMatchHistory, {
+  finishPosition: z.number().int().min(1),
+  wpm: z.number().int().min(0).max(500),
+  accuracy: z.number().min(0).max(100),
+}).omit({ id: true, createdAt: true });
+
+export const insertRaceKeystrokesSchema = createInsertSchema(raceKeystrokes).omit({ id: true, createdAt: true });
+
+export const insertRaceChatMessageSchema = createInsertSchema(raceChatMessages, {
+  messageType: z.enum(["text", "emote", "system"]),
+  content: z.string().min(1).max(500),
+}).omit({ id: true, createdAt: true });
+
+export const insertRaceSpectatorSchema = createInsertSchema(raceSpectators).omit({ id: true, joinedAt: true });
+
+export const insertRaceReplaySchema = createInsertSchema(raceReplays).omit({ id: true, createdAt: true, viewCount: true });
+
+export const insertAntiCheatChallengeSchema = createInsertSchema(antiCheatChallenges).omit({ id: true, createdAt: true, completedAt: true });
+
+export type UserRating = typeof userRatings.$inferSelect;
+export type InsertUserRating = z.infer<typeof insertUserRatingSchema>;
+export type RaceMatchHistory = typeof raceMatchHistory.$inferSelect;
+export type InsertRaceMatchHistory = z.infer<typeof insertRaceMatchHistorySchema>;
+export type RaceKeystrokes = typeof raceKeystrokes.$inferSelect;
+export type InsertRaceKeystrokes = z.infer<typeof insertRaceKeystrokesSchema>;
+export type RaceChatMessage = typeof raceChatMessages.$inferSelect;
+export type InsertRaceChatMessage = z.infer<typeof insertRaceChatMessageSchema>;
+export type RaceSpectator = typeof raceSpectators.$inferSelect;
+export type InsertRaceSpectator = z.infer<typeof insertRaceSpectatorSchema>;
+export type RaceReplay = typeof raceReplays.$inferSelect;
+export type InsertRaceReplay = z.infer<typeof insertRaceReplaySchema>;
+export type AntiCheatChallenge = typeof antiCheatChallenges.$inferSelect;
+export type InsertAntiCheatChallenge = z.infer<typeof insertAntiCheatChallengeSchema>;
+
 export const codeSnippets = pgTable("code_snippets", {
   id: serial("id").primaryKey(),
   programmingLanguage: text("programming_language").notNull(),

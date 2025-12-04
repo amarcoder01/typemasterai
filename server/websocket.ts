@@ -5,6 +5,8 @@ import { raceCache } from "./race-cache";
 import { wsRateLimiter } from "./ws-rate-limiter";
 import { raceCleanupScheduler } from "./race-cleanup";
 import { metricsCollector } from "./metrics";
+import { eloRatingService } from "./elo-rating-service";
+import { antiCheatService } from "./anticheat-service";
 import type { Server } from "http";
 
 interface RaceClient {
@@ -275,6 +277,24 @@ class RaceWebSocketServer {
         break;
       case "extend_paragraph":
         await this.handleExtendParagraph(ws, message);
+        break;
+      case "submit_keystrokes":
+        await this.handleSubmitKeystrokes(ws, message);
+        break;
+      case "chat_message":
+        await this.handleChatMessage(ws, message);
+        break;
+      case "spectate":
+        await this.handleSpectate(ws, message);
+        break;
+      case "stop_spectate":
+        await this.handleStopSpectate(ws, message);
+        break;
+      case "get_replay":
+        await this.handleGetReplay(ws, message);
+        break;
+      case "get_rating":
+        await this.handleGetRating(ws, message);
         break;
       default:
         console.warn("Unknown message type:", message.type);
@@ -562,9 +582,15 @@ class RaceWebSocketServer {
       botService.stopAllBotsInRace(raceId, updatedParticipants);
       this.cleanupExtensionState(raceId);
       
+      const sortedResults = updatedParticipants.sort((a, b) => (a.finishPosition || 999) - (b.finishPosition || 999));
+      
       this.broadcastToRace(raceId, {
         type: "race_finished",
-        results: updatedParticipants.sort((a, b) => (a.finishPosition || 999) - (b.finishPosition || 999)),
+        results: sortedResults,
+      });
+
+      this.processRaceCompletion(raceId, sortedResults).catch(err => {
+        console.error(`[RaceFinish] Error processing race completion:`, err);
       });
     }
   }
@@ -676,6 +702,277 @@ class RaceWebSocketServer {
 
   private cleanupExtensionState(raceId: number) {
     this.extensionStates.delete(raceId);
+  }
+
+  // ============================================================================
+  // NEW MULTIPLAYER FEATURES HANDLERS
+  // ============================================================================
+
+  private async handleSubmitKeystrokes(ws: WebSocket, message: any) {
+    const { raceId, participantId, keystrokes, clientWpm, userId } = message;
+
+    if (!raceId || !participantId || !keystrokes) {
+      ws.send(JSON.stringify({ type: "error", message: "Missing keystroke data" }));
+      return;
+    }
+
+    try {
+      const validation = await antiCheatService.validateKeystrokes(
+        raceId,
+        participantId,
+        keystrokes,
+        clientWpm || 0,
+        userId
+      );
+
+      ws.send(JSON.stringify({
+        type: "keystroke_validation",
+        participantId,
+        isValid: validation.isValid,
+        isFlagged: validation.isFlagged,
+        serverWpm: validation.serverCalculatedWpm,
+        requiresCertification: validation.flagReasons.includes("requires_certification"),
+      }));
+
+      if (validation.isFlagged) {
+        console.log(`[AntiCheat] Flagged participant ${participantId}: ${validation.flagReasons.join(", ")}`);
+      }
+    } catch (error) {
+      console.error("[AntiCheat] Keystroke validation error:", error);
+    }
+  }
+
+  private async handleChatMessage(ws: WebSocket, message: any) {
+    const { raceId, participantId, content, messageType = "text", emoteCode } = message;
+
+    if (!raceId || !participantId || !content) {
+      ws.send(JSON.stringify({ type: "error", message: "Missing chat message data" }));
+      return;
+    }
+
+    if (content.length > 500) {
+      ws.send(JSON.stringify({ type: "error", message: "Message too long" }));
+      return;
+    }
+
+    const raceRoom = this.races.get(raceId);
+    if (!raceRoom) return;
+
+    const client = raceRoom.clients.get(participantId);
+    if (!client) return;
+
+    try {
+      const chatMessage = await storage.createRaceChatMessage({
+        raceId,
+        participantId,
+        messageType,
+        content,
+        emoteCode,
+      });
+
+      this.broadcastToRace(raceId, {
+        type: "chat_message",
+        message: {
+          id: chatMessage.id,
+          participantId,
+          username: client.username,
+          content,
+          messageType,
+          emoteCode,
+          createdAt: chatMessage.createdAt,
+        },
+      });
+    } catch (error) {
+      console.error("[Chat] Message save error:", error);
+    }
+  }
+
+  private spectators: Map<number, Set<WebSocket>> = new Map();
+
+  private async handleSpectate(ws: WebSocket, message: any) {
+    const { raceId, userId, sessionId } = message;
+
+    if (!raceId) {
+      ws.send(JSON.stringify({ type: "error", message: "Missing race ID" }));
+      return;
+    }
+
+    const race = await storage.getRace(raceId);
+    if (!race) {
+      ws.send(JSON.stringify({ type: "error", message: "Race not found" }));
+      return;
+    }
+
+    let spectatorSet = this.spectators.get(raceId);
+    if (!spectatorSet) {
+      spectatorSet = new Set();
+      this.spectators.set(raceId, spectatorSet);
+    }
+    spectatorSet.add(ws);
+
+    try {
+      await storage.addRaceSpectator({
+        raceId,
+        userId,
+        sessionId: sessionId || `ws_${Date.now()}`,
+        isActive: true,
+      });
+
+      const spectatorCount = await storage.getActiveSpectatorCount(raceId);
+      const participants = await storage.getRaceParticipants(raceId);
+
+      ws.send(JSON.stringify({
+        type: "spectate_joined",
+        race,
+        participants,
+        spectatorCount,
+      }));
+
+      this.broadcastToRace(raceId, {
+        type: "spectator_update",
+        spectatorCount,
+      });
+    } catch (error) {
+      console.error("[Spectator] Join error:", error);
+    }
+  }
+
+  private async handleStopSpectate(ws: WebSocket, message: any) {
+    const { raceId, sessionId } = message;
+
+    if (!raceId) return;
+
+    const spectatorSet = this.spectators.get(raceId);
+    if (spectatorSet) {
+      spectatorSet.delete(ws);
+      if (spectatorSet.size === 0) {
+        this.spectators.delete(raceId);
+      }
+    }
+
+    if (sessionId) {
+      try {
+        await storage.removeRaceSpectator(raceId, sessionId);
+        const spectatorCount = await storage.getActiveSpectatorCount(raceId);
+        
+        this.broadcastToRace(raceId, {
+          type: "spectator_update",
+          spectatorCount,
+        });
+      } catch (error) {
+        console.error("[Spectator] Leave error:", error);
+      }
+    }
+  }
+
+  private async handleGetReplay(ws: WebSocket, message: any) {
+    const { raceId } = message;
+
+    if (!raceId) {
+      ws.send(JSON.stringify({ type: "error", message: "Missing race ID" }));
+      return;
+    }
+
+    try {
+      const replay = await storage.getRaceReplay(raceId);
+      
+      if (!replay) {
+        ws.send(JSON.stringify({ type: "error", message: "Replay not found" }));
+        return;
+      }
+
+      await storage.incrementReplayViewCount(raceId);
+
+      ws.send(JSON.stringify({
+        type: "replay_data",
+        replay,
+      }));
+    } catch (error) {
+      console.error("[Replay] Fetch error:", error);
+      ws.send(JSON.stringify({ type: "error", message: "Failed to fetch replay" }));
+    }
+  }
+
+  private async handleGetRating(ws: WebSocket, message: any) {
+    const { userId } = message;
+
+    if (!userId) {
+      ws.send(JSON.stringify({ type: "error", message: "Missing user ID" }));
+      return;
+    }
+
+    try {
+      const rating = await storage.getOrCreateUserRating(userId);
+      const tierInfo = eloRatingService.getTierInfo(rating.tier);
+
+      ws.send(JSON.stringify({
+        type: "rating_data",
+        rating: {
+          ...rating,
+          tierInfo,
+        },
+      }));
+    } catch (error) {
+      console.error("[Rating] Fetch error:", error);
+      ws.send(JSON.stringify({ type: "error", message: "Failed to fetch rating" }));
+    }
+  }
+
+  private async processRaceCompletion(raceId: number, participants: any[]) {
+    try {
+      const results = participants
+        .filter(p => p.isFinished === 1)
+        .map(p => ({
+          participantId: p.id,
+          userId: p.userId,
+          position: p.finishPosition || 999,
+          wpm: p.wpm,
+          accuracy: p.accuracy,
+          isBot: p.isBot === 1,
+        }));
+
+      const ratingChanges = await eloRatingService.processRaceResults(raceId, results);
+
+      if (ratingChanges.length > 0) {
+        this.broadcastToRace(raceId, {
+          type: "rating_changes",
+          changes: ratingChanges.map(change => ({
+            participantId: results.find(r => r.userId === change.userId)?.participantId,
+            ...change,
+            tierInfo: eloRatingService.getTierInfo(change.tier),
+          })),
+        });
+      }
+
+      const keystrokesData = await storage.getRaceKeystrokes(raceId);
+      const race = await storage.getRace(raceId);
+      
+      if (race && keystrokesData.length > 0) {
+        try {
+          await storage.createRaceReplay({
+            raceId,
+            paragraphContent: race.paragraphContent,
+            duration: race.finishedAt && race.startedAt 
+              ? Math.round((race.finishedAt.getTime() - race.startedAt.getTime()))
+              : null,
+            participantData: participants.map(p => ({
+              participantId: p.id,
+              username: p.username,
+              wpm: p.wpm,
+              accuracy: p.accuracy,
+              position: p.finishPosition,
+              keystrokes: keystrokesData.find(k => k.participantId === p.id)?.keystrokes || [],
+            })),
+            isPublic: false,
+          });
+          console.log(`[Replay] Saved replay for race ${raceId}`);
+        } catch (error) {
+          console.error(`[Replay] Failed to save replay for race ${raceId}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error(`[RaceCompletion] Error processing race ${raceId}:`, error);
+    }
   }
 
   private handleDisconnect(ws: WebSocket) {

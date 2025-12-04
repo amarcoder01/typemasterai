@@ -1731,6 +1731,187 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================================================
+  // MULTIPLAYER RACING ENHANCED FEATURES API
+  // ============================================================================
+
+  // User Ratings API
+  app.get("/api/ratings/me", isAuthenticated, async (req, res) => {
+    try {
+      const rating = await storage.getOrCreateUserRating(req.user!.id);
+      const { eloRatingService } = await import("./elo-rating-service");
+      const tierInfo = eloRatingService.getTierInfo(rating.tier);
+      res.json({ rating: { ...rating, tierInfo } });
+    } catch (error: any) {
+      console.error("Get user rating error:", error);
+      res.status(500).json({ message: "Failed to fetch rating" });
+    }
+  });
+
+  app.get("/api/ratings/leaderboard", async (req, res) => {
+    try {
+      const tier = req.query.tier as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const ratings = await storage.getRatingLeaderboard(tier, limit);
+      
+      const { eloRatingService } = await import("./elo-rating-service");
+      const enrichedRatings = await Promise.all(
+        ratings.map(async (rating) => {
+          const user = await storage.getUser(rating.userId);
+          return {
+            ...rating,
+            username: user?.username || "Unknown",
+            avatarColor: user?.avatarColor,
+            tierInfo: eloRatingService.getTierInfo(rating.tier),
+          };
+        })
+      );
+
+      res.json({ leaderboard: enrichedRatings });
+    } catch (error: any) {
+      console.error("Get rating leaderboard error:", error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  app.get("/api/ratings/:userId", async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      const rating = await storage.getUserRating(userId);
+      
+      if (!rating) {
+        return res.status(404).json({ message: "Rating not found" });
+      }
+
+      const { eloRatingService } = await import("./elo-rating-service");
+      const tierInfo = eloRatingService.getTierInfo(rating.tier);
+      res.json({ rating: { ...rating, tierInfo } });
+    } catch (error: any) {
+      console.error("Get user rating error:", error);
+      res.status(500).json({ message: "Failed to fetch rating" });
+    }
+  });
+
+  // Match History API
+  app.get("/api/match-history", isAuthenticated, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const history = await storage.getUserMatchHistory(req.user!.id, limit);
+      res.json({ history });
+    } catch (error: any) {
+      console.error("Get match history error:", error);
+      res.status(500).json({ message: "Failed to fetch match history" });
+    }
+  });
+
+  // Race Replays API
+  app.get("/api/replays/public", async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const replays = await storage.getPublicReplays(limit);
+      res.json({ replays });
+    } catch (error: any) {
+      console.error("Get public replays error:", error);
+      res.status(500).json({ message: "Failed to fetch replays" });
+    }
+  });
+
+  app.get("/api/replays/:raceId", async (req, res) => {
+    try {
+      const raceId = parseInt(req.params.raceId);
+      const replay = await storage.getRaceReplay(raceId);
+      
+      if (!replay) {
+        return res.status(404).json({ message: "Replay not found" });
+      }
+
+      await storage.incrementReplayViewCount(raceId);
+      res.json({ replay });
+    } catch (error: any) {
+      console.error("Get replay error:", error);
+      res.status(500).json({ message: "Failed to fetch replay" });
+    }
+  });
+
+  // Race Chat History API
+  app.get("/api/races/:raceId/chat", async (req, res) => {
+    try {
+      const raceId = parseInt(req.params.raceId);
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const messages = await storage.getRaceChatMessages(raceId, limit);
+      res.json({ messages });
+    } catch (error: any) {
+      console.error("Get race chat error:", error);
+      res.status(500).json({ message: "Failed to fetch chat messages" });
+    }
+  });
+
+  // Anti-Cheat Certification API
+  app.get("/api/anti-cheat/certification", isAuthenticated, async (req, res) => {
+    try {
+      const certification = await storage.getUserCertification(req.user!.id);
+      res.json({ 
+        certified: !!certification,
+        certification: certification || null,
+      });
+    } catch (error: any) {
+      console.error("Get certification error:", error);
+      res.status(500).json({ message: "Failed to fetch certification" });
+    }
+  });
+
+  app.post("/api/anti-cheat/challenge", isAuthenticated, async (req, res) => {
+    try {
+      const { antiCheatService } = await import("./anticheat-service");
+      const challengeText = await antiCheatService.triggerVerificationChallenge(
+        req.user!.id,
+        req.body.triggeredWpm || 100
+      );
+      res.json({ challengeText });
+    } catch (error: any) {
+      console.error("Create challenge error:", error);
+      res.status(500).json({ message: "Failed to create challenge" });
+    }
+  });
+
+  // Skill-Based Matchmaking API
+  app.get("/api/matchmaking/pool", isAuthenticated, async (req, res) => {
+    try {
+      const tolerance = req.query.tolerance ? parseInt(req.query.tolerance as string) : 200;
+      const { eloRatingService } = await import("./elo-rating-service");
+      const pool = await eloRatingService.getMatchmakingPool(req.user!.id, tolerance);
+      
+      const enrichedPool = await Promise.all(
+        pool.map(async (rating) => {
+          const user = await storage.getUser(rating.userId);
+          return {
+            ...rating,
+            username: user?.username || "Unknown",
+            avatarColor: user?.avatarColor,
+            tierInfo: eloRatingService.getTierInfo(rating.tier),
+          };
+        })
+      );
+
+      res.json({ matchmakingPool: enrichedPool });
+    } catch (error: any) {
+      console.error("Get matchmaking pool error:", error);
+      res.status(500).json({ message: "Failed to fetch matchmaking pool" });
+    }
+  });
+
+  // Flagged Keystrokes API (Admin)
+  app.get("/api/admin/flagged-keystrokes", isAuthenticated, async (req, res) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const flagged = await storage.getFlaggedKeystrokes(limit);
+      res.json({ flagged });
+    } catch (error: any) {
+      console.error("Get flagged keystrokes error:", error);
+      res.status(500).json({ message: "Failed to fetch flagged keystrokes" });
+    }
+  });
+
   app.get("/api/code/snippet", aiGenerationLimiter, async (req, res) => {
     try {
       const { z } = await import("zod");

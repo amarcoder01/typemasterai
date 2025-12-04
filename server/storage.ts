@@ -126,6 +126,27 @@ import {
   type InsertOAuthState,
   type AuditLog,
   type InsertAuditLog,
+  userRatings,
+  raceMatchHistory,
+  raceKeystrokes,
+  raceChatMessages,
+  raceSpectators,
+  raceReplays,
+  antiCheatChallenges,
+  type UserRating,
+  type InsertUserRating,
+  type RaceMatchHistory,
+  type InsertRaceMatchHistory,
+  type RaceKeystrokes,
+  type InsertRaceKeystrokes,
+  type RaceChatMessage,
+  type InsertRaceChatMessage,
+  type RaceSpectator,
+  type InsertRaceSpectator,
+  type RaceReplay,
+  type InsertRaceReplay,
+  type AntiCheatChallenge,
+  type InsertAntiCheatChallenge,
 } from "@shared/schema";
 import { eq, desc, sql, and, notInArray, or } from "drizzle-orm";
 
@@ -470,6 +491,50 @@ export interface IStorage {
   createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
   getAuditLogs(filters?: { userId?: string; eventType?: string; limit?: number }): Promise<AuditLog[]>;
   getUserAuditLogs(userId: string, limit?: number): Promise<AuditLog[]>;
+
+  // ============================================================================
+  // MULTIPLAYER RACING ENHANCED FEATURES
+  // ============================================================================
+
+  // User Rating (ELO System)
+  getUserRating(userId: string): Promise<UserRating | undefined>;
+  createUserRating(userId: string): Promise<UserRating>;
+  updateUserRating(userId: string, updates: Partial<UserRating>): Promise<UserRating>;
+  getOrCreateUserRating(userId: string): Promise<UserRating>;
+  getRatingLeaderboard(tier?: string, limit?: number): Promise<UserRating[]>;
+  getUsersForMatchmaking(targetRating: number, tolerance: number, excludeUserIds: string[]): Promise<UserRating[]>;
+
+  // Race Match History
+  createRaceMatchHistory(history: InsertRaceMatchHistory): Promise<RaceMatchHistory>;
+  getRaceMatchHistory(raceId: number): Promise<RaceMatchHistory[]>;
+  getUserMatchHistory(userId: string, limit?: number): Promise<RaceMatchHistory[]>;
+
+  // Race Keystrokes (Anti-cheat & Replays)
+  saveRaceKeystrokes(keystrokes: InsertRaceKeystrokes): Promise<RaceKeystrokes>;
+  getRaceKeystrokes(raceId: number): Promise<RaceKeystrokes[]>;
+  getParticipantKeystrokes(participantId: number): Promise<RaceKeystrokes | undefined>;
+  getFlaggedKeystrokes(limit?: number): Promise<RaceKeystrokes[]>;
+
+  // Race Chat Messages
+  createRaceChatMessage(message: InsertRaceChatMessage): Promise<RaceChatMessage>;
+  getRaceChatMessages(raceId: number, limit?: number): Promise<RaceChatMessage[]>;
+
+  // Race Spectators
+  addRaceSpectator(spectator: InsertRaceSpectator): Promise<RaceSpectator>;
+  removeRaceSpectator(raceId: number, sessionId: string): Promise<void>;
+  getRaceSpectators(raceId: number): Promise<RaceSpectator[]>;
+  getActiveSpectatorCount(raceId: number): Promise<number>;
+
+  // Race Replays
+  createRaceReplay(replay: InsertRaceReplay): Promise<RaceReplay>;
+  getRaceReplay(raceId: number): Promise<RaceReplay | undefined>;
+  getPublicReplays(limit?: number): Promise<RaceReplay[]>;
+  incrementReplayViewCount(raceId: number): Promise<void>;
+
+  // Anti-Cheat Challenges
+  createAntiCheatChallenge(challenge: InsertAntiCheatChallenge): Promise<AntiCheatChallenge>;
+  getUserCertification(userId: string): Promise<AntiCheatChallenge | undefined>;
+  updateChallengePassed(challengeId: number, passed: boolean, wpm: number, certifiedWpm: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3191,6 +3256,278 @@ export class DatabaseStorage implements IStorage {
       .where(eq(auditLogs.userId, userId))
       .orderBy(desc(auditLogs.createdAt))
       .limit(limit);
+  }
+
+  // ============================================================================
+  // MULTIPLAYER RACING ENHANCED FEATURES IMPLEMENTATIONS
+  // ============================================================================
+
+  // User Rating (ELO System)
+  async getUserRating(userId: string): Promise<UserRating | undefined> {
+    const result = await db
+      .select()
+      .from(userRatings)
+      .where(eq(userRatings.userId, userId))
+      .limit(1);
+    return result[0];
+  }
+
+  async createUserRating(userId: string): Promise<UserRating> {
+    const inserted = await db
+      .insert(userRatings)
+      .values({ userId })
+      .returning();
+    return inserted[0];
+  }
+
+  async updateUserRating(userId: string, updates: Partial<UserRating>): Promise<UserRating> {
+    const updated = await db
+      .update(userRatings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(userRatings.userId, userId))
+      .returning();
+    return updated[0];
+  }
+
+  async getOrCreateUserRating(userId: string): Promise<UserRating> {
+    const existing = await this.getUserRating(userId);
+    if (existing) return existing;
+    return await this.createUserRating(userId);
+  }
+
+  async getRatingLeaderboard(tier?: string, limit: number = 100): Promise<UserRating[]> {
+    let query = db.select().from(userRatings);
+    
+    if (tier) {
+      query = query.where(eq(userRatings.tier, tier)) as typeof query;
+    }
+    
+    return await query
+      .orderBy(desc(userRatings.rating))
+      .limit(limit);
+  }
+
+  async getUsersForMatchmaking(targetRating: number, tolerance: number, excludeUserIds: string[]): Promise<UserRating[]> {
+    const minRating = targetRating - tolerance;
+    const maxRating = targetRating + tolerance;
+    
+    let query = db
+      .select()
+      .from(userRatings)
+      .where(
+        and(
+          sql`${userRatings.rating} >= ${minRating}`,
+          sql`${userRatings.rating} <= ${maxRating}`
+        )
+      );
+    
+    if (excludeUserIds.length > 0) {
+      query = query.where(notInArray(userRatings.userId, excludeUserIds)) as typeof query;
+    }
+    
+    return await query
+      .orderBy(sql`ABS(${userRatings.rating} - ${targetRating})`)
+      .limit(10);
+  }
+
+  // Race Match History
+  async createRaceMatchHistory(history: InsertRaceMatchHistory): Promise<RaceMatchHistory> {
+    const inserted = await db
+      .insert(raceMatchHistory)
+      .values(history)
+      .returning();
+    return inserted[0];
+  }
+
+  async getRaceMatchHistory(raceId: number): Promise<RaceMatchHistory[]> {
+    return await db
+      .select()
+      .from(raceMatchHistory)
+      .where(eq(raceMatchHistory.raceId, raceId))
+      .orderBy(raceMatchHistory.finishPosition);
+  }
+
+  async getUserMatchHistory(userId: string, limit: number = 50): Promise<RaceMatchHistory[]> {
+    return await db
+      .select()
+      .from(raceMatchHistory)
+      .where(eq(raceMatchHistory.userId, userId))
+      .orderBy(desc(raceMatchHistory.createdAt))
+      .limit(limit);
+  }
+
+  // Race Keystrokes (Anti-cheat & Replays)
+  async saveRaceKeystrokes(keystrokes: InsertRaceKeystrokes): Promise<RaceKeystrokes> {
+    const inserted = await db
+      .insert(raceKeystrokes)
+      .values(keystrokes)
+      .returning();
+    return inserted[0];
+  }
+
+  async getRaceKeystrokes(raceId: number): Promise<RaceKeystrokes[]> {
+    return await db
+      .select()
+      .from(raceKeystrokes)
+      .where(eq(raceKeystrokes.raceId, raceId));
+  }
+
+  async getParticipantKeystrokes(participantId: number): Promise<RaceKeystrokes | undefined> {
+    const result = await db
+      .select()
+      .from(raceKeystrokes)
+      .where(eq(raceKeystrokes.participantId, participantId))
+      .limit(1);
+    return result[0];
+  }
+
+  async getFlaggedKeystrokes(limit: number = 50): Promise<RaceKeystrokes[]> {
+    return await db
+      .select()
+      .from(raceKeystrokes)
+      .where(eq(raceKeystrokes.isFlagged, true))
+      .orderBy(desc(raceKeystrokes.createdAt))
+      .limit(limit);
+  }
+
+  // Race Chat Messages
+  async createRaceChatMessage(message: InsertRaceChatMessage): Promise<RaceChatMessage> {
+    const inserted = await db
+      .insert(raceChatMessages)
+      .values(message)
+      .returning();
+    return inserted[0];
+  }
+
+  async getRaceChatMessages(raceId: number, limit: number = 100): Promise<RaceChatMessage[]> {
+    return await db
+      .select()
+      .from(raceChatMessages)
+      .where(eq(raceChatMessages.raceId, raceId))
+      .orderBy(raceChatMessages.createdAt)
+      .limit(limit);
+  }
+
+  // Race Spectators
+  async addRaceSpectator(spectator: InsertRaceSpectator): Promise<RaceSpectator> {
+    const inserted = await db
+      .insert(raceSpectators)
+      .values(spectator)
+      .returning();
+    return inserted[0];
+  }
+
+  async removeRaceSpectator(raceId: number, sessionId: string): Promise<void> {
+    await db
+      .update(raceSpectators)
+      .set({ isActive: false, leftAt: new Date() })
+      .where(
+        and(
+          eq(raceSpectators.raceId, raceId),
+          eq(raceSpectators.sessionId, sessionId)
+        )
+      );
+  }
+
+  async getRaceSpectators(raceId: number): Promise<RaceSpectator[]> {
+    return await db
+      .select()
+      .from(raceSpectators)
+      .where(
+        and(
+          eq(raceSpectators.raceId, raceId),
+          eq(raceSpectators.isActive, true)
+        )
+      );
+  }
+
+  async getActiveSpectatorCount(raceId: number): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(raceSpectators)
+      .where(
+        and(
+          eq(raceSpectators.raceId, raceId),
+          eq(raceSpectators.isActive, true)
+        )
+      );
+    return result[0]?.count || 0;
+  }
+
+  // Race Replays
+  async createRaceReplay(replay: InsertRaceReplay): Promise<RaceReplay> {
+    const inserted = await db
+      .insert(raceReplays)
+      .values(replay)
+      .returning();
+    return inserted[0];
+  }
+
+  async getRaceReplay(raceId: number): Promise<RaceReplay | undefined> {
+    const result = await db
+      .select()
+      .from(raceReplays)
+      .where(eq(raceReplays.raceId, raceId))
+      .limit(1);
+    return result[0];
+  }
+
+  async getPublicReplays(limit: number = 20): Promise<RaceReplay[]> {
+    return await db
+      .select()
+      .from(raceReplays)
+      .where(eq(raceReplays.isPublic, true))
+      .orderBy(desc(raceReplays.createdAt))
+      .limit(limit);
+  }
+
+  async incrementReplayViewCount(raceId: number): Promise<void> {
+    await db
+      .update(raceReplays)
+      .set({ viewCount: sql`${raceReplays.viewCount} + 1` })
+      .where(eq(raceReplays.raceId, raceId));
+  }
+
+  // Anti-Cheat Challenges
+  async createAntiCheatChallenge(challenge: InsertAntiCheatChallenge): Promise<AntiCheatChallenge> {
+    const inserted = await db
+      .insert(antiCheatChallenges)
+      .values(challenge)
+      .returning();
+    return inserted[0];
+  }
+
+  async getUserCertification(userId: string): Promise<AntiCheatChallenge | undefined> {
+    const now = new Date();
+    const result = await db
+      .select()
+      .from(antiCheatChallenges)
+      .where(
+        and(
+          eq(antiCheatChallenges.userId, userId),
+          eq(antiCheatChallenges.passed, true),
+          sql`${antiCheatChallenges.certifiedUntil} > ${now}`
+        )
+      )
+      .orderBy(desc(antiCheatChallenges.certifiedWpm))
+      .limit(1);
+    return result[0];
+  }
+
+  async updateChallengePassed(challengeId: number, passed: boolean, wpm: number, certifiedWpm: number): Promise<void> {
+    const certifiedUntil = new Date();
+    certifiedUntil.setDate(certifiedUntil.getDate() + 7); // Certification valid for 7 days
+    
+    await db
+      .update(antiCheatChallenges)
+      .set({
+        passed,
+        challengeWpm: wpm,
+        certifiedWpm: passed ? certifiedWpm : null,
+        certifiedUntil: passed ? certifiedUntil : null,
+        completedAt: new Date(),
+      })
+      .where(eq(antiCheatChallenges.id, challengeId));
   }
 }
 
