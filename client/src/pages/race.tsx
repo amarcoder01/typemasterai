@@ -1227,7 +1227,7 @@ export default function RacePage() {
                 <div>
                   <div 
                     ref={textContainerRef}
-                    className="text-xl leading-[2] font-mono select-none max-h-[280px] overflow-y-auto scroll-smooth p-8 bg-zinc-900 rounded-lg" 
+                    className="text-xl leading-[2] font-mono select-none max-h-[280px] overflow-y-auto scroll-smooth p-8 bg-zinc-900 rounded-lg whitespace-pre-wrap break-words" 
                     data-testid="text-paragraph"
                     role="textbox"
                     aria-readonly="true"
