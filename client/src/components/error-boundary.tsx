@@ -1,8 +1,7 @@
 import React, { Component, ReactNode, useEffect, useState } from "react";
-import { AlertTriangle, RefreshCw, Home, Bug, ChevronDown, Copy, Check } from "lucide-react";
+import { AlertTriangle, RefreshCw, Home, Bug, ChevronDown, ChevronUp, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface ComponentErrorInfo {
   componentStack: string;
@@ -34,6 +33,7 @@ interface ErrorBoundaryState {
   retryCount: number;
   isRetrying: boolean;
   copied: boolean;
+  showDetails: boolean;
 }
 
 function generateErrorReport(error: Error, errorInfo?: ComponentErrorInfo | null): ErrorReport {
@@ -65,6 +65,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       retryCount: 0,
       isRetrying: false,
       copied: false,
+      showDetails: false,
     };
   }
 
@@ -91,14 +92,25 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   private async reportError(error: Error, errorInfo: ComponentErrorInfo) {
-    const report = generateErrorReport(error, errorInfo);
-    
     try {
+      const report = generateErrorReport(error, errorInfo);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
       await fetch("/api/error-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(report),
-      });
+        body: JSON.stringify({
+          error: {
+            message: report.message?.slice(0, 500),
+            code: "REACT_ERROR",
+          },
+          timestamp: report.timestamp,
+          url: report.url?.replace(/[?#].*$/, ''),
+        }),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId));
     } catch {
     }
   }
@@ -161,9 +173,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   };
 
+  private handleToggleDetails = () => {
+    this.setState((prev) => ({ showDetails: !prev.showDetails }));
+  };
+
   render() {
-    const { hasError, error, errorInfo, retryCount, isRetrying, copied } = this.state;
-    const { children, fallback, maxRetries = 2, showReportButton } = this.props;
+    const { hasError, error, errorInfo, retryCount, isRetrying, copied, showDetails } = this.state;
+    const { children, fallback, maxRetries = 2 } = this.props;
 
     if (!hasError) {
       return children;
@@ -199,17 +215,24 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             )}
 
             {isDev && error && (
-              <Collapsible>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-between" data-testid="button-toggle-error-details">
-                    <span className="flex items-center gap-2">
-                      <Bug className="h-4 w-4" />
-                      Error Details
-                    </span>
+              <div>
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-between" 
+                  onClick={this.handleToggleDetails}
+                  data-testid="button-toggle-error-details"
+                >
+                  <span className="flex items-center gap-2">
+                    <Bug className="h-4 w-4" />
+                    Error Details
+                  </span>
+                  {showDetails ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
                     <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
+                  )}
+                </Button>
+                {showDetails && (
                   <div className="bg-muted/50 p-4 rounded-lg mt-2 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">Error message</span>
@@ -236,8 +259,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                       </pre>
                     )}
                   </div>
-                </CollapsibleContent>
-              </Collapsible>
+                )}
+              </div>
             )}
           </CardContent>
 

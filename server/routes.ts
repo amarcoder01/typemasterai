@@ -251,23 +251,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).end();
   });
 
-  app.post("/api/error-report", async (req, res) => {
+  const errorReportLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 10,
+    message: { success: true },
+    standardHeaders: false,
+    legacyHeaders: false,
+    skipFailedRequests: true,
+  });
+
+  app.post("/api/error-report", errorReportLimiter, async (req, res) => {
     try {
       const { error, context, timestamp, url, userAgent } = req.body;
       
+      if (!error || typeof error !== 'object') {
+        return res.status(200).json({ success: true });
+      }
+
+      const sanitizedUrl = typeof url === 'string' 
+        ? url.replace(/[?#].*$/, '').slice(0, 200) 
+        : 'unknown';
+      
+      const sanitizedMessage = typeof error.message === 'string'
+        ? error.message.slice(0, 500).replace(/password|secret|token|key|auth/gi, '[REDACTED]')
+        : 'Unknown error';
+
       console.error("[Client Error Report]", {
-        error: error?.message || error,
-        code: error?.code,
-        url,
-        timestamp,
+        message: sanitizedMessage,
+        code: typeof error.code === 'string' ? error.code.slice(0, 50) : undefined,
+        url: sanitizedUrl,
+        timestamp: typeof timestamp === 'string' ? timestamp.slice(0, 30) : new Date().toISOString(),
         userId: (req.user as any)?.id,
-        userAgent,
-        context,
       });
       
       res.status(200).json({ success: true });
     } catch (err) {
-      console.error("Error processing error report:", err);
       res.status(200).json({ success: true });
     }
   });
