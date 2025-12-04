@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth-context";
 import { useNetwork } from "@/lib/network-context";
@@ -8,8 +8,191 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Zap, Users, Lock, Trophy, Loader2, Info, Shield, WifiOff, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Zap, Users, Lock, Trophy, Loader2, Info, Shield, WifiOff, AlertTriangle, CheckCircle2, Keyboard } from "lucide-react";
 import { toast } from "sonner";
+
+interface RoomCodeInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  onComplete?: (code: string) => void;
+  disabled?: boolean;
+  error?: boolean;
+  onClear?: () => void;
+}
+
+function RoomCodeInput({ value, onChange, onComplete, disabled, error, onClear }: RoomCodeInputProps) {
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [shake, setShake] = useState(false);
+  
+  useEffect(() => {
+    if (error) {
+      setShake(true);
+      const timer = setTimeout(() => setShake(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+  
+  const handleChange = useCallback((index: number, char: string) => {
+    if (disabled) return;
+    
+    const cleanChar = char.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!cleanChar) return;
+    
+    const newValue = value.split('');
+    newValue[index] = cleanChar[0];
+    const result = newValue.join('').substring(0, 6);
+    onChange(result);
+    
+    if (index < 5 && cleanChar) {
+      inputRefs.current[index + 1]?.focus();
+    }
+    
+    if (result.length === 6) {
+      onComplete?.(result);
+    }
+  }, [value, onChange, onComplete, disabled]);
+  
+  const handleKeyDown = useCallback((index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (disabled) return;
+    
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      const newValue = value.split('');
+      
+      if (newValue[index]) {
+        newValue[index] = '';
+        onChange(newValue.join(''));
+      } else if (index > 0) {
+        newValue[index - 1] = '';
+        onChange(newValue.join(''));
+        inputRefs.current[index - 1]?.focus();
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      e.preventDefault();
+      inputRefs.current[index - 1]?.focus();
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      e.preventDefault();
+      inputRefs.current[index + 1]?.focus();
+    } else if (e.key === 'Delete') {
+      e.preventDefault();
+      const newValue = value.split('');
+      newValue[index] = '';
+      onChange(newValue.join(''));
+    }
+  }, [value, onChange, disabled]);
+  
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    if (disabled) return;
+    e.preventDefault();
+    
+    const pastedData = e.clipboardData.getData('text').toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6);
+    if (pastedData) {
+      onChange(pastedData);
+      const focusIndex = Math.min(pastedData.length, 5);
+      inputRefs.current[focusIndex]?.focus();
+      
+      if (pastedData.length === 6) {
+        onComplete?.(pastedData);
+      }
+    }
+  }, [onChange, onComplete, disabled]);
+  
+  const handleFocus = useCallback((index: number) => {
+    setFocusedIndex(index);
+    inputRefs.current[index]?.select();
+  }, []);
+  
+  const handleContainerClick = useCallback(() => {
+    if (disabled) return;
+    const firstEmpty = value.length < 6 ? value.length : 5;
+    inputRefs.current[firstEmpty]?.focus();
+  }, [value, disabled]);
+  
+  return (
+    <div className="space-y-3">
+      <div 
+        className={`flex gap-2 justify-center ${shake ? 'animate-[shake_0.5s_ease-in-out]' : ''}`}
+        onClick={handleContainerClick}
+        role="group"
+        aria-label="Room code input - 6 characters"
+      >
+        {[0, 1, 2, 3, 4, 5].map((index) => (
+          <div key={index} className="relative">
+            {index === 3 && (
+              <div className="absolute -left-2 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">
+                -
+              </div>
+            )}
+            <input
+              ref={(el) => (inputRefs.current[index] = el)}
+              type="text"
+              inputMode="text"
+              maxLength={1}
+              value={value[index] || ''}
+              onChange={(e) => handleChange(index, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(index, e)}
+              onPaste={handlePaste}
+              onFocus={() => handleFocus(index)}
+              onBlur={() => setFocusedIndex(null)}
+              disabled={disabled}
+              className={`
+                w-12 h-14 text-center text-2xl font-mono font-bold uppercase
+                border-2 rounded-lg transition-all duration-150
+                focus:outline-none focus:ring-0
+                ${disabled ? 'bg-muted cursor-not-allowed opacity-50' : 'bg-background cursor-text'}
+                ${error 
+                  ? 'border-red-500 text-red-500' 
+                  : focusedIndex === index 
+                    ? 'border-primary shadow-[0_0_0_3px_hsl(var(--primary)/0.2)]' 
+                    : value[index] 
+                      ? 'border-primary/50' 
+                      : 'border-border hover:border-primary/30'
+                }
+              `}
+              aria-label={`Character ${index + 1} of 6`}
+              data-testid={`input-room-code-${index}`}
+            />
+            {focusedIndex === index && !value[index] && !disabled && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-0.5 h-6 bg-primary animate-[caret-blink_1s_ease-in-out_infinite]" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      
+      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+        {value.length > 0 && value.length < 6 && (
+          <span className="flex items-center gap-1">
+            <Keyboard className="h-3 w-3" />
+            {6 - value.length} more character{6 - value.length !== 1 ? 's' : ''}
+          </span>
+        )}
+        {value.length === 6 && !error && (
+          <span className="flex items-center gap-1 text-green-500">
+            <CheckCircle2 className="h-3 w-3" />
+            Ready to join
+          </span>
+        )}
+        {value.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              onChange('');
+              onClear?.();
+              inputRefs.current[0]?.focus();
+            }}
+            className="text-muted-foreground hover:text-foreground transition-colors underline"
+            disabled={disabled}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // Error codes for specific error handling
 type MultiplayerErrorCode = "NETWORK_ERROR" | "ROOM_FULL" | "ROOM_NOT_FOUND" | "ROOM_STARTED" | "INVALID_CODE" | "SERVER_ERROR";
