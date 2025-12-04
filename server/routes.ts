@@ -1630,7 +1630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/races/create", async (req, res) => {
     try {
-      const { isPrivate, maxPlayers, guestId } = req.body;
+      const { isPrivate, maxPlayers, guestId, raceType, timeLimitSeconds } = req.body;
       const user = req.user;
       let username: string;
       
@@ -1642,8 +1642,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const avatarColor = user?.avatarColor || "bg-primary";
 
-      const paragraph = await storage.getRandomParagraph("english", "quote");
-      if (!paragraph) {
+      let paragraphContent = "";
+      let paragraphId: number | undefined;
+      
+      if (raceType === "timed" && timeLimitSeconds) {
+        // For timed races, generate extra content to prevent running out
+        // Estimate: 80 WPM * 5 chars/word = 400 chars/min, add buffer
+        const estimatedChars = Math.ceil((timeLimitSeconds / 60) * 400 * 2);
+        const paragraphsNeeded = Math.ceil(estimatedChars / 300);
+        
+        const paragraphs: string[] = [];
+        for (let i = 0; i < Math.max(paragraphsNeeded, 3); i++) {
+          const p = await storage.getRandomParagraph("english", "quote");
+          if (p) {
+            paragraphs.push(p.content);
+            if (i === 0) paragraphId = p.id;
+          }
+        }
+        paragraphContent = paragraphs.join(" ");
+      } else {
+        const paragraph = await storage.getRandomParagraph("english", "quote");
+        if (!paragraph) {
+          return res.status(500).json({ message: "No paragraph available" });
+        }
+        paragraphContent = paragraph.content;
+        paragraphId = paragraph.id;
+      }
+
+      if (!paragraphContent) {
         return res.status(500).json({ message: "No paragraph available" });
       }
 
@@ -1651,8 +1677,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const race = await storage.createRace({
         roomCode,
         status: "waiting",
-        paragraphId: paragraph.id,
-        paragraphContent: paragraph.content,
+        raceType: raceType || "standard",
+        timeLimitSeconds: raceType === "timed" ? timeLimitSeconds : null,
+        paragraphId,
+        paragraphContent,
         maxPlayers: maxPlayers || 4,
         isPrivate: isPrivate ? 1 : 0,
       });
