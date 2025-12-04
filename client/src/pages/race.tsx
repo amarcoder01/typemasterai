@@ -823,6 +823,7 @@ export default function RacePage() {
   const { isOnline, wasOffline } = useNetwork();
   
   const [race, setRace] = useState<Race | null>(null);
+  const raceRef = useRef<Race | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [myParticipant, setMyParticipant] = useState<Participant | null>(null);
   const [ws, setWs] = useState<WebSocket | null>(null);
@@ -865,6 +866,10 @@ export default function RacePage() {
     wpm: number;
     accuracy: number;
   } | null>(null);
+
+  useEffect(() => {
+    raceRef.current = race;
+  }, [race]);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -1314,6 +1319,20 @@ export default function RacePage() {
             seenParticipantJoinsRef.current.add(p.id);
           });
         }
+        // Handle joining a race that's already in progress
+        if (message.race.status === "racing") {
+          setIsRacing(true);
+          setStartTime(message.race.startedAt ? new Date(message.race.startedAt).getTime() : Date.now());
+          setCurrentIndex(0);
+          setErrors(0);
+          currentIndexRef.current = 0;
+          errorsRef.current = 0;
+          if (message.race.paragraphContent) {
+            setCharStates(new Array(message.race.paragraphContent.length).fill('pending'));
+          }
+        } else if (message.race.status === "countdown") {
+          setCountdown(3);
+        }
         break;
       case "participant_joined":
         setParticipants(message.participants);
@@ -1346,16 +1365,16 @@ export default function RacePage() {
         setErrors(0);
         currentIndexRef.current = 0;
         errorsRef.current = 0;
-        if (race) {
-          setRace({ ...race, status: "racing" });
-          setCharStates(new Array(race.paragraphContent.length).fill('pending'));
+        if (raceRef.current) {
+          setRace({ ...raceRef.current, status: "racing" });
+          setCharStates(new Array(raceRef.current.paragraphContent.length).fill('pending'));
         }
         toast.success("Race started! Type as fast as you can!");
         break;
       case "paragraph_extended":
-        if (race) {
-          const newContent = race.paragraphContent + " " + message.additionalContent;
-          setRace({ ...race, paragraphContent: newContent });
+        if (raceRef.current) {
+          const newContent = raceRef.current.paragraphContent + " " + message.additionalContent;
+          setRace({ ...raceRef.current, paragraphContent: newContent });
           setCharStates(prev => {
             const newStates = [...prev];
             for (let i = prev.length; i < newContent.length; i++) {
@@ -1384,8 +1403,8 @@ export default function RacePage() {
       case "race_finished":
         setIsRacing(false);
         setParticipants(message.results);
-        if (race) {
-          setRace({ ...race, status: "finished" });
+        if (raceRef.current) {
+          setRace({ ...raceRef.current, status: "finished" });
         }
         const myResult = message.results.find((p: Participant) => p.id === myParticipant?.id);
         

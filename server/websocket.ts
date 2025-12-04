@@ -421,8 +421,13 @@ class RaceWebSocketServer {
 
   private async handleReady(message: any) {
     const { raceId } = message;
+    console.log(`[WS] Ready message received for race ${raceId}`);
+    
     const raceRoom = this.races.get(raceId);
-    if (!raceRoom) return;
+    if (!raceRoom) {
+      console.log(`[WS] No race room found for race ${raceId}`);
+      return;
+    }
 
     let cachedRace = raceCache.getRace(raceId);
     let race;
@@ -1466,14 +1471,23 @@ NEVER sound like AI. No "I'd be happy to" or formal language.`
 
   private broadcastToRace(raceId: number, message: any) {
     const raceRoom = this.races.get(raceId);
-    if (!raceRoom) return;
+    if (!raceRoom) {
+      console.log(`[WS Broadcast] No race room for race ${raceId}`);
+      return;
+    }
 
     const data = JSON.stringify(message);
+    let sentCount = 0;
     raceRoom.clients.forEach(client => {
       if (client.ws.readyState === WebSocket.OPEN) {
         client.ws.send(data);
+        sentCount++;
       }
     });
+    
+    if (message.type === "countdown_start" || message.type === "countdown" || message.type === "race_start") {
+      console.log(`[WS Broadcast] Sent ${message.type} to ${sentCount}/${raceRoom.clients.size} clients in race ${raceId}`);
+    }
   }
 
   getRaceRoom(raceId: number): RaceRoom | undefined {
