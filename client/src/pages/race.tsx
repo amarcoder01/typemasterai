@@ -847,6 +847,7 @@ export default function RacePage() {
   const lastJoinedRaceIdRef = useRef<number | null>(null);
   const extensionRequestedRef = useRef(false);
   const extensionThreshold = 0.85;
+  const timedFinishSentRef = useRef(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [ratingInfo, setRatingInfo] = useState<RatingInfo | null>(null);
   const [showFinishBanner, setShowFinishBanner] = useState(false);
@@ -939,8 +940,9 @@ export default function RacePage() {
         const remaining = Math.max(0, race.timeLimitSeconds - elapsed);
         setTimeRemaining(remaining);
         
-        // Handle time running out
-        if (remaining <= 0 && myParticipant && !myParticipant.isFinished) {
+        // Handle time running out - only send once
+        if (remaining <= 0 && myParticipant && !myParticipant.isFinished && !timedFinishSentRef.current) {
+          timedFinishSentRef.current = true;
           // Send finish message via WebSocket when time runs out
           sendWsMessage({
             type: "timed_finish",

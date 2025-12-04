@@ -373,6 +373,7 @@ export interface IStorage {
   createRaceParticipant(participant: InsertRaceParticipant): Promise<RaceParticipant>;
   getRaceParticipants(raceId: number): Promise<RaceParticipant[]>;
   updateParticipantProgress(id: number, progress: number, wpm: number, accuracy: number, errors: number): Promise<void>;
+  updateParticipantFinishPosition(id: number, position: number): Promise<void>;
   finishParticipant(id: number): Promise<{ position: number; isNewFinish: boolean }>;
   deleteRaceParticipant(id: number): Promise<void>;
   reactivateRaceParticipant(id: number): Promise<RaceParticipant>;
@@ -2497,6 +2498,13 @@ export class DatabaseStorage implements IStorage {
     await db
       .update(raceParticipants)
       .set({ progress, wpm, accuracy, errors })
+      .where(eq(raceParticipants.id, id));
+  }
+
+  async updateParticipantFinishPosition(id: number, position: number): Promise<void> {
+    await db
+      .update(raceParticipants)
+      .set({ finishPosition: position })
       .where(eq(raceParticipants.id, id));
   }
 

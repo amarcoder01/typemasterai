@@ -279,6 +279,9 @@ class RaceWebSocketServer {
       case "finish":
         await this.handleFinish(message);
         break;
+      case "timed_finish":
+        await this.handleTimedFinish(message);
+        break;
       case "leave":
         await this.handleLeave(ws, message);
         break;
@@ -785,6 +788,78 @@ class RaceWebSocketServer {
 
       this.processRaceCompletion(raceId, sortedResults).catch(err => {
         console.error(`[RaceFinish] Error processing race completion:`, err);
+      });
+    }
+  }
+
+  private async handleTimedFinish(message: any) {
+    const { raceId, participantId, progress, wpm, accuracy, errors } = message;
+    
+    console.log(`[Timed Finish] Participant ${participantId} finished timed race ${raceId} with WPM: ${wpm}`);
+
+    const cachedRace = raceCache.getRace(raceId);
+    let race = cachedRace?.race;
+    
+    if (!race) {
+      race = await storage.getRace(raceId);
+    }
+
+    if (!race || race.status === "finished") {
+      return;
+    }
+
+    // Update participant's final stats
+    await storage.updateParticipantProgress(participantId, progress, wpm, accuracy, errors);
+    raceCache.bufferProgress(participantId, progress, wpm, accuracy, errors);
+
+    // Mark participant as finished
+    const { position, isNewFinish } = await storage.finishParticipant(participantId);
+
+    if (!isNewFinish) {
+      return;
+    }
+
+    raceCache.finishParticipant(raceId, participantId, position);
+
+    this.broadcastToRace(raceId, {
+      type: "participant_finished",
+      participantId,
+      position,
+      wpm,
+      accuracy,
+    });
+
+    // Check if all participants finished
+    const freshParticipants = await storage.getRaceParticipants(raceId);
+    const allFinished = freshParticipants.every(p => p.isFinished === 1);
+    
+    console.log(`[Timed Finish] All finished check: ${allFinished}, participants: ${freshParticipants.map(p => `${p.username}:${p.isFinished}`).join(', ')}`);
+
+    if (allFinished) {
+      const finishedAt = new Date();
+      await storage.updateRaceStatus(raceId, "finished", undefined, finishedAt);
+      raceCache.updateRaceStatus(raceId, "finished", undefined, finishedAt);
+      
+      botService.stopAllBotsInRace(raceId, freshParticipants);
+      this.cleanupExtensionState(raceId);
+      
+      // Sort by WPM for timed races (highest WPM wins)
+      const sortedResults = freshParticipants.sort((a, b) => b.wpm - a.wpm);
+      
+      // Update and persist positions based on WPM ranking for timed races
+      for (let i = 0; i < sortedResults.length; i++) {
+        sortedResults[i].finishPosition = i + 1;
+        await storage.updateParticipantFinishPosition(sortedResults[i].id, i + 1);
+      }
+      
+      this.broadcastToRace(raceId, {
+        type: "race_finished",
+        results: sortedResults,
+        isTimedRace: true,
+      });
+
+      this.processRaceCompletion(raceId, sortedResults).catch(err => {
+        console.error(`[TimedRaceFinish] Error processing race completion:`, err);
       });
     }
   }
