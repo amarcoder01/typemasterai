@@ -19,6 +19,20 @@ interface RatingChange {
   isProvisional: boolean;
 }
 
+const processedRaces = new Map<number, number>();
+const PROCESSED_RACE_TTL = 60 * 60 * 1000;
+
+function cleanupProcessedRaces() {
+  const now = Date.now();
+  for (const [raceId, timestamp] of processedRaces.entries()) {
+    if (now - timestamp > PROCESSED_RACE_TTL) {
+      processedRaces.delete(raceId);
+    }
+  }
+}
+
+setInterval(cleanupProcessedRaces, 5 * 60 * 1000);
+
 const TIER_THRESHOLDS = {
   grandmaster: 2400,
   master: 2100,
@@ -66,6 +80,20 @@ export class EloRatingService {
   }
 
   async processRaceResults(raceId: number, results: RaceResult[]): Promise<RatingChange[]> {
+    if (processedRaces.has(raceId)) {
+      console.log(`[ELO] Race ${raceId} already processed, skipping duplicate`);
+      return [];
+    }
+    
+    const existingHistory = await storage.getRaceMatchHistory(raceId);
+    if (existingHistory.length > 0) {
+      console.log(`[ELO] Race ${raceId} match history exists, skipping duplicate`);
+      processedRaces.set(raceId, Date.now());
+      return [];
+    }
+    
+    processedRaces.set(raceId, Date.now());
+    
     const humanResults = results.filter(r => !r.isBot && r.userId);
     
     if (humanResults.length < 2) {
@@ -105,7 +133,7 @@ export class EloRatingService {
 
       const K = this.getKFactor(playerRating);
       const ratingChange = Math.round(K * (actualScore - expectedScore));
-      const newRating = Math.max(100, playerRating.rating + ratingChange);
+      const newRating = Math.max(100, Math.min(4000, playerRating.rating + ratingChange));
       
       const isWin = result.position === 1;
       const isLoss = result.position === totalPlayers;

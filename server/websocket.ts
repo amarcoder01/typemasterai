@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from "ws";
+import DOMPurify from "isomorphic-dompurify";
 import { storage } from "./storage";
 import { botService } from "./bot-service";
 import { raceCache } from "./race-cache";
@@ -750,6 +751,11 @@ class RaceWebSocketServer {
       return;
     }
 
+    if (typeof content !== 'string') {
+      ws.send(JSON.stringify({ type: "error", message: "Invalid message content" }));
+      return;
+    }
+
     if (content.length > 500) {
       ws.send(JSON.stringify({ type: "error", message: "Message too long" }));
       return;
@@ -759,14 +765,27 @@ class RaceWebSocketServer {
     if (!raceRoom) return;
 
     const client = raceRoom.clients.get(participantId);
-    if (!client) return;
+    if (!client) {
+      ws.send(JSON.stringify({ type: "error", message: "Unauthorized: not a participant" }));
+      return;
+    }
+
+    const sanitizedContent = DOMPurify.sanitize(content.trim(), {
+      ALLOWED_TAGS: [],
+      ALLOWED_ATTR: [],
+    });
+
+    if (!sanitizedContent) {
+      ws.send(JSON.stringify({ type: "error", message: "Empty message after sanitization" }));
+      return;
+    }
 
     try {
       const chatMessage = await storage.createRaceChatMessage({
         raceId,
         participantId,
         messageType,
-        content,
+        content: sanitizedContent,
         emoteCode,
       });
 
@@ -776,7 +795,7 @@ class RaceWebSocketServer {
           id: chatMessage.id,
           participantId,
           username: client.username,
-          content,
+          content: sanitizedContent,
           messageType,
           emoteCode,
           createdAt: chatMessage.createdAt,
@@ -787,7 +806,7 @@ class RaceWebSocketServer {
     }
   }
 
-  private spectators: Map<number, Set<WebSocket>> = new Map();
+  private spectators: Map<number, Map<WebSocket, string>> = new Map();
 
   private async handleSpectate(ws: WebSocket, message: any) {
     const { raceId, userId, sessionId } = message;
@@ -803,18 +822,20 @@ class RaceWebSocketServer {
       return;
     }
 
-    let spectatorSet = this.spectators.get(raceId);
-    if (!spectatorSet) {
-      spectatorSet = new Set();
-      this.spectators.set(raceId, spectatorSet);
+    let spectatorMap = this.spectators.get(raceId);
+    if (!spectatorMap) {
+      spectatorMap = new Map();
+      this.spectators.set(raceId, spectatorMap);
     }
-    spectatorSet.add(ws);
+    
+    const generatedSessionId = sessionId || `ws_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    spectatorMap.set(ws, generatedSessionId);
 
     try {
       await storage.addRaceSpectator({
         raceId,
         userId,
-        sessionId: sessionId || `ws_${Date.now()}`,
+        sessionId: generatedSessionId,
         isActive: true,
       });
 
@@ -838,16 +859,22 @@ class RaceWebSocketServer {
   }
 
   private async handleStopSpectate(ws: WebSocket, message: any) {
-    const { raceId, sessionId } = message;
+    const { raceId } = message;
 
     if (!raceId) return;
 
-    const spectatorSet = this.spectators.get(raceId);
-    if (spectatorSet) {
-      spectatorSet.delete(ws);
-      if (spectatorSet.size === 0) {
-        this.spectators.delete(raceId);
-      }
+    await this.cleanupSpectator(ws, raceId);
+  }
+
+  private async cleanupSpectator(ws: WebSocket, raceId: number) {
+    const spectatorMap = this.spectators.get(raceId);
+    if (!spectatorMap) return;
+
+    const sessionId = spectatorMap.get(ws);
+    spectatorMap.delete(ws);
+    
+    if (spectatorMap.size === 0) {
+      this.spectators.delete(raceId);
     }
 
     if (sessionId) {
@@ -999,6 +1026,15 @@ class RaceWebSocketServer {
           this.updateStats();
           return;
         }
+      }
+    }
+
+    for (const [raceId, spectatorMap] of this.spectators.entries()) {
+      if (spectatorMap.has(ws)) {
+        this.cleanupSpectator(ws, raceId).catch(err => {
+          console.error(`[Spectator] Cleanup error on disconnect:`, err);
+        });
+        break;
       }
     }
   }

@@ -553,6 +553,7 @@ export const raceMatchHistory = pgTable("race_match_history", {
   raceIdIdx: index("race_match_race_id_idx").on(table.raceId),
   userIdIdx: index("race_match_user_id_idx").on(table.userId),
   createdAtIdx: index("race_match_created_at_idx").on(table.createdAt),
+  raceParticipantUnique: index("race_match_race_participant_unique_idx").on(table.raceId, table.participantId),
 }));
 
 // Race Keystroke Log (for anti-cheat and replays)
@@ -563,6 +564,9 @@ export const raceKeystrokes = pgTable("race_keystrokes", {
   
   // Keystroke data (stored as JSON array for efficiency)
   keystrokes: jsonb("keystrokes").notNull(), // [{key, expected, timestamp, correct, position}]
+  
+  // Content hash for integrity verification
+  contentHash: varchar("content_hash", { length: 64 }),
   
   // Anti-cheat metrics (calculated server-side)
   avgInterval: real("avg_interval"), // average ms between keystrokes
@@ -585,6 +589,7 @@ export const raceKeystrokes = pgTable("race_keystrokes", {
   raceIdIdx: index("race_keystrokes_race_id_idx").on(table.raceId),
   participantIdIdx: index("race_keystrokes_participant_id_idx").on(table.participantId),
   flaggedIdx: index("race_keystrokes_flagged_idx").on(table.isFlagged),
+  raceParticipantUnique: index("race_keystrokes_race_participant_unique_idx").on(table.raceId, table.participantId),
 }));
 
 // Race Chat Messages

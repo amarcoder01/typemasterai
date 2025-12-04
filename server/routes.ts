@@ -1735,8 +1735,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // MULTIPLAYER RACING ENHANCED FEATURES API
   // ============================================================================
 
+  const ratingLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30,
+    message: { message: "Too many requests, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
   // User Ratings API
-  app.get("/api/ratings/me", isAuthenticated, async (req, res) => {
+  app.get("/api/ratings/me", isAuthenticated, ratingLimiter, async (req, res) => {
     try {
       const rating = await storage.getOrCreateUserRating(req.user!.id);
       const { eloRatingService } = await import("./elo-rating-service");
@@ -1748,10 +1756,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/ratings/leaderboard", async (req, res) => {
+  app.get("/api/ratings/leaderboard", ratingLimiter, async (req, res) => {
     try {
       const tier = req.query.tier as string | undefined;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const limitParam = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const limit = Math.min(Math.max(1, limitParam), 100);
+      
+      if (tier && !["bronze", "silver", "gold", "platinum", "diamond", "master", "grandmaster"].includes(tier)) {
+        return res.status(400).json({ message: "Invalid tier" });
+      }
+      
       const ratings = await storage.getRatingLeaderboard(tier, limit);
       
       const { eloRatingService } = await import("./elo-rating-service");
@@ -1774,9 +1788,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/ratings/:userId", async (req, res) => {
+  app.get("/api/ratings/:userId", ratingLimiter, async (req, res) => {
     try {
       const userId = req.params.userId;
+      
+      if (!userId || typeof userId !== 'string' || userId.length > 100) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
       const rating = await storage.getUserRating(userId);
       
       if (!rating) {
@@ -1793,9 +1812,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Match History API
-  app.get("/api/match-history", isAuthenticated, async (req, res) => {
+  app.get("/api/match-history", isAuthenticated, ratingLimiter, async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const limitParam = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const limit = Math.min(Math.max(1, limitParam), 100);
       const history = await storage.getUserMatchHistory(req.user!.id, limit);
       res.json({ history });
     } catch (error: any) {
@@ -1805,9 +1825,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Race Replays API
-  app.get("/api/replays/public", async (req, res) => {
+  app.get("/api/replays/public", ratingLimiter, async (req, res) => {
     try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const limitParam = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const limit = Math.min(Math.max(1, limitParam), 50);
       const replays = await storage.getPublicReplays(limit);
       res.json({ replays });
     } catch (error: any) {
@@ -1816,13 +1837,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/replays/:raceId", async (req, res) => {
+  app.get("/api/replays/:raceId", ratingLimiter, async (req, res) => {
     try {
-      const raceId = parseInt(req.params.raceId);
+      const raceIdParam = req.params.raceId;
+      
+      if (!raceIdParam || !/^\d+$/.test(raceIdParam)) {
+        return res.status(400).json({ message: "Invalid race ID" });
+      }
+      
+      const raceId = parseInt(raceIdParam);
+      
+      if (raceId <= 0 || raceId > 2147483647) {
+        return res.status(400).json({ message: "Invalid race ID" });
+      }
+      
       const replay = await storage.getRaceReplay(raceId);
       
       if (!replay) {
         return res.status(404).json({ message: "Replay not found" });
+      }
+
+      if (!replay.isPublic) {
+        const race = await storage.getRace(raceId);
+        if (race) {
+          const participants = await storage.getRaceParticipants(raceId);
+          const userId = req.user?.id;
+          const isParticipant = userId && participants.some(p => p.userId === userId);
+          
+          if (!isParticipant) {
+            return res.status(403).json({ message: "Access denied: private replay" });
+          }
+        }
       }
 
       await storage.incrementReplayViewCount(raceId);
@@ -1834,10 +1879,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Race Chat History API
-  app.get("/api/races/:raceId/chat", async (req, res) => {
+  app.get("/api/races/:raceId/chat", ratingLimiter, async (req, res) => {
     try {
-      const raceId = parseInt(req.params.raceId);
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const raceIdParam = req.params.raceId;
+      
+      if (!raceIdParam || !/^\d+$/.test(raceIdParam)) {
+        return res.status(400).json({ message: "Invalid race ID" });
+      }
+      
+      const raceId = parseInt(raceIdParam);
+      const limitParam = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      const limit = Math.min(Math.max(1, limitParam), 500);
       const messages = await storage.getRaceChatMessages(raceId, limit);
       res.json({ messages });
     } catch (error: any) {
@@ -1875,9 +1927,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Skill-Based Matchmaking API
-  app.get("/api/matchmaking/pool", isAuthenticated, async (req, res) => {
+  app.get("/api/matchmaking/pool", isAuthenticated, ratingLimiter, async (req, res) => {
     try {
-      const tolerance = req.query.tolerance ? parseInt(req.query.tolerance as string) : 200;
+      const toleranceParam = req.query.tolerance ? parseInt(req.query.tolerance as string) : 200;
+      const tolerance = Math.min(Math.max(50, toleranceParam), 500);
       const { eloRatingService } = await import("./elo-rating-service");
       const pool = await eloRatingService.getMatchmakingPool(req.user!.id, tolerance);
       
