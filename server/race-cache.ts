@@ -317,6 +317,17 @@ class RaceCache {
       entry.version++;
     }
   }
+
+  extendParagraph(raceId: number, additionalContent: string): number | null {
+    const entry = this.cache.get(raceId);
+    if (entry) {
+      entry.race.paragraphContent = entry.race.paragraphContent + " " + additionalContent;
+      entry.updatedAt = Date.now();
+      entry.version++;
+      return entry.race.paragraphContent.length;
+    }
+    return null;
+  }
 }
 
 export const raceCache = new RaceCache();

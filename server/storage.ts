@@ -269,6 +269,7 @@ export interface IStorage {
   getRace(id: number): Promise<Race | undefined>;
   getRaceByCode(roomCode: string): Promise<Race | undefined>;
   updateRaceStatus(id: number, status: string, startedAt?: Date, finishedAt?: Date): Promise<void>;
+  extendRaceParagraph(id: number, additionalContent: string): Promise<Race | undefined>;
   getActiveRaces(): Promise<Race[]>;
   
   createRaceParticipant(participant: InsertRaceParticipant): Promise<RaceParticipant>;
@@ -1465,6 +1466,16 @@ export class DatabaseStorage implements IStorage {
     if (startedAt) updateData.startedAt = startedAt;
     if (finishedAt) updateData.finishedAt = finishedAt;
     await db.update(races).set(updateData).where(eq(races.id, id));
+  }
+
+  async extendRaceParagraph(id: number, additionalContent: string): Promise<Race | undefined> {
+    const race = await this.getRace(id);
+    if (!race) return undefined;
+    
+    const newContent = race.paragraphContent + " " + additionalContent;
+    await db.update(races).set({ paragraphContent: newContent }).where(eq(races.id, id));
+    
+    return { ...race, paragraphContent: newContent };
   }
 
   async getActiveRaces(): Promise<Race[]> {

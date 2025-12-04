@@ -246,6 +246,8 @@ export default function RacePage() {
   const seenParticipantJoinsRef = useRef<Set<number>>(new Set());
   const hasJoinedRef = useRef(false);
   const lastJoinedRaceIdRef = useRef<number | null>(null);
+  const extensionRequestedRef = useRef(false);
+  const extensionThreshold = 0.85;
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
@@ -376,7 +378,20 @@ export default function RacePage() {
   }
 
   useEffect(() => {
-    if (race && myParticipant && currentIndex >= race.paragraphContent.length && !myParticipant.isFinished) {
+    if (!race || !myParticipant || myParticipant.isFinished) return;
+    
+    const progress = currentIndex / race.paragraphContent.length;
+    
+    if (progress >= extensionThreshold && !extensionRequestedRef.current) {
+      extensionRequestedRef.current = true;
+      sendWsMessage({
+        type: "extend_paragraph",
+        raceId: race.id,
+        participantId: myParticipant.id,
+      });
+    }
+    
+    if (currentIndex >= race.paragraphContent.length) {
       finishRace();
     }
   }, [currentIndex, race, myParticipant]);
@@ -613,6 +628,14 @@ export default function RacePage() {
           setRace({ ...race, status: "racing" });
         }
         toast.success("Race started! Type as fast as you can!");
+        break;
+      case "paragraph_extended":
+        if (race) {
+          const newContent = race.paragraphContent + " " + message.additionalContent;
+          setRace({ ...race, paragraphContent: newContent });
+          toast.info("More text added! Keep typing!", { duration: 2000 });
+          extensionRequestedRef.current = false;
+        }
         break;
       case "progress_update":
         setParticipants(prev => prev.map(p => 

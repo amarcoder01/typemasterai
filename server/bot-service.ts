@@ -25,6 +25,7 @@ interface BotProfile {
 class BotService {
   private activeBots: Map<number, NodeJS.Timeout> = new Map();
   private botProfiles: Map<number, BotProfile> = new Map();
+  private botParagraphLengths: Map<number, number> = new Map();
 
   async generateUniqueBotNames(count: number): Promise<string[]> {
     return botNamePool.getRandomNames(count);
@@ -105,6 +106,7 @@ class BotService {
     }
     console.log(`[Bot Typing] Bot ${profile.username} (${participantId}) starting with target ${profile.targetWPM} WPM, paragraph length ${paragraphLength}`);
 
+    this.botParagraphLengths.set(participantId, paragraphLength);
     const baseDelay = 60000 / (profile.targetWPM * 5);
     
     let currentProgress = 0;
@@ -117,7 +119,9 @@ class BotService {
         return;
       }
 
-      if (currentProgress >= paragraphLength) {
+      const currentParagraphLength = this.botParagraphLengths.get(participantId) || paragraphLength;
+
+      if (currentProgress >= currentParagraphLength) {
         this.stopBotTyping(participantId);
         
         const { position, isNewFinish } = await storage.finishParticipant(participantId);
@@ -129,7 +133,7 @@ class BotService {
         broadcastCallback({
           type: "progress_update",
           participantId,
-          progress: paragraphLength,
+          progress: currentParagraphLength,
           wpm: profile.targetWPM,
           accuracy: profile.accuracy,
           errors: currentErrors,
@@ -145,7 +149,7 @@ class BotService {
       }
 
       const burstSize = Math.floor(Math.random() * 4) + 1;
-      currentProgress = Math.min(paragraphLength, currentProgress + burstSize);
+      currentProgress = Math.min(currentParagraphLength, currentProgress + burstSize);
 
       if (Math.random() * 100 > profile.accuracy) {
         currentErrors++;
@@ -204,6 +208,7 @@ class BotService {
       this.activeBots.delete(participantId);
     }
     this.botProfiles.delete(participantId);
+    this.botParagraphLengths.delete(participantId);
   }
 
   stopAllBotsInRace(raceId: number, participants: RaceParticipant[]) {
@@ -212,6 +217,13 @@ class BotService {
         this.stopBotTyping(p.id);
       }
     });
+  }
+
+  updateParagraphLength(participantId: number, newLength: number): void {
+    if (this.botProfiles.has(participantId)) {
+      this.botParagraphLengths.set(participantId, newLength);
+      console.log(`[Bot Typing] Updated paragraph length for bot ${participantId} to ${newLength}`);
+    }
   }
 }
 

@@ -47,10 +47,20 @@ interface LoadState {
   connectionRejections: number;
 }
 
+interface ExtensionState {
+  lastExtendedAt: number;
+  extensionCount: number;
+  pendingExtension: boolean;
+}
+
+const EXTENSION_COOLDOWN_MS = 5000;
+const MAX_EXTENSIONS_PER_RACE = 5;
+
 class RaceWebSocketServer {
   private wss: WebSocketServer | null = null;
   private races: Map<number, RaceRoom> = new Map();
   private heartbeatTimer: NodeJS.Timeout | null = null;
+  private extensionStates: Map<number, ExtensionState> = new Map();
   private stats: ServerStats = {
     totalConnections: 0,
     activeRooms: 0,
@@ -225,6 +235,7 @@ class RaceWebSocketServer {
           clearInterval(raceRoom.countdownTimer);
         }
         this.races.delete(raceId);
+        this.cleanupExtensionState(raceId);
       }
     }
 
@@ -261,6 +272,9 @@ class RaceWebSocketServer {
         break;
       case "leave":
         await this.handleLeave(ws, message);
+        break;
+      case "extend_paragraph":
+        await this.handleExtendParagraph(ws, message);
         break;
       default:
         console.warn("Unknown message type:", message.type);
@@ -546,6 +560,7 @@ class RaceWebSocketServer {
       raceCache.updateRaceStatus(raceId, "finished", undefined, finishedAt);
       
       botService.stopAllBotsInRace(raceId, updatedParticipants);
+      this.cleanupExtensionState(raceId);
       
       this.broadcastToRace(raceId, {
         type: "race_finished",
@@ -575,10 +590,92 @@ class RaceWebSocketServer {
           clearInterval(raceRoom.countdownTimer);
         }
         this.races.delete(raceId);
+        this.cleanupExtensionState(raceId);
       }
     }
 
     this.updateStats();
+  }
+
+  private async handleExtendParagraph(ws: WebSocket, message: any) {
+    const { raceId, participantId } = message;
+    
+    if (!raceId || !participantId) {
+      ws.send(JSON.stringify({ type: "error", message: "Missing raceId or participantId" }));
+      return;
+    }
+
+    let extensionState = this.extensionStates.get(raceId);
+    if (!extensionState) {
+      extensionState = { lastExtendedAt: 0, extensionCount: 0, pendingExtension: false };
+      this.extensionStates.set(raceId, extensionState);
+    }
+
+    const now = Date.now();
+    if (extensionState.pendingExtension) {
+      console.log(`[Paragraph Extend] Race ${raceId} extension already in progress, skipping`);
+      return;
+    }
+
+    if (now - extensionState.lastExtendedAt < EXTENSION_COOLDOWN_MS) {
+      console.log(`[Paragraph Extend] Race ${raceId} in cooldown, skipping`);
+      return;
+    }
+
+    if (extensionState.extensionCount >= MAX_EXTENSIONS_PER_RACE) {
+      console.log(`[Paragraph Extend] Race ${raceId} reached max extensions (${MAX_EXTENSIONS_PER_RACE})`);
+      return;
+    }
+
+    extensionState.pendingExtension = true;
+
+    try {
+      const race = await storage.getRace(raceId);
+      
+      if (!race || race.status !== "racing") {
+        ws.send(JSON.stringify({ type: "error", message: "Race not active" }));
+        return;
+      }
+
+      const additionalParagraph = await storage.getRandomParagraph("english", "quote");
+      if (!additionalParagraph) {
+        ws.send(JSON.stringify({ type: "error", message: "No additional content available" }));
+        return;
+      }
+
+      const newContent = additionalParagraph.content;
+      const previousLength = race.paragraphContent.length;
+      
+      const updatedRace = await storage.extendRaceParagraph(raceId, newContent);
+      const newTotalLength = updatedRace?.paragraphContent.length || previousLength + newContent.length + 1;
+      
+      raceCache.extendParagraph(raceId, newContent);
+
+      extensionState.lastExtendedAt = now;
+      extensionState.extensionCount++;
+
+      console.log(`[Paragraph Extend] Race ${raceId} extended by ${newContent.length} chars (total: ${newTotalLength}, extension ${extensionState.extensionCount}/${MAX_EXTENSIONS_PER_RACE})`);
+
+      this.broadcastToRace(raceId, {
+        type: "paragraph_extended",
+        additionalContent: newContent,
+        newTotalLength,
+        previousLength,
+      });
+
+      const participants = await storage.getRaceParticipants(raceId);
+      const bots = participants.filter(p => p.isBot === 1 && p.isFinished !== 1);
+      
+      bots.forEach(bot => {
+        botService.updateParagraphLength(bot.id, newTotalLength);
+      });
+    } finally {
+      extensionState.pendingExtension = false;
+    }
+  }
+
+  private cleanupExtensionState(raceId: number) {
+    this.extensionStates.delete(raceId);
   }
 
   private handleDisconnect(ws: WebSocket) {
@@ -599,6 +696,7 @@ class RaceWebSocketServer {
               clearInterval(raceRoom.countdownTimer);
             }
             this.races.delete(raceId);
+            this.cleanupExtensionState(raceId);
           }
           
           this.updateStats();
