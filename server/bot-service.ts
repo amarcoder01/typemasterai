@@ -421,18 +421,29 @@ class BotService {
     }
     
     // === COMBINE ALL FACTORS ===
-    const finalDelay = (baseDelayMs * speedMultiplier * charDifficulty * caseMultiplier * digraphMultiplier * clampedNoise) 
+    // Cap the combined speed multiplier to prevent impossibly fast typing
+    // Allow at most 30% faster than base (0.7x minimum multiplier)
+    const combinedMultiplier = speedMultiplier * charDifficulty * caseMultiplier * digraphMultiplier * clampedNoise;
+    const cappedMultiplier = Math.max(0.7, combinedMultiplier);
+    
+    const finalDelay = (baseDelayMs * cappedMultiplier) 
       + punctuationDelay + wordBoundaryDelay + thinkingPause;
     
     // Store current char for next digraph calculation
     profile.lastCharacter = currentChar;
     
+    // Minimum delay based on skill profile's max WPM (with 20% burst allowance)
+    // This ensures bots never exceed ~120% of their target WPM even with all bonuses
+    const maxBurstWPM = profile.targetWPM * 1.2;
+    const minDelayForProfile = 60000 / (maxBurstWPM * 5);
+    
     // Update momentum WPM with smoothing (exponential moving average)
-    const instantWPM = 60000 / (finalDelay * 5);
+    const constrainedDelay = Math.max(minDelayForProfile, finalDelay);
+    const instantWPM = 60000 / (constrainedDelay * 5);
     profile.currentMomentumWPM = profile.currentMomentumWPM * 0.85 + instantWPM * 0.15;
     
-    // Minimum delay to prevent impossibly fast typing
-    return Math.max(20, finalDelay);
+    // Absolute minimum delay to prevent any edge cases
+    return Math.max(20, constrainedDelay);
   }
 
   startBotTyping(

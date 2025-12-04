@@ -2083,7 +2083,7 @@ export default function RacePage() {
                     onCompositionEnd={handleCompositionEnd}
                     onPaste={handlePaste}
                     onCut={handleCut}
-                    className="absolute opacity-0 pointer-events-none"
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-text"
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="off"
