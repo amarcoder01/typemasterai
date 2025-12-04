@@ -910,11 +910,16 @@ class RaceWebSocketServer {
     }
   }
 
-  private raceChatCooldowns: Map<number, number> = new Map();
-  private readonly BOT_CHAT_COOLDOWN_MS = 15000;
+  private botChatCooldowns: Map<number, number> = new Map(); // per-bot cooldowns
+  private raceBurstWindow: Map<number, { count: number; expiresAt: number }> = new Map();
+  private readonly BOT_CHAT_COOLDOWN_MS = 6000; // 6 seconds per bot
+  private readonly RACE_BURST_LIMIT = 5; // max 5 bot messages per window
+  private readonly RACE_BURST_WINDOW_MS = 8000; // 8 second window
 
-  private async triggerBotChatResponses(raceId: number, humanMessage: string) {
+  private async triggerBotChatResponses(raceId: number, message: string, senderIsBot: boolean = false, chainDepth: number = 0) {
     try {
+      console.log(`[Bot Chat] Triggered for race ${raceId}: "${message.substring(0, 30)}..." (isBot=${senderIsBot}, depth=${chainDepth})`);
+      
       const race = await storage.getRace(raceId);
       if (!race) {
         console.log(`[Bot Chat] Race ${raceId} not found`);
@@ -922,84 +927,134 @@ class RaceWebSocketServer {
       }
 
       if (race.status === "finished" || race.status === "abandoned") {
-        console.log(`[Bot Chat] Race ${raceId} is ${race.status}, skipping bot response`);
+        console.log(`[Bot Chat] Race ${raceId} is ${race.status}`);
         return;
       }
 
-      const now = Date.now();
-      const lastRaceChat = this.raceChatCooldowns.get(raceId) || 0;
-      if (now - lastRaceChat < this.BOT_CHAT_COOLDOWN_MS) {
-        console.log(`[Bot Chat] Race ${raceId} is on cooldown, skipping`);
+      // Limit chain depth to prevent infinite bot loops
+      if (chainDepth >= 2) {
+        console.log(`[Bot Chat] Chain depth ${chainDepth} reached, stopping`);
         return;
+      }
+
+      // Check race burst limit
+      const now = Date.now();
+      const burst = this.raceBurstWindow.get(raceId);
+      if (burst && now < burst.expiresAt) {
+        if (burst.count >= this.RACE_BURST_LIMIT) {
+          console.log(`[Bot Chat] Race ${raceId} hit burst limit (${burst.count}/${this.RACE_BURST_LIMIT})`);
+          return;
+        }
+        console.log(`[Bot Chat] Burst window active: ${burst.count}/${this.RACE_BURST_LIMIT}`);
+      } else {
+        console.log(`[Bot Chat] New burst window started`);
+        this.raceBurstWindow.set(raceId, { count: 0, expiresAt: now + this.RACE_BURST_WINDOW_MS });
       }
 
       const participants = await storage.getRaceParticipants(raceId);
       const botParticipants = participants.filter(p => p.isBot === 1);
 
-      console.log(`[Bot Chat] Race ${raceId} has ${botParticipants.length} bot participants`);
+      console.log(`[Bot Chat] Found ${botParticipants.length} bots in race`);
 
       if (botParticipants.length === 0) return;
 
-      const respondingBot = botParticipants[Math.floor(Math.random() * botParticipants.length)];
-      console.log(`[Bot Chat] Selected bot ${respondingBot.username} (${respondingBot.id}) to potentially respond`);
+      // Filter bots by per-bot cooldown
+      const eligibleBots = botParticipants.filter(bot => {
+        const lastChat = this.botChatCooldowns.get(bot.id) || 0;
+        const elapsed = now - lastChat;
+        const isEligible = elapsed >= this.BOT_CHAT_COOLDOWN_MS;
+        console.log(`[Bot Chat] Bot ${bot.username} (${bot.id}): lastChat=${lastChat}, elapsed=${elapsed}ms, eligible=${isEligible}`);
+        return isEligible;
+      });
 
-      const hasProfile = botService.isBot(respondingBot.id);
+      if (eligibleBots.length === 0) {
+        console.log(`[Bot Chat] No eligible bots (all on cooldown)`);
+        return;
+      }
       
-      if (hasProfile) {
-        const chatResponse = botService.generateBotChatResponse(
-          respondingBot.id,
-          humanMessage,
-          race.status
-        );
+      console.log(`[Bot Chat] ${eligibleBots.length} bots eligible to respond`);
 
-        console.log(`[Bot Chat] Bot response decision: shouldRespond=${chatResponse.shouldRespond}`);
+      // Determine how many bots respond (1-3 for humans, 1-2 for bot chains)
+      const maxResponders = senderIsBot ? Math.min(2, eligibleBots.length) : Math.min(3, eligibleBots.length);
+      const numResponders = Math.max(1, Math.floor(Math.random() * maxResponders) + 1);
+      
+      // If sender is bot, reduce response probability
+      if (senderIsBot && Math.random() > 0.5) {
+        console.log(`[Bot Chat] Skipping bot-to-bot response (random)`);
+        return;
+      }
 
-        if (!chatResponse.shouldRespond || !chatResponse.response) {
-          return;
-        }
+      // Shuffle and select bots
+      const shuffled = [...eligibleBots].sort(() => Math.random() - 0.5);
+      const respondingBots = shuffled.slice(0, numResponders);
 
-        this.raceChatCooldowns.set(raceId, now);
-        const delay = 1000 + Math.random() * 2000;
+      console.log(`[Bot Chat] ${respondingBots.length} bots will respond to: "${message.substring(0, 30)}..."`);
+
+      // Schedule staggered responses
+      respondingBots.forEach((bot, index) => {
+        const baseDelay = 800 + index * 1200; // stagger: 0.8s, 2s, 3.2s
+        const delay = baseDelay + Math.random() * 1000;
+
+        this.botChatCooldowns.set(bot.id, now);
 
         setTimeout(async () => {
-          try {
-            const currentRace = await storage.getRace(raceId);
-            if (!currentRace || currentRace.status === "finished" || currentRace.status === "abandoned") {
-              console.log(`[Bot Chat] Race ${raceId} ended, skipping delayed response`);
-              return;
-            }
-
-            const botChatMessage = await storage.createRaceChatMessage({
-              raceId,
-              participantId: respondingBot.id,
-              messageType: "text",
-              content: chatResponse.response!,
-            });
-
-            this.broadcastToRace(raceId, {
-              type: "chat_message",
-              message: {
-                id: botChatMessage.id,
-                participantId: respondingBot.id,
-                username: chatResponse.botUsername || respondingBot.username,
-                content: chatResponse.response,
-                messageType: "text",
-                createdAt: botChatMessage.createdAt,
-                isBot: true,
-              },
-            });
-
-            console.log(`[Bot Chat] ${chatResponse.botUsername} responded in race ${raceId}: "${chatResponse.response}"`);
-          } catch (error) {
-            console.error("[Bot Chat] Failed to send bot response:", error);
-          }
+          await this.sendBotChatMessage(raceId, bot, message, chainDepth);
         }, delay);
-      } else {
-        console.log(`[Bot Chat] Bot ${respondingBot.username} (${respondingBot.id}) has no profile, using fallback`);
-        await this.sendDirectBotResponse(raceId, respondingBot, humanMessage);
-      }
+      });
+
+      // Update burst counter
+      const currentBurst = this.raceBurstWindow.get(raceId)!;
+      currentBurst.count += respondingBots.length;
+
     } catch (error) {
-      console.error("[Bot Chat] Error triggering bot responses:", error);
+      console.error("[Bot Chat] Error:", error);
+    }
+  }
+
+  private async sendBotChatMessage(raceId: number, bot: any, userMessage: string, chainDepth: number) {
+    try {
+      const race = await storage.getRace(raceId);
+      if (!race || race.status === "finished" || race.status === "abandoned") return;
+
+      // Try AI first, always fallback to casual response
+      let response = await this.generateAIBotResponse(userMessage, bot.username);
+      
+      if (!response) {
+        const intent = this.detectMessageIntent(userMessage);
+        response = this.getContextualResponse(intent);
+        console.log(`[Bot Chat] Using fallback for ${bot.username}: "${response}"`);
+      }
+
+      const botChatMessage = await storage.createRaceChatMessage({
+        raceId,
+        participantId: bot.id,
+        messageType: "text",
+        content: response,
+      });
+
+      this.broadcastToRace(raceId, {
+        type: "chat_message",
+        message: {
+          id: botChatMessage.id,
+          participantId: bot.id,
+          username: bot.username,
+          content: response,
+          messageType: "text",
+          createdAt: botChatMessage.createdAt,
+        },
+      });
+
+      console.log(`[Bot Chat] ${bot.username}: "${response}"`);
+
+      // Trigger bot-to-bot response chain (with reduced probability)
+      if (chainDepth < 1 && Math.random() < 0.3) {
+        setTimeout(() => {
+          this.triggerBotChatResponses(raceId, response!, true, chainDepth + 1);
+        }, 2000 + Math.random() * 2000);
+      }
+
+    } catch (error) {
+      console.error("[Bot Chat] Send error:", error);
     }
   }
 
@@ -1143,71 +1198,6 @@ Never sound like an assistant or use phrases like "I'm here to" or "feel free to
     }
     
     return 'casual';
-  }
-
-  private async sendDirectBotResponse(raceId: number, bot: any, userMessage: string) {
-    const now = Date.now();
-    const lastRaceChat = this.raceChatCooldowns.get(raceId) || 0;
-    
-    if (now - lastRaceChat < this.BOT_CHAT_COOLDOWN_MS) {
-      console.log(`[Bot Chat] Race ${raceId} is on cooldown for fallback, skipping`);
-      return;
-    }
-
-    const responseChance = 0.95;
-    if (Math.random() > responseChance) {
-      console.log(`[Bot Chat] Bot ${bot.username} decided not to respond (random chance)`);
-      return;
-    }
-
-    this.raceChatCooldowns.set(raceId, now);
-
-    // Try AI-generated response first, fallback to pattern matching
-    let response = await this.generateAIBotResponse(userMessage, bot.username);
-    
-    if (!response) {
-      const intent = this.detectMessageIntent(userMessage);
-      response = this.getContextualResponse(intent);
-      console.log(`[Bot Chat] Using fallback response for intent "${intent}"`);
-    }
-    
-    const delay = 1000 + Math.random() * 2000;
-
-    console.log(`[Bot Chat] Response scheduled for ${bot.username} in ${delay}ms: "${response}"`);
-
-    setTimeout(async () => {
-      try {
-        const currentRace = await storage.getRace(raceId);
-        if (!currentRace || currentRace.status === "finished" || currentRace.status === "abandoned") {
-          console.log(`[Bot Chat] Race ${raceId} ended, skipping delayed fallback response`);
-          return;
-        }
-
-        const botChatMessage = await storage.createRaceChatMessage({
-          raceId,
-          participantId: bot.id,
-          messageType: "text",
-          content: response,
-        });
-
-        this.broadcastToRace(raceId, {
-          type: "chat_message",
-          message: {
-            id: botChatMessage.id,
-            participantId: bot.id,
-            username: bot.username,
-            content: response,
-            messageType: "text",
-            createdAt: botChatMessage.createdAt,
-            isBot: true,
-          },
-        });
-
-        console.log(`[Bot Chat] ${bot.username} responded directly in race ${raceId}: "${response}"`);
-      } catch (error) {
-        console.error("[Bot Chat] Failed to send direct bot response:", error);
-      }
-    }, delay);
   }
 
   private spectators: Map<number, Map<WebSocket, string>> = new Map();
