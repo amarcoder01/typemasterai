@@ -1526,7 +1526,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const avatarColor = user?.avatarColor || "bg-primary";
 
       const activeRaces = await storage.getActiveRaces();
-      const availableRace = activeRaces.find(r => r.status === "waiting" && r.isPrivate === 0);
+      
+      // Find a waiting public race with available slots
+      let availableRace = null;
+      for (const r of activeRaces) {
+        if (r.status === "waiting" && r.isPrivate === 0) {
+          const participants = await storage.getRaceParticipants(r.id);
+          // Count only human participants (bots can be replaced)
+          const humanCount = participants.filter(p => p.isBot !== 1).length;
+          if (humanCount < r.maxPlayers) {
+            availableRace = r;
+            break;
+          }
+        }
+      }
 
       let race;
       if (availableRace) {
@@ -1563,8 +1576,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (inactive) {
           participant = await storage.reactivateRaceParticipant(inactive.id);
         } else {
+          // Check if race is full
           if (participants.length >= race.maxPlayers) {
-            return res.status(400).json({ message: "Race is full" });
+            // Try to replace a bot with the human player
+            const botToReplace = participants.find(p => p.isBot === 1);
+            if (botToReplace) {
+              // Remove the bot to make room for the human
+              await storage.deleteRaceParticipant(botToReplace.id);
+              console.log(`[Quick Match] Replaced bot ${botToReplace.username} with human ${username}`);
+            } else {
+              return res.status(400).json({ message: "Race is full" });
+            }
           }
 
           participant = await storage.createRaceParticipant({
