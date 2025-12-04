@@ -1207,69 +1207,226 @@ export default function RacePage() {
                 </CardContent>
               </Card>
 
-              <div 
-                className="cursor-text p-6 rounded-lg" 
+              <Card 
+                className={`cursor-text transition-all duration-200 ${
+                  isFocused 
+                    ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' 
+                    : 'hover:border-primary/50'
+                }`}
                 onClick={() => hiddenInputRef.current?.focus()}
+                role="application"
+                aria-label="Typing test area"
               >
-                <div 
-                  className="text-xl leading-[1.8] font-mono select-none" 
-                  data-testid="text-paragraph"
-                >
-                  {race.paragraphContent.split('').map((char, idx) => {
-                    const state = charStates[idx] || 'pending';
-                    const isCurrent = idx === currentIndex;
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-6">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2 cursor-help">
+                            <Gauge className="h-5 w-5 text-primary" />
+                            <div>
+                              <div className="text-2xl font-bold tabular-nums">{liveWpm}</div>
+                              <div className="text-xs text-muted-foreground">WPM</div>
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">Words Per Minute</p>
+                          <p className="text-zinc-400">Your current typing speed</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2 cursor-help">
+                            <Target className={`h-5 w-5 ${liveAccuracy >= 95 ? 'text-green-500' : liveAccuracy >= 85 ? 'text-yellow-500' : 'text-red-500'}`} />
+                            <div>
+                              <div className="text-2xl font-bold tabular-nums">{liveAccuracy}%</div>
+                              <div className="text-xs text-muted-foreground">Accuracy</div>
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">Accuracy</p>
+                          <p className="text-zinc-400">Percentage of correct keystrokes</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2 cursor-help">
+                            <Timer className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <div className="text-2xl font-bold tabular-nums">{Math.floor(elapsedTime)}s</div>
+                              <div className="text-xs text-muted-foreground">Time</div>
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">Elapsed Time</p>
+                          <p className="text-zinc-400">Seconds since race started</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-2 cursor-help">
+                            <AlertTriangle className={`h-5 w-5 ${errors === 0 ? 'text-green-500' : 'text-red-500'}`} />
+                            <div>
+                              <div className="text-2xl font-bold tabular-nums">{errors}</div>
+                              <div className="text-xs text-muted-foreground">Errors</div>
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="font-medium">Error Count</p>
+                          <p className="text-zinc-400">Total mistakes made</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     
-                    let className = '';
-                    if (state === 'correct') {
-                      className = 'text-foreground';
-                    } else if (state === 'incorrect') {
-                      className = 'text-red-500 bg-red-500/20';
-                    } else if (isCurrent) {
-                      className = 'text-muted-foreground relative';
-                    } else {
-                      className = 'text-muted-foreground/60';
-                    }
-                    
-                    if (isCurrent && state === 'pending') {
-                      return (
-                        <span 
-                          key={idx} 
-                          className={`${className} relative`}
-                        >
-                          <span className="absolute left-0 top-0 w-0.5 h-full bg-primary animate-pulse" />
-                          {char === ' ' ? '\u00A0' : char}
-                        </span>
-                      );
-                    }
-                    
-                    return (
-                      <span 
-                        key={idx} 
-                        className={className}
-                      >
-                        {char === ' ' ? '\u00A0' : char}
-                      </span>
-                    );
-                  })}
-                </div>
-                <input
-                  ref={hiddenInputRef}
-                  type="text"
-                  onInput={handleTyping}
-                  onKeyDown={handleKeyDown}
-                  onCompositionStart={handleCompositionStart}
-                  onCompositionEnd={handleCompositionEnd}
-                  onPaste={handlePaste}
-                  onCut={handleCut}
-                  className="absolute opacity-0 pointer-events-none"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck="false"
-                  data-testid="input-typing"
-                  aria-label="Typing input"
-                />
-              </div>
+                    {!isFocused && (
+                      <div className="flex items-center gap-2 text-muted-foreground animate-pulse">
+                        <Info className="h-4 w-4" />
+                        <span className="text-sm">Click here or press any key to focus</span>
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="pt-0">
+                  <div 
+                    ref={textContainerRef}
+                    className="text-2xl leading-[2] font-mono select-none max-h-[200px] overflow-y-auto scroll-smooth p-4 bg-muted/30 rounded-lg" 
+                    data-testid="text-paragraph"
+                    role="textbox"
+                    aria-readonly="true"
+                    aria-label="Text to type"
+                    aria-describedby="typing-instructions"
+                  >
+                    {(() => {
+                      const text = race.paragraphContent;
+                      const words = text.split(/(\s+)/);
+                      let charIndex = 0;
+                      
+                      const findCurrentWordBounds = () => {
+                        let start = 0;
+                        for (const word of words) {
+                          const end = start + word.length;
+                          if (currentIndex >= start && currentIndex < end) {
+                            return { start, end };
+                          }
+                          start = end;
+                        }
+                        return { start: 0, end: text.length };
+                      };
+                      
+                      const currentWordBounds = findCurrentWordBounds();
+                      
+                      return words.map((word, wordIdx) => {
+                        const wordStartIdx = charIndex;
+                        const isCurrentWord = currentIndex >= wordStartIdx && currentIndex < wordStartIdx + word.length;
+                        const isCompletedWord = currentIndex >= wordStartIdx + word.length;
+                        const isPureSpace = /^\s+$/.test(word);
+                        
+                        const renderedChars = word.split('').map((char, charIdx) => {
+                          const idx = charIndex;
+                          charIndex++;
+                          
+                          const state = charStates[idx] || 'pending';
+                          const isCurrent = idx === currentIndex;
+                          const isSpace = char === ' ';
+                          
+                          let className = 'transition-colors duration-75 ';
+                          
+                          if (state === 'correct') {
+                            className += 'text-foreground';
+                          } else if (state === 'incorrect') {
+                            className += 'text-red-500 bg-red-500/20 rounded-sm';
+                            if (isSpace) {
+                              className += ' border-b-2 border-red-500';
+                            }
+                          } else if (isCurrent) {
+                            className += 'text-muted-foreground/80';
+                          } else if (isCurrentWord && !isPureSpace) {
+                            className += 'text-muted-foreground/70';
+                          } else {
+                            className += 'text-muted-foreground/40';
+                          }
+                          
+                          if (isCurrent) {
+                            return (
+                              <span 
+                                key={idx} 
+                                ref={caretRef}
+                                className={`${className} relative`}
+                              >
+                                <span 
+                                  className={`absolute left-0 top-0 w-[2px] h-full bg-primary transition-all duration-100 ${
+                                    isFocused ? 'animate-caret-smooth' : 'opacity-50'
+                                  }`}
+                                />
+                                {isSpace ? '\u00A0' : char}
+                              </span>
+                            );
+                          }
+                          
+                          return (
+                            <span 
+                              key={idx} 
+                              className={className}
+                            >
+                              {isSpace ? '\u00A0' : char}
+                            </span>
+                          );
+                        });
+                        
+                        if (isPureSpace) {
+                          return <span key={`word-${wordIdx}`}>{renderedChars}</span>;
+                        }
+                        
+                        return (
+                          <span 
+                            key={`word-${wordIdx}`}
+                            className={`${
+                              isCurrentWord 
+                                ? 'underline underline-offset-4 decoration-primary/50 decoration-2' 
+                                : ''
+                            }`}
+                          >
+                            {renderedChars}
+                          </span>
+                        );
+                      });
+                    })()}
+                  </div>
+                  
+                  <div id="typing-instructions" className="sr-only">
+                    Type the text shown above. Use backspace to correct mistakes. Your progress is tracked in real-time.
+                  </div>
+                  
+                  <input
+                    ref={hiddenInputRef}
+                    type="text"
+                    onInput={handleTyping}
+                    onKeyDown={handleKeyDown}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
+                    onCompositionStart={handleCompositionStart}
+                    onCompositionEnd={handleCompositionEnd}
+                    onPaste={handlePaste}
+                    onCut={handleCut}
+                    className="absolute opacity-0 pointer-events-none"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck="false"
+                    data-testid="input-typing"
+                    aria-label="Typing input for race"
+                    aria-describedby="typing-instructions"
+                  />
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
