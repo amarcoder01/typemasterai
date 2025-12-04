@@ -424,6 +424,8 @@ export const races = pgTable("races", {
   id: serial("id").primaryKey(),
   roomCode: varchar("room_code", { length: 6 }).notNull().unique(),
   status: text("status").notNull().default("waiting"), // waiting, countdown, racing, finished
+  raceType: text("race_type").notNull().default("standard"), // standard (finish paragraph) or timed (race for duration)
+  timeLimitSeconds: integer("time_limit_seconds"), // null for standard, 30/60/120/180 for timed
   paragraphId: integer("paragraph_id").references(() => typingParagraphs.id),
   paragraphContent: text("paragraph_content").notNull(),
   maxPlayers: integer("max_players").notNull().default(4),
@@ -436,6 +438,7 @@ export const races = pgTable("races", {
   roomCodeIdx: index("race_room_code_idx").on(table.roomCode),
   statusIdx: index("race_status_idx").on(table.status),
   createdAtIdx: index("race_created_at_idx").on(table.createdAt),
+  raceTypeIdx: index("race_type_idx").on(table.raceType),
 }));
 
 export const raceParticipants = pgTable("race_participants", {
@@ -465,6 +468,8 @@ export const raceParticipants = pgTable("race_participants", {
 export const insertRaceSchema = createInsertSchema(races, {
   roomCode: z.string().length(6),
   status: z.enum(["waiting", "countdown", "racing", "finished"]),
+  raceType: z.enum(["standard", "timed"]).optional(),
+  timeLimitSeconds: z.number().int().min(15).max(300).nullable().optional(),
   paragraphContent: z.string().min(50),
   maxPlayers: z.number().int().min(2).max(10),
   isPrivate: z.number().int().min(0).max(1),
