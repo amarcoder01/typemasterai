@@ -38,8 +38,38 @@ const TYPING_CHARACTERISTICS = {
   // Common digraphs (two-letter combinations) that are typed faster
   fastDigraphs: new Set(['th', 'he', 'in', 'er', 'an', 'on', 'at', 'en', 'nd', 'ti', 'es', 'or', 'te', 'of', 'ed', 'is', 'it', 'al', 'ar', 'st', 'to', 'nt', 'ng', 'se', 'ha', 're', 'ou', 'ea', 'le', 'hi', 've', 'co', 'me', 'de', 'ta', 'ne', 'ri', 'ro', 'li']),
   
+  // Awkward digraphs that are slow to type (awkward stretches, not common combos)
+  slowDigraphs: new Set(['zx', 'xz', 'qz', 'zq', 'az', 'za', 'sx', 'xs', 'vf', 'fv', 'bg', 'gb', 'nh', 'hn', 'mj', 'jm', 'aq', 'qa', 'xc', 'cx', 'zc', 'cz', 'bv', 'vb']),
+  
+  // Same-finger key pairs (consecutive keys typed with the same finger are slower)
+  // Based on standard touch typing finger assignments
+  sameFingerPairs: new Set([
+    // Left pinky: q, a, z, 1
+    'qa', 'aq', 'az', 'za', 'qz', 'zq', '1q', 'q1', '1a', 'a1', '1z', 'z1',
+    // Left ring: w, s, x, 2
+    'ws', 'sw', 'sx', 'xs', 'wx', 'xw', '2w', 'w2', '2s', 's2', '2x', 'x2',
+    // Left middle: e, d, c, 3
+    'ed', 'de', 'dc', 'cd', 'ec', 'ce', '3e', 'e3', '3d', 'd3', '3c', 'c3',
+    // Left index: r, f, v, t, g, b, 4, 5
+    'rf', 'fr', 'fv', 'vf', 'rv', 'vr', 'tg', 'gt', 'gb', 'bg', 'tb', 'bt', '4r', 'r4', '4f', 'f4', '5t', 't5', '5g', 'g5',
+    // Right index: y, h, n, u, j, m, 6, 7
+    'yh', 'hy', 'yn', 'ny', 'uj', 'ju', 'jm', 'mj', 'hn', 'nh', 'um', 'mu', 'jn', 'nj', '6y', 'y6', '7u', 'u7',
+    // Right middle: i, k, comma, 8
+    'ik', 'ki', 'k,', ',k', 'i,', ',i', '8i', 'i8', '8k', 'k8',
+    // Right ring: o, l, period, 9
+    'ol', 'lo', 'o.', '.o', 'l9', '9l', '9o', 'o9',
+    // Right pinky: p, semicolon, slash, 0, minus, bracket
+    'p;', ';p', 'p/', '/p', ';/', '/;', '0p', 'p0', '-p', 'p-',
+  ]),
+  
+  // Hand assignment for keys (left = true, right = false)
+  leftHandKeys: new Set(['q', 'w', 'e', 'r', 't', 'a', 's', 'd', 'f', 'g', 'z', 'x', 'c', 'v', 'b', '1', '2', '3', '4', '5', '!', '@', '#', '$', '%', '`', '~']),
+  
   // Punctuation that causes extra pause (thinking/shifting)
   punctuationPause: new Set(['.', ',', '!', '?', ';', ':', '-', "'", '"', '(', ')', '[', ']']),
+  
+  // Sentence endings - longer pause for reading/comprehending next sentence
+  sentenceEndings: new Set(['.', '!', '?']),
   
   // Word endings that signal a natural pause point
   wordEndings: new Set([' ', '\n', '\t']),
@@ -379,13 +409,43 @@ class BotService {
     // Upper case requires shift, add slight penalty
     const caseMultiplier = currentChar !== charLower ? 1.15 : 1.0;
     
-    // === DIGRAPH SPEED BONUS ===
+    // === CAPITAL ANTICIPATION ===
+    // Slight delay before capital letters (preparing to press shift)
+    let capitalAnticipationDelay = 0;
+    if (currentChar !== charLower) {
+      // 20-60ms extra to prepare shift key
+      capitalAnticipationDelay = 20 + (Math.random() * 40);
+    }
+    
+    // === DIGRAPH ANALYSIS ===
     let digraphMultiplier = 1.0;
+    let sameFingerPenalty = 0;
+    let handAlternationBonus = 1.0;
+    
     if (profile.lastCharacter) {
-      const digraph = (profile.lastCharacter + charLower).toLowerCase();
+      const lastCharLower = profile.lastCharacter.toLowerCase();
+      const digraph = lastCharLower + charLower;
+      
+      // Fast digraphs: common combinations that flow naturally
       if (TYPING_CHARACTERISTICS.fastDigraphs.has(digraph)) {
-        // Common digraphs are 15-25% faster
-        digraphMultiplier = 0.75 + (Math.random() * 0.1);
+        digraphMultiplier = 0.75 + (Math.random() * 0.1); // 15-25% faster
+      }
+      // Slow digraphs: awkward combinations
+      else if (TYPING_CHARACTERISTICS.slowDigraphs.has(digraph)) {
+        digraphMultiplier = 1.3 + (Math.random() * 0.2); // 30-50% slower
+      }
+      
+      // Same-finger penalty: using same finger for consecutive keys is slow
+      if (TYPING_CHARACTERISTICS.sameFingerPairs.has(digraph)) {
+        sameFingerPenalty = baseDelayMs * (0.15 + Math.random() * 0.1); // 15-25% extra
+      }
+      
+      // Hand alternation bonus: switching hands is faster than same hand
+      const lastIsLeft = TYPING_CHARACTERISTICS.leftHandKeys.has(lastCharLower);
+      const currentIsLeft = TYPING_CHARACTERISTICS.leftHandKeys.has(charLower);
+      if (lastIsLeft !== currentIsLeft) {
+        // Hand alternation gives 5-10% speed bonus
+        handAlternationBonus = 0.90 + (Math.random() * 0.05);
       }
     }
     
@@ -394,6 +454,17 @@ class BotService {
     if (TYPING_CHARACTERISTICS.punctuationPause.has(currentChar)) {
       // Punctuation adds 50-150% extra time (thinking + shift key)
       punctuationDelay = baseDelayMs * (0.5 + Math.random());
+    }
+    
+    // === SENTENCE ENDING PAUSE ===
+    let sentenceEndDelay = 0;
+    if (profile.lastCharacter && TYPING_CHARACTERISTICS.sentenceEndings.has(profile.lastCharacter)) {
+      // After sentence endings, longer pause for reading next sentence
+      // Beginners pause longer (300-600ms), pros shorter (100-250ms)
+      const skillIndex = Object.keys(SKILL_PROFILES).indexOf(profile.skillLevel);
+      const minSentencePause = 100 + (4 - skillIndex) * 50;
+      const maxSentencePause = 250 + (4 - skillIndex) * 100;
+      sentenceEndDelay = minSentencePause + (Math.random() * (maxSentencePause - minSentencePause));
     }
     
     // === WORD BOUNDARY PAUSE ===
@@ -423,11 +494,11 @@ class BotService {
     // === COMBINE ALL FACTORS ===
     // Cap the combined speed multiplier to prevent impossibly fast typing
     // Allow at most 30% faster than base (0.7x minimum multiplier)
-    const combinedMultiplier = speedMultiplier * charDifficulty * caseMultiplier * digraphMultiplier * clampedNoise;
+    const combinedMultiplier = speedMultiplier * charDifficulty * caseMultiplier * digraphMultiplier * handAlternationBonus * clampedNoise;
     const cappedMultiplier = Math.max(0.7, combinedMultiplier);
     
     const finalDelay = (baseDelayMs * cappedMultiplier) 
-      + punctuationDelay + wordBoundaryDelay + thinkingPause;
+      + punctuationDelay + wordBoundaryDelay + sentenceEndDelay + sameFingerPenalty + capitalAnticipationDelay + thinkingPause;
     
     // Store current char for next digraph calculation
     profile.lastCharacter = currentChar;
