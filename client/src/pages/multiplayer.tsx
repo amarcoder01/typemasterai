@@ -184,13 +184,14 @@ export default function MultiplayerPage() {
           isPrivate, 
           maxPlayers, 
           guestId,
+          timeLimitSeconds: selectedDuration,
         }),
       });
 
       if (response.ok) {
         const { race, participant } = await response.json();
         localStorage.setItem(`race_${race.id}_participant`, JSON.stringify(participant));
-        toast.success("Room created!", {
+        toast.success(`Room created! ${formatDuration(selectedDuration)} race`, {
           icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
           description: isPrivate ? `Share code: ${race.roomCode}` : "Waiting for players to join...",
         });
@@ -494,6 +495,37 @@ export default function MultiplayerPage() {
                     </Select>
                   </div>
 
+                  {/* Race Duration */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Timer className="h-4 w-4 text-muted-foreground" />
+                      <label className="text-sm font-medium">Race Duration</label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p className="font-medium">Time Limit</p>
+                          <p className="text-zinc-400">How long the race will last</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Select
+                      value={selectedDuration.toString()}
+                      onValueChange={(value) => setSelectedDuration(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-full" data-testid="select-create-duration">
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="30">30 seconds - Sprint</SelectItem>
+                        <SelectItem value="60">1 minute - Standard</SelectItem>
+                        <SelectItem value="90">90 seconds - Extended</SelectItem>
+                        <SelectItem value="120">2 minutes - Marathon</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Private Room Toggle */}
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -528,6 +560,7 @@ export default function MultiplayerPage() {
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Room Settings</p>
                     <div className="flex flex-wrap gap-2 text-sm">
                       <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{maxPlayers} players max</span>
+                      <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{formatDuration(selectedDuration)}</span>
                       <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{isPrivate ? "Private" : "Public"}</span>
                     </div>
                   </div>
@@ -563,7 +596,7 @@ export default function MultiplayerPage() {
                   {/* How it works */}
                   <div className="text-xs text-center text-muted-foreground space-y-1">
                     <p className="font-medium">How it works:</p>
-                    <p>1. Create room → 2. Share code with friends → 3. Configure race → 4. Start when ready</p>
+                    <p>1. Create room → 2. Share code with friends → 3. Start when ready</p>
                   </div>
                 </CardContent>
               </Card>

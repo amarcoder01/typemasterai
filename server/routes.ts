@@ -1677,15 +1677,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/races/create", async (req, res) => {
     try {
-      const { isPrivate, maxPlayers: rawMaxPlayers, guestId } = req.body;
+      const { isPrivate, maxPlayers: rawMaxPlayers, guestId, timeLimitSeconds: rawTimeLimit } = req.body;
       const user = req.user;
       
-      // Validate and sanitize room settings only
+      // Validate and sanitize room settings
       const maxPlayers = Math.max(2, Math.min(10, Number(rawMaxPlayers) || 4));
       
-      // Race settings (duration, bots) will be configured by host in waiting room
-      // Default to 60 seconds, can be changed before race starts
-      const timeLimitSeconds = 60;
+      // Validate duration (30, 60, 90, 120 seconds)
+      const validDurations = [30, 60, 90, 120];
+      const timeLimitSeconds = validDurations.includes(Number(rawTimeLimit)) ? Number(rawTimeLimit) : 60;
       
       let username: string;
       

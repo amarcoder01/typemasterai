@@ -7,12 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film, Zap, LogOut, Settings, Clock } from "lucide-react";
+import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film, Zap, LogOut } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
@@ -873,9 +872,6 @@ export default function RacePage() {
   } | null>(null);
   const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
-  // Host-only race configuration (set in waiting room before starting)
-  const [selectedRaceDuration, setSelectedRaceDuration] = useState<number>(60);
-  const [selectedBotCount, setSelectedBotCount] = useState<number>(0);
 
   useEffect(() => {
     raceRef.current = race;
@@ -1579,9 +1575,6 @@ export default function RacePage() {
       type: "ready",
       raceId: race?.id,
       participantId: myParticipant?.id,
-      // Include race configuration from host
-      raceDuration: selectedRaceDuration,
-      botCount: selectedBotCount,
     });
   }
 
@@ -1860,61 +1853,6 @@ export default function RacePage() {
                   />
                 )}
 
-                {/* Race configuration - only visible to host */}
-                {(!hostParticipantId || myParticipant?.id === hostParticipantId) && (
-                  <div className="space-y-4 p-4 bg-muted/30 rounded-lg border border-border">
-                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                      <Settings className="h-4 w-4" />
-                      Race Settings
-                    </div>
-                    
-                    {/* Duration Selector */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        Race Duration
-                      </label>
-                      <Select
-                        value={selectedRaceDuration.toString()}
-                        onValueChange={(value) => setSelectedRaceDuration(parseInt(value))}
-                      >
-                        <SelectTrigger className="w-full" data-testid="select-race-duration">
-                          <SelectValue placeholder="Select duration" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="30">30 seconds - Sprint</SelectItem>
-                          <SelectItem value="60">1 minute - Standard</SelectItem>
-                          <SelectItem value="90">1.5 minutes - Extended</SelectItem>
-                          <SelectItem value="120">2 minutes - Marathon</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    {/* Bot Count Selector */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium flex items-center gap-2">
-                        <Bot className="h-4 w-4 text-muted-foreground" />
-                        AI Opponents
-                      </label>
-                      <Select
-                        value={selectedBotCount.toString()}
-                        onValueChange={(value) => setSelectedBotCount(parseInt(value))}
-                      >
-                        <SelectTrigger className="w-full" data-testid="select-bot-count">
-                          <SelectValue placeholder="Select AI opponents" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="0">No AI opponents</SelectItem>
-                          <SelectItem value="1">1 AI opponent</SelectItem>
-                          <SelectItem value="2">2 AI opponents</SelectItem>
-                          <SelectItem value="3">3 AI opponents</SelectItem>
-                          <SelectItem value="4">4 AI opponents</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                )}
-
                 {/* Show Start Race button only for the host, or show waiting message for others */}
                 {(!hostParticipantId || myParticipant?.id === hostParticipantId) ? (
                   <Tooltip>
@@ -1934,7 +1872,7 @@ export default function RacePage() {
                         ) : (
                           <>
                             <Play className="h-4 w-4 mr-2" />
-                            Start Race ({selectedRaceDuration}s{selectedBotCount > 0 ? ` + ${selectedBotCount} AI` : ''})
+                            Start Race
                           </>
                         )}
                       </Button>
