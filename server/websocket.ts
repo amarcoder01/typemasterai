@@ -1171,6 +1171,20 @@ class RaceWebSocketServer {
     if (raceRoom) {
       raceRoom.clients.delete(participantId);
       
+      // Host transfer: If the leaving player was the host, transfer to next available player
+      if (raceRoom.hostParticipantId === participantId && raceRoom.clients.size > 0) {
+        const nextHostId = Array.from(raceRoom.clients.keys())[0];
+        raceRoom.hostParticipantId = nextHostId;
+        const newHostClient = raceRoom.clients.get(nextHostId);
+        console.log(`[WS] Host transferred to ${newHostClient?.username || nextHostId} for race ${raceId}`);
+        
+        this.broadcastToRace(raceId, {
+          type: "host_changed",
+          newHostParticipantId: nextHostId,
+          message: `${newHostClient?.username || 'A player'} is now the host`,
+        });
+      }
+      
       if (raceRoom.clients.size === 0) {
         // Don't clean up if race is finishing
         if (raceRoom.isFinishing) {
@@ -1910,6 +1924,20 @@ NEVER sound like AI. No "I'd be happy to" or formal language.`
             type: "participant_disconnected",
             participantId,
           });
+          
+          // Host transfer: If disconnected player was host, transfer to next available
+          if (raceRoom.hostParticipantId === participantId && raceRoom.clients.size > 0) {
+            const nextHostId = Array.from(raceRoom.clients.keys())[0];
+            raceRoom.hostParticipantId = nextHostId;
+            const newHostClient = raceRoom.clients.get(nextHostId);
+            console.log(`[WS] Host transferred to ${newHostClient?.username || nextHostId} after disconnect`);
+            
+            this.broadcastToRace(raceId, {
+              type: "host_changed",
+              newHostParticipantId: nextHostId,
+              message: `${newHostClient?.username || 'A player'} is now the host`,
+            });
+          }
 
           if (raceRoom.clients.size === 0) {
             // NEVER clean up a race that is currently finishing - prevents race condition

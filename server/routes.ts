@@ -1775,7 +1775,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (race.status !== "waiting") {
-        return res.status(400).json({ message: "Race has already started" });
+        const statusMessages: Record<string, string> = {
+          countdown: "Race is about to start - cannot join during countdown",
+          racing: "Race is in progress - cannot join an active race",
+          finished: "Race has ended - please join a new room",
+        };
+        return res.status(409).json({ 
+          message: statusMessages[race.status] || "Race has already started",
+          code: "RACE_STARTED"
+        });
       }
 
       const participants = await storage.getRaceParticipants(race.id);
