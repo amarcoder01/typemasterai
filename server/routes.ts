@@ -18,6 +18,7 @@ import rateLimit from "express-rate-limit";
 import DOMPurify from "isomorphic-dompurify";
 import { raceWebSocket } from "./websocket";
 import { botNamePool } from "./bot-name-pool";
+import { botService } from "./bot-service";
 import multer from "multer";
 import { createNotificationRoutes } from "./notification-routes";
 import { NotificationScheduler } from "./notification-scheduler";
@@ -1676,8 +1677,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/races/create", async (req, res) => {
     try {
-      const { isPrivate, maxPlayers, guestId, raceType, timeLimitSeconds } = req.body;
+      const { isPrivate, maxPlayers: rawMaxPlayers, guestId, raceType, timeLimitSeconds: rawTimeLimit, botCount: rawBotCount } = req.body;
       const user = req.user;
+      
+      // Validate and sanitize inputs
+      const validDurations = [30, 60, 90, 120];
+      const timeLimitSeconds = validDurations.includes(rawTimeLimit) ? rawTimeLimit : 60;
+      
+      const maxPlayers = Math.max(2, Math.min(10, Number(rawMaxPlayers) || 4));
+      
+      // Clamp botCount: 0-4 range, and never more than maxPlayers - 1 (leave room for creator)
+      const botCount = Math.max(0, Math.min(4, Math.min(maxPlayers - 1, Number(rawBotCount) || 0)));
+      
       let username: string;
       
       if (user) {
@@ -1744,6 +1755,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isFinished: 0,
         isBot: 0,
       });
+
+      // Add bots if requested (botCount already validated above)
+      if (botCount > 0) {
+        try {
+          const bots = await botService.addBotsToRace(race.id, botCount);
+          console.log(`[Create Room] Added ${bots.length} AI opponents to race ${race.id}`);
+        } catch (botError) {
+          console.error("[Create Room] Failed to add bots:", botError);
+          // Don't fail the room creation if bots fail to add
+        }
+      }
 
       res.json({ race, participant });
     } catch (error: any) {

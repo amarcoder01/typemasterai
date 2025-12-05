@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Zap, Users, Lock, Trophy, Loader2, Info, Shield, WifiOff, AlertTriangle, CheckCircle2, Timer } from "lucide-react";
+import { Zap, Users, Lock, Trophy, Loader2, Info, Shield, WifiOff, AlertTriangle, CheckCircle2, Timer, Bot, Clock } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
@@ -97,10 +97,13 @@ export default function MultiplayerPage() {
   const [, setLocation] = useLocation();
   const [roomCode, setRoomCode] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(4);
-  const [isPrivate, setIsPrivate] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(true); // Default to private for Create Room
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<"quickMatch" | "createRoom" | "joinRoom" | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(60);
+  // Create Room specific options
+  const [createRoomDuration, setCreateRoomDuration] = useState<number>(60);
+  const [botCount, setBotCount] = useState<number>(0);
   const quickMatchTriggeredRef = useRef(false);
 
   // Auto-trigger quick match if coming from "New Race" button
@@ -180,14 +183,22 @@ export default function MultiplayerPage() {
       const response = await fetch("/api/races/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isPrivate, maxPlayers, guestId }),
+        body: JSON.stringify({ 
+          isPrivate, 
+          maxPlayers, 
+          guestId,
+          raceType: "timed",
+          timeLimitSeconds: createRoomDuration,
+          botCount,
+        }),
       });
 
       if (response.ok) {
         const { race, participant } = await response.json();
         localStorage.setItem(`race_${race.id}_participant`, JSON.stringify(participant));
-        toast.success("Room created! Waiting for players...", {
+        toast.success(`Room created! ${formatDuration(createRoomDuration)} race ready.`, {
           icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
+          description: isPrivate ? `Share code: ${race.roomCode}` : "Waiting for players...",
         });
         setLocation(`/race/${race.id}`);
       } else {
@@ -439,84 +450,175 @@ export default function MultiplayerPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    Create Private Room
+                    Create Custom Room
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info className="h-4 w-4 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
                       <TooltipContent side="right" className="max-w-xs">
-                        <p className="font-medium">Custom Room Setup</p>
-                        <p className="text-zinc-400">Create a room with your own settings. Share the room code with friends to race together.</p>
+                        <p className="font-medium">Host Your Own Race</p>
+                        <p className="text-zinc-400">Create a room with custom settings. As the host, only you can start the race when everyone is ready.</p>
                       </TooltipContent>
                     </Tooltip>
                   </CardTitle>
                   <CardDescription>
-                    Set up a custom race and invite your friends
+                    Set up a custom race and share the room code with friends
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium">Max Players</label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent side="right">
-                            <p className="font-medium">Player Limit</p>
-                            <p className="text-zinc-400">Set between 2-10 players per race</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <Input
-                        type="number"
-                        min={2}
-                        max={10}
-                        value={maxPlayers}
-                        onChange={(e) => setMaxPlayers(parseInt(e.target.value) || 4)}
-                        className="w-full"
-                        data-testid="input-max-players"
-                      />
+                  {/* Race Duration */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <label className="text-sm font-medium">Race Duration</label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p className="font-medium">How long is the race?</p>
+                          <p className="text-zinc-400">Choose the time limit for typing. Longer races test endurance!</p>
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-muted/50 transition-colors cursor-pointer">
-                          <input
-                            type="checkbox"
-                            id="private"
-                            checked={isPrivate}
-                            onChange={(e) => setIsPrivate(e.target.checked)}
-                            className="h-4 w-4"
-                            data-testid="checkbox-private"
-                          />
-                          <label htmlFor="private" className="text-sm font-medium cursor-pointer flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-muted-foreground" />
-                            Make room private (requires code to join)
-                          </label>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs">
-                        <p className="font-medium">Private Room</p>
-                        <p className="text-zinc-400">When enabled, only players with the room code can join. Public rooms appear in the active races list.</p>
-                      </TooltipContent>
-                    </Tooltip>
+                    <Select
+                      value={createRoomDuration.toString()}
+                      onValueChange={(value) => setCreateRoomDuration(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-full" data-testid="select-create-duration">
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="30">30 seconds - Sprint</SelectItem>
+                        <SelectItem value="60">1 minute - Standard</SelectItem>
+                        <SelectItem value="90">1.5 minutes - Extended</SelectItem>
+                        <SelectItem value="120">2 minutes - Marathon</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
+                  {/* Bot Count */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Bot className="h-4 w-4 text-muted-foreground" />
+                      <label className="text-sm font-medium">AI Opponents</label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <p className="font-medium">Add AI Racers</p>
+                          <p className="text-zinc-400">AI opponents will join the race automatically. They type with realistic speeds and patterns.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Select
+                      value={botCount.toString()}
+                      onValueChange={(value) => setBotCount(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-full" data-testid="select-bot-count">
+                        <SelectValue placeholder="Select AI opponents" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">No AI opponents</SelectItem>
+                        <SelectItem value="1">1 AI opponent</SelectItem>
+                        <SelectItem value="2">2 AI opponents</SelectItem>
+                        <SelectItem value="3">3 AI opponents</SelectItem>
+                        <SelectItem value="4">4 AI opponents</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Max Players */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <label className="text-sm font-medium">Max Players</label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p className="font-medium">Player Limit</p>
+                          <p className="text-zinc-400">Total players including AI. Set between 2-10.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Select
+                      value={maxPlayers.toString()}
+                      onValueChange={(value) => setMaxPlayers(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-full" data-testid="select-max-players">
+                        <SelectValue placeholder="Select max players" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2">2 players</SelectItem>
+                        <SelectItem value="3">3 players</SelectItem>
+                        <SelectItem value="4">4 players</SelectItem>
+                        <SelectItem value="5">5 players</SelectItem>
+                        <SelectItem value="6">6 players</SelectItem>
+                        <SelectItem value="8">8 players</SelectItem>
+                        <SelectItem value="10">10 players</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Private Room Toggle */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
+                        <input
+                          type="checkbox"
+                          id="private"
+                          checked={isPrivate}
+                          onChange={(e) => setIsPrivate(e.target.checked)}
+                          className="h-4 w-4 accent-primary"
+                          data-testid="checkbox-private"
+                        />
+                        <label htmlFor="private" className="flex-1 cursor-pointer">
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm font-medium">Private Room</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {isPrivate ? "Only players with the code can join" : "Anyone can find and join this room"}
+                          </p>
+                        </label>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <p className="font-medium">Room Visibility</p>
+                      <p className="text-zinc-400">Private rooms require a code. Public rooms appear in the lobby.</p>
+                    </TooltipContent>
+                  </Tooltip>
+
+                  {/* Summary */}
+                  <div className="bg-muted/50 rounded-lg p-3 space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Room Summary</p>
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{formatDuration(createRoomDuration)}</span>
+                      <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{maxPlayers} max</span>
+                      {botCount > 0 && (
+                        <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{botCount} AI</span>
+                      )}
+                      <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{isPrivate ? "Private" : "Public"}</span>
+                    </div>
+                  </div>
+
+                  {/* Create Button */}
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
                         onClick={createRoom}
-                        disabled={loading}
+                        disabled={loading || loadingAction !== null}
                         size="lg"
                         className="w-full text-lg h-14"
                         data-testid="button-create-room"
                       >
-                        {loading ? (
+                        {loading && loadingAction === "createRoom" ? (
                           <>
                             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                            Creating...
+                            Creating Room...
                           </>
                         ) : (
                           <>
@@ -527,9 +629,13 @@ export default function MultiplayerPage() {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      <p>Create a new race room with your settings</p>
+                      <p>Create a {formatDuration(createRoomDuration)} {isPrivate ? "private" : "public"} race room</p>
                     </TooltipContent>
                   </Tooltip>
+
+                  <p className="text-xs text-center text-muted-foreground">
+                    You'll be the host. Only you can start the race when ready.
+                  </p>
                 </CardContent>
               </Card>
             </TabsContent>
