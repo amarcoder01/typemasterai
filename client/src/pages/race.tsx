@@ -1857,15 +1857,15 @@ export default function RacePage() {
                     variant="ghost"
                     size="sm"
                     onClick={leaveRace}
-                    data-testid="button-forfeit-race"
+                    data-testid="button-leave-race"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
-                    Forfeit Race
+                    Leave Race
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  <p className="font-medium text-red-400">Forfeit Race</p>
-                  <p className="text-zinc-400">Leave the race. You will not be ranked.</p>
+                  <p className="font-medium">Leave Race</p>
+                  <p className="text-zinc-400">Exit without finishing. Your progress won't be saved.</p>
                 </TooltipContent>
               </Tooltip>
               
