@@ -276,11 +276,16 @@ class RaceWebSocketServer {
       }
 
       if (raceRoom.clients.size === 0) {
+        // For timed races that are still racing, DON'T delete the room - let the timer complete
+        // This ensures results are broadcast even if all clients disconnect
+        if (raceRoom.timedRaceTimer) {
+          console.log(`[WS Heartbeat] Keeping race room ${raceId} alive - timed race timer active`);
+          // Keep the race room and timer alive - it will clean up after broadcasting results
+          continue;
+        }
+        
         if (raceRoom.countdownTimer) {
           clearInterval(raceRoom.countdownTimer);
-        }
-        if (raceRoom.timedRaceTimer) {
-          clearTimeout(raceRoom.timedRaceTimer);
         }
         this.races.delete(raceId);
         this.cleanupExtensionState(raceId);
@@ -1011,6 +1016,8 @@ class RaceWebSocketServer {
       
       const enrichedResults = await this.enrichResultsWithRatings(sortedResults);
       
+      console.log(`[Timed Finish] Broadcasting race_finished for race ${raceId} with ${enrichedResults.length} results`);
+      
       this.broadcastToRace(raceId, {
         type: "race_finished",
         results: enrichedResults,
@@ -1020,6 +1027,18 @@ class RaceWebSocketServer {
       this.processRaceCompletion(raceId, sortedResults).catch(err => {
         console.error(`[TimedRaceFinish] Error processing race completion:`, err);
       });
+      
+      // Clean up race room AFTER broadcasting results
+      // Delay cleanup to allow any reconnecting clients to receive the results
+      setTimeout(() => {
+        const raceRoom = this.races.get(raceId);
+        if (raceRoom) {
+          console.log(`[Timed Finish] Cleaning up race room ${raceId} after results broadcast`);
+          this.races.delete(raceId);
+          this.cleanupExtensionState(raceId);
+          this.updateStats();
+        }
+      }, 5000); // 5 second delay to allow reconnecting clients
     }
   }
 
@@ -1099,6 +1118,8 @@ class RaceWebSocketServer {
 
     const enrichedResults = await this.enrichResultsWithRatings(sortedResults);
 
+    console.log(`[Timed Race] Broadcasting race_finished for race ${raceId} with ${enrichedResults.length} results`);
+    
     this.broadcastToRace(raceId, {
       type: "race_finished",
       results: enrichedResults,
@@ -1109,6 +1130,18 @@ class RaceWebSocketServer {
     this.processRaceCompletion(raceId, sortedResults).catch(err => {
       console.error(`[TimedRaceFinish] Error processing race completion:`, err);
     });
+    
+    // Clean up race room AFTER broadcasting results
+    // Delay cleanup to allow any reconnecting clients to receive the results
+    setTimeout(() => {
+      const raceRoom = this.races.get(raceId);
+      if (raceRoom) {
+        console.log(`[Timed Race] Cleaning up race room ${raceId} after results broadcast`);
+        this.races.delete(raceId);
+        this.cleanupExtensionState(raceId);
+        this.updateStats();
+      }
+    }, 5000); // 5 second delay to allow reconnecting clients
   }
 
   private async handleBotFinished(raceId: number, participantId: number, position: number) {
@@ -1908,11 +1941,17 @@ NEVER sound like AI. No "I'd be happy to" or formal language.`
           });
 
           if (raceRoom.clients.size === 0) {
+            // For timed races that are still racing, DON'T delete the room - let the timer complete
+            // This ensures results are broadcast even if all clients disconnect
+            if (raceRoom.timedRaceTimer) {
+              console.log(`[WS Disconnect] Keeping race room ${raceId} alive - timed race timer active`);
+              // Keep the race room and timer alive - it will clean up after broadcasting results
+              this.updateStats();
+              return;
+            }
+            
             if (raceRoom.countdownTimer) {
               clearInterval(raceRoom.countdownTimer);
-            }
-            if (raceRoom.timedRaceTimer) {
-              clearTimeout(raceRoom.timedRaceTimer);
             }
             this.races.delete(raceId);
             this.cleanupExtensionState(raceId);
