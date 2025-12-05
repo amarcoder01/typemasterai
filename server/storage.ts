@@ -2274,25 +2274,32 @@ export class DatabaseStorage implements IStorage {
     };
     commonMistakes: Array<{ expectedKey: string; typedKey: string; count: number }>;
   }> {
+    // Validate and clamp days to safe range to prevent SQL injection
+    const safeDays = Math.max(1, Math.min(365, Math.floor(days)));
+    
+    // Calculate the cutoff date server-side (safer than using INTERVAL with sql.raw)
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - safeDays);
+    
     // Get WPM over time (grouped by date)
     const wpmDataQuery = await db.execute(sql`
       SELECT 
-        DATE(created_at) as date,
+        TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as date,
         AVG(wpm)::int as wpm,
         AVG(accuracy)::numeric(5,2) as accuracy,
         COUNT(*)::int as test_count
       FROM test_results
       WHERE user_id = ${userId}
-        AND created_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+        AND created_at >= ${cutoffDate}
       GROUP BY DATE(created_at)
       ORDER BY date ASC
     `);
     
     const wpmOverTime = wpmDataQuery.rows.map((row: any) => ({
       date: row.date,
-      wpm: Number(row.wpm),
-      accuracy: Number(row.accuracy),
-      testCount: Number(row.test_count),
+      wpm: Number(row.wpm) || 0,
+      accuracy: Number(row.accuracy) || 0,
+      testCount: Number(row.test_count) || 0,
     }));
 
     // Get mistakes heatmap (errors per key)
@@ -2304,7 +2311,7 @@ export class DatabaseStorage implements IStorage {
         (COUNT(CASE WHEN is_correct = 0 THEN 1 END)::float / NULLIF(COUNT(*), 0) * 100)::numeric(5,2) as error_rate
       FROM keystroke_analytics
       WHERE user_id = ${userId}
-        AND created_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+        AND created_at >= ${cutoffDate}
       GROUP BY expected_key
       HAVING COUNT(CASE WHEN is_correct = 0 THEN 1 END) > 0
       ORDER BY error_count DESC
@@ -2312,30 +2319,30 @@ export class DatabaseStorage implements IStorage {
     `);
 
     const mistakesHeatmap = heatmapQuery.rows.map((row: any) => ({
-      key: row.key,
-      errorCount: Number(row.error_count),
-      totalCount: Number(row.total_count),
-      errorRate: Number(row.error_rate),
+      key: row.key || '',
+      errorCount: Number(row.error_count) || 0,
+      totalCount: Number(row.total_count) || 0,
+      errorRate: Number(row.error_rate) || 0,
     }));
 
     // Get consistency metrics
     const consistencyQuery = await db.execute(sql`
       SELECT 
-        AVG(wpm)::numeric(10,2) as avg_wpm,
-        STDDEV(wpm)::numeric(10,2) as std_deviation,
-        MIN(wpm)::int as min_wpm,
-        MAX(wpm)::int as max_wpm
+        COALESCE(AVG(wpm), 0)::numeric(10,2) as avg_wpm,
+        COALESCE(STDDEV(wpm), 0)::numeric(10,2) as std_deviation,
+        COALESCE(MIN(wpm), 0)::int as min_wpm,
+        COALESCE(MAX(wpm), 0)::int as max_wpm
       FROM test_results
       WHERE user_id = ${userId}
-        AND created_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+        AND created_at >= ${cutoffDate}
     `);
 
     const consistencyData = consistencyQuery.rows[0] as any;
     const consistency = {
-      avgWpm: Number(consistencyData?.avg_wpm || 0),
-      stdDeviation: Number(consistencyData?.std_deviation || 0),
-      minWpm: Number(consistencyData?.min_wpm || 0),
-      maxWpm: Number(consistencyData?.max_wpm || 0),
+      avgWpm: Number(consistencyData?.avg_wpm) || 0,
+      stdDeviation: Number(consistencyData?.std_deviation) || 0,
+      minWpm: Number(consistencyData?.min_wpm) || 0,
+      maxWpm: Number(consistencyData?.max_wpm) || 0,
     };
 
     // Get common mistakes (expected key vs typed key)
@@ -2347,16 +2354,16 @@ export class DatabaseStorage implements IStorage {
       FROM keystroke_analytics
       WHERE user_id = ${userId}
         AND is_correct = 0
-        AND created_at >= NOW() - INTERVAL '${sql.raw(days.toString())} days'
+        AND created_at >= ${cutoffDate}
       GROUP BY expected_key, typed_key
       ORDER BY count DESC
       LIMIT 20
     `);
 
     const commonMistakes = mistakesQuery.rows.map((row: any) => ({
-      expectedKey: row.expected_key,
-      typedKey: row.typed_key,
-      count: Number(row.count),
+      expectedKey: row.expected_key || '',
+      typedKey: row.typed_key || '',
+      count: Number(row.count) || 0,
     }));
 
     return {

@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback, Component, ReactNode, ErrorInfo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from "recharts";
-import { TrendingUp, TrendingDown, Target, Keyboard, Calendar, Sparkles, Brain, Loader2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Target, Keyboard, Calendar, Sparkles, Brain, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { format, parseISO, isValid } from "date-fns";
 
 interface AnalyticsData {
   wpmOverTime: Array<{ date: string; wpm: number; accuracy: number; testCount: number }>;
@@ -42,7 +44,137 @@ interface WeeklyGoal {
   status: "current" | "next" | "later";
 }
 
-export default function Analytics() {
+const formatChartDate = (dateStr: string): string => {
+  try {
+    const date = parseISO(dateStr);
+    if (!isValid(date)) return dateStr;
+    return format(date, 'MMM d');
+  } catch {
+    return dateStr;
+  }
+};
+
+const formatTooltipDate = (dateStr: string): string => {
+  try {
+    const date = parseISO(dateStr);
+    if (!isValid(date)) return dateStr;
+    return format(date, 'MMMM d, yyyy');
+  } catch {
+    return dateStr;
+  }
+};
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number; name: string; color?: string }>;
+  label?: string;
+}
+
+const WPMTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+  if (!active || !payload || !payload.length) return null;
+  return (
+    <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-lg">
+      <p className="text-sm font-medium text-white mb-1">{formatTooltipDate(label || '')}</p>
+      {payload.map((entry, idx) => (
+        <p key={idx} className="text-sm" style={{ color: entry.color || '#00ffff' }}>
+          {entry.name === 'wpm' ? 'WPM' : entry.name}: {typeof entry.value === 'number' ? entry.value.toFixed(1) : entry.value}
+        </p>
+      ))}
+    </div>
+  );
+};
+
+const AccuracyTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+  if (!active || !payload || !payload.length) return null;
+  return (
+    <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-lg">
+      <p className="text-sm font-medium text-white mb-1">{formatTooltipDate(label || '')}</p>
+      {payload.map((entry, idx) => (
+        <p key={idx} className="text-sm" style={{ color: entry.color || '#a855f7' }}>
+          Accuracy: {typeof entry.value === 'number' ? entry.value.toFixed(1) : entry.value}%
+        </p>
+      ))}
+    </div>
+  );
+};
+
+interface ErrorBoundaryProps {
+  children: ReactNode;
+  fallback?: ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class AnalyticsErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Analytics Error:', error, errorInfo);
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+      return (
+        <Alert variant="destructive" className="m-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Something went wrong</AlertTitle>
+          <AlertDescription className="flex items-center gap-4">
+            <span>Failed to load analytics. Please try again.</span>
+            <Button variant="outline" size="sm" onClick={this.handleRetry}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+const validateAnalyticsData = (data: AnalyticsData | undefined): data is AnalyticsData => {
+  if (!data) return false;
+  if (!Array.isArray(data.wpmOverTime)) return false;
+  if (!Array.isArray(data.mistakesHeatmap)) return false;
+  if (!Array.isArray(data.commonMistakes)) return false;
+  if (!data.consistency || typeof data.consistency.avgWpm !== 'number') return false;
+  return true;
+};
+
+const safeNumber = (value: unknown, fallback: number = 0): number => {
+  if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
+    return value;
+  }
+  return fallback;
+};
+
+const EmptyDataState = ({ message }: { message: string }) => (
+  <div className="flex flex-col items-center justify-center py-12 text-center" data-testid="empty-state">
+    <Target className="w-12 h-12 text-muted-foreground mb-4" />
+    <h3 className="text-lg font-medium text-muted-foreground mb-2">No Data Available</h3>
+    <p className="text-sm text-muted-foreground max-w-md">{message}</p>
+  </div>
+);
+
+function AnalyticsContent() {
   const [selectedDays, setSelectedDays] = useState(30);
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
@@ -51,11 +183,14 @@ export default function Analytics() {
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyGoal[]>([]);
   const [loadingWeeklyPlan, setLoadingWeeklyPlan] = useState(false);
 
-  const { data: analyticsData, isLoading, refetch } = useQuery<{ analytics: AnalyticsData }>({
+  const { data: analyticsData, isLoading, isError, error, refetch } = useQuery<{ analytics: AnalyticsData }>({
     queryKey: [`/api/analytics?days=${selectedDays}`],
+    retry: 2,
+    staleTime: 30000,
   });
 
   const analytics = analyticsData?.analytics;
+  const isDataValid = validateAnalyticsData(analytics);
 
   // Fetch latest keystroke analytics for detailed analysis
   const { data: keystrokeData } = useQuery({
@@ -71,27 +206,108 @@ export default function Analytics() {
     },
   });
 
+  const AI_TIMEOUT_MS = 30000;
+  
+  const sanitizeText = (text: string): string => {
+    return text
+      .replace(/<[^>]*>/g, '')
+      .replace(/[^\x20-\x7E\n]/g, '')
+      .trim();
+  };
+
+  const deduplicateInsights = (insights: AIInsight[]): AIInsight[] => {
+    const seen = new Set<string>();
+    return insights.filter(insight => {
+      const normalized = insight.message.toLowerCase().slice(0, 50);
+      if (seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    });
+  };
+
+  const parseInsightsFromText = (text: string, analytics: AnalyticsData): AIInsight[] => {
+    const insights: AIInsight[] = [];
+    const lines = text.split(/\n/).map(l => l.trim()).filter(l => l.length > 10);
+    
+    const improvementKeywords = ['improve', 'focus', 'work on', 'reduce', 'avoid', 'weakness'];
+    const strengthKeywords = ['strength', 'good', 'excellent', 'strong', 'well', 'consistent'];
+    const practiceKeywords = ['practice', 'exercise', 'drill', 'try', 'recommend', 'suggest'];
+    
+    for (const line of lines) {
+      const cleanLine = sanitizeText(line.replace(/^[\d.)\-*•]+\s*/, ''));
+      if (cleanLine.length < 15) continue;
+      
+      const lowerLine = cleanLine.toLowerCase();
+      
+      if (improvementKeywords.some(kw => lowerLine.includes(kw))) {
+        insights.push({ type: "improvement", message: cleanLine, priority: "high" });
+      } else if (strengthKeywords.some(kw => lowerLine.includes(kw))) {
+        insights.push({ type: "strength", message: cleanLine, priority: "medium" });
+      } else if (practiceKeywords.some(kw => lowerLine.includes(kw))) {
+        insights.push({ type: "practice", message: cleanLine, priority: "medium" });
+      }
+    }
+    
+    if (insights.length === 0) {
+      if (analytics.mistakesHeatmap.length > 0) {
+        insights.push({
+          type: "improvement",
+          message: `Focus on keys with high error rates: ${analytics.mistakesHeatmap.slice(0, 3).map(m => m.key).join(", ")}`,
+          priority: "high",
+        });
+      }
+      
+      if (analytics.consistency.stdDeviation > 10) {
+        insights.push({
+          type: "improvement",
+          message: "Work on consistency - your WPM varies significantly between tests",
+          priority: "high",
+        });
+      }
+      
+      if (analytics.consistency.avgWpm < 40) {
+        insights.push({
+          type: "practice",
+          message: "Practice daily for 15 minutes to build muscle memory and increase speed",
+          priority: "medium",
+        });
+      } else if (analytics.consistency.avgWpm >= 60) {
+        insights.push({
+          type: "strength",
+          message: "Your typing speed is above average. Focus on accuracy to maintain quality.",
+          priority: "medium",
+        });
+      }
+    }
+    
+    return deduplicateInsights(insights).slice(0, 8);
+  };
+
   const generateAIInsights = async () => {
     if (!analytics) return;
 
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), AI_TIMEOUT_MS);
+    
     setLoadingInsights(true);
     try {
       const response = await fetch("/api/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
+        signal: abortController.signal,
         body: JSON.stringify({
           conversationId: null,
           message: `Analyze my typing performance data and provide actionable insights:
 
 Performance Metrics:
-- Average WPM: ${analytics.consistency.avgWpm.toFixed(1)}
-- WPM Range: ${analytics.consistency.minWpm} - ${analytics.consistency.maxWpm}
-- Consistency (Std Dev): ${analytics.consistency.stdDeviation.toFixed(1)}
+- Average WPM: ${safeNumber(analytics.consistency.avgWpm).toFixed(1)}
+- WPM Range: ${safeNumber(analytics.consistency.minWpm)} - ${safeNumber(analytics.consistency.maxWpm)}
+- Consistency (Std Dev): ${safeNumber(analytics.consistency.stdDeviation).toFixed(1)}
 
-Top Mistake Keys: ${analytics.mistakesHeatmap.slice(0, 5).map(m => `${m.key} (${m.errorRate.toFixed(1)}% error rate)`).join(", ")}
+Top Mistake Keys: ${analytics.mistakesHeatmap.slice(0, 5).map(m => `${sanitizeText(m.key)} (${safeNumber(m.errorRate).toFixed(1)}% error rate)`).join(", ")}
 
-Common Typing Errors: ${analytics.commonMistakes.slice(0, 5).map(m => `"${m.expectedKey}" typed as "${m.typedKey}" (${m.count}x)`).join(", ")}
+Common Typing Errors: ${analytics.commonMistakes.slice(0, 5).map(m => `"${sanitizeText(m.expectedKey)}" typed as "${sanitizeText(m.typedKey)}" (${m.count}x)`).join(", ")}
 
 Please provide:
 1. 3 specific areas for improvement based on my mistakes
@@ -102,6 +318,8 @@ Format each insight as a single concise sentence. Focus on actionable advice.`,
         }),
       });
 
+      clearTimeout(timeoutId);
+      
       if (!response.ok) throw new Error("Failed to generate insights");
 
       const reader = response.body?.getReader();
@@ -125,93 +343,75 @@ Format each insight as a single concise sentence. Focus on actionable advice.`,
                 if (parsed.content) {
                   fullResponse += parsed.content;
                 }
-              } catch (e) {
-                // Ignore parse errors
+              } catch {
+                // Ignore parse errors for malformed chunks
               }
             }
           }
         }
       }
 
-      // Parse insights from response
-      const insights: AIInsight[] = [];
-      const lines = fullResponse.split("\n").filter(l => l.trim());
-      
-      for (const line of lines) {
-        if (line.includes("improvement") || line.includes("practice") || line.includes("focus on")) {
-          insights.push({
-            type: "improvement",
-            message: line.replace(/^[-*•]\s*/, "").trim(),
-            priority: "high",
-          });
-        } else if (line.includes("strength") || line.includes("good") || line.includes("excellent")) {
-          insights.push({
-            type: "strength",
-            message: line.replace(/^[-*•]\s*/, "").trim(),
-            priority: "medium",
-          });
-        } else if (line.includes("practice") || line.includes("exercise") || line.includes("drill")) {
-          insights.push({
-            type: "practice",
-            message: line.replace(/^[-*•]\s*/, "").trim(),
-            priority: "medium",
-          });
-        }
-      }
-
-      if (insights.length === 0) {
-        // Fallback insights based on data
-        insights.push({
-          type: "improvement",
-          message: `Focus on keys with high error rates: ${analytics.mistakesHeatmap.slice(0, 3).map(m => m.key).join(", ")}`,
-          priority: "high",
-        });
-        
-        if (analytics.consistency.stdDeviation > 10) {
-          insights.push({
-            type: "improvement",
-            message: "Work on consistency - your WPM varies significantly between tests",
-            priority: "high",
-          });
-        }
-        
-        if (analytics.consistency.avgWpm < 40) {
-          insights.push({
-            type: "practice",
-            message: "Practice daily for 15 minutes to build muscle memory and increase speed",
-            priority: "medium",
-          });
-        }
-      }
-
+      const insights = parseInsightsFromText(fullResponse, analytics);
       setAiInsights(insights);
       toast.success("AI insights generated successfully!");
     } catch (error) {
-      console.error("AI insights error:", error);
-      toast.error("Failed to generate AI insights");
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error("AI request timed out. Please try again.");
+      } else {
+        console.error("AI insights error:", error);
+        toast.error("Failed to generate AI insights");
+      }
+      
+      const fallbackInsights = parseInsightsFromText("", analytics);
+      if (fallbackInsights.length > 0) {
+        setAiInsights(fallbackInsights);
+      }
     } finally {
+      clearTimeout(timeoutId);
       setLoadingInsights(false);
     }
   };
 
+  const generateFallbackDailyPlan = (analytics: AnalyticsData): DailyExercise[] => [
+    {
+      title: "Problem Keys Practice",
+      description: `Focus on keys with high error rates: ${analytics.mistakesHeatmap.slice(0, 5).map(m => m.key).join(", ")}`,
+      duration: "10 min",
+    },
+    {
+      title: "Speed Building",
+      description: "Take 3 short tests (30s each) to increase typing speed while maintaining accuracy",
+      duration: "5 min",
+    },
+    {
+      title: "Accuracy Drills",
+      description: "Type slowly with focus on 100% accuracy to build proper muscle memory",
+      duration: "5 min",
+    }
+  ];
+
   const generateDailyPlan = async () => {
     if (!analytics) return;
 
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), AI_TIMEOUT_MS);
+    
     setLoadingDailyPlan(true);
     try {
       const response = await fetch("/api/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
+        signal: abortController.signal,
         body: JSON.stringify({
           conversationId: null,
           message: `Based on my typing analytics, create a personalized daily practice plan with exactly 3 exercises:
 
 Performance Data:
-- Average WPM: ${analytics.consistency.avgWpm.toFixed(1)}
-- Accuracy: ${analytics.wpmOverTime.length > 0 ? analytics.wpmOverTime[analytics.wpmOverTime.length - 1].accuracy.toFixed(1) : 95}%
-- Top Problem Keys: ${analytics.mistakesHeatmap.slice(0, 5).map(m => m.key).join(", ")}
-- Common Mistakes: ${analytics.commonMistakes.slice(0, 3).map(m => `${m.expectedKey}→${m.typedKey}`).join(", ")}
+- Average WPM: ${safeNumber(analytics.consistency.avgWpm).toFixed(1)}
+- Accuracy: ${analytics.wpmOverTime.length > 0 ? safeNumber(analytics.wpmOverTime[analytics.wpmOverTime.length - 1].accuracy).toFixed(1) : 95}%
+- Top Problem Keys: ${analytics.mistakesHeatmap.slice(0, 5).map(m => sanitizeText(m.key)).join(", ")}
+- Common Mistakes: ${analytics.commonMistakes.slice(0, 3).map(m => `${sanitizeText(m.expectedKey)}→${sanitizeText(m.typedKey)}`).join(", ")}
 
 Create 3 exercises in this exact format:
 Exercise 1: [Title] | [Description] | [Duration]
@@ -222,6 +422,7 @@ Make them specific to my mistakes and skill level. Each should have a clear titl
         }),
       });
 
+      clearTimeout(timeoutId);
       if (!response.ok) throw new Error("Failed to generate daily plan");
 
       const reader = response.body?.getReader();
@@ -245,7 +446,7 @@ Make them specific to my mistakes and skill level. Each should have a clear titl
                 if (parsed.content) {
                   fullResponse += parsed.content;
                 }
-              } catch (e) {
+              } catch {
                 // Ignore parse errors
               }
             }
@@ -253,12 +454,11 @@ Make them specific to my mistakes and skill level. Each should have a clear titl
         }
       }
 
-      // Parse exercises from response
       const exercises: DailyExercise[] = [];
       const exerciseLines = fullResponse.split("\n").filter(l => l.includes("Exercise") || l.match(/^\d+[.:)]/));
       
       for (const line of exerciseLines) {
-        const parts = line.split("|").map(p => p.trim());
+        const parts = line.split("|").map(p => sanitizeText(p));
         if (parts.length >= 3) {
           exercises.push({
             title: parts[0].replace(/^Exercise \d+:\s*/, "").replace(/^\d+[.:)]\s*/, "").trim(),
@@ -268,55 +468,68 @@ Make them specific to my mistakes and skill level. Each should have a clear titl
         }
       }
 
-      // Fallback if parsing fails
-      if (exercises.length === 0) {
-        exercises.push(
-          {
-            title: "Problem Keys Practice",
-            description: `Focus on keys with high error rates: ${analytics.mistakesHeatmap.slice(0, 5).map(m => m.key).join(", ")}`,
-            duration: "10 min",
-          },
-          {
-            title: "Speed Building",
-            description: "Take 3 short tests (30s each) to increase typing speed while maintaining accuracy",
-            duration: "5 min",
-          },
-          {
-            title: "Accuracy Drills",
-            description: "Type slowly with focus on 100% accuracy to build proper muscle memory",
-            duration: "5 min",
-          }
-        );
-      }
-
-      setDailyPlan(exercises.slice(0, 3));
+      setDailyPlan(exercises.length > 0 ? exercises.slice(0, 3) : generateFallbackDailyPlan(analytics));
       toast.success("Daily practice plan generated!");
     } catch (error) {
-      console.error("Daily plan error:", error);
-      toast.error("Failed to generate daily plan");
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error("AI request timed out. Using default plan.");
+      } else {
+        console.error("Daily plan error:", error);
+        toast.error("Failed to generate daily plan");
+      }
+      setDailyPlan(generateFallbackDailyPlan(analytics));
     } finally {
+      clearTimeout(timeoutId);
       setLoadingDailyPlan(false);
     }
   };
 
+  const generateFallbackWeeklyPlan = (avgWpm: number): WeeklyGoal[] => [
+    {
+      week: "Week 1",
+      title: "Foundation",
+      tasks: ["Practice 15 min daily", "Focus on accuracy over speed", "Learn proper finger placement"],
+      target: `${Math.ceil(avgWpm + 5)} WPM`,
+      status: "current",
+    },
+    {
+      week: "Week 2",
+      title: "Speed Building",
+      tasks: ["Increase to 20 min sessions", "Add timed challenges", "Practice problem keys"],
+      target: `${Math.ceil(avgWpm + 10)} WPM`,
+      status: "next",
+    },
+    {
+      week: "Week 3-4",
+      title: "Mastery",
+      tasks: ["Combine speed and accuracy", "Test different modes", "Maintain consistency"],
+      target: `${Math.ceil(avgWpm + 15)} WPM`,
+      status: "later",
+    }
+  ];
+
   const generateWeeklyPlan = async () => {
     if (!analytics) return;
 
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), AI_TIMEOUT_MS);
+    
     setLoadingWeeklyPlan(true);
     try {
       const response = await fetch("/api/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
+        signal: abortController.signal,
         body: JSON.stringify({
           conversationId: null,
           message: `Create a personalized 4-week improvement roadmap based on my typing data:
 
 Current Stats:
-- Average WPM: ${analytics.consistency.avgWpm.toFixed(1)}
-- WPM Range: ${analytics.consistency.minWpm} - ${analytics.consistency.maxWpm}
-- Consistency: ${analytics.consistency.stdDeviation.toFixed(1)} std dev
-- Main weaknesses: ${analytics.mistakesHeatmap.slice(0, 5).map(m => m.key).join(", ")}
+- Average WPM: ${safeNumber(analytics.consistency.avgWpm).toFixed(1)}
+- WPM Range: ${safeNumber(analytics.consistency.minWpm)} - ${safeNumber(analytics.consistency.maxWpm)}
+- Consistency: ${safeNumber(analytics.consistency.stdDeviation).toFixed(1)} std dev
+- Main weaknesses: ${analytics.mistakesHeatmap.slice(0, 5).map(m => sanitizeText(m.key)).join(", ")}
 
 Create exactly 3 weekly goals in this format:
 Week 1: [Title] | [Task 1, Task 2, Task 3] | [Target WPM]
@@ -327,6 +540,7 @@ Make them progressive, achievable, and specific to my current level. Use realist
         }),
       });
 
+      clearTimeout(timeoutId);
       if (!response.ok) throw new Error("Failed to generate weekly plan");
 
       const reader = response.body?.getReader();
@@ -350,7 +564,7 @@ Make them progressive, achievable, and specific to my current level. Use realist
                 if (parsed.content) {
                   fullResponse += parsed.content;
                 }
-              } catch (e) {
+              } catch {
                 // Ignore parse errors
               }
             }
@@ -358,13 +572,12 @@ Make them progressive, achievable, and specific to my current level. Use realist
         }
       }
 
-      // Parse weekly goals from response
       const goals: WeeklyGoal[] = [];
       const goalLines = fullResponse.split("\n").filter(l => l.includes("Week"));
       
       for (let i = 0; i < goalLines.length && i < 3; i++) {
         const line = goalLines[i];
-        const parts = line.split("|").map(p => p.trim());
+        const parts = line.split("|").map(p => sanitizeText(p));
         if (parts.length >= 3) {
           const weekPart = parts[0];
           const week = weekPart.match(/Week\s+[\d-]+/)?.[0] || `Week ${i + 1}`;
@@ -382,56 +595,87 @@ Make them progressive, achievable, and specific to my current level. Use realist
         }
       }
 
-      // Fallback if parsing fails
-      if (goals.length === 0) {
-        const avgWpm = analytics.consistency.avgWpm;
-        goals.push(
-          {
-            week: "Week 1",
-            title: "Foundation",
-            tasks: ["Practice 15 min daily", "Focus on accuracy over speed", "Learn proper finger placement"],
-            target: `${Math.ceil(avgWpm + 5)} WPM`,
-            status: "current",
-          },
-          {
-            week: "Week 2",
-            title: "Speed Building",
-            tasks: ["Increase to 20 min sessions", "Add timed challenges", "Practice problem keys"],
-            target: `${Math.ceil(avgWpm + 10)} WPM`,
-            status: "next",
-          },
-          {
-            week: "Week 3-4",
-            title: "Mastery",
-            tasks: ["Combine speed and accuracy", "Test different modes", "Maintain consistency"],
-            target: `${Math.ceil(avgWpm + 15)} WPM`,
-            status: "later",
-          }
-        );
-      }
-
-      setWeeklyPlan(goals);
+      setWeeklyPlan(goals.length > 0 ? goals : generateFallbackWeeklyPlan(safeNumber(analytics.consistency.avgWpm)));
       toast.success("Weekly improvement plan generated!");
     } catch (error) {
-      console.error("Weekly plan error:", error);
-      toast.error("Failed to generate weekly plan");
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error("AI request timed out. Using default plan.");
+      } else {
+        console.error("Weekly plan error:", error);
+        toast.error("Failed to generate weekly plan");
+      }
+      setWeeklyPlan(generateFallbackWeeklyPlan(safeNumber(analytics.consistency.avgWpm)));
     } finally {
+      clearTimeout(timeoutId);
       setLoadingWeeklyPlan(false);
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading your analytics...</p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (!analytics || analytics.wpmOverTime.length === 0) {
+  if (isError) {
     return (
       <div className="container mx-auto p-6 max-w-7xl">
-        <div className="text-center py-12">
+        <Alert variant="destructive" data-testid="error-alert">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Failed to Load Analytics</AlertTitle>
+          <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-4 mt-2">
+            <span>
+              {error instanceof Error ? error.message : 'Unable to load your analytics data. Please try again.'}
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => refetch()}
+              data-testid="button-retry"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const wpmTrend = useMemo(() => {
+    if (!analytics || analytics.wpmOverTime.length < 2) return 0;
+    return analytics.wpmOverTime[analytics.wpmOverTime.length - 1].wpm - analytics.wpmOverTime[0].wpm;
+  }, [analytics]);
+
+  const accuracyTrend = useMemo(() => {
+    if (!analytics || analytics.wpmOverTime.length < 2) return 0;
+    return analytics.wpmOverTime[analytics.wpmOverTime.length - 1].accuracy - analytics.wpmOverTime[0].accuracy;
+  }, [analytics]);
+
+  const totalTests = useMemo(() => {
+    if (!analytics) return 0;
+    return analytics.wpmOverTime.reduce((sum, d) => sum + safeNumber(d.testCount), 0);
+  }, [analytics]);
+
+  const formattedChartData = useMemo(() => {
+    if (!analytics) return [];
+    return analytics.wpmOverTime.map(d => ({
+      ...d,
+      formattedDate: formatChartDate(d.date),
+    }));
+  }, [analytics]);
+
+  if (!isDataValid || !analytics || analytics.wpmOverTime.length === 0) {
+    return (
+      <div className="container mx-auto p-6 max-w-7xl">
+        <div className="text-center py-12" data-testid="empty-analytics">
           <Keyboard className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-2xl font-bold mb-2">No Analytics Data Yet</h2>
           <p className="text-muted-foreground mb-4">
@@ -444,14 +688,6 @@ Make them progressive, achievable, and specific to my current level. Use realist
       </div>
     );
   }
-
-  const wpmTrend = analytics.wpmOverTime.length >= 2
-    ? analytics.wpmOverTime[analytics.wpmOverTime.length - 1].wpm - analytics.wpmOverTime[0].wpm
-    : 0;
-
-  const accuracyTrend = analytics.wpmOverTime.length >= 2
-    ? analytics.wpmOverTime[analytics.wpmOverTime.length - 1].accuracy - analytics.wpmOverTime[0].accuracy
-    : 0;
 
   return (
     <div className="container mx-auto p-6 max-w-7xl space-y-6">
@@ -540,7 +776,7 @@ Make them progressive, achievable, and specific to my current level. Use realist
           <CardHeader className="pb-2">
             <CardDescription>Total Tests</CardDescription>
             <CardTitle className="text-3xl" data-testid="stat-total-tests">
-              {analytics.wpmOverTime.reduce((sum, d) => sum + d.testCount, 0)}
+              {totalTests}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -568,7 +804,7 @@ Make them progressive, achievable, and specific to my current level. Use realist
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={analytics.wpmOverTime}>
+                <AreaChart data={analytics.wpmOverTime} aria-label="WPM Progress Chart">
                   <defs>
                     <linearGradient id="colorWpm" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#00ffff" stopOpacity={0.3}/>
@@ -576,10 +812,25 @@ Make them progressive, achievable, and specific to my current level. Use realist
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                  <XAxis dataKey="date" stroke="#888" />
-                  <YAxis stroke="#888" />
-                  <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
-                  <Area type="monotone" dataKey="wpm" stroke="#00ffff" fillOpacity={1} fill="url(#colorWpm)" />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#888" 
+                    tickFormatter={formatChartDate}
+                    tick={{ fontSize: 12 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis stroke="#888" domain={['dataMin - 5', 'dataMax + 5']} />
+                  <Tooltip content={<WPMTooltip />} />
+                  <Area 
+                    type="monotone" 
+                    dataKey="wpm" 
+                    stroke="#00ffff" 
+                    fillOpacity={1} 
+                    fill="url(#colorWpm)"
+                    name="WPM"
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </CardContent>
@@ -593,12 +844,27 @@ Make them progressive, achievable, and specific to my current level. Use realist
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={analytics.wpmOverTime}>
+                  <LineChart data={analytics.wpmOverTime} aria-label="Accuracy Trend Chart">
                     <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                    <XAxis dataKey="date" stroke="#888" />
-                    <YAxis stroke="#888" domain={[90, 100]} />
-                    <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
-                    <Line type="monotone" dataKey="accuracy" stroke="#a855f7" strokeWidth={2} dot={{ r: 4 }} />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="#888" 
+                      tickFormatter={formatChartDate}
+                      tick={{ fontSize: 12 }}
+                      angle={-45}
+                      textAnchor="end"
+                      height={60}
+                    />
+                    <YAxis 
+                      stroke="#888" 
+                      domain={[
+                        (dataMin: number) => Math.max(0, Math.floor(dataMin - 5)),
+                        (dataMax: number) => Math.min(100, Math.ceil(dataMax + 2))
+                      ]}
+                      tickFormatter={(value) => `${value}%`}
+                    />
+                    <Tooltip content={<AccuracyTooltip />} />
+                    <Line type="monotone" dataKey="accuracy" stroke="#a855f7" strokeWidth={2} dot={{ r: 4 }} name="Accuracy" />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -1260,5 +1526,13 @@ Make them progressive, achievable, and specific to my current level. Use realist
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function Analytics() {
+  return (
+    <AnalyticsErrorBoundary>
+      <AnalyticsContent />
+    </AnalyticsErrorBoundary>
   );
 }

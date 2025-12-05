@@ -203,6 +203,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return done(null, false, { message: "Account has been deactivated. Please contact support." });
           }
 
+          // Handle OAuth-only accounts (no password set)
+          if (!user.password) {
+            await authSecurityService.recordLoginAttempt(
+              user.id,
+              email,
+              req,
+              false,
+              "OAuth-only account"
+            );
+            return done(null, false, { message: "This account uses social login. Please sign in with your connected provider." });
+          }
+
           const isValidPassword = await bcrypt.compare(password, user.password);
           
           if (!isValidPassword) {
@@ -346,6 +358,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const existingUserByUsername = await storage.getUserByUsername(parsed.data.username);
       if (existingUserByUsername) {
         return res.status(409).json({ message: "Username already exists" });
+      }
+
+      if (!parsed.data.password) {
+        return res.status(400).json({ message: "Password is required" });
       }
 
       const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
@@ -738,7 +754,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/analytics", isAuthenticated, async (req, res) => {
     try {
-      const days = req.query.days ? parseInt(req.query.days as string) : 30;
+      // Validate and clamp days parameter to safe range (7-365)
+      let days = req.query.days ? parseInt(req.query.days as string) : 30;
+      if (isNaN(days) || days < 7) days = 7;
+      if (days > 365) days = 365;
+      
       const analytics = await storage.getUserAnalytics(req.user!.id, days);
       res.json({ analytics });
     } catch (error: any) {
@@ -903,6 +923,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(req.user!.id);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
+      }
+
+      // Handle OAuth-only accounts (no password set)
+      if (!user.password) {
+        return res.status(400).json({ message: "Cannot change password for accounts using social login. Please set a password first." });
       }
 
       const isValidPassword = await bcrypt.compare(currentPassword, user.password);
