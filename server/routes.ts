@@ -44,15 +44,19 @@ import { securityHeaders, csrfProtection } from "./auth-security";
 
 const PgSession = ConnectPgSimple(session);
 
-// Generate realistic-looking guest usernames
+// Generate cool guest usernames for anonymous players
 const guestNamePrefixes = [
-  'swift', 'quick', 'fast', 'speedy', 'rapid', 'turbo', 'nitro', 'zoom', 'dash', 'flash',
-  'pro', 'ace', 'champ', 'star', 'ninja', 'wizard', 'master', 'legend', 'elite', 'epic',
-  'cool', 'super', 'mega', 'ultra', 'hyper', 'cyber', 'tech', 'pixel', 'neon', 'cosmic'
+  'Swift', 'Quick', 'Fast', 'Speedy', 'Rapid', 'Turbo', 'Nitro', 'Zoom', 'Dash', 'Flash',
+  'Pro', 'Ace', 'Champ', 'Star', 'Ninja', 'Wizard', 'Master', 'Legend', 'Elite', 'Epic',
+  'Cool', 'Super', 'Mega', 'Ultra', 'Hyper', 'Cyber', 'Tech', 'Pixel', 'Neon', 'Cosmic',
+  'Shadow', 'Ghost', 'Thunder', 'Storm', 'Blaze', 'Frost', 'Iron', 'Steel', 'Golden', 'Silver',
+  'Clever', 'Smart', 'Bright', 'Bold', 'Brave', 'Noble', 'Royal', 'Mystic', 'Magic', 'Power'
 ];
 const guestNameSuffixes = [
-  'typer', 'fingers', 'keys', 'writer', 'racer', 'runner', 'coder', 'dev', 'fox', 'wolf',
-  'hawk', 'eagle', 'tiger', 'lion', 'bear', 'shark', 'dragon', 'phoenix', 'storm', 'thunder'
+  'Typer', 'Fingers', 'Keys', 'Writer', 'Racer', 'Runner', 'Coder', 'Dev', 'Fox', 'Wolf',
+  'Hawk', 'Eagle', 'Tiger', 'Lion', 'Bear', 'Shark', 'Dragon', 'Phoenix', 'Panther', 'Falcon',
+  'Rider', 'Knight', 'Hunter', 'Striker', 'Blazer', 'Glider', 'Crusher', 'Breaker', 'Slayer', 'Chaser',
+  'Spark', 'Pulse', 'Wave', 'Bolt', 'Blade', 'Arrow', 'Comet', 'Meteor', 'Nova', 'Vortex'
 ];
 
 function generateGuestUsername(): string {
