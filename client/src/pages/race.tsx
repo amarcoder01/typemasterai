@@ -2082,10 +2082,18 @@ export default function RacePage() {
                 {/* Host controls: Lock room toggle */}
                 {myParticipant?.id === hostParticipantId && (
                   <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Lock className="h-4 w-4" />
-                      <span>Lock Room</span>
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-2 text-sm cursor-help">
+                          <Lock className="h-4 w-4" />
+                          <span>Lock Room</span>
+                          <Info className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[250px]">
+                        <p>When locked, no new players can join the room. Use this once all your friends have joined to prevent strangers from entering.</p>
+                      </TooltipContent>
+                    </Tooltip>
                     <Button
                       variant={isRoomLocked ? "default" : "outline"}
                       size="sm"
