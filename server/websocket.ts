@@ -525,8 +525,14 @@ class RaceWebSocketServer {
     const humanCount = participants.filter((p: any) => p.isBot === 0).length;
     const botCount = participants.filter((p: any) => p.isBot === 1).length;
     
-    if (humanCount > 0 && botCount === 0 && participants.length < race.maxPlayers) {
-      const botsNeeded = Math.min(3, race.maxPlayers - participants.length);
+    // Only add bots if there are humans and no bots yet
+    // Randomly add 3-5 bots (so total is 4-6 participants like real races)
+    if (humanCount > 0 && botCount === 0) {
+      // Random number of bots: 3, 4, or 5 (for total of 4-6 players)
+      const randomBotCount = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5
+      const maxTotal = 6; // Never more than 6 total participants
+      const availableSlots = maxTotal - participants.length;
+      const botsNeeded = Math.min(randomBotCount, availableSlots);
       
       if (botsNeeded > 0) {
         console.log(`[Bot Lobby] Adding ${botsNeeded} bots to race ${raceId} in waiting room`);
@@ -550,9 +556,8 @@ class RaceWebSocketServer {
         this.scheduleProactiveBotChat(raceId, bots);
         
         // Race will only start when user clicks "Start Race" button
-        // No auto-start - user controls when the race begins
         const totalParticipants = updatedParticipants.length;
-        console.log(`[Bot Lobby] Public race ${raceId} has ${totalParticipants}/${race.maxPlayers} players, waiting for user to click Start Race`);
+        console.log(`[Bot Lobby] Race ${raceId} has ${totalParticipants} players, waiting for user to click Start Race`);
       }
     }
   }
@@ -745,12 +750,19 @@ class RaceWebSocketServer {
     }
 
     const humanCount = participants.filter(p => p.isBot === 0).length;
+    const botCount = participants.filter(p => p.isBot === 1).length;
     
-    if (humanCount > 0 && participants.length < race.maxPlayers) {
-      const botsNeeded = race.maxPlayers - participants.length;
+    // Limit total to 6 participants max (like real typing races)
+    // Only add bots if we don't already have enough
+    const maxTotal = 6;
+    const currentTotal = participants.length;
+    
+    if (humanCount > 0 && currentTotal < maxTotal && botCount < 5) {
+      // Fill up to 6 total, but cap bots at 5 (leaving room for humans)
+      const botsNeeded = Math.min(maxTotal - currentTotal, 5 - botCount);
       
       if (botsNeeded > 0) {
-        console.log(`[Bot Auto-Fill] Adding ${botsNeeded} bots to race ${raceId} (${participants.length}/${race.maxPlayers} players)`);
+        console.log(`[Bot Auto-Fill] Adding ${botsNeeded} bots to race ${raceId} (${currentTotal} -> ${currentTotal + botsNeeded} players)`);
         const bots = await botService.addBotsToRace(raceId, botsNeeded);
         console.log(`[Bot Auto-Fill] Successfully added ${bots.length} bots:`, bots.map(b => b.username).join(', '));
         
