@@ -1618,7 +1618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           timeLimitSeconds: effectiveRaceType === "timed" ? effectiveTimeLimit : null,
           paragraphId,
           paragraphContent,
-          maxPlayers: 4,
+          maxPlayers: 8, // Allow up to 8 players, bots will be replaced when humans join
           isPrivate: 0,
         });
       }
@@ -1792,8 +1792,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (inactive) {
           participant = await storage.reactivateRaceParticipant(inactive.id);
         } else {
+          // Check if race is full
           if (participants.length >= race.maxPlayers) {
-            return res.status(400).json({ message: "Race is full" });
+            // If there are bots, remove one to make room for the human player
+            const botParticipants = participants.filter(p => p.isBot === 1);
+            if (botParticipants.length > 0) {
+              // Remove a bot to make room for the human
+              const botToRemove = botParticipants[botParticipants.length - 1];
+              await storage.deleteRaceParticipant(botToRemove.id);
+              console.log(`[Join Room] Removed bot ${botToRemove.username} to make room for human player`);
+            } else {
+              // No bots to remove - race is truly full with humans
+              return res.status(400).json({ message: "Race is full" });
+            }
           }
 
           participant = await storage.createRaceParticipant({
