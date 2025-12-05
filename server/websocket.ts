@@ -1283,19 +1283,64 @@ class RaceWebSocketServer {
   }
 
   private async handleLeave(ws: WebSocket, message: any) {
-    const { raceId, participantId } = message;
-    
-    await storage.deleteRaceParticipant(participantId);
-    raceCache.removeParticipant(raceId, participantId);
-    raceCache.clearProgressBuffer(participantId);
+    const { raceId, participantId, isRacing, progress, wpm, accuracy } = message;
     
     const raceRoom = this.races.get(raceId);
+    let cachedRace = raceCache.getRace(raceId);
+    let race = cachedRace?.race || await storage.getRace(raceId);
+    
+    // If leaving during an active race (racing or countdown), mark as DNF instead of deleting
+    if (race && (race.status === "racing" || race.status === "countdown" || isRacing)) {
+      console.log(`[WS Leave] Participant ${participantId} leaving active race ${raceId} - marking as DNF`);
+      
+      // Get participant info before updating
+      const currentParticipants = await storage.getRaceParticipants(raceId);
+      const participant = currentParticipants.find(p => p.id === participantId);
+      const username = participant?.username || "Unknown";
+      
+      // Update progress first
+      await storage.updateParticipantProgress(
+        participantId, 
+        progress || 0, 
+        wpm || 0, 
+        accuracy || 0, 
+        0
+      );
+      
+      // Mark as finished with DNF position (999 indicates DNF)
+      await storage.updateParticipantFinishPosition(participantId, 999);
+      
+      // Also mark as finished in the database
+      await storage.finishParticipant(participantId, raceId);
+      
+      // Update cache
+      const participants = await storage.getRaceParticipants(raceId);
+      raceCache.updateParticipants(raceId, participants);
+      
+      // Broadcast DNF status to other participants
+      if (raceRoom) {
+        this.broadcastToRace(raceId, {
+          type: "participant_dnf",
+          participantId,
+          username,
+        });
+      }
+    } else {
+      // For waiting or finished races, just delete the participant
+      await storage.deleteRaceParticipant(participantId);
+      raceCache.removeParticipant(raceId, participantId);
+      
+      if (raceRoom) {
+        this.broadcastToRace(raceId, {
+          type: "participant_left",
+          participantId,
+        });
+      }
+    }
+    
+    raceCache.clearProgressBuffer(participantId);
+    
     if (raceRoom) {
-      this.broadcastToRace(raceId, {
-        type: "participant_left",
-        participantId,
-      });
-
       raceRoom.clients.delete(participantId);
       
       if (raceRoom.clients.size === 0) {

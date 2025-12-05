@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film, Zap } from "lucide-react";
+import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film, Zap, LogOut } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -869,6 +870,8 @@ export default function RacePage() {
     wpm: number;
     accuracy: number;
   } | null>(null);
+  const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
 
   useEffect(() => {
     raceRef.current = race;
@@ -1480,6 +1483,15 @@ export default function RacePage() {
       case "participant_left":
         setParticipants(prev => prev.filter(p => p.id !== message.participantId));
         break;
+      case "participant_dnf":
+        // Mark participant as DNF (Did Not Finish)
+        setParticipants(prev => prev.map(p => 
+          p.id === message.participantId 
+            ? { ...p, isFinished: 1, finishPosition: 999 }
+            : p
+        ));
+        toast.info(`${message.username} left the race (DNF)`, { duration: 2000 });
+        break;
       case "chat_message":
         const chatData = message.message || message;
         setChatMessages(prev => [...prev, {
@@ -1566,13 +1578,32 @@ export default function RacePage() {
     });
   }
 
-  function leaveRace() {
+  function handleLeaveClick() {
+    // Show confirmation dialog if race is active (racing or countdown)
+    if (race && (race.status === "racing" || race.status === "countdown" || isRacing)) {
+      setShowLeaveConfirmation(true);
+    } else {
+      // For waiting or finished races, leave immediately
+      confirmLeaveRace();
+    }
+  }
+  
+  function confirmLeaveRace() {
+    setIsLeaving(true);
+    setShowLeaveConfirmation(false);
+    
     if (myParticipant && race) {
+      // Send leave with current progress for DNF tracking
       sendWsMessage({
         type: "leave",
         raceId: race.id,
         participantId: myParticipant.id,
+        isRacing: isRacing || race.status === "racing",
+        progress: currentIndex,
+        wpm: liveWpm,
+        accuracy: liveAccuracy,
       });
+      toast.info("You left the race", { duration: 2000 });
     }
     
     if (race && myParticipant) {
@@ -1581,6 +1612,10 @@ export default function RacePage() {
     }
     
     setLocation("/multiplayer");
+  }
+  
+  function cancelLeaveRace() {
+    setShowLeaveConfirmation(false);
   }
 
   // Handle error state
@@ -1684,7 +1719,7 @@ export default function RacePage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={leaveRace}
+                    onClick={handleLeaveClick}
                     data-testid="button-leave-race"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1866,6 +1901,37 @@ export default function RacePage() {
   if (race.status === "racing" || isRacing) {
     return (
       <TooltipProvider delayDuration={300}>
+        {/* Leave Race Confirmation Dialog */}
+        <AlertDialog open={showLeaveConfirmation} onOpenChange={setShowLeaveConfirmation}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                Leave Race?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <p>You're in the middle of an active race. If you leave now:</p>
+                <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                  <li>You'll be marked as DNF (Did Not Finish)</li>
+                  <li>Your progress won't count towards the final results</li>
+                  <li>Any rating changes will be forfeited</li>
+                </ul>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={cancelLeaveRace}>
+                Continue Racing
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={confirmLeaveRace}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Leave Race
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        
         <div className="min-h-screen bg-background">
           <div className="container max-w-6xl mx-auto px-4 py-8">
             {/* Network status banner */}
@@ -1883,16 +1949,26 @@ export default function RacePage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={leaveRace}
+                    onClick={handleLeaveClick}
+                    disabled={isLeaving}
                     data-testid="button-leave-race"
                   >
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Leave Race
+                    {isLeaving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Leaving...
+                      </>
+                    ) : (
+                      <>
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Leave Race
+                      </>
+                    )}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
                   <p className="font-medium">Leave Race</p>
-                  <p className="text-zinc-400">Exit without finishing. Your progress won't be saved.</p>
+                  <p className="text-zinc-400">Exit the race. You'll be marked as DNF (Did Not Finish).</p>
                 </TooltipContent>
               </Tooltip>
               
