@@ -89,6 +89,21 @@ export default function MultiplayerPage() {
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<"quickMatch" | "createRoom" | "joinRoom" | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(60);
+  const quickMatchTriggeredRef = useRef(false);
+
+  // Auto-trigger quick match if coming from "New Race" button
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('quickmatch') === 'true' && !quickMatchTriggeredRef.current && isOnline) {
+      quickMatchTriggeredRef.current = true;
+      // Clear the URL parameter
+      window.history.replaceState({}, '', '/multiplayer');
+      // Trigger quick match after a short delay to ensure component is ready
+      setTimeout(() => {
+        quickMatch();
+      }, 100);
+    }
+  }, [isOnline]);
 
   async function quickMatch() {
     if (!isOnline) {

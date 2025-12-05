@@ -2373,7 +2373,7 @@ export default function RacePage() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        onClick={() => window.location.reload()}
+                        onClick={() => setLocation("/multiplayer?quickmatch=true")}
                         className="flex-1"
                         data-testid="button-rematch"
                       >
@@ -2383,7 +2383,7 @@ export default function RacePage() {
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
                       <p className="font-medium">Start a new race</p>
-                      <p className="text-zinc-400">Race again with similar players and text</p>
+                      <p className="text-zinc-400">Find a new match in the multiplayer lobby</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>
