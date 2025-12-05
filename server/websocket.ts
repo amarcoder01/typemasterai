@@ -580,10 +580,21 @@ class RaceWebSocketServer {
 
     // Duration is already set when room was created - no need to update here
 
-    const requiredPlayers = 1;
+    // Minimum 2 players required for multiplayer race (like TypeRacer)
+    const requiredPlayers = 2;
     
     if (participants.length >= requiredPlayers) {
       await this.startCountdown(raceId);
+    } else {
+      // Notify the host that more players are needed
+      const client = raceRoom.clients.get(participantId);
+      if (client && client.ws.readyState === WebSocket.OPEN) {
+        client.ws.send(JSON.stringify({
+          type: "error",
+          message: `Need at least ${requiredPlayers} players to start. Share your room code with friends!`,
+          code: "NOT_ENOUGH_PLAYERS"
+        }));
+      }
     }
   }
 

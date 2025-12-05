@@ -1854,34 +1854,52 @@ export default function RacePage() {
                 )}
 
                 {/* Show Start Race button only for the host, or show waiting message for others */}
+                {/* Minimum 2 players required - like TypeRacer and other real typing race sites */}
                 {(!hostParticipantId || myParticipant?.id === hostParticipantId) ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={startRace}
-                        disabled={participants.length < 1 || isStarting}
-                        size="lg"
-                        className="w-full"
-                        data-testid="button-start-race"
-                      >
-                        {isStarting ? (
+                  <div className="space-y-2">
+                    {participants.length < 2 && (
+                      <div className="flex items-center justify-center gap-2 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground">
+                        <Users className="h-4 w-4" />
+                        <span>Waiting for at least 1 more player to join...</span>
+                      </div>
+                    )}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={startRace}
+                          disabled={participants.length < 2 || isStarting}
+                          size="lg"
+                          className="w-full"
+                          data-testid="button-start-race"
+                        >
+                          {isStarting ? (
+                            <>
+                              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                              Starting...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="h-4 w-4 mr-2" />
+                              Start Race {participants.length < 2 ? `(Need ${2 - participants.length} more)` : ''}
+                            </>
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {participants.length < 2 ? (
                           <>
-                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                            Starting...
+                            <p className="font-medium">Need more players</p>
+                            <p className="text-zinc-400">Share the room code with friends to start racing!</p>
                           </>
                         ) : (
                           <>
-                            <Play className="h-4 w-4 mr-2" />
-                            Start Race
+                            <p className="font-medium">Begin the race</p>
+                            <p className="text-zinc-400">A countdown will start and the race begins!</p>
                           </>
                         )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p className="font-medium">Begin the race</p>
-                      <p className="text-zinc-400">A countdown will start and the race begins!</p>
-                    </TooltipContent>
-                  </Tooltip>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                 ) : (
                   <div className="w-full py-3 px-4 bg-muted/50 rounded-lg text-center text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
