@@ -2250,21 +2250,7 @@ export default function RacePage() {
                 </div>
               </div>
               
-              {myParticipant && (
-                <div className="mt-4">
-                  <RaceChat
-                    raceId={race.id}
-                    participantId={myParticipant.id}
-                    username={myParticipant.username}
-                    avatarColor={myParticipant.avatarColor}
-                    sendWsMessage={sendWsMessage}
-                    messages={chatMessages}
-                    isEnabled={!isRacing}
-                    wsConnected={wsConnected}
-                    isCompact={true}
-                  />
-                </div>
-              )}
+              {/* Chat is hidden during active racing to minimize distractions */}
             </div>
           </div>
         </div>
