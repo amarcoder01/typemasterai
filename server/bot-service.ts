@@ -435,7 +435,7 @@ class BotService {
     profile.isStruggling = false;
     profile.struggleEndChar = 0;
     profile.lastCharacter = '';
-    profile.currentMomentumWPM = profile.targetWPM;
+    profile.currentMomentumWPM = 0; // Start at 0, will build up during warmup
     
     console.log(`[Bot Typing] Bot ${profile.username} (${participantId}) starting: ${profile.skillLevel} level, target ${profile.targetWPM} WPM, paragraph ${paragraphLength} chars`);
 
@@ -524,9 +524,26 @@ class BotService {
       currentProgress++;
       accumulatedDelay += charDelay;
       
-      // Calculate current stats
-      const elapsed = (Date.now() - startTime) / 60000;
-      const currentWPM = elapsed > 0 ? Math.round((currentProgress / 5) / elapsed) : currentProfile.targetWPM;
+      // Calculate current stats with realistic warmup
+      const elapsedMs = Date.now() - startTime;
+      const elapsedMinutes = elapsedMs / 60000;
+      
+      // Calculate raw WPM based on actual progress
+      let currentWPM = 0;
+      if (elapsedMinutes > 0.01) { // At least 0.6 seconds elapsed
+        const rawWPM = Math.round((currentProgress / 5) / elapsedMinutes);
+        
+        // Apply warmup ramp: 0-8 seconds = gradual increase, then full speed
+        const warmupDuration = 8000; // 8 seconds warmup
+        const warmupProgress = Math.min(1, elapsedMs / warmupDuration);
+        // Use ease-in curve for natural acceleration
+        const warmupFactor = warmupProgress * warmupProgress; // Quadratic ease-in
+        
+        // Clamp to target WPM range to avoid spikes
+        const maxWPM = currentProfile.targetWPM * 1.15;
+        currentWPM = Math.round(Math.min(rawWPM * warmupFactor, maxWPM));
+      }
+      
       const currentAccuracy = currentProgress > 0 ? ((currentProgress - currentErrors) / currentProgress) * 100 : 100;
       
       // Broadcast updates at intervals for smooth UI (not every character)
