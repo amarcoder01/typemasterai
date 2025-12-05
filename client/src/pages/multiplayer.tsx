@@ -79,6 +79,18 @@ function getOrCreateGuestId(): string {
   return guestId;
 }
 
+function formatDuration(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (remainingSeconds === 0) {
+    return `${minutes}min`;
+  }
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
 export default function MultiplayerPage() {
   const { user } = useAuth();
   const { isOnline } = useNetwork();
@@ -130,8 +142,7 @@ export default function MultiplayerPage() {
       if (response.ok) {
         const { race, participant } = await response.json();
         localStorage.setItem(`race_${race.id}_participant`, JSON.stringify(participant));
-        const durationText = selectedDuration >= 60 ? `${Math.floor(selectedDuration / 60)}min` : `${selectedDuration}s`;
-        toast.success(`Match found! ${durationText} race starting...`, {
+        toast.success(`Match found! ${formatDuration(selectedDuration)} race starting...`, {
           icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
         });
         setLocation(`/race/${race.id}`);
@@ -411,7 +422,7 @@ export default function MultiplayerPage() {
                         ) : (
                           <>
                             <Zap className="mr-2 h-5 w-5" />
-                            Find Match • {selectedDuration >= 60 ? `${Math.floor(selectedDuration / 60)}min` : `${selectedDuration}s`}
+                            Find Match • {formatDuration(selectedDuration)}
                           </>
                         )}
                       </Button>
