@@ -1677,7 +1677,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/races/create", async (req, res) => {
     try {
-      const { isPrivate, maxPlayers: rawMaxPlayers, guestId, timeLimitSeconds: rawTimeLimit } = req.body;
+      const { isPrivate, maxPlayers: rawMaxPlayers, guestId, timeLimitSeconds: rawTimeLimit, textSource } = req.body;
       const user = req.user;
       
       // Validate and sanitize room settings
@@ -1686,6 +1686,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate duration (30, 60, 90, 120 seconds)
       const validDurations = [30, 60, 90, 120];
       const timeLimitSeconds = validDurations.includes(Number(rawTimeLimit)) ? Number(rawTimeLimit) : 60;
+      
+      // Validate text source
+      const validTextSources = ["quotes", "programming", "technical", "news", "entertainment", "random"];
+      const selectedTextSource = validTextSources.includes(textSource) ? textSource : "random";
       
       let username: string;
       
@@ -1706,8 +1710,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paragraphsNeeded = Math.ceil(estimatedChars / 300);
       
       const paragraphs: string[] = [];
+      
+      // Get paragraphs based on text source selection
+      const textMode = selectedTextSource === "random" ? undefined : selectedTextSource;
+      
       for (let i = 0; i < Math.max(paragraphsNeeded, 3); i++) {
-        const p = await storage.getRandomParagraph("english", "quote");
+        const p = await storage.getRandomParagraph("english", textMode || "quotes");
         if (p) {
           paragraphs.push(p.content);
           if (i === 0) paragraphId = p.id;

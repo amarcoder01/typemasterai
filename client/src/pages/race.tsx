@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film, Zap, LogOut, Lock } from "lucide-react";
+import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film, Zap, LogOut, Lock, ExternalLink } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -874,6 +874,11 @@ export default function RacePage() {
   const [isLeaving, setIsLeaving] = useState(false);
   const [readyStates, setReadyStates] = useState<Map<number, boolean>>(new Map());
   const [isRoomLocked, setIsRoomLocked] = useState(false);
+  const [rematchInfo, setRematchInfo] = useState<{
+    newRaceId: number;
+    roomCode: string;
+    createdBy: string;
+  } | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -1567,6 +1572,20 @@ export default function RacePage() {
         setIsRoomLocked(message.isLocked);
         toast.info(message.isLocked ? "Room is now locked" : "Room is now unlocked", { duration: 2000 });
         break;
+      case "rematch_available":
+        setRematchInfo({
+          newRaceId: message.newRaceId,
+          roomCode: message.roomCode,
+          createdBy: message.createdBy,
+        });
+        toast.success(`Rematch created! Room code: ${message.roomCode}`, { 
+          duration: 10000,
+          action: {
+            label: "Join",
+            onClick: () => setLocation(`/race/${message.newRaceId}?code=${message.roomCode}`)
+          }
+        });
+        break;
     }
   }
 
@@ -1609,6 +1628,16 @@ export default function RacePage() {
       navigator.clipboard.writeText(race.roomCode);
       setCopied(true);
       toast.success("Room code copied!");
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  function copyShareLink() {
+    if (race) {
+      const shareUrl = `${window.location.origin}/race/${race.id}?code=${race.roomCode}`;
+      navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success("Invite link copied! Share it with friends.");
       setTimeout(() => setCopied(false), 2000);
     }
   }
@@ -1803,23 +1832,41 @@ export default function RacePage() {
                     </CardTitle>
                     <CardDescription>Share the room code with friends</CardDescription>
                   </div>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        onClick={copyRoomCode}
-                        data-testid="button-copy-code"
-                        className="font-mono"
-                      >
-                        {copied ? <Check className="h-4 w-4 mr-2 text-green-500" /> : <Share2 className="h-4 w-4 mr-2" />}
-                        {race.roomCode}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p className="font-medium">{copied ? "Copied!" : "Click to copy room code"}</p>
-                      <p className="text-zinc-400">Share this code with friends to let them join</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <div className="flex items-center gap-2">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          onClick={copyRoomCode}
+                          data-testid="button-copy-code"
+                          className="font-mono"
+                        >
+                          {copied ? <Check className="h-4 w-4 mr-2 text-green-500" /> : <Share2 className="h-4 w-4 mr-2" />}
+                          {race.roomCode}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p className="font-medium">{copied ? "Copied!" : "Click to copy room code"}</p>
+                        <p className="text-zinc-400">Share this code with friends to let them join</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={copyShareLink}
+                          data-testid="button-copy-link"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p className="font-medium">Copy invite link</p>
+                        <p className="text-zinc-400">Share a direct link to this room</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
                 
                 {/* Room Settings Display */}
@@ -2614,6 +2661,26 @@ export default function RacePage() {
                   </div>
                 )}
 
+                {/* Rematch Notification */}
+                {rematchInfo && (
+                  <div className="p-4 border border-green-500/30 rounded-lg bg-green-500/10 flex items-center justify-between" data-testid="rematch-notification">
+                    <div className="flex items-center gap-2">
+                      <RotateCcw className="h-5 w-5 text-green-500" />
+                      <div>
+                        <p className="font-medium text-green-500">Rematch Available!</p>
+                        <p className="text-sm text-muted-foreground">Room Code: {rematchInfo.roomCode}</p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => setLocation(`/race/${rematchInfo.newRaceId}?code=${rematchInfo.roomCode}`)}
+                      className="bg-green-600 hover:bg-green-700"
+                      data-testid="button-join-rematch"
+                    >
+                      Join Rematch
+                    </Button>
+                  </div>
+                )}
+
                 <div className="flex gap-3">
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -2634,17 +2701,33 @@ export default function RacePage() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        onClick={() => setLocation("/multiplayer?quickmatch=true")}
+                        onClick={() => {
+                          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && myParticipant) {
+                            wsRef.current.send(JSON.stringify({
+                              type: "rematch",
+                              raceId: race?.id,
+                              participantId: myParticipant.id,
+                              username: myParticipant.username,
+                            }));
+                            toast.info("Creating rematch room...", { duration: 2000 });
+                          }
+                        }}
                         className="flex-1"
                         data-testid="button-rematch"
+                        disabled={!!rematchInfo}
                       >
                         <RotateCcw className="h-4 w-4 mr-2" />
-                        New Race
+                        {rematchInfo ? "Rematch Created" : "Create Rematch"}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      <p className="font-medium">Start a new race</p>
-                      <p className="text-zinc-400">Find a new match in the multiplayer lobby</p>
+                      <p className="font-medium">{rematchInfo ? "Rematch already created" : "Create rematch room"}</p>
+                      <p className="text-zinc-400">
+                        {rematchInfo 
+                          ? "Click 'Join Rematch' above to continue" 
+                          : "Create a new room with same settings for all players"
+                        }
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 </div>

@@ -427,6 +427,9 @@ class RaceWebSocketServer {
       case "lock_room":
         await this.handleLockRoom(ws, message);
         break;
+      case "rematch":
+        await this.handleRematch(ws, message);
+        break;
       default:
         console.warn("Unknown message type:", message.type);
     }
@@ -612,40 +615,46 @@ class RaceWebSocketServer {
 
     // Duration is already set when room was created - no need to update here
 
-    // Minimum 2 players required for multiplayer race (like TypeRacer)
+    // Use connected clients (not DB participants) for live player count
+    // This handles kicked/disconnected players correctly
+    const connectedClients = Array.from(raceRoom.clients.values());
+    const connectedHumans = connectedClients.filter(c => !c.isBot);
+    
+    // Minimum 2 human players required for multiplayer race (like TypeRacer)
     const requiredPlayers = 2;
     
-    if (participants.length >= requiredPlayers) {
-      // Check if all connected players are ready
-      const connectedClients = Array.from(raceRoom.clients.values());
-      const allReady = connectedClients.every(c => c.isReady);
-      const notReadyPlayers = connectedClients.filter(c => !c.isReady).map(c => c.username);
-      
-      if (!allReady && connectedClients.length > 1) {
-        // Notify the host that not everyone is ready
-        const client = raceRoom.clients.get(participantId);
-        if (client && client.ws.readyState === WebSocket.OPEN) {
-          client.ws.send(JSON.stringify({
-            type: "error",
-            message: `Waiting for players to ready up: ${notReadyPlayers.join(', ')}`,
-            code: "PLAYERS_NOT_READY"
-          }));
-        }
-        return;
+    if (connectedHumans.length < requiredPlayers) {
+      // Not enough connected human players
+      const client = raceRoom.clients.get(participantId);
+      if (client && client.ws.readyState === WebSocket.OPEN) {
+        const needed = requiredPlayers - connectedHumans.length;
+        client.ws.send(JSON.stringify({
+          type: "error",
+          message: `Need ${needed} more player${needed > 1 ? 's' : ''} to start. Share your room code with friends!`,
+          code: "NOT_ENOUGH_PLAYERS"
+        }));
       }
-      
-      await this.startCountdown(raceId);
-    } else {
-      // Notify the host that more players are needed
+      return;
+    }
+    
+    // Check if all connected human players are ready
+    const allReady = connectedHumans.every(c => c.isReady);
+    const notReadyPlayers = connectedHumans.filter(c => !c.isReady).map(c => c.username);
+    
+    if (!allReady) {
+      // Notify the host that not everyone is ready
       const client = raceRoom.clients.get(participantId);
       if (client && client.ws.readyState === WebSocket.OPEN) {
         client.ws.send(JSON.stringify({
           type: "error",
-          message: `Need at least ${requiredPlayers} players to start. Share your room code with friends!`,
-          code: "NOT_ENOUGH_PLAYERS"
+          message: `Waiting for players to ready up: ${notReadyPlayers.join(', ')}`,
+          code: "PLAYERS_NOT_READY"
         }));
       }
+      return;
     }
+    
+    await this.startCountdown(raceId);
   }
 
   private async handleReadyToggle(ws: WebSocket, message: any) {
@@ -763,6 +772,65 @@ class RaceWebSocketServer {
     });
 
     console.log(`[WS] Room ${raceId} ${locked ? 'locked' : 'unlocked'} by host`);
+  }
+
+  private async handleRematch(ws: WebSocket, message: any) {
+    const { raceId, participantId } = message;
+    const raceRoom = this.races.get(raceId);
+    
+    // Get the original race to copy settings
+    let race = raceCache.getRace(raceId)?.race;
+    if (!race) {
+      race = await storage.getRace(raceId);
+    }
+    
+    if (!race || race.status !== "finished") {
+      ws.send(JSON.stringify({
+        type: "error",
+        message: "Can only request rematch after race is finished",
+        code: "RACE_NOT_FINISHED"
+      }));
+      return;
+    }
+
+    // Generate a unique room code for the new race
+    const generateRoomCode = (): string => {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let code = "";
+      for (let i = 0; i < 6; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return code;
+    };
+    
+    const roomCode = generateRoomCode();
+
+    // Create a new race with same settings
+    const newRace = await storage.createRace({
+      roomCode,
+      creatorId: null, // Will be set when host joins
+      status: "waiting",
+      maxPlayers: race.maxPlayers,
+      raceType: race.raceType,
+      timeLimitSeconds: race.timeLimitSeconds,
+    });
+
+    // Broadcast rematch available to all players in the room
+    if (raceRoom) {
+      const clientsArray = Array.from(raceRoom.clients.values());
+      for (const client of clientsArray) {
+        if (client.ws.readyState === WebSocket.OPEN) {
+          client.ws.send(JSON.stringify({
+            type: "rematch_available",
+            newRaceId: newRace.id,
+            roomCode: newRace.roomCode,
+            createdBy: message.username || "A player",
+          }));
+        }
+      }
+    }
+
+    console.log(`[WS] Rematch created: Race ${newRace.id} (${roomCode}) from race ${raceId}`);
   }
 
   private async startCountdown(raceId: number) {
@@ -1508,6 +1576,9 @@ class RaceWebSocketServer {
     }
   }
 
+  private chatRateLimits: Map<number, number> = new Map(); // participantId -> last message timestamp
+  private readonly CHAT_RATE_LIMIT_MS = 2000; // 2 seconds between messages
+
   private async handleChatMessage(ws: WebSocket, message: any) {
     const { raceId, participantId, content, messageType = "text", emoteCode } = message;
 
@@ -1525,6 +1596,24 @@ class RaceWebSocketServer {
       ws.send(JSON.stringify({ type: "error", message: "Message too long" }));
       return;
     }
+
+    // Rate limiting: 1 message per 2 seconds
+    const now = Date.now();
+    const lastMessageTime = this.chatRateLimits.get(participantId) || 0;
+    const timeSinceLastMessage = now - lastMessageTime;
+    
+    if (timeSinceLastMessage < this.CHAT_RATE_LIMIT_MS) {
+      const waitTime = Math.ceil((this.CHAT_RATE_LIMIT_MS - timeSinceLastMessage) / 1000);
+      ws.send(JSON.stringify({ 
+        type: "error", 
+        message: `Please wait ${waitTime} second${waitTime > 1 ? 's' : ''} before sending another message`,
+        code: "CHAT_RATE_LIMITED"
+      }));
+      return;
+    }
+    
+    // Update last message timestamp
+    this.chatRateLimits.set(participantId, now);
 
     const raceRoom = this.races.get(raceId);
     if (!raceRoom) return;

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Zap, Users, Lock, Trophy, Loader2, Info, WifiOff, AlertTriangle, CheckCircle2, Timer } from "lucide-react";
+import { Zap, Users, Lock, Trophy, Loader2, Info, WifiOff, AlertTriangle, CheckCircle2, Timer, FileText } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
@@ -97,6 +97,7 @@ export default function MultiplayerPage() {
   const [, setLocation] = useLocation();
   const [roomCode, setRoomCode] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(4);
+  const [textSource, setTextSource] = useState("quotes");
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<"quickMatch" | "createRoom" | "joinRoom" | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(60);
@@ -184,6 +185,7 @@ export default function MultiplayerPage() {
           maxPlayers, 
           guestId,
           timeLimitSeconds: selectedDuration,
+          textSource,
         }),
       });
 
@@ -525,12 +527,46 @@ export default function MultiplayerPage() {
                     </Select>
                   </div>
 
+                  {/* Text Source */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <label className="text-sm font-medium">Text Type</label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p className="font-medium">Race Text Category</p>
+                          <p className="text-zinc-400">Choose what type of text you'll be typing</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Select
+                      value={textSource}
+                      onValueChange={(value) => setTextSource(value)}
+                    >
+                      <SelectTrigger className="w-full" data-testid="select-text-source">
+                        <SelectValue placeholder="Select text type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="quotes">Quotes & Proverbs</SelectItem>
+                        <SelectItem value="programming">Programming Content</SelectItem>
+                        <SelectItem value="technical">Technical Writing</SelectItem>
+                        <SelectItem value="news">News Articles</SelectItem>
+                        <SelectItem value="entertainment">Entertainment & Fun</SelectItem>
+                        <SelectItem value="random">Random Mix</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Room Summary */}
                   <div className="bg-muted/50 rounded-lg p-3 space-y-1.5">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Room Settings</p>
                     <div className="flex flex-wrap gap-2 text-sm">
                       <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{maxPlayers} players max</span>
                       <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{formatDuration(selectedDuration)}</span>
+                      <span className="bg-primary/10 text-primary px-2 py-0.5 rounded capitalize">{textSource === "random" ? "Random Text" : textSource}</span>
                     </div>
                   </div>
 
