@@ -1491,24 +1491,6 @@ export default function RacePage() {
       case "participant_left":
         setParticipants(prev => prev.filter(p => p.id !== message.participantId));
         break;
-      case "participant_disconnected":
-        // Remove disconnected player from list to keep UI in sync with server state
-        // Server has already removed them from the race room
-        const disconnectedPlayer = participants.find(p => p.id === message.participantId);
-        setParticipants(prev => prev.filter(p => p.id !== message.participantId));
-        if (disconnectedPlayer) {
-          toast.warning(`${disconnectedPlayer.username} disconnected`, { duration: 3000 });
-        }
-        break;
-      case "host_changed":
-        setHostParticipantId(message.newHostParticipantId);
-        // Check if I became the new host
-        if (myParticipantRef.current?.id === message.newHostParticipantId) {
-          toast.success("You are now the room host!", { duration: 3000 });
-        } else if (message.message) {
-          toast.info(message.message, { duration: 2000 });
-        }
-        break;
       case "participant_dnf":
         // Mark participant as DNF (Did Not Finish)
         setParticipants(prev => prev.map(p => 
@@ -1566,7 +1548,7 @@ export default function RacePage() {
       case "kicked":
         // We were kicked from the room
         toast.error(message.message || "You have been kicked from the room", { duration: 5000 });
-        navigate("/multiplayer");
+        setLocation("/multiplayer");
         break;
       case "room_lock_changed":
         setIsRoomLocked(message.isLocked);
@@ -1587,14 +1569,95 @@ export default function RacePage() {
         });
         break;
       case "error":
-        // Handle server-side errors
-        if (message.code === "CHAT_RATE_LIMITED") {
-          toast.error("Slow down!", { 
-            description: message.message || "Please wait before sending another message",
-            duration: 2000
+        // Handle server-side errors with typed error codes
+        switch (message.code) {
+          case "CHAT_RATE_LIMITED":
+            toast.error("Slow down!", { 
+              description: message.message || "Please wait before sending another message",
+              duration: 2000
+            });
+            break;
+          case "NOT_HOST":
+            toast.error("Permission denied", { 
+              description: message.message || "Only the host can do this",
+              duration: 3000
+            });
+            break;
+          case "NOT_ENOUGH_PLAYERS":
+            toast.warning("Not enough players", { 
+              description: message.message || "Need at least 2 players to start",
+              duration: 4000
+            });
+            break;
+          case "PLAYERS_NOT_READY":
+            toast.warning("Players not ready", { 
+              description: message.message || "All players must be ready to start",
+              duration: 4000
+            });
+            break;
+          case "ROOM_LOCKED":
+            toast.error("Room locked", { 
+              description: message.message || "This room is not accepting new players",
+              duration: 3000
+            });
+            break;
+          case "KICKED":
+            toast.error("Kicked", { 
+              description: message.message || "You have been kicked from the room",
+              duration: 5000
+            });
+            setLocation("/multiplayer");
+            break;
+          default:
+            if (message.message) {
+              toast.error(message.message, { duration: 3000 });
+            }
+            console.warn("Server error:", message.code, message.message);
+        }
+        break;
+      case "countdown_cancelled":
+        // Countdown was cancelled (player left during countdown)
+        setCountdown(null);
+        setIsStarting(false);
+        toast.warning("Race cancelled", { 
+          description: message.reason || "Not enough players to start",
+          duration: 4000
+        });
+        break;
+      case "host_changed":
+        // Host was transferred to another player
+        if (message.newHostParticipantId) {
+          setHostParticipantId(message.newHostParticipantId);
+          if (myParticipantRef.current?.id === message.newHostParticipantId) {
+            toast.success("You are now the host!", { duration: 3000 });
+          } else {
+            toast.info(message.message || `${message.newHostUsername || 'A player'} is now the host`, { duration: 3000 });
+          }
+        }
+        break;
+      case "participant_disconnected":
+        // A player disconnected (may reconnect)
+        setParticipants(prev => prev.map(p => 
+          p.id === message.participantId 
+            ? { ...p, isDisconnected: true } 
+            : p
+        ));
+        if (message.username) {
+          toast.warning(`${message.username} disconnected`, { 
+            description: "They may reconnect...",
+            duration: 3000
           });
-        } else {
-          console.warn("Server error:", message.message);
+        }
+        break;
+      case "participant_reconnected":
+        // A player reconnected after disconnection
+        setParticipants(prev => prev.map(p => 
+          p.id === message.participantId 
+            ? { ...p, isDisconnected: false } 
+            : p
+        ));
+        if (message.username) {
+          toast.success(`${message.username} reconnected!`, { duration: 3000 });
         }
         break;
     }
@@ -2713,8 +2776,8 @@ export default function RacePage() {
                     <TooltipTrigger asChild>
                       <Button
                         onClick={() => {
-                          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && myParticipant) {
-                            wsRef.current.send(JSON.stringify({
+                          if (ws && ws.readyState === WebSocket.OPEN && myParticipant) {
+                            ws.send(JSON.stringify({
                               type: "rematch",
                               raceId: race?.id,
                               participantId: myParticipant.id,

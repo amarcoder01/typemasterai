@@ -28,6 +28,14 @@ const MESSAGE_TYPE_LIMITS: Record<string, RateLimitConfig> = {
   finish: { maxTokens: 3, refillRate: 1, refillInterval: 1000 },
   leave: { maxTokens: 3, refillRate: 1, refillInterval: 1000 },
   chat_message: { maxTokens: 20, refillRate: 2, refillInterval: 500 }, // 4 per second, burst of 20
+  // Host command rate limits - stricter to prevent abuse
+  kick_player: { maxTokens: 3, refillRate: 1, refillInterval: 2000 }, // 1 kick per 2 seconds
+  lock_room: { maxTokens: 2, refillRate: 1, refillInterval: 3000 }, // 1 lock toggle per 3 seconds
+  ready_toggle: { maxTokens: 5, refillRate: 2, refillInterval: 1000 }, // 2 toggles per second
+  rematch: { maxTokens: 2, refillRate: 1, refillInterval: 5000 }, // 1 rematch per 5 seconds
+  spectate: { maxTokens: 3, refillRate: 1, refillInterval: 2000 }, // 1 spectate per 2 seconds
+  stop_spectate: { maxTokens: 3, refillRate: 1, refillInterval: 1000 },
+  keystroke_validation: { maxTokens: 10, refillRate: 5, refillInterval: 200 }, // 5 per second
   default: { maxTokens: 10, refillRate: 5, refillInterval: 200 },
 };
 

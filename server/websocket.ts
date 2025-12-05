@@ -23,6 +23,13 @@ interface RaceClient {
   username: string;
   lastActivity: number;
   isReady: boolean;
+  isBot?: boolean;
+}
+
+interface DisconnectedPlayer {
+  username: string;
+  isReady: boolean;
+  disconnectedAt: number;
 }
 
 interface RaceRoom {
@@ -33,6 +40,7 @@ interface RaceRoom {
   raceStartTime?: number;
   shardId: number;
   isFinishing?: boolean; // Prevents cleanup during race completion
+  isStarting?: boolean; // Prevents double-start race condition
   hostParticipantId?: number; // The first player to join controls the race
   isLocked?: boolean; // Prevents new players from joining
   kickedPlayers: Set<number>; // List of kicked participant IDs
@@ -77,6 +85,7 @@ class RaceWebSocketServer {
   private races: Map<number, RaceRoom> = new Map();
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private extensionStates: Map<number, ExtensionState> = new Map();
+  private disconnectedPlayers: Map<number, Map<number, DisconnectedPlayer>> = new Map(); // raceId -> participantId -> info
   private stats: ServerStats = {
     totalConnections: 0,
     activeRooms: 0,
@@ -272,12 +281,89 @@ class RaceWebSocketServer {
       }
 
       for (const participantId of staleClients) {
+        const client = raceRoom.clients.get(participantId);
+        
+        // Store disconnected player info for potential reconnection (5-minute window)
+        if (client) {
+          if (!this.disconnectedPlayers.has(raceId)) {
+            this.disconnectedPlayers.set(raceId, new Map());
+          }
+          this.disconnectedPlayers.get(raceId)!.set(participantId, {
+            username: client.username,
+            isReady: client.isReady,
+            disconnectedAt: Date.now(),
+          });
+          
+          // Clean up after 5 minutes
+          setTimeout(() => {
+            const disconnectedMap = this.disconnectedPlayers.get(raceId);
+            if (disconnectedMap) {
+              disconnectedMap.delete(participantId);
+              if (disconnectedMap.size === 0) {
+                this.disconnectedPlayers.delete(raceId);
+              }
+            }
+          }, 5 * 60 * 1000);
+        }
+        
         raceRoom.clients.delete(participantId);
         this.broadcastToRace(raceId, {
           type: "participant_disconnected",
           participantId,
+          username: client?.username,
           reason: "timeout",
         });
+        
+        // Host failover: If disconnected player was host, transfer to next available HUMAN player
+        if (raceRoom.hostParticipantId === participantId && raceRoom.clients.size > 0) {
+          const humanClients = Array.from(raceRoom.clients.entries())
+            .filter(([_, c]) => !c.isBot)
+            .sort((a, b) => a[0] - b[0]); // Sort by participantId (join order)
+          
+          if (humanClients.length > 0) {
+            const [nextHostId, newHostClient] = humanClients[0];
+            raceRoom.hostParticipantId = nextHostId;
+            console.log(`[WS Heartbeat] Host transferred to ${newHostClient.username} (${nextHostId}) after timeout`);
+            
+            this.broadcastToRace(raceId, {
+              type: "host_changed",
+              newHostParticipantId: nextHostId,
+              newHostUsername: newHostClient.username,
+              message: `${newHostClient.username} is now the host`,
+            });
+          } else {
+            raceRoom.hostParticipantId = undefined;
+            console.log(`[WS Heartbeat] No human players left in race ${raceId}, host cleared`);
+          }
+        }
+        
+        // Cancel countdown if not enough players remain
+        const connectedHumans = Array.from(raceRoom.clients.values()).filter(c => !c.isBot);
+        const cachedRace = raceCache.getRace(raceId);
+        const currentStatus = cachedRace?.race?.status;
+        
+        if (currentStatus === "countdown" && connectedHumans.length < 2) {
+          if (raceRoom.countdownTimer) {
+            clearInterval(raceRoom.countdownTimer);
+            raceRoom.countdownTimer = undefined;
+          }
+          
+          // Reset the isStarting flag
+          raceRoom.isStarting = false;
+          
+          raceCache.updateRaceStatus(raceId, "waiting");
+          storage.updateRaceStatus(raceId, "waiting").catch(err => 
+            console.error(`[WS Heartbeat] Failed to revert race status:`, err)
+          );
+          
+          this.broadcastToRace(raceId, {
+            type: "countdown_cancelled",
+            reason: "Not enough players - need at least 2 to start",
+            code: "INSUFFICIENT_PLAYERS"
+          });
+          
+          console.log(`[WS Heartbeat] Countdown cancelled for race ${raceId} - timeout caused insufficient players`);
+        }
       }
 
       if (raceRoom.clients.size === 0) {
@@ -506,7 +592,16 @@ class RaceWebSocketServer {
     }
 
     const existingClient = raceRoom.clients.get(participantId);
-    const isReconnect = !!existingClient;
+    
+    // Check if this is a reconnection (player was previously connected but disconnected)
+    const disconnectedInfo = this.disconnectedPlayers.get(raceId)?.get(participantId);
+    const isReconnect = !!existingClient || !!disconnectedInfo;
+    
+    // Clean up disconnected player entry if reconnecting
+    if (disconnectedInfo) {
+      this.disconnectedPlayers.get(raceId)?.delete(participantId);
+      console.log(`[WS] Player ${username} (${participantId}) reconnected to race ${raceId} after ${Math.round((Date.now() - disconnectedInfo.disconnectedAt) / 1000)}s`);
+    }
 
     // Set host to first human player to join (not a bot)
     if (!raceRoom.hostParticipantId && participant.isBot !== 1) {
@@ -514,8 +609,9 @@ class RaceWebSocketServer {
       console.log(`[WS] Host set: ${username} (${participantId}) for race ${raceId}`);
     }
 
-    // Host is always ready by default
+    // Host is always ready by default, or restore previous ready state on reconnect
     const isHost = raceRoom.hostParticipantId === participantId;
+    const restoredReadyState = disconnectedInfo?.isReady ?? isHost;
     
     const client: RaceClient = { 
       ws, 
@@ -523,7 +619,8 @@ class RaceWebSocketServer {
       participantId, 
       username,
       lastActivity: Date.now(),
-      isReady: isHost, // Host starts as ready, others must toggle
+      isReady: restoredReadyState,
+      isBot: participant.isBot === 1,
     };
     raceRoom.clients.set(participantId, client);
 
@@ -531,7 +628,7 @@ class RaceWebSocketServer {
     let currentParticipant = participant;
     if (!currentParticipant) {
       participants = await storage.getRaceParticipants(raceId);
-      currentParticipant = participants.find(p => p.id === participantId);
+      currentParticipant = participants.find(p => p.id === participantId) || participant;
       raceCache.updateParticipants(raceId, participants);
     }
     
@@ -552,11 +649,33 @@ class RaceWebSocketServer {
       });
       console.log(`[WS] New join: ${username} (${participantId}) in race ${raceId}`);
     } else {
+      // Broadcast reconnection to all clients so they know player is back
+      this.broadcastToRace(raceId, {
+        type: "participant_reconnected",
+        participantId,
+        username,
+        isReady: restoredReadyState,
+      });
+      
+      // Send full state sync to reconnected player
       ws.send(JSON.stringify({
         type: "participants_sync",
         participants,
         hostParticipantId: raceRoom.hostParticipantId,
       }));
+      
+      // Also send current ready states to reconnected player
+      const readyStates = Array.from(raceRoom.clients.entries()).map(([pId, c]) => ({
+        participantId: pId,
+        isReady: c.isReady,
+      }));
+      ws.send(JSON.stringify({
+        type: "ready_state_update",
+        participantId,
+        isReady: restoredReadyState,
+        readyStates,
+      }));
+      
       console.log(`[WS] Reconnect: ${username} (${participantId}) in race ${raceId}`);
     }
 
@@ -637,6 +756,19 @@ class RaceWebSocketServer {
       return;
     }
     
+    // Prevent double-start race condition
+    if (raceRoom.isStarting) {
+      const client = raceRoom.clients.get(participantId);
+      if (client && client.ws.readyState === WebSocket.OPEN) {
+        client.ws.send(JSON.stringify({
+          type: "error",
+          message: "Race is already starting...",
+          code: "RACE_STARTING"
+        }));
+      }
+      return;
+    }
+    
     // Check if all connected human players are ready
     const allReady = connectedHumans.every(c => c.isReady);
     const notReadyPlayers = connectedHumans.filter(c => !c.isReady).map(c => c.username);
@@ -654,7 +786,15 @@ class RaceWebSocketServer {
       return;
     }
     
-    await this.startCountdown(raceId);
+    // Set starting flag to prevent double-start
+    raceRoom.isStarting = true;
+    
+    try {
+      await this.startCountdown(raceId);
+    } catch (error) {
+      raceRoom.isStarting = false;
+      console.error(`[WS] Failed to start countdown for race ${raceId}:`, error);
+    }
   }
 
   private async handleReadyToggle(ws: WebSocket, message: any) {
@@ -808,10 +948,11 @@ class RaceWebSocketServer {
     // Create a new race with same settings
     const newRace = await storage.createRace({
       roomCode,
-      creatorId: null, // Will be set when host joins
       status: "waiting",
+      paragraphContent: race.paragraphContent || "",
       maxPlayers: race.maxPlayers,
-      raceType: race.raceType,
+      isPrivate: race.isPrivate || 1,
+      raceType: race.raceType as "standard" | "timed" | undefined,
       timeLimitSeconds: race.timeLimitSeconds,
     });
 
@@ -876,6 +1017,9 @@ class RaceWebSocketServer {
         if (raceRoom.countdownTimer) {
           clearInterval(raceRoom.countdownTimer);
         }
+        
+        // Reset the isStarting flag now that countdown is complete
+        raceRoom.isStarting = false;
         
         const startedAt = new Date();
         await storage.updateRaceStatus(raceId, "racing", startedAt);
@@ -1374,7 +1518,7 @@ class RaceWebSocketServer {
       await storage.updateParticipantFinishPosition(participantId, 999);
       
       // Also mark as finished in the database
-      await storage.finishParticipant(participantId, raceId);
+      await storage.finishParticipant(participantId);
       
       // Update cache
       const participants = await storage.getRaceParticipants(raceId);
@@ -2178,23 +2322,86 @@ NEVER sound like AI. No "I'd be happy to" or formal language.`
         if (client.ws === ws) {
           raceRoom.clients.delete(participantId);
           
+          // Store disconnected player info for potential reconnection
+          if (!this.disconnectedPlayers.has(raceId)) {
+            this.disconnectedPlayers.set(raceId, new Map());
+          }
+          this.disconnectedPlayers.get(raceId)!.set(participantId, {
+            username: client.username,
+            isReady: client.isReady,
+            disconnectedAt: Date.now(),
+          });
+          
+          // Clean up old disconnected player entries after 5 minutes
+          setTimeout(() => {
+            const disconnectedMap = this.disconnectedPlayers.get(raceId);
+            if (disconnectedMap) {
+              disconnectedMap.delete(participantId);
+              if (disconnectedMap.size === 0) {
+                this.disconnectedPlayers.delete(raceId);
+              }
+            }
+          }, 5 * 60 * 1000);
+          
           this.broadcastToRace(raceId, {
             type: "participant_disconnected",
             participantId,
+            username: client.username,
           });
           
-          // Host transfer: If disconnected player was host, transfer to next available
+          // Host transfer: If disconnected player was host, transfer to next available HUMAN player
           if (raceRoom.hostParticipantId === participantId && raceRoom.clients.size > 0) {
-            const nextHostId = Array.from(raceRoom.clients.keys())[0];
-            raceRoom.hostParticipantId = nextHostId;
-            const newHostClient = raceRoom.clients.get(nextHostId);
-            console.log(`[WS] Host transferred to ${newHostClient?.username || nextHostId} after disconnect`);
+            // Find next human player (exclude bots) sorted by join order
+            const humanClients = Array.from(raceRoom.clients.entries())
+              .filter(([_, c]) => !c.isBot)
+              .sort((a, b) => a[0] - b[0]); // Sort by participantId (join order)
+            
+            if (humanClients.length > 0) {
+              const [nextHostId, newHostClient] = humanClients[0];
+              raceRoom.hostParticipantId = nextHostId;
+              console.log(`[WS] Host transferred to ${newHostClient.username} (${nextHostId}) after disconnect`);
+              
+              this.broadcastToRace(raceId, {
+                type: "host_changed",
+                newHostParticipantId: nextHostId,
+                newHostUsername: newHostClient.username,
+                message: `${newHostClient.username} is now the host`,
+              });
+            } else {
+              // No human players left, clear host
+              raceRoom.hostParticipantId = undefined;
+              console.log(`[WS] No human players left in race ${raceId}, host cleared`);
+            }
+          }
+          
+          // Check if we need to cancel countdown due to insufficient players
+          const connectedHumans = Array.from(raceRoom.clients.values()).filter(c => !c.isBot);
+          const cachedRace = raceCache.getRace(raceId);
+          const currentStatus = cachedRace?.race?.status;
+          
+          if (currentStatus === "countdown" && connectedHumans.length < 2) {
+            // Cancel countdown - not enough players
+            if (raceRoom.countdownTimer) {
+              clearInterval(raceRoom.countdownTimer);
+              raceRoom.countdownTimer = undefined;
+            }
+            
+            // Reset the isStarting flag since countdown is cancelled
+            raceRoom.isStarting = false;
+            
+            // Revert race status to waiting
+            raceCache.updateRaceStatus(raceId, "waiting");
+            storage.updateRaceStatus(raceId, "waiting").catch(err => 
+              console.error(`[WS] Failed to revert race status:`, err)
+            );
             
             this.broadcastToRace(raceId, {
-              type: "host_changed",
-              newHostParticipantId: nextHostId,
-              message: `${newHostClient?.username || 'A player'} is now the host`,
+              type: "countdown_cancelled",
+              reason: "Not enough players - need at least 2 to start",
+              code: "INSUFFICIENT_PLAYERS"
             });
+            
+            console.log(`[WS] Countdown cancelled for race ${raceId} - only ${connectedHumans.length} human player(s) remaining`);
           }
 
           if (raceRoom.clients.size === 0) {
@@ -2214,11 +2421,14 @@ NEVER sound like AI. No "I'd be happy to" or formal language.`
               return;
             }
             
+            // Clean up all timers
             if (raceRoom.countdownTimer) {
               clearInterval(raceRoom.countdownTimer);
             }
             this.races.delete(raceId);
             this.cleanupExtensionState(raceId);
+            this.disconnectedPlayers.delete(raceId);
+            this.chatRateLimits.clear(); // Clean up rate limit tracking
           }
           
           this.updateStats();
@@ -2227,7 +2437,8 @@ NEVER sound like AI. No "I'd be happy to" or formal language.`
       }
     }
 
-    for (const [raceId, spectatorMap] of this.spectators.entries()) {
+    const spectatorEntries = Array.from(this.spectators.entries());
+    for (const [raceId, spectatorMap] of spectatorEntries) {
       if (spectatorMap.has(ws)) {
         this.cleanupSpectator(ws, raceId).catch(err => {
           console.error(`[Spectator] Cleanup error on disconnect:`, err);
