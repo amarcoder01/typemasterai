@@ -1677,17 +1677,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/races/create", async (req, res) => {
     try {
-      const { isPrivate, maxPlayers: rawMaxPlayers, guestId, raceType, timeLimitSeconds: rawTimeLimit, botCount: rawBotCount } = req.body;
+      const { isPrivate, maxPlayers: rawMaxPlayers, guestId } = req.body;
       const user = req.user;
       
-      // Validate and sanitize inputs
-      const validDurations = [30, 60, 90, 120];
-      const timeLimitSeconds = validDurations.includes(rawTimeLimit) ? rawTimeLimit : 60;
-      
+      // Validate and sanitize room settings only
       const maxPlayers = Math.max(2, Math.min(10, Number(rawMaxPlayers) || 4));
       
-      // Clamp botCount: 0-4 range, and never more than maxPlayers - 1 (leave room for creator)
-      const botCount = Math.max(0, Math.min(4, Math.min(maxPlayers - 1, Number(rawBotCount) || 0)));
+      // Race settings (duration, bots) will be configured by host in waiting room
+      // Default to 60 seconds, can be changed before race starts
+      const timeLimitSeconds = 60;
       
       let username: string;
       
@@ -1702,29 +1700,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let paragraphContent = "";
       let paragraphId: number | undefined;
       
-      if (raceType === "timed" && timeLimitSeconds) {
-        // For timed races, generate extra content to prevent running out
-        // Estimate: 80 WPM * 5 chars/word = 400 chars/min, add buffer
-        const estimatedChars = Math.ceil((timeLimitSeconds / 60) * 400 * 2);
-        const paragraphsNeeded = Math.ceil(estimatedChars / 300);
-        
-        const paragraphs: string[] = [];
-        for (let i = 0; i < Math.max(paragraphsNeeded, 3); i++) {
-          const p = await storage.getRandomParagraph("english", "quote");
-          if (p) {
-            paragraphs.push(p.content);
-            if (i === 0) paragraphId = p.id;
-          }
+      // All races are timed - generate enough content for the maximum duration (120s)
+      // Estimate: 80 WPM * 5 chars/word = 400 chars/min, add buffer for 2 min max
+      const estimatedChars = Math.ceil((120 / 60) * 400 * 2);
+      const paragraphsNeeded = Math.ceil(estimatedChars / 300);
+      
+      const paragraphs: string[] = [];
+      for (let i = 0; i < Math.max(paragraphsNeeded, 3); i++) {
+        const p = await storage.getRandomParagraph("english", "quote");
+        if (p) {
+          paragraphs.push(p.content);
+          if (i === 0) paragraphId = p.id;
         }
-        paragraphContent = paragraphs.join(" ");
-      } else {
-        const paragraph = await storage.getRandomParagraph("english", "quote");
-        if (!paragraph) {
-          return res.status(500).json({ message: "No paragraph available" });
-        }
-        paragraphContent = paragraph.content;
-        paragraphId = paragraph.id;
       }
+      paragraphContent = paragraphs.join(" ");
 
       if (!paragraphContent) {
         return res.status(500).json({ message: "No paragraph available" });
@@ -1734,8 +1723,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const race = await storage.createRace({
         roomCode,
         status: "waiting",
-        raceType: raceType || "standard",
-        timeLimitSeconds: raceType === "timed" ? timeLimitSeconds : null,
+        raceType: "timed",
+        timeLimitSeconds,
         paragraphId,
         paragraphContent,
         maxPlayers: maxPlayers || 4,
@@ -1756,16 +1745,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         isBot: 0,
       });
 
-      // Add bots if requested (botCount already validated above)
-      if (botCount > 0) {
-        try {
-          const bots = await botService.addBotsToRace(race.id, botCount);
-          console.log(`[Create Room] Added ${bots.length} AI opponents to race ${race.id}`);
-        } catch (botError) {
-          console.error("[Create Room] Failed to add bots:", botError);
-          // Don't fail the room creation if bots fail to add
-        }
-      }
+      // Bots and race duration will be configured by host in waiting room before starting
 
       res.json({ race, participant });
     } catch (error: any) {

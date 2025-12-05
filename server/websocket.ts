@@ -716,8 +716,8 @@ class RaceWebSocketServer {
   }
 
   private async handleReady(message: any) {
-    const { raceId, participantId } = message;
-    console.log(`[WS] Ready message received for race ${raceId} from participant ${participantId}`);
+    const { raceId, participantId, raceDuration, botCount } = message;
+    console.log(`[WS] Ready message received for race ${raceId} from participant ${participantId}, duration: ${raceDuration}s, bots: ${botCount}`);
     
     const raceRoom = this.races.get(raceId);
     if (!raceRoom) {
@@ -756,6 +756,41 @@ class RaceWebSocketServer {
     }
     
     if (!race || race.status !== "waiting") return;
+
+    // Apply race configuration from host
+    const validDurations = [30, 60, 90, 120];
+    const effectiveDuration = validDurations.includes(raceDuration) ? raceDuration : 60;
+    const maxPlayers = race.maxPlayers || 4;
+    const currentHumanCount = participants.filter(p => p.isBot !== 1).length;
+    const effectiveBotCount = Math.max(0, Math.min(4, Math.min(maxPlayers - currentHumanCount, botCount || 0)));
+    
+    // Update race duration in database if changed
+    if (effectiveDuration !== race.timeLimitSeconds) {
+      await storage.updateRaceTimeLimitSeconds(raceId, effectiveDuration);
+      race.timeLimitSeconds = effectiveDuration;
+      raceCache.setRace(race, participants);
+      console.log(`[WS] Updated race ${raceId} duration to ${effectiveDuration}s`);
+    }
+    
+    // Add bots if requested
+    if (effectiveBotCount > 0) {
+      try {
+        const bots = await botService.addBotsToRace(raceId, effectiveBotCount);
+        console.log(`[WS] Added ${bots.length} AI opponents to race ${raceId}`);
+        // Refresh participants list
+        participants = await storage.getRaceParticipants(raceId);
+        raceCache.updateParticipants(raceId, participants);
+        
+        // Broadcast updated participant list
+        this.broadcastToRace(raceId, {
+          type: "participants_sync",
+          participants,
+          hostParticipantId: raceRoom.hostParticipantId,
+        });
+      } catch (botError) {
+        console.error("[WS] Failed to add bots:", botError);
+      }
+    }
 
     const requiredPlayers = 1;
     

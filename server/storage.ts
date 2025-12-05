@@ -367,6 +367,7 @@ export interface IStorage {
   getRace(id: number): Promise<Race | undefined>;
   getRaceByCode(roomCode: string): Promise<Race | undefined>;
   updateRaceStatus(id: number, status: string, startedAt?: Date, finishedAt?: Date): Promise<void>;
+  updateRaceTimeLimitSeconds(id: number, timeLimitSeconds: number): Promise<void>;
   extendRaceParagraph(id: number, additionalContent: string): Promise<Race | undefined>;
   getActiveRaces(): Promise<Race[]>;
   
@@ -2458,6 +2459,10 @@ export class DatabaseStorage implements IStorage {
     if (startedAt) updateData.startedAt = startedAt;
     if (finishedAt) updateData.finishedAt = finishedAt;
     await db.update(races).set(updateData).where(eq(races.id, id));
+  }
+
+  async updateRaceTimeLimitSeconds(id: number, timeLimitSeconds: number): Promise<void> {
+    await db.update(races).set({ timeLimitSeconds }).where(eq(races.id, id));
   }
 
   async extendRaceParagraph(id: number, additionalContent: string): Promise<Race | undefined> {
