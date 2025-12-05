@@ -44,7 +44,7 @@ interface ServerStats {
 
 const NUM_SHARDS = 16;
 const HEARTBEAT_INTERVAL_MS = 30 * 1000;
-const CONNECTION_TIMEOUT_MS = 60 * 1000;
+const CONNECTION_TIMEOUT_MS = 180 * 1000; // 3 minutes - longer than max race duration (2 min)
 
 const MAX_CONNECTIONS = 50000;
 const LOAD_SHEDDING_THRESHOLD = 0.8;
@@ -359,6 +359,19 @@ class RaceWebSocketServer {
     // SECURITY: Validate authentication before processing
     if (!this.validateAuthenticatedMessage(ws, message)) {
       return;
+    }
+    
+    // Update lastActivity on ANY message to keep connection alive
+    const authRaceId = (ws as any).authenticatedRaceId;
+    const authParticipantId = (ws as any).authenticatedParticipantId;
+    if (authRaceId && authParticipantId) {
+      const raceRoom = this.races.get(authRaceId);
+      if (raceRoom) {
+        const client = raceRoom.clients.get(authParticipantId);
+        if (client) {
+          client.lastActivity = Date.now();
+        }
+      }
     }
     
     switch (message.type) {
