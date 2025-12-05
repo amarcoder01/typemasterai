@@ -31,6 +31,7 @@ interface RaceRoom {
   timedRaceTimer?: NodeJS.Timeout;
   raceStartTime?: number;
   shardId: number;
+  isFinishing?: boolean; // Prevents cleanup during race completion
 }
 
 interface ServerStats {
@@ -276,6 +277,12 @@ class RaceWebSocketServer {
       }
 
       if (raceRoom.clients.size === 0) {
+        // NEVER clean up a race that is currently finishing - prevents race condition
+        if (raceRoom.isFinishing) {
+          console.log(`[WS Heartbeat] Keeping race room ${raceId} alive - race is finishing`);
+          continue;
+        }
+        
         // For timed races that are still racing, DON'T delete the room - let the timer complete
         // This ensures results are broadcast even if all clients disconnect
         if (raceRoom.timedRaceTimer) {
@@ -898,6 +905,12 @@ class RaceWebSocketServer {
     console.log(`[Human Finish] All finished check: ${allFinished}, participants: ${freshParticipants.map(p => `${p.username}:${p.isFinished}`).join(', ')}`);
 
     if (allFinished) {
+      // Mark as finishing to prevent heartbeat cleanup during async operations
+      const raceRoom = this.races.get(raceId);
+      if (raceRoom) {
+        raceRoom.isFinishing = true;
+      }
+      
       const updatedParticipants = freshParticipants;
       const finishedAt = new Date();
       await storage.updateRaceStatus(raceId, "finished", undefined, finishedAt);
@@ -910,6 +923,8 @@ class RaceWebSocketServer {
       
       const enrichedResults = await this.enrichResultsWithRatings(sortedResults);
       
+      console.log(`[Race Finish] Broadcasting race_finished for race ${raceId} with ${enrichedResults.length} results`);
+      
       this.broadcastToRace(raceId, {
         type: "race_finished",
         results: enrichedResults,
@@ -918,6 +933,17 @@ class RaceWebSocketServer {
       this.processRaceCompletion(raceId, sortedResults).catch(err => {
         console.error(`[RaceFinish] Error processing race completion:`, err);
       });
+      
+      // Clean up race room AFTER broadcasting results
+      setTimeout(() => {
+        const raceRoom = this.races.get(raceId);
+        if (raceRoom) {
+          console.log(`[Race Finish] Cleaning up race room ${raceId} after results broadcast`);
+          this.races.delete(raceId);
+          this.cleanupExtensionState(raceId);
+          this.updateStats();
+        }
+      }, 5000); // 5 second delay to allow reconnecting clients
     }
   }
 
@@ -993,9 +1019,14 @@ class RaceWebSocketServer {
     if (allFinished) {
       // Clear server-side timed race timer if it exists
       const raceRoom = this.races.get(raceId);
-      if (raceRoom?.timedRaceTimer) {
-        clearTimeout(raceRoom.timedRaceTimer);
-        raceRoom.timedRaceTimer = undefined;
+      if (raceRoom) {
+        // Mark as finishing BEFORE any async operations to prevent heartbeat cleanup
+        raceRoom.isFinishing = true;
+        
+        if (raceRoom.timedRaceTimer) {
+          clearTimeout(raceRoom.timedRaceTimer);
+          raceRoom.timedRaceTimer = undefined;
+        }
       }
       
       const finishedAt = new Date();
@@ -1044,22 +1075,27 @@ class RaceWebSocketServer {
 
   // Force finish a timed race when server timer expires (anti-cheat: don't trust client timer)
   private async forceFinishTimedRace(raceId: number) {
-    const race = await storage.getRace(raceId);
-    if (!race || race.status === "finished") {
-      console.log(`[Timed Race] Race ${raceId} already finished, skipping force finish`);
-      return;
-    }
-
+    // CRITICAL: Get race room and set isFinishing flag FIRST to prevent race condition with heartbeat
     const raceRoom = this.races.get(raceId);
     if (!raceRoom) {
       console.log(`[Timed Race] No race room found for ${raceId}`);
       return;
     }
-
+    
+    // Mark as finishing BEFORE any async operations to prevent heartbeat cleanup
+    raceRoom.isFinishing = true;
+    
     // Clear the timer
     if (raceRoom.timedRaceTimer) {
       clearTimeout(raceRoom.timedRaceTimer);
       raceRoom.timedRaceTimer = undefined;
+    }
+
+    const race = await storage.getRace(raceId);
+    if (!race || race.status === "finished") {
+      console.log(`[Timed Race] Race ${raceId} already finished, skipping force finish`);
+      raceRoom.isFinishing = false;
+      return;
     }
 
     console.log(`[Timed Race] Force finishing race ${raceId}`);
@@ -1171,6 +1207,12 @@ class RaceWebSocketServer {
     console.log(`[Bot Finish] All finished check: ${allFinished}, participants: ${freshParticipants.map(p => `${p.username}:${p.isFinished}`).join(', ')}`);
     
     if (allFinished) {
+      // Mark as finishing to prevent heartbeat cleanup during async operations
+      const raceRoom = this.races.get(raceId);
+      if (raceRoom) {
+        raceRoom.isFinishing = true;
+      }
+      
       const finishedAt = new Date();
       await storage.updateRaceStatus(raceId, "finished", undefined, finishedAt);
       raceCache.updateRaceStatus(raceId, "finished", undefined, finishedAt);
@@ -1192,6 +1234,17 @@ class RaceWebSocketServer {
       this.processRaceCompletion(raceId, sortedResults).catch(err => {
         console.error(`[RaceFinish] Error processing race completion:`, err);
       });
+      
+      // Clean up race room AFTER broadcasting results
+      setTimeout(() => {
+        const raceRoom = this.races.get(raceId);
+        if (raceRoom) {
+          console.log(`[Bot Finish] Cleaning up race room ${raceId} after results broadcast`);
+          this.races.delete(raceId);
+          this.cleanupExtensionState(raceId);
+          this.updateStats();
+        }
+      }, 5000); // 5 second delay to allow reconnecting clients
     }
   }
 
@@ -1212,11 +1265,22 @@ class RaceWebSocketServer {
       raceRoom.clients.delete(participantId);
       
       if (raceRoom.clients.size === 0) {
+        // Don't clean up if race is finishing
+        if (raceRoom.isFinishing) {
+          console.log(`[WS Leave] Keeping race room ${raceId} alive - race is finishing`);
+          this.updateStats();
+          return;
+        }
+        
+        // Don't clean up if timed race timer is active
+        if (raceRoom.timedRaceTimer) {
+          console.log(`[WS Leave] Keeping race room ${raceId} alive - timed race timer active`);
+          this.updateStats();
+          return;
+        }
+        
         if (raceRoom.countdownTimer) {
           clearInterval(raceRoom.countdownTimer);
-        }
-        if (raceRoom.timedRaceTimer) {
-          clearTimeout(raceRoom.timedRaceTimer);
         }
         this.races.delete(raceId);
         this.cleanupExtensionState(raceId);
@@ -1941,6 +2005,13 @@ NEVER sound like AI. No "I'd be happy to" or formal language.`
           });
 
           if (raceRoom.clients.size === 0) {
+            // NEVER clean up a race that is currently finishing - prevents race condition
+            if (raceRoom.isFinishing) {
+              console.log(`[WS Disconnect] Keeping race room ${raceId} alive - race is finishing`);
+              this.updateStats();
+              return;
+            }
+            
             // For timed races that are still racing, DON'T delete the room - let the timer complete
             // This ensures results are broadcast even if all clients disconnect
             if (raceRoom.timedRaceTimer) {
