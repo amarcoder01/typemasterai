@@ -97,7 +97,7 @@ export default function MultiplayerPage() {
   const [, setLocation] = useLocation();
   const [roomCode, setRoomCode] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(4);
-  const [textSource, setTextSource] = useState("quotes");
+  const [textSource, setTextSource] = useState("general");
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<"quickMatch" | "createRoom" | "joinRoom" | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(60);
@@ -550,12 +550,13 @@ export default function MultiplayerPage() {
                         <SelectValue placeholder="Select text type" />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="general">General Topics (Most Content)</SelectItem>
                         <SelectItem value="quotes">Quotes & Proverbs</SelectItem>
                         <SelectItem value="programming">Programming Content</SelectItem>
                         <SelectItem value="technical">Technical Writing</SelectItem>
                         <SelectItem value="news">News Articles</SelectItem>
                         <SelectItem value="entertainment">Entertainment & Fun</SelectItem>
-                        <SelectItem value="random">Random Mix</SelectItem>
+                        <SelectItem value="random">Random Mix (All Categories)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

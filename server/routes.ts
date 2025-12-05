@@ -1692,8 +1692,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timeLimitSeconds = validDurations.includes(Number(rawTimeLimit)) ? Number(rawTimeLimit) : 60;
       
       // Validate text source
-      const validTextSources = ["quotes", "programming", "technical", "news", "entertainment", "random"];
-      const selectedTextSource = validTextSources.includes(textSource) ? textSource : "random";
+      const validTextSources = ["general", "quotes", "programming", "technical", "news", "entertainment", "random"];
+      const selectedTextSource = validTextSources.includes(textSource) ? textSource : "general";
       
       let username: string;
       
@@ -1715,17 +1715,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const paragraphs: string[] = [];
       
-      // Get paragraphs based on text source selection
-      const textMode = selectedTextSource === "random" ? undefined : selectedTextSource;
+      // Map client text source to database mode names
+      // Database modes: general, technical, entertainment, quotes, programming, business, stories, news
+      const modeMapping: Record<string, string | null> = {
+        "general": "general",
+        "quotes": "quotes",
+        "programming": "programming", 
+        "technical": "technical",
+        "news": "news",
+        "entertainment": "entertainment",
+        "random": null, // null means pick from all available modes
+      };
       
-      for (let i = 0; i < Math.max(paragraphsNeeded, 3); i++) {
-        const p = await storage.getRandomParagraph("english", textMode || "quotes");
-        if (p) {
-          paragraphs.push(p.content);
-          if (i === 0) paragraphId = p.id;
+      const dbMode = modeMapping[selectedTextSource];
+      
+      console.log(`[Race Create] Text source: ${selectedTextSource}, DB mode: ${dbMode}`);
+      
+      if (dbMode === null) {
+        // Random mode: pick from multiple categories for variety
+        const availableModes = ["general", "quotes", "programming", "technical", "news", "entertainment"];
+        const usedParagraphIds = new Set<number>();
+        
+        for (let i = 0; i < Math.max(paragraphsNeeded, 3); i++) {
+          // Pick a random mode for each paragraph
+          const randomMode = availableModes[Math.floor(Math.random() * availableModes.length)];
+          const p = await storage.getRandomParagraph("english", randomMode);
+          if (p && !usedParagraphIds.has(p.id)) {
+            usedParagraphIds.add(p.id);
+            paragraphs.push(p.content);
+            if (i === 0) paragraphId = p.id;
+          } else {
+            // Fallback to general mode if we get a duplicate
+            const fallbackP = await storage.getRandomParagraph("english", "general");
+            if (fallbackP && !usedParagraphIds.has(fallbackP.id)) {
+              usedParagraphIds.add(fallbackP.id);
+              paragraphs.push(fallbackP.content);
+              if (i === 0) paragraphId = fallbackP.id;
+            }
+          }
+        }
+      } else {
+        // Specific mode selected - use getRandomParagraphs for efficiency and uniqueness
+        const selectedParagraphs = await storage.getRandomParagraphs("english", Math.max(paragraphsNeeded, 3), dbMode);
+        
+        if (selectedParagraphs.length > 0) {
+          for (let i = 0; i < selectedParagraphs.length; i++) {
+            paragraphs.push(selectedParagraphs[i].content);
+            if (i === 0) paragraphId = selectedParagraphs[i].id;
+          }
+        } else {
+          // Fallback: if the specific mode has no content, use general
+          console.log(`[Race Create] No paragraphs found for mode "${dbMode}", falling back to general`);
+          const fallbackParagraphs = await storage.getRandomParagraphs("english", Math.max(paragraphsNeeded, 3), "general");
+          for (let i = 0; i < fallbackParagraphs.length; i++) {
+            paragraphs.push(fallbackParagraphs[i].content);
+            if (i === 0) paragraphId = fallbackParagraphs[i].id;
+          }
         }
       }
+      
       paragraphContent = paragraphs.join(" ");
+      console.log(`[Race Create] Generated ${paragraphs.length} paragraphs, total ${paragraphContent.length} chars`);
 
       if (!paragraphContent) {
         return res.status(500).json({ message: "No paragraph available" });
