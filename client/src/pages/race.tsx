@@ -1586,6 +1586,17 @@ export default function RacePage() {
           }
         });
         break;
+      case "error":
+        // Handle server-side errors
+        if (message.code === "CHAT_RATE_LIMITED") {
+          toast.error("Slow down!", { 
+            description: message.message || "Please wait before sending another message",
+            duration: 2000
+          });
+        } else {
+          console.warn("Server error:", message.message);
+        }
+        break;
     }
   }
 

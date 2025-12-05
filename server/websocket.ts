@@ -1598,8 +1598,10 @@ class RaceWebSocketServer {
     }
 
     // Rate limiting: 1 message per 2 seconds
+    // Ensure participantId is a number for consistent Map key lookups
+    const participantIdNum = typeof participantId === 'string' ? parseInt(participantId, 10) : participantId;
     const now = Date.now();
-    const lastMessageTime = this.chatRateLimits.get(participantId) || 0;
+    const lastMessageTime = this.chatRateLimits.get(participantIdNum) || 0;
     const timeSinceLastMessage = now - lastMessageTime;
     
     if (timeSinceLastMessage < this.CHAT_RATE_LIMIT_MS) {
@@ -1613,7 +1615,7 @@ class RaceWebSocketServer {
     }
     
     // Update last message timestamp
-    this.chatRateLimits.set(participantId, now);
+    this.chatRateLimits.set(participantIdNum, now);
 
     const raceRoom = this.races.get(raceId);
     if (!raceRoom) return;
