@@ -2597,6 +2597,15 @@ export default function RacePage() {
                             ? `You finished in position #${myPosition}` 
                             : "Race complete - see final standings below"}
                       </p>
+                      <div className="pt-2 border-t border-zinc-700 mt-2">
+                        <p className="text-xs font-medium text-zinc-300">Tie-breaking rules:</p>
+                        <ol className="text-xs text-zinc-400 list-decimal list-inside">
+                          <li>Higher WPM wins</li>
+                          <li>If tied: Higher accuracy wins</li>
+                          <li>If still tied: More characters typed wins</li>
+                          <li>Final tie: Who joined first wins</li>
+                        </ol>
+                      </div>
                     </TooltipContent>
                   </Tooltip>
                 </CardTitle>
@@ -2654,6 +2663,20 @@ export default function RacePage() {
                               <div className="text-xl font-bold flex items-center justify-end gap-1">
                                 <Gauge className="h-4 w-4 text-muted-foreground" />
                                 {p.wpm} WPM
+                                {/* Show tie indicator if same WPM as adjacent player */}
+                                {(
+                                  (idx > 0 && sortedParticipants[idx - 1].wpm === p.wpm) ||
+                                  (idx < sortedParticipants.length - 1 && sortedParticipants[idx + 1].wpm === p.wpm)
+                                ) && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-xs text-yellow-500 ml-1 cursor-help">⚡</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" className="max-w-[200px]">
+                                      <p className="text-xs">Tie decided by: accuracy → characters typed → join order</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
                               </div>
                               <div className="text-sm text-muted-foreground flex items-center justify-end gap-1">
                                 <Target className="h-3 w-3" />
@@ -2671,6 +2694,7 @@ export default function RacePage() {
                             <div className="pt-1 border-t border-zinc-700 mt-1">
                               <p className="text-zinc-300">Speed: {p.wpm} words per minute</p>
                               <p className="text-zinc-300">Accuracy: {p.accuracy}% correct</p>
+                              <p className="text-zinc-300">Characters typed: {p.progress}</p>
                               {p.errors > 0 && <p className="text-zinc-400">Errors: {p.errors}</p>}
                               {!isParticipantBot && p.rating !== null && p.rating !== undefined && (
                                 <p className="text-zinc-300 mt-1">
@@ -2678,6 +2702,20 @@ export default function RacePage() {
                                 </p>
                               )}
                             </div>
+                            {/* Show tie-breaking info if there's a tie with adjacent player */}
+                            {idx > 0 && sortedParticipants[idx - 1].wpm === p.wpm && (
+                              <div className="pt-1 border-t border-zinc-700 mt-1">
+                                <p className="text-xs text-yellow-400">
+                                  ⚡ Tie-breaker: {
+                                    sortedParticipants[idx - 1].accuracy !== p.accuracy 
+                                      ? "Lower accuracy" 
+                                      : sortedParticipants[idx - 1].progress !== p.progress 
+                                        ? "Fewer characters typed"
+                                        : "Joined later"
+                                  }
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </TooltipContent>
                       </Tooltip>
