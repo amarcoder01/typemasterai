@@ -2124,8 +2124,11 @@ export default function RacePage() {
                     )}
                     {(() => {
                       const connectedCount = participants.length;
-                      const readyCount = Array.from(readyStates.values()).filter(r => r).length + (hostParticipantId ? 1 : 0);
-                      const allReady = connectedCount <= 1 || readyCount >= connectedCount;
+                      // Count ready states from the Map - host is already included with isReady: true
+                      const readyCount = Array.from(readyStates.values()).filter(r => r).length;
+                      // If readyStates is empty (initial state), assume host is ready
+                      const effectiveReadyCount = readyStates.size === 0 && hostParticipantId ? 1 : readyCount;
+                      const allReady = connectedCount <= 1 || effectiveReadyCount >= connectedCount;
                       return (
                         <Tooltip>
                           <TooltipTrigger asChild>
