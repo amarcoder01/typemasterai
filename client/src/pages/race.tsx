@@ -1749,26 +1749,38 @@ export default function RacePage() {
     setIsLeaving(true);
     setShowLeaveConfirmation(false);
     
-    if (myParticipant && race) {
-      // Send leave with current progress for DNF tracking
-      sendWsMessage({
-        type: "leave",
-        raceId: race.id,
-        participantId: myParticipant.id,
-        isRacing: isRacing || race.status === "racing",
-        progress: currentIndex,
-        wpm: liveWpm,
-        accuracy: liveAccuracy,
-      });
-      toast.info("You left the race", { duration: 2000 });
+    try {
+      if (myParticipant && race) {
+        // Send leave with current progress for DNF tracking
+        sendWsMessage({
+          type: "leave",
+          raceId: race.id,
+          participantId: myParticipant.id,
+          isRacing: isRacing || race.status === "racing",
+          progress: currentIndex,
+          wpm: liveWpm,
+          accuracy: liveAccuracy,
+        });
+        
+        // Clean up local storage
+        localStorage.removeItem(`race_${race.id}_participant`);
+        localStorage.removeItem(`race_${race.roomCode}_participant`);
+        
+        toast.info("You left the race", { duration: 2000 });
+      } else {
+        // Edge case: race or participant data missing
+        console.warn("[Leave Race] Missing race or participant data");
+        toast.warning("Leaving race...", { duration: 1500 });
+      }
+    } catch (error) {
+      console.error("[Leave Race] Error leaving race:", error);
+      toast.error("Failed to leave race properly. Redirecting...", { duration: 2000 });
+    } finally {
+      // Always redirect to multiplayer, even if there was an error
+      setTimeout(() => {
+        setLocation("/multiplayer");
+      }, 100);
     }
-    
-    if (race && myParticipant) {
-      localStorage.removeItem(`race_${race.id}_participant`);
-      localStorage.removeItem(`race_${race.roomCode}_participant`);
-    }
-    
-    setLocation("/multiplayer");
   }
   
   function cancelLeaveRace() {
@@ -2170,26 +2182,31 @@ export default function RacePage() {
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-yellow-500" />
-                Leave Race?
+                Are you sure you want to leave?
               </AlertDialogTitle>
-              <AlertDialogDescription className="space-y-2">
-                <p>You're in the middle of an active race. If you leave now:</p>
-                <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
-                  <li>You'll be marked as DNF (Did Not Finish)</li>
-                  <li>Your progress won't count towards the final results</li>
-                  <li>Any rating changes will be forfeited</li>
-                </ul>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>You're in the middle of an active race. If you leave now:</p>
+                  <ul className="list-disc list-inside text-sm space-y-1 text-muted-foreground">
+                    <li>You'll be marked as <strong>DNF</strong> (Did Not Finish)</li>
+                    <li>Your current progress won't be saved</li>
+                    <li>Any rating changes will be forfeited</li>
+                  </ul>
+                  <p className="text-sm font-medium text-muted-foreground mt-2">
+                    Current progress: {currentIndex} characters typed
+                  </p>
+                </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={cancelLeaveRace}>
-                Continue Racing
+                Keep Racing
               </AlertDialogCancel>
               <AlertDialogAction 
                 onClick={confirmLeaveRace}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                Leave Race
+                Yes, Leave Race
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -2210,10 +2227,11 @@ export default function RacePage() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={handleLeaveClick}
                     disabled={isLeaving}
+                    className="hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
                     data-testid="button-leave-race"
                   >
                     {isLeaving ? (
@@ -2229,9 +2247,9 @@ export default function RacePage() {
                     )}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p className="font-medium">Leave Race</p>
-                  <p className="text-zinc-400">Exit the race. You'll be marked as DNF (Did Not Finish).</p>
+                <TooltipContent side="bottom" className="max-w-[200px]">
+                  <p className="font-medium">Click to leave race</p>
+                  <p className="text-zinc-400 text-xs">You'll be asked to confirm. Leaving marks you as DNF (Did Not Finish).</p>
                 </TooltipContent>
               </Tooltip>
               
