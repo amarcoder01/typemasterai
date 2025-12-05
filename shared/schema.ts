@@ -452,7 +452,7 @@ export const raceParticipants = pgTable("race_participants", {
   isActive: integer("is_active").notNull().default(1),
   progress: integer("progress").notNull().default(0), // characters typed
   wpm: integer("wpm").notNull().default(0),
-  accuracy: real("accuracy").notNull().default(0),
+  accuracy: real("accuracy").notNull().default(100), // 100% = no errors (not started yet)
   errors: integer("errors").notNull().default(0),
   isFinished: integer("is_finished").notNull().default(0),
   finishPosition: integer("finish_position"),

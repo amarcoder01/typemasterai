@@ -908,7 +908,7 @@ class RaceWebSocketServer {
   }
 
   private async handleTimedFinish(message: any) {
-    const { raceId, participantId, progress, accuracy, errors } = message;
+    const { raceId, participantId, progress, errors } = message;
     
     console.log(`[Timed Finish] Participant ${participantId} finished timed race ${raceId}`);
 
@@ -938,15 +938,20 @@ class RaceWebSocketServer {
       ? Math.round((correctChars / 5) / (elapsedSeconds / 60)) 
       : 0;
     
+    // Calculate accuracy properly on server side
+    const serverCalculatedAccuracy = progress > 0 
+      ? Math.round((correctChars / progress) * 100 * 100) / 100
+      : 100; // No typing = 100% accuracy (no errors made)
+    
     // Validate progress is reasonable (max 15 chars per second is extremely fast)
     const maxReasonableProgress = Math.ceil(elapsedSeconds * 15);
     const validatedProgress = Math.min(progress, maxReasonableProgress);
     
-    console.log(`[Timed Finish] Server validation: elapsed=${elapsedSeconds.toFixed(1)}s, progress=${progress}, validated=${validatedProgress}, serverWPM=${serverCalculatedWpm}`);
+    console.log(`[Timed Finish] Server validation: elapsed=${elapsedSeconds.toFixed(1)}s, progress=${progress}, validated=${validatedProgress}, serverWPM=${serverCalculatedWpm}, accuracy=${serverCalculatedAccuracy}`);
 
-    // Update participant's final stats with SERVER-CALCULATED WPM
-    await storage.updateParticipantProgress(participantId, validatedProgress, serverCalculatedWpm, accuracy, errors);
-    raceCache.bufferProgress(participantId, validatedProgress, serverCalculatedWpm, accuracy, errors);
+    // Update participant's final stats with SERVER-CALCULATED values
+    await storage.updateParticipantProgress(participantId, validatedProgress, serverCalculatedWpm, serverCalculatedAccuracy, errors);
+    raceCache.bufferProgress(participantId, validatedProgress, serverCalculatedWpm, serverCalculatedAccuracy, errors);
 
     // Mark participant as finished
     const { position, isNewFinish } = await storage.finishParticipant(participantId);
@@ -962,7 +967,7 @@ class RaceWebSocketServer {
       participantId,
       position,
       wpm: serverCalculatedWpm,
-      accuracy,
+      accuracy: serverCalculatedAccuracy,
     });
 
     // Check if all participants finished
@@ -1041,19 +1046,25 @@ class RaceWebSocketServer {
           ? Math.round((correctChars / 5) / (elapsedSeconds / 60)) 
           : 0;
         
-        console.log(`[Timed Race] Force finishing participant ${participant.username}: progress=${participant.progress}, calculated WPM=${serverCalculatedWpm}`);
+        // Calculate accuracy properly: if no typing, 100% (no errors); otherwise calculate from progress
+        const calculatedAccuracy = participant.progress > 0 
+          ? Math.round((correctChars / participant.progress) * 100 * 100) / 100
+          : 100; // No typing = 100% accuracy (no errors made)
+        
+        console.log(`[Timed Race] Force finishing participant ${participant.username}: progress=${participant.progress}, calculated WPM=${serverCalculatedWpm}, accuracy=${calculatedAccuracy}`);
 
         // Update with server-calculated values
         await storage.updateParticipantProgress(
           participant.id,
           participant.progress,
           serverCalculatedWpm,
-          participant.accuracy,
+          calculatedAccuracy,
           participant.errors
         );
         
         await storage.finishParticipant(participant.id);
         participant.wpm = serverCalculatedWpm;
+        participant.accuracy = calculatedAccuracy;
         participant.isFinished = 1;
       }
     }
