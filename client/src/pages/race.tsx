@@ -1869,21 +1869,6 @@ export default function RacePage() {
                 </TooltipContent>
               </Tooltip>
               
-              {/* Connection status indicator in header */}
-              {wsConnected && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2 text-green-500 text-sm cursor-help">
-                      <Wifi className="h-4 w-4" />
-                      <span>Live</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="font-medium">Connected</p>
-                    <p className="text-zinc-400">Real-time updates are active</p>
-                  </TooltipContent>
-                </Tooltip>
-              )}
             </div>
             <div className="space-y-6">
               <Card>
