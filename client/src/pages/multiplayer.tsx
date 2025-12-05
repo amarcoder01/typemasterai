@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Zap, Users, Lock, Trophy, Loader2, Info, Shield, WifiOff, AlertTriangle, CheckCircle2, Timer } from "lucide-react";
+import { Zap, Users, Lock, Trophy, Loader2, Info, WifiOff, AlertTriangle, CheckCircle2, Timer } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
@@ -97,7 +97,6 @@ export default function MultiplayerPage() {
   const [, setLocation] = useLocation();
   const [roomCode, setRoomCode] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(4);
-  const [isPrivate, setIsPrivate] = useState(true); // Default to private for Create Room
   const [loading, setLoading] = useState(false);
   const [loadingAction, setLoadingAction] = useState<"quickMatch" | "createRoom" | "joinRoom" | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(60);
@@ -181,7 +180,7 @@ export default function MultiplayerPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          isPrivate, 
+          isPrivate: true, 
           maxPlayers, 
           guestId,
           timeLimitSeconds: selectedDuration,
@@ -193,7 +192,7 @@ export default function MultiplayerPage() {
         localStorage.setItem(`race_${race.id}_participant`, JSON.stringify(participant));
         toast.success(`Room created! ${formatDuration(selectedDuration)} race`, {
           icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
-          description: isPrivate ? `Share code: ${race.roomCode}` : "Waiting for players to join...",
+          description: `Share code: ${race.roomCode}`,
         });
         setLocation(`/race/${race.id}`);
       } else {
@@ -526,42 +525,12 @@ export default function MultiplayerPage() {
                     </Select>
                   </div>
 
-                  {/* Private Room Toggle */}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer">
-                        <input
-                          type="checkbox"
-                          id="private"
-                          checked={isPrivate}
-                          onChange={(e) => setIsPrivate(e.target.checked)}
-                          className="h-4 w-4 accent-primary"
-                          data-testid="checkbox-private"
-                        />
-                        <label htmlFor="private" className="flex-1 cursor-pointer">
-                          <div className="flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm font-medium">Private Room</span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {isPrivate ? "Only players with the code can join" : "Anyone can find and join this room"}
-                          </p>
-                        </label>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs">
-                      <p className="font-medium">Room Visibility</p>
-                      <p className="text-zinc-400">Private rooms require a code. Public rooms appear in the lobby.</p>
-                    </TooltipContent>
-                  </Tooltip>
-
                   {/* Room Summary */}
                   <div className="bg-muted/50 rounded-lg p-3 space-y-1.5">
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Room Settings</p>
                     <div className="flex flex-wrap gap-2 text-sm">
                       <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{maxPlayers} players max</span>
                       <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{formatDuration(selectedDuration)}</span>
-                      <span className="bg-primary/10 text-primary px-2 py-0.5 rounded">{isPrivate ? "Private" : "Public"}</span>
                     </div>
                   </div>
 
@@ -589,7 +558,7 @@ export default function MultiplayerPage() {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      <p>Create a {isPrivate ? "private" : "public"} waiting room for {maxPlayers} players</p>
+                      <p>Create a waiting room for up to {maxPlayers} players</p>
                     </TooltipContent>
                   </Tooltip>
 
