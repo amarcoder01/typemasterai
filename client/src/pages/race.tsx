@@ -1484,14 +1484,10 @@ export default function RacePage() {
         setParticipants(prev => prev.filter(p => p.id !== message.participantId));
         break;
       case "participant_disconnected":
-        // Mark participant as disconnected but keep them in the list with visual indicator
-        setParticipants(prev => prev.map(p => 
-          p.id === message.participantId 
-            ? { ...p, isDisconnected: true }
-            : p
-        ));
-        // Find the disconnected participant's username
+        // Remove disconnected player from list to keep UI in sync with server state
+        // Server has already removed them from the race room
         const disconnectedPlayer = participants.find(p => p.id === message.participantId);
+        setParticipants(prev => prev.filter(p => p.id !== message.participantId));
         if (disconnectedPlayer) {
           toast.warning(`${disconnectedPlayer.username} disconnected`, { duration: 3000 });
         }
@@ -1839,48 +1835,32 @@ export default function RacePage() {
                         <Tooltip key={p.id}>
                           <TooltipTrigger asChild>
                             <div
-                              className={`flex items-center gap-3 p-3 border rounded-lg transition-colors cursor-default ${
-                                (p as any).isDisconnected ? 'opacity-50 border-zinc-700 bg-zinc-900/50' : 'hover:border-primary/50'
-                              } ${p.id === myParticipant?.id && !(p as any).isDisconnected ? 'border-primary/50 bg-primary/5' : ''
-                              } ${p.id === hostParticipantId && !(p as any).isDisconnected ? 'border-yellow-500/50' : ''}`}
+                              className={`flex items-center gap-3 p-3 border rounded-lg hover:border-primary/50 transition-colors cursor-default ${
+                                p.id === myParticipant?.id ? 'border-primary/50 bg-primary/5' : ''
+                              } ${p.id === hostParticipantId ? 'border-yellow-500/50' : ''}`}
                               data-testid={`participant-${p.id}`}
                             >
-                              <div className={`h-10 w-10 rounded-full ${(p as any).isDisconnected ? 'bg-zinc-600' : (p.avatarColor || 'bg-primary')} flex items-center justify-center text-white font-medium relative`}>
+                              <div className={`h-10 w-10 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium relative`}>
                                 {p.username[0].toUpperCase()}
-                                {p.id === hostParticipantId && !(p as any).isDisconnected && (
+                                {p.id === hostParticipantId && (
                                   <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5">
                                     <Trophy className="h-3 w-3 text-white" />
-                                  </div>
-                                )}
-                                {(p as any).isDisconnected && (
-                                  <div className="absolute -top-1 -right-1 bg-red-500 rounded-full p-0.5">
-                                    <WifiOff className="h-3 w-3 text-white" />
                                   </div>
                                 )}
                               </div>
                               <div className="flex-1">
                                 <div className="font-medium flex items-center gap-2">
                                   {p.username}
-                                  {(p as any).isDisconnected ? (
-                                    <Badge variant="outline" className="text-xs px-1.5 py-0 border-red-500 text-red-500">
-                                      Disconnected
-                                    </Badge>
-                                  ) : p.id === hostParticipantId ? (
+                                  {p.id === hostParticipantId && (
                                     <Badge variant="outline" className="text-xs px-1.5 py-0 border-yellow-500 text-yellow-500">
                                       Host
                                     </Badge>
-                                  ) : null}
+                                  )}
                                 </div>
-                                {p.id === myParticipant?.id && !(p as any).isDisconnected && (
+                                {p.id === myParticipant?.id && (
                                   <div className="text-xs text-primary flex items-center gap-1">
                                     <User className="h-3 w-3" />
                                     You
-                                  </div>
-                                )}
-                                {(p as any).isDisconnected && (
-                                  <div className="text-xs text-red-400 flex items-center gap-1">
-                                    <WifiOff className="h-3 w-3" />
-                                    Lost connection
                                   </div>
                                 )}
                               </div>
@@ -1889,13 +1869,11 @@ export default function RacePage() {
                           <TooltipContent side="left" className="max-w-xs">
                             <p className="font-medium">{p.username}</p>
                             <p className="text-zinc-400">
-                              {(p as any).isDisconnected 
-                                ? "Player disconnected - may rejoin soon"
-                                : p.id === hostParticipantId 
-                                  ? "Room host - can start the race"
-                                  : p.id === myParticipant?.id 
-                                    ? "This is you! Good luck in the race." 
-                                    : "Ready to race"}
+                              {p.id === hostParticipantId 
+                                ? "Room host - can start the race"
+                                : p.id === myParticipant?.id 
+                                  ? "This is you! Good luck in the race." 
+                                  : "Ready to race"}
                             </p>
                           </TooltipContent>
                         </Tooltip>
