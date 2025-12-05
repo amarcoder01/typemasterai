@@ -790,15 +790,12 @@ function RaceFinishBanner({
           <Button 
             size="lg" 
             onClick={onDismiss}
-            className="px-8 py-3 text-lg"
+            className="px-8 py-3 text-lg bg-primary hover:bg-primary/90"
             data-testid="button-view-results"
           >
             <Trophy className="h-5 w-5 mr-2" />
-            View Full Results
+            View Results
           </Button>
-          <p className="text-xs text-muted-foreground mt-3">
-            Click anywhere to continue
-          </p>
         </div>
       </div>
     </div>
@@ -851,6 +848,7 @@ export default function RacePage() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [ratingInfo, setRatingInfo] = useState<RatingInfo | null>(null);
   const [showFinishBanner, setShowFinishBanner] = useState(false);
+  const finishBannerDismissedRef = useRef(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState("");
@@ -876,6 +874,11 @@ export default function RacePage() {
   useEffect(() => {
     if (!params?.id) return;
 
+    // Reset state for new race
+    finishBannerDismissedRef.current = false;
+    setShowFinishBanner(false);
+    setFinishBannerData(null);
+    
     const roomCodeOrId = params.id;
     const savedParticipant = localStorage.getItem(`race_${roomCodeOrId}_participant`);
     
@@ -1084,6 +1087,9 @@ export default function RacePage() {
 
   // Handle case where race is already finished when loaded (e.g., after reconnect or page refresh)
   useEffect(() => {
+    // Don't show banner again if user already dismissed it
+    if (finishBannerDismissedRef.current) return;
+    
     if (race?.status === "finished" && !showFinishBanner) {
       console.log("[Race Debug] Detected finished race from API/state");
       
@@ -2175,7 +2181,10 @@ export default function RacePage() {
             wpm={finishBannerData.wpm}
             accuracy={finishBannerData.accuracy}
             isWinner={finishBannerData.position === 1}
-            onDismiss={() => setShowFinishBanner(false)}
+            onDismiss={() => {
+              finishBannerDismissedRef.current = true;
+              setShowFinishBanner(false);
+            }}
           />
         )}
         <div className="min-h-screen bg-background">
