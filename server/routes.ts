@@ -1530,7 +1530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/races/quick-match", async (req, res) => {
     try {
       const user = req.user;
-      const { guestId } = req.body;
+      const { guestId, raceType, timeLimitSeconds } = req.body;
       let username: string;
       
       if (user) {
@@ -1540,13 +1540,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const avatarColor = user?.avatarColor || "bg-primary";
+      
+      // Default to timed race with 60 seconds if not specified
+      const effectiveRaceType = raceType || "timed";
+      const effectiveTimeLimit = timeLimitSeconds || 60;
 
       const activeRaces = await storage.getActiveRaces();
       
-      // Find a waiting public race with available slots
+      // Find a waiting public race with matching type/duration and available slots
       let availableRace = null;
       for (const r of activeRaces) {
         if (r.status === "waiting" && r.isPrivate === 0) {
+          // For timed races, match by duration
+          if (effectiveRaceType === "timed") {
+            if (r.raceType !== "timed" || r.timeLimitSeconds !== effectiveTimeLimit) {
+              continue;
+            }
+          } else {
+            // For standard races, don't match with timed races
+            if (r.raceType === "timed") {
+              continue;
+            }
+          }
+          
           const participants = await storage.getRaceParticipants(r.id);
           // Count only human participants (bots can be replaced)
           const humanCount = participants.filter(p => p.isBot !== 1).length;
@@ -1558,11 +1574,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let race;
+      let paragraphContent: string;
+      let paragraphId: number | undefined;
+      
       if (availableRace) {
         race = availableRace;
       } else {
-        const paragraph = await storage.getRandomParagraph("english", "quote");
-        if (!paragraph) {
+        // For timed races, generate more content
+        if (effectiveRaceType === "timed") {
+          const paragraphs: string[] = [];
+          // Generate enough content for the duration (estimate ~60 WPM, 5 chars/word)
+          const estimatedCharsNeeded = Math.ceil((effectiveTimeLimit / 60) * 60 * 5 * 2);
+          let totalChars = 0;
+          
+          while (totalChars < estimatedCharsNeeded) {
+            const para = await storage.getRandomParagraph("english", "quote");
+            if (para) {
+              paragraphs.push(para.content);
+              totalChars += para.content.length;
+            } else {
+              break;
+            }
+          }
+          paragraphContent = paragraphs.join(" ");
+        } else {
+          const paragraph = await storage.getRandomParagraph("english", "quote");
+          if (!paragraph) {
+            return res.status(500).json({ message: "No paragraph available" });
+          }
+          paragraphContent = paragraph.content;
+          paragraphId = paragraph.id;
+        }
+
+        if (!paragraphContent) {
           return res.status(500).json({ message: "No paragraph available" });
         }
 
@@ -1570,8 +1614,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         race = await storage.createRace({
           roomCode,
           status: "waiting",
-          paragraphId: paragraph.id,
-          paragraphContent: paragraph.content,
+          raceType: effectiveRaceType,
+          timeLimitSeconds: effectiveRaceType === "timed" ? effectiveTimeLimit : null,
+          paragraphId,
+          paragraphContent,
           maxPlayers: 4,
           isPrivate: 0,
         });

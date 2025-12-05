@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Zap, Users, Lock, Trophy, Loader2, Info, Shield, WifiOff, AlertTriangle, CheckCircle2, Timer, Clock } from "lucide-react";
+import { Zap, Users, Lock, Trophy, Loader2, Info, Shield, WifiOff, AlertTriangle, CheckCircle2, Timer } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
@@ -87,7 +87,7 @@ export default function MultiplayerPage() {
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [isPrivate, setIsPrivate] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loadingAction, setLoadingAction] = useState<"quickMatch" | "createRoom" | "joinRoom" | "timedRace" | null>(null);
+  const [loadingAction, setLoadingAction] = useState<"quickMatch" | "createRoom" | "joinRoom" | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<number>(60);
 
   async function quickMatch() {
@@ -105,13 +105,18 @@ export default function MultiplayerPage() {
       const response = await fetch("/api/races/quick-match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ guestId }),
+        body: JSON.stringify({ 
+          guestId,
+          raceType: "timed",
+          timeLimitSeconds: selectedDuration
+        }),
       });
 
       if (response.ok) {
         const { race, participant } = await response.json();
         localStorage.setItem(`race_${race.id}_participant`, JSON.stringify(participant));
-        toast.success("Match found! Joining race...", {
+        const durationText = selectedDuration >= 60 ? `${Math.floor(selectedDuration / 60)}min` : `${selectedDuration}s`;
+        toast.success(`Match found! ${durationText} race starting...`, {
           icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
         });
         setLocation(`/race/${race.id}`);
@@ -157,55 +162,6 @@ export default function MultiplayerPage() {
         localStorage.setItem(`race_${race.id}_participant`, JSON.stringify(participant));
         toast.success("Room created! Waiting for players...", {
           icon: <CheckCircle2 className="h-4 w-4 text-green-500" />,
-        });
-        setLocation(`/race/${race.id}`);
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        const error = parseErrorResponse(response, errorData);
-        toast.error(error.message, {
-          icon: getErrorIcon(error.code),
-        });
-      }
-    } catch (error) {
-      toast.error("Unable to connect to the game server", {
-        icon: <WifiOff className="h-4 w-4" />,
-        description: "Please check your connection and try again",
-      });
-    } finally {
-      setLoading(false);
-      setLoadingAction(null);
-    }
-  }
-
-  async function startTimedRace() {
-    if (!isOnline) {
-      toast.error("You're offline. Please check your internet connection.", {
-        icon: <WifiOff className="h-4 w-4" />,
-      });
-      return;
-    }
-    
-    setLoading(true);
-    setLoadingAction("timedRace");
-    try {
-      const guestId = user ? undefined : getOrCreateGuestId();
-      const response = await fetch("/api/races/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          isPrivate: 0, 
-          maxPlayers: 4, 
-          guestId,
-          raceType: "timed",
-          timeLimitSeconds: selectedDuration
-        }),
-      });
-
-      if (response.ok) {
-        const { race, participant } = await response.json();
-        localStorage.setItem(`race_${race.id}_participant`, JSON.stringify(participant));
-        toast.success(`${selectedDuration}s timed race starting!`, {
-          icon: <Timer className="h-4 w-4 text-green-500" />,
         });
         setLocation(`/race/${race.id}`);
       } else {
@@ -334,7 +290,7 @@ export default function MultiplayerPage() {
           </div>
 
           <Tabs defaultValue="quick" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-8">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <TabsTrigger value="quick" data-testid="tab-quick-match">
@@ -345,18 +301,6 @@ export default function MultiplayerPage() {
                 <TooltipContent side="bottom">
                   <p className="font-medium">Instant Matchmaking</p>
                   <p className="text-zinc-400">Join an open race or start a new public one instantly</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <TabsTrigger value="timed" data-testid="tab-timed-race">
-                    <Timer className="h-4 w-4 mr-2" />
-                    Timed Race
-                  </TabsTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  <p className="font-medium">Timed Race Mode</p>
-                  <p className="text-zinc-400">Race for a set duration - see who types the most!</p>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -405,6 +349,36 @@ export default function MultiplayerPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Timer className="h-4 w-4 text-primary" />
+                      <label className="text-sm font-medium">Race Duration</label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right">
+                          <p className="font-medium">How long the race lasts</p>
+                          <p className="text-zinc-400">Type as much as you can before time runs out!</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Select
+                      value={selectedDuration.toString()}
+                      onValueChange={(value) => setSelectedDuration(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-full" data-testid="select-duration">
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="30">30 seconds</SelectItem>
+                        <SelectItem value="60">1 minute</SelectItem>
+                        <SelectItem value="90">90 seconds</SelectItem>
+                        <SelectItem value="120">2 minutes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -414,7 +388,7 @@ export default function MultiplayerPage() {
                         className="w-full text-lg h-14"
                         data-testid="button-quick-match"
                       >
-                        {loading ? (
+                        {loading && loadingAction === "quickMatch" ? (
                           <>
                             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                             Finding match...
@@ -422,107 +396,13 @@ export default function MultiplayerPage() {
                         ) : (
                           <>
                             <Zap className="mr-2 h-5 w-5" />
-                            Find Match
+                            Find Match • {selectedDuration >= 60 ? `${Math.floor(selectedDuration / 60)}min` : `${selectedDuration}s`}
                           </>
                         )}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      <p>Click to instantly join or create a race</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="timed">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-primary" />
-                    Timed Race
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="right" className="max-w-xs">
-                        <p className="font-medium">How Timed Races Work</p>
-                        <p className="text-zinc-400">Race against the clock! Type as many words as you can before time runs out. Highest WPM wins!</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </CardTitle>
-                  <CardDescription>
-                    Race for a set duration - see who types the most!
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium">Select Duration</label>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent side="right">
-                            <p className="font-medium">Race Duration</p>
-                            <p className="text-zinc-400">Choose how long the race lasts</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                      <Select
-                        value={selectedDuration.toString()}
-                        onValueChange={(value) => setSelectedDuration(parseInt(value))}
-                      >
-                        <SelectTrigger className="w-full" data-testid="select-duration">
-                          <SelectValue placeholder="Select duration" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="15">15 seconds</SelectItem>
-                          <SelectItem value="30">30 seconds</SelectItem>
-                          <SelectItem value="60">1 minute</SelectItem>
-                          <SelectItem value="120">2 minutes</SelectItem>
-                          <SelectItem value="180">3 minutes</SelectItem>
-                          <SelectItem value="300">5 minutes</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="bg-muted/50 rounded-lg p-4 space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Timer className="h-4 w-4 text-primary" />
-                      <span className="font-medium">Race Mode: Timed</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Type continuously for {selectedDuration >= 60 ? `${Math.floor(selectedDuration / 60)} minute${selectedDuration >= 120 ? 's' : ''}` : `${selectedDuration} seconds`}. The player with the highest WPM wins!
-                    </p>
-                  </div>
-
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={startTimedRace}
-                        disabled={loading && loadingAction === "timedRace"}
-                        size="lg"
-                        className="w-full text-lg h-14"
-                        data-testid="button-start-timed-race"
-                      >
-                        {loading && loadingAction === "timedRace" ? (
-                          <>
-                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                            Starting race...
-                          </>
-                        ) : (
-                          <>
-                            <Timer className="mr-2 h-5 w-5" />
-                            Start {selectedDuration >= 60 ? `${Math.floor(selectedDuration / 60)}min` : `${selectedDuration}s`} Race
-                          </>
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p>Start a {selectedDuration >= 60 ? `${Math.floor(selectedDuration / 60)} minute` : `${selectedDuration} second`} timed race</p>
+                      <p>Click to instantly join or create a {selectedDuration}s race</p>
                     </TooltipContent>
                   </Tooltip>
                 </CardContent>

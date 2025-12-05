@@ -492,7 +492,36 @@ class RaceWebSocketServer {
         
         // Schedule proactive bot greetings (bots say hi on their own)
         this.scheduleProactiveBotChat(raceId, bots);
+        
+        // Auto-start for public races (Quick Match) when room is full with bots
+        // Give players a brief moment to see the lobby before starting
+        if (race.isPrivate === 0) {
+          const totalParticipants = updatedParticipants.length;
+          console.log(`[Bot Lobby] Public race ${raceId} has ${totalParticipants}/${race.maxPlayers} players, auto-starting in 3s...`);
+          
+          // Short delay to let players see who joined
+          setTimeout(() => {
+            this.autoStartRace(raceId);
+          }, 3000);
+        }
       }
+    }
+  }
+  
+  private async autoStartRace(raceId: number) {
+    try {
+      const race = await storage.getRace(raceId);
+      if (!race || race.status !== "waiting") {
+        console.log(`[Auto-Start] Race ${raceId} no longer in waiting status, skipping auto-start`);
+        return;
+      }
+      
+      console.log(`[Auto-Start] Starting race ${raceId} automatically`);
+      
+      // Trigger the countdown (simulating a "ready" message)
+      await this.handleReady({ raceId });
+    } catch (error) {
+      console.error(`[Auto-Start] Error auto-starting race ${raceId}:`, error);
     }
   }
 
