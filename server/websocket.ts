@@ -32,6 +32,7 @@ interface RaceRoom {
   raceStartTime?: number;
   shardId: number;
   isFinishing?: boolean; // Prevents cleanup during race completion
+  hostParticipantId?: number; // The first player to join controls the race
 }
 
 interface ServerStats {
@@ -476,6 +477,12 @@ class RaceWebSocketServer {
     const existingClient = raceRoom.clients.get(participantId);
     const isReconnect = !!existingClient;
 
+    // Set host to first human player to join (not a bot)
+    if (!raceRoom.hostParticipantId && participant.isBot !== 1) {
+      raceRoom.hostParticipantId = participantId;
+      console.log(`[WS] Host set: ${username} (${participantId}) for race ${raceId}`);
+    }
+
     const client: RaceClient = { 
       ws, 
       raceId, 
@@ -494,16 +501,26 @@ class RaceWebSocketServer {
     }
     
     if (!isReconnect) {
+      // Broadcast participant_joined to ALL clients so everyone sees the new player
       this.broadcastToRace(raceId, {
         type: "participant_joined",
         participant: currentParticipant,
         participants,
+        hostParticipantId: raceRoom.hostParticipantId,
+      });
+      
+      // Also send a full sync to make sure everyone has the latest list
+      this.broadcastToRace(raceId, {
+        type: "participants_sync",
+        participants,
+        hostParticipantId: raceRoom.hostParticipantId,
       });
       console.log(`[WS] New join: ${username} (${participantId}) in race ${raceId}`);
     } else {
       ws.send(JSON.stringify({
         type: "participants_sync",
         participants,
+        hostParticipantId: raceRoom.hostParticipantId,
       }));
       console.log(`[WS] Reconnect: ${username} (${participantId}) in race ${raceId}`);
     }
@@ -512,6 +529,7 @@ class RaceWebSocketServer {
       type: "joined",
       race,
       participants,
+      hostParticipantId: raceRoom.hostParticipantId,
     }));
 
     this.updateStats();
@@ -698,12 +716,27 @@ class RaceWebSocketServer {
   }
 
   private async handleReady(message: any) {
-    const { raceId } = message;
-    console.log(`[WS] Ready message received for race ${raceId}`);
+    const { raceId, participantId } = message;
+    console.log(`[WS] Ready message received for race ${raceId} from participant ${participantId}`);
     
     const raceRoom = this.races.get(raceId);
     if (!raceRoom) {
       console.log(`[WS] No race room found for race ${raceId}`);
+      return;
+    }
+
+    // Only the host can start the race
+    if (raceRoom.hostParticipantId && participantId !== raceRoom.hostParticipantId) {
+      console.log(`[WS] Non-host ${participantId} tried to start race ${raceId} (host: ${raceRoom.hostParticipantId})`);
+      // Find the client and notify them
+      const client = raceRoom.clients.get(participantId);
+      if (client && client.ws.readyState === WebSocket.OPEN) {
+        client.ws.send(JSON.stringify({
+          type: "error",
+          message: "Only the room host can start the race",
+          code: "NOT_HOST"
+        }));
+      }
       return;
     }
 

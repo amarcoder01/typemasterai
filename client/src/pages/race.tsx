@@ -822,6 +822,7 @@ export default function RacePage() {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [myParticipant, setMyParticipant] = useState<Participant | null>(null);
   const myParticipantRef = useRef<Participant | null>(null);
+  const [hostParticipantId, setHostParticipantId] = useState<number | null>(null);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -1349,6 +1350,9 @@ export default function RacePage() {
       case "joined":
         setRace(message.race);
         setParticipants(message.participants);
+        if (message.hostParticipantId) {
+          setHostParticipantId(message.hostParticipantId);
+        }
         if (message.participants) {
           message.participants.forEach((p: Participant) => {
             seenParticipantJoinsRef.current.add(p.id);
@@ -1371,6 +1375,9 @@ export default function RacePage() {
         break;
       case "participant_joined":
         setParticipants(message.participants);
+        if (message.hostParticipantId) {
+          setHostParticipantId(message.hostParticipantId);
+        }
         if (message.participant && !seenParticipantJoinsRef.current.has(message.participant.id)) {
           seenParticipantJoinsRef.current.add(message.participant.id);
           toast.success(`${message.participant.username} joined the race!`);
@@ -1378,6 +1385,9 @@ export default function RacePage() {
         break;
       case "participants_sync":
         setParticipants(message.participants);
+        if (message.hostParticipantId) {
+          setHostParticipantId(message.hostParticipantId);
+        }
         break;
       case "bots_added":
         fetchRaceData();
@@ -1540,12 +1550,19 @@ export default function RacePage() {
   function startRace() {
     if (!participants.length || isStarting || isTransitioning) return;
     
+    // Only the host can start the race
+    if (hostParticipantId && myParticipant?.id !== hostParticipantId) {
+      toast.error("Only the room host can start the race");
+      return;
+    }
+    
     setIsStarting(true);
     setIsTransitioning(true);
     setTransitionMessage("Preparing race...");
     sendWsMessage({
       type: "ready",
       raceId: race?.id,
+      participantId: myParticipant?.id,
     });
   }
 
@@ -1801,33 +1818,43 @@ export default function RacePage() {
                   />
                 )}
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      onClick={startRace}
-                      disabled={participants.length < 1 || isStarting}
-                      size="lg"
-                      className="w-full"
-                      data-testid="button-start-race"
-                    >
-                      {isStarting ? (
-                        <>
-                          <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                          Starting...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-4 w-4 mr-2" />
-                          Start Race
-                        </>
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="font-medium">Begin the race</p>
-                    <p className="text-zinc-400">A countdown will start and the race begins!</p>
-                  </TooltipContent>
-                </Tooltip>
+                {/* Show Start Race button only for the host, or show waiting message for others */}
+                {(!hostParticipantId || myParticipant?.id === hostParticipantId) ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={startRace}
+                        disabled={participants.length < 1 || isStarting}
+                        size="lg"
+                        className="w-full"
+                        data-testid="button-start-race"
+                      >
+                        {isStarting ? (
+                          <>
+                            <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            Starting...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4 mr-2" />
+                            Start Race
+                          </>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="font-medium">Begin the race</p>
+                      <p className="text-zinc-400">A countdown will start and the race begins!</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ) : (
+                  <div className="w-full py-3 px-4 bg-muted/50 rounded-lg text-center text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Waiting for host to start the race...</span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
