@@ -2248,13 +2248,8 @@ export default function RacePage() {
                             <div className="text-2xl font-bold w-12 text-center">
                               {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
                             </div>
-                            <div className={`h-12 w-12 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium relative`}>
+                            <div className={`h-12 w-12 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium`}>
                               {p.username[0].toUpperCase()}
-                              {isParticipantBot && (
-                                <div className="absolute -bottom-1 -right-1 bg-zinc-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-zinc-500">
-                                  BOT
-                                </div>
-                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-medium flex items-center gap-2 flex-wrap">
@@ -2301,7 +2296,7 @@ export default function RacePage() {
                           <div className="space-y-1">
                             <p className="font-medium">{p.username} - #{idx + 1}</p>
                             <p className="text-zinc-400">
-                              {isParticipantBot ? "AI Opponent" : (p.id === myParticipant?.id ? "Your result" : "Human Racer")}
+                              {p.id === myParticipant?.id ? "Your result" : "Racer"}
                             </p>
                             <div className="pt-1 border-t border-zinc-700 mt-1">
                               <p className="text-zinc-300">Speed: {p.wpm} words per minute</p>
