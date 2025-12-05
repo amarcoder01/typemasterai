@@ -812,6 +812,7 @@ export default function RacePage() {
   const raceRef = useRef<Race | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [myParticipant, setMyParticipant] = useState<Participant | null>(null);
+  const myParticipantRef = useRef<Participant | null>(null);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -870,6 +871,10 @@ export default function RacePage() {
   useEffect(() => {
     errorsRef.current = errors;
   }, [errors]);
+
+  useEffect(() => {
+    myParticipantRef.current = myParticipant;
+  }, [myParticipant]);
 
   useEffect(() => {
     if (!params?.id) return;
@@ -1429,13 +1434,16 @@ export default function RacePage() {
         if (raceRef.current) {
           setRace({ ...raceRef.current, status: "finished" });
         }
-        const myResult = message.results.find((p: Participant) => p.id === myParticipant?.id);
+        // Use ref to get current participant ID (avoids stale closure issues)
+        const currentParticipant = myParticipantRef.current;
+        const myResult = message.results.find((p: Participant) => p.id === currentParticipant?.id);
         
+        // If myResult found, use server values; otherwise default to 100% accuracy for no typing
         setFinishBannerData({
           position: myResult?.finishPosition || null,
           totalPlayers: message.results.length,
-          wpm: myResult?.wpm || 0,
-          accuracy: myResult?.accuracy || 0,
+          wpm: myResult?.wpm ?? 0,
+          accuracy: myResult?.accuracy ?? 100, // Default to 100% if not found (no typing = perfect)
         });
         setShowFinishBanner(true);
         
