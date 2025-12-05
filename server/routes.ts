@@ -1820,6 +1820,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isFinished: 0,
             isBot: 0,
           });
+          
+          // CRITICAL: Update the race cache with the new participant
+          // This ensures WebSocket can find the participant when they connect
+          const { raceCache } = await import("./race-cache");
+          const updatedParticipants = await storage.getRaceParticipants(race.id);
+          raceCache.updateParticipants(race.id, updatedParticipants);
+          console.log(`[Join Room] Updated race cache with new participant ${username} (${participant.id})`);
         }
       }
 
