@@ -87,6 +87,37 @@ class RaceWebSocketServer {
     connectionRejections: 0,
   };
 
+  private async enrichResultsWithRatings(participants: any[]): Promise<any[]> {
+    const enrichedResults = await Promise.all(
+      participants.map(async (p) => {
+        if (p.isBot === 1) {
+          return { ...p, isBot: true, rating: null, tier: null, ratingChange: null };
+        }
+        
+        if (!p.userId) {
+          return { ...p, isBot: false, rating: null, tier: null, ratingChange: null };
+        }
+        
+        try {
+          const userRating = await storage.getOrCreateUserRating(p.userId);
+          const tierInfo = eloRatingService.getTierInfo(userRating.tier);
+          return {
+            ...p,
+            isBot: false,
+            rating: userRating.rating,
+            tier: userRating.tier,
+            tierInfo,
+            ratingChange: null,
+          };
+        } catch (error) {
+          console.error(`[Rating] Failed to fetch rating for user ${p.userId}:`, error);
+          return { ...p, isBot: false, rating: null, tier: null, ratingChange: null };
+        }
+      })
+    );
+    return enrichedResults;
+  }
+
   initialize(server: Server) {
     this.wss = new WebSocketServer({ server, path: "/ws/race" });
 
@@ -896,9 +927,11 @@ class RaceWebSocketServer {
       
       const sortedResults = updatedParticipants.sort((a, b) => (a.finishPosition || 999) - (b.finishPosition || 999));
       
+      const enrichedResults = await this.enrichResultsWithRatings(sortedResults);
+      
       this.broadcastToRace(raceId, {
         type: "race_finished",
-        results: sortedResults,
+        results: enrichedResults,
       });
 
       this.processRaceCompletion(raceId, sortedResults).catch(err => {
@@ -1000,9 +1033,11 @@ class RaceWebSocketServer {
         await storage.updateParticipantFinishPosition(sortedResults[i].id, i + 1);
       }
       
+      const enrichedResults = await this.enrichResultsWithRatings(sortedResults);
+      
       this.broadcastToRace(raceId, {
         type: "race_finished",
-        results: sortedResults,
+        results: enrichedResults,
         isTimedRace: true,
       });
 
@@ -1086,9 +1121,11 @@ class RaceWebSocketServer {
       await storage.updateParticipantFinishPosition(sortedResults[i].id, i + 1);
     }
 
+    const enrichedResults = await this.enrichResultsWithRatings(sortedResults);
+
     this.broadcastToRace(raceId, {
       type: "race_finished",
-      results: sortedResults,
+      results: enrichedResults,
       isTimedRace: true,
       serverEnforced: true,
     });
@@ -1136,9 +1173,11 @@ class RaceWebSocketServer {
       
       console.log(`[Bot Finish] Broadcasting race_finished for race ${raceId}`);
       
+      const enrichedResults = await this.enrichResultsWithRatings(sortedResults);
+      
       this.broadcastToRace(raceId, {
         type: "race_finished",
-        results: sortedResults,
+        results: enrichedResults,
       });
       
       this.processRaceCompletion(raceId, sortedResults).catch(err => {

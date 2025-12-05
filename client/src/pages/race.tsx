@@ -212,13 +212,22 @@ interface Participant {
   raceId: number;
   username: string;
   avatarColor: string | null;
-  isBot?: number;
+  isBot?: number | boolean;
   progress: number;
   wpm: number;
   accuracy: number;
   errors: number;
   isFinished: number;
   finishPosition: number | null;
+  rating?: number | null;
+  tier?: string | null;
+  tierInfo?: {
+    name: string;
+    color: string;
+    minRating: number;
+  } | null;
+  ratingChange?: number | null;
+  userId?: string | null;
 }
 
 interface ChatMessage {
@@ -2239,63 +2248,109 @@ export default function RacePage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-3">
-                  {sortedParticipants.map((p, idx) => (
-                    <Tooltip key={p.id}>
-                      <TooltipTrigger asChild>
-                        <div
-                          className={`flex items-center gap-4 p-4 border rounded-lg cursor-default transition-colors hover:border-primary/30 ${
-                            p.id === myParticipant?.id ? 'border-primary bg-primary/5' : ''
-                          }`}
-                          data-testid={`result-${p.id}`}
-                        >
-                          <div className="text-2xl font-bold w-12 text-center">
-                            {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
-                          </div>
-                          <div className={`h-12 w-12 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium relative`}>
-                            {p.username[0].toUpperCase()}
-                          </div>
-                          <div className="flex-1">
-                            <div className="font-medium flex items-center gap-2">
-                              {p.username}
+                  {sortedParticipants.map((p, idx) => {
+                    const isParticipantBot = p.isBot === 1 || p.isBot === true;
+                    const tierColor = p.tierInfo?.color || 'gray';
+                    return (
+                      <Tooltip key={p.id}>
+                        <TooltipTrigger asChild>
+                          <div
+                            className={`flex items-center gap-4 p-4 border rounded-lg cursor-default transition-colors hover:border-primary/30 ${
+                              p.id === myParticipant?.id ? 'border-primary bg-primary/5' : ''
+                            }`}
+                            data-testid={`result-${p.id}`}
+                          >
+                            <div className="text-2xl font-bold w-12 text-center">
+                              {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
                             </div>
-                            {p.id === myParticipant?.id && (
-                              <div className="text-xs text-primary flex items-center gap-1">
-                                <User className="h-3 w-3" />
-                                You
+                            <div className={`h-12 w-12 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium relative`}>
+                              {p.username[0].toUpperCase()}
+                              {isParticipantBot && (
+                                <div className="absolute -bottom-1 -right-1 bg-zinc-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-zinc-500">
+                                  BOT
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium flex items-center gap-2 flex-wrap">
+                                <span className="truncate">{p.username}</span>
+                                {!isParticipantBot && p.tier && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] px-1.5 py-0 capitalize"
+                                    style={{ borderColor: tierColor, color: tierColor }}
+                                    data-testid={`tier-badge-${p.id}`}
+                                  >
+                                    {p.tierInfo?.name || p.tier}
+                                  </Badge>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xl font-bold flex items-center justify-end gap-1">
-                              <Gauge className="h-4 w-4 text-muted-foreground" />
-                              {p.wpm} WPM
+                              <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+                                {p.id === myParticipant?.id && (
+                                  <span className="text-primary flex items-center gap-1">
+                                    <User className="h-3 w-3" />
+                                    You
+                                  </span>
+                                )}
+                                {!isParticipantBot && p.rating !== null && p.rating !== undefined && (
+                                  <span data-testid={`rating-${p.id}`} className="flex items-center gap-1">
+                                    <Award className="h-3 w-3" />
+                                    {p.rating}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-sm text-muted-foreground flex items-center justify-end gap-1">
-                              <Target className="h-3 w-3" />
-                              {p.accuracy}% Accuracy
+                            <div className="text-right">
+                              <div className="text-xl font-bold flex items-center justify-end gap-1">
+                                <Gauge className="h-4 w-4 text-muted-foreground" />
+                                {p.wpm} WPM
+                              </div>
+                              <div className="text-sm text-muted-foreground flex items-center justify-end gap-1">
+                                <Target className="h-3 w-3" />
+                                {p.accuracy}% Accuracy
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" className="max-w-xs">
-                        <div className="space-y-1">
-                          <p className="font-medium">{p.username} - #{idx + 1}</p>
-                          <p className="text-zinc-400">
-                            {p.id === myParticipant?.id ? "Your result" : "Racer"}
-                          </p>
-                          <div className="pt-1 border-t border-zinc-700 mt-1">
-                            <p className="text-zinc-300">Speed: {p.wpm} words per minute</p>
-                            <p className="text-zinc-300">Accuracy: {p.accuracy}% correct</p>
-                            {p.errors > 0 && <p className="text-zinc-400">Errors: {p.errors}</p>}
+                        </TooltipTrigger>
+                        <TooltipContent side="left" className="max-w-xs">
+                          <div className="space-y-1">
+                            <p className="font-medium">{p.username} - #{idx + 1}</p>
+                            <p className="text-zinc-400">
+                              {isParticipantBot ? "AI Opponent" : (p.id === myParticipant?.id ? "Your result" : "Human Racer")}
+                            </p>
+                            <div className="pt-1 border-t border-zinc-700 mt-1">
+                              <p className="text-zinc-300">Speed: {p.wpm} words per minute</p>
+                              <p className="text-zinc-300">Accuracy: {p.accuracy}% correct</p>
+                              {p.errors > 0 && <p className="text-zinc-400">Errors: {p.errors}</p>}
+                              {!isParticipantBot && p.rating !== null && p.rating !== undefined && (
+                                <p className="text-zinc-300 mt-1">
+                                  Rating: {p.rating} ({p.tierInfo?.name || p.tier})
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
                 </div>
 
-                {user && ratingInfo && (
-                  <RatingChangeDisplay ratingInfo={ratingInfo} position={myPosition} />
+                {/* Rating Section */}
+                {user ? (
+                  ratingInfo ? (
+                    <RatingChangeDisplay ratingInfo={ratingInfo} position={myPosition} />
+                  ) : (
+                    <div className="p-3 border rounded-lg bg-muted/30 flex items-center gap-2 text-muted-foreground" data-testid="rating-loading">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Loading your rating...</span>
+                    </div>
+                  )
+                ) : (
+                  <div className="p-3 border rounded-lg bg-muted/30 text-center" data-testid="rating-guest">
+                    <p className="text-muted-foreground text-sm">
+                      Sign in to track your competitive rating and tier
+                    </p>
+                  </div>
                 )}
 
                 <div className="flex gap-3">
