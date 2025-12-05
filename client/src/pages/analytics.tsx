@@ -12,6 +12,125 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { format, parseISO, isValid } from "date-fns";
 
+// ============================================================================
+// ANALYTICS CONFIGURATION - Centralized, production-ready settings
+// ============================================================================
+
+const ANALYTICS_CONFIG = {
+  // Time range options (in days) - sorted ascending
+  timeRangeOptions: [7, 14, 30, 60, 90] as const,
+  defaultTimeRange: 30,
+  
+  // AI Configuration
+  ai: {
+    timeoutMs: 30000,
+    maxRetries: 2,
+  },
+  
+  // Display limits - how many items to show in various contexts
+  limits: {
+    insightsDisplay: 8,
+    mistakeKeysInPrompt: 5,
+    mistakeKeysInFallback: 5,
+    mistakeKeysInWeeklyFallback: 3,
+    commonMistakesInPrompt: 5,
+    dailyExercises: 3,
+    weeklyGoals: 3,
+    keystrokeAnalyticsDepth: 10,
+  },
+  
+  // Query caching
+  cache: {
+    staleTimeMs: 30000,
+    retryCount: 2,
+  },
+  
+  // Skill level thresholds (WPM) - configurable speed tiers
+  // These can be adjusted based on target audience or research data
+  skillThresholds: {
+    beginner: 30,       // Below this = beginner
+    developing: 40,     // 30-40 WPM
+    intermediate: 50,   // 40-50 WPM
+    advanced: 70,       // 50-70 WPM
+    expert: 90,         // 70+ WPM = expert
+  },
+  
+  // Skill level profiles with improvement rates and descriptions
+  skillProfiles: {
+    beginner: {
+      level: "Beginner",
+      description: "Focus on accuracy and proper technique",
+      improvementRates: { week1: 8, week2: 12, week3: 15 },
+    },
+    developing: {
+      level: "Developing",
+      description: "Building muscle memory and speed",
+      improvementRates: { week1: 6, week2: 10, week3: 12 },
+    },
+    intermediate: {
+      level: "Intermediate",
+      description: "Refining skills and consistency",
+      improvementRates: { week1: 5, week2: 8, week3: 10 },
+    },
+    advanced: {
+      level: "Advanced",
+      description: "Optimizing for peak performance",
+      improvementRates: { week1: 4, week2: 6, week3: 8 },
+    },
+    expert: {
+      level: "Expert",
+      description: "Maintaining excellence and precision",
+      improvementRates: { week1: 2, week2: 4, week3: 5 },
+    },
+  },
+  
+  // Consistency thresholds
+  consistency: {
+    coefficientOfVariationThreshold: 15, // CV% above this = inconsistent
+    minStdDevFactor: 0.2, // stdDev > avgWpm * this factor = inconsistent
+    minStdDevAbsolute: 10, // Minimum absolute std dev threshold
+    excellentCV: 10, // CV% below this = excellent consistency
+  },
+} as const;
+
+// Dynamic thresholds calculator - derives all thresholds from config and user data
+const calculateDynamicThresholds = (analytics: AnalyticsData) => {
+  const avgWpm = analytics.consistency.avgWpm;
+  const stdDev = analytics.consistency.stdDeviation;
+  const wpmRange = analytics.consistency.maxWpm - analytics.consistency.minWpm;
+  
+  // Use configurable thresholds and profiles from config
+  const { skillThresholds, skillProfiles, consistency: consistencyConfig } = ANALYTICS_CONFIG;
+  
+  // Consistency calculation using config thresholds
+  const coefficientOfVariation = avgWpm > 0 ? (stdDev / avgWpm) * 100 : 0;
+  const isInconsistent = coefficientOfVariation > consistencyConfig.coefficientOfVariationThreshold 
+    || stdDev > Math.max(consistencyConfig.minStdDevAbsolute, avgWpm * consistencyConfig.minStdDevFactor);
+  
+  // Determine skill profile key based on WPM thresholds
+  const getSkillProfileKey = (): keyof typeof skillProfiles => {
+    if (avgWpm < skillThresholds.beginner) return 'beginner';
+    if (avgWpm < skillThresholds.developing) return 'developing';
+    if (avgWpm < skillThresholds.intermediate) return 'intermediate';
+    if (avgWpm < skillThresholds.advanced) return 'advanced';
+    return 'expert';
+  };
+  
+  const profileKey = getSkillProfileKey();
+  const currentProfile = skillProfiles[profileKey];
+  
+  return {
+    speedThresholds: skillThresholds,
+    isInconsistent,
+    coefficientOfVariation,
+    improvementRates: currentProfile.improvementRates,
+    skillLevel: { level: currentProfile.level, description: currentProfile.description },
+    wpmRange,
+    // Dynamic accuracy threshold - lower WPM users should focus more on accuracy
+    accuracyFocus: avgWpm < skillThresholds.intermediate,
+  };
+};
+
 interface AnalyticsData {
   wpmOverTime: Array<{ date: string; wpm: number; accuracy: number; testCount: number }>;
   mistakesHeatmap: Array<{ key: string; errorCount: number; totalCount: number; errorRate: number }>;
@@ -175,7 +294,7 @@ const EmptyDataState = ({ message }: { message: string }) => (
 );
 
 function AnalyticsContent() {
-  const [selectedDays, setSelectedDays] = useState(30);
+  const [selectedDays, setSelectedDays] = useState<number>(ANALYTICS_CONFIG.defaultTimeRange);
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [dailyPlan, setDailyPlan] = useState<DailyExercise[]>([]);
@@ -185,28 +304,31 @@ function AnalyticsContent() {
 
   const { data: analyticsData, isLoading, isError, error, refetch } = useQuery<{ analytics: AnalyticsData }>({
     queryKey: [`/api/analytics?days=${selectedDays}`],
-    retry: 2,
-    staleTime: 30000,
+    retry: ANALYTICS_CONFIG.cache.retryCount,
+    staleTime: ANALYTICS_CONFIG.cache.staleTimeMs,
   });
 
   const analytics = analyticsData?.analytics;
   const isDataValid = validateAnalyticsData(analytics);
+  
+  // Calculate dynamic thresholds based on user's actual data
+  const dynamicThresholds = useMemo(() => {
+    if (!isDataValid || !analytics) return null;
+    return calculateDynamicThresholds(analytics);
+  }, [analytics, isDataValid]);
 
   // Fetch latest keystroke analytics for detailed analysis
   const { data: keystrokeData } = useQuery({
-    queryKey: ["/api/analytics/user?limit=1"],
+    queryKey: [`/api/analytics/user?limit=${ANALYTICS_CONFIG.limits.keystrokeAnalyticsDepth}`],
     queryFn: async () => {
-      const response = await fetch("/api/analytics/user?limit=1", {
+      const response = await fetch(`/api/analytics/user?limit=${ANALYTICS_CONFIG.limits.keystrokeAnalyticsDepth}`, {
         credentials: "include",
       });
       if (!response.ok) return null;
       const data = await response.json();
-      // Return the first analytics record if available
-      return data.analytics && data.analytics.length > 0 ? { analytics: data.analytics[0] } : null;
+      return data.analytics && data.analytics.length > 0 ? { analytics: data.analytics } : null;
     },
   });
-
-  const AI_TIMEOUT_MS = 30000;
   
   const sanitizeText = (text: string): string => {
     return text
@@ -225,9 +347,10 @@ function AnalyticsContent() {
     });
   };
 
-  const parseInsightsFromText = (text: string, analytics: AnalyticsData): AIInsight[] => {
+  const parseInsightsFromText = useCallback((text: string, analytics: AnalyticsData): AIInsight[] => {
     const insights: AIInsight[] = [];
     const lines = text.split(/\n/).map(l => l.trim()).filter(l => l.length > 10);
+    const thresholds = calculateDynamicThresholds(analytics);
     
     const improvementKeywords = ['improve', 'focus', 'work on', 'reduce', 'avoid', 'weakness'];
     const strengthKeywords = ['strength', 'good', 'excellent', 'strong', 'well', 'consistent'];
@@ -248,46 +371,72 @@ function AnalyticsContent() {
       }
     }
     
+    // Generate contextual fallback insights based on dynamic thresholds
     if (insights.length === 0) {
-      if (analytics.mistakesHeatmap.length > 0) {
+      const topMistakeKeys = analytics.mistakesHeatmap
+        .slice(0, ANALYTICS_CONFIG.limits.mistakeKeysInFallback)
+        .map(m => m.key);
+      
+      if (topMistakeKeys.length > 0) {
         insights.push({
           type: "improvement",
-          message: `Focus on keys with high error rates: ${analytics.mistakesHeatmap.slice(0, 3).map(m => m.key).join(", ")}`,
+          message: `Focus on keys with high error rates: ${topMistakeKeys.join(", ")}`,
           priority: "high",
         });
       }
       
-      if (analytics.consistency.stdDeviation > 10) {
+      // Use dynamic consistency threshold instead of hardcoded value
+      if (thresholds.isInconsistent) {
         insights.push({
           type: "improvement",
-          message: "Work on consistency - your WPM varies significantly between tests",
+          message: `Work on consistency - your WPM varies by ${thresholds.coefficientOfVariation.toFixed(0)}% between tests`,
           priority: "high",
         });
       }
       
-      if (analytics.consistency.avgWpm < 40) {
+      // Use skill level for contextual advice instead of hardcoded WPM thresholds
+      const { skillLevel } = thresholds;
+      if (skillLevel.level === "Beginner" || skillLevel.level === "Developing") {
         insights.push({
           type: "practice",
-          message: "Practice daily for 15 minutes to build muscle memory and increase speed",
+          message: `${skillLevel.description}. Practice daily for 15-20 minutes to build muscle memory`,
           priority: "medium",
         });
-      } else if (analytics.consistency.avgWpm >= 60) {
+      } else if (skillLevel.level === "Advanced" || skillLevel.level === "Expert") {
         insights.push({
           type: "strength",
-          message: "Your typing speed is above average. Focus on accuracy to maintain quality.",
+          message: `${skillLevel.description}. Your typing speed is excellent - maintain quality with focused practice`,
+          priority: "medium",
+        });
+      } else {
+        insights.push({
+          type: "practice",
+          message: `${skillLevel.description}. Continue regular practice to improve both speed and accuracy`,
           priority: "medium",
         });
       }
     }
     
-    return deduplicateInsights(insights).slice(0, 8);
-  };
+    return deduplicateInsights(insights).slice(0, ANALYTICS_CONFIG.limits.insightsDisplay);
+  }, []);
 
   const generateAIInsights = async () => {
-    if (!analytics) return;
+    if (!analytics || !dynamicThresholds) return;
 
     const abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), AI_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => abortController.abort(), ANALYTICS_CONFIG.ai.timeoutMs);
+    const { skillLevel, isInconsistent, coefficientOfVariation, accuracyFocus } = dynamicThresholds;
+    
+    // Build contextual prompt based on user's skill level and data
+    const topMistakeKeys = analytics.mistakesHeatmap
+      .slice(0, ANALYTICS_CONFIG.limits.mistakeKeysInPrompt)
+      .map(m => `${sanitizeText(m.key)} (${safeNumber(m.errorRate).toFixed(1)}% error rate)`)
+      .join(", ");
+    
+    const commonMistakes = analytics.commonMistakes
+      .slice(0, ANALYTICS_CONFIG.limits.commonMistakesInPrompt)
+      .map(m => `"${sanitizeText(m.expectedKey)}" typed as "${sanitizeText(m.typedKey)}" (${m.count}x)`)
+      .join(", ");
     
     setLoadingInsights(true);
     try {
@@ -298,23 +447,28 @@ function AnalyticsContent() {
         signal: abortController.signal,
         body: JSON.stringify({
           conversationId: null,
-          message: `Analyze my typing performance data and provide actionable insights:
+          message: `Analyze my typing performance and provide personalized insights.
+
+User Profile:
+- Skill Level: ${skillLevel.level} (${skillLevel.description})
+- Focus Area: ${accuracyFocus ? "Accuracy improvement" : "Speed optimization"}
 
 Performance Metrics:
 - Average WPM: ${safeNumber(analytics.consistency.avgWpm).toFixed(1)}
 - WPM Range: ${safeNumber(analytics.consistency.minWpm)} - ${safeNumber(analytics.consistency.maxWpm)}
-- Consistency (Std Dev): ${safeNumber(analytics.consistency.stdDeviation).toFixed(1)}
+- Consistency: ${isInconsistent ? `Needs work (${coefficientOfVariation.toFixed(0)}% variation)` : "Good consistency"}
+- Tests in period: ${analytics.wpmOverTime.length}
 
-Top Mistake Keys: ${analytics.mistakesHeatmap.slice(0, 5).map(m => `${sanitizeText(m.key)} (${safeNumber(m.errorRate).toFixed(1)}% error rate)`).join(", ")}
+Problem Areas:
+- Top Mistake Keys: ${topMistakeKeys || "None identified"}
+- Common Errors: ${commonMistakes || "None identified"}
 
-Common Typing Errors: ${analytics.commonMistakes.slice(0, 5).map(m => `"${sanitizeText(m.expectedKey)}" typed as "${sanitizeText(m.typedKey)}" (${m.count}x)`).join(", ")}
+Provide insights tailored to my ${skillLevel.level.toLowerCase()} skill level:
+1. ${ANALYTICS_CONFIG.limits.dailyExercises} specific improvement areas based on my mistakes
+2. 2 strengths or positive patterns in my typing
+3. ${ANALYTICS_CONFIG.limits.dailyExercises} practice recommendations appropriate for ${skillLevel.level.toLowerCase()} level
 
-Please provide:
-1. 3 specific areas for improvement based on my mistakes
-2. 2 strengths or positive patterns
-3. 3 targeted practice recommendations
-
-Format each insight as a single concise sentence. Focus on actionable advice.`,
+Format each insight as a single concise sentence. Focus on actionable, level-appropriate advice.`,
         }),
       });
 
@@ -372,29 +526,86 @@ Format each insight as a single concise sentence. Focus on actionable advice.`,
     }
   };
 
-  const generateFallbackDailyPlan = (analytics: AnalyticsData): DailyExercise[] => [
-    {
-      title: "Problem Keys Practice",
-      description: `Focus on keys with high error rates: ${analytics.mistakesHeatmap.slice(0, 5).map(m => m.key).join(", ")}`,
-      duration: "10 min",
-    },
-    {
-      title: "Speed Building",
-      description: "Take 3 short tests (30s each) to increase typing speed while maintaining accuracy",
-      duration: "5 min",
-    },
-    {
-      title: "Accuracy Drills",
-      description: "Type slowly with focus on 100% accuracy to build proper muscle memory",
-      duration: "5 min",
+  const generateFallbackDailyPlan = useCallback((analytics: AnalyticsData): DailyExercise[] => {
+    const thresholds = calculateDynamicThresholds(analytics);
+    const { skillLevel, accuracyFocus, isInconsistent } = thresholds;
+    const topMistakeKeys = analytics.mistakesHeatmap
+      .slice(0, ANALYTICS_CONFIG.limits.mistakeKeysInFallback)
+      .map(m => m.key)
+      .join(", ");
+    
+    // Generate exercises based on skill level and problem areas
+    const exercises: DailyExercise[] = [];
+    
+    // Exercise 1: Always address problem keys if they exist
+    if (topMistakeKeys) {
+      exercises.push({
+        title: "Problem Keys Practice",
+        description: `Focus on keys with high error rates: ${topMistakeKeys}`,
+        duration: skillLevel.level === "Beginner" ? "15 min" : "10 min",
+      });
+    } else {
+      exercises.push({
+        title: "Finger Strength Building",
+        description: "Practice common letter combinations to build muscle memory",
+        duration: "10 min",
+      });
     }
-  ];
+    
+    // Exercise 2: Based on whether user needs accuracy or speed focus
+    if (accuracyFocus || isInconsistent) {
+      exercises.push({
+        title: "Accuracy Drills",
+        description: "Type at 70% of your normal speed focusing on 100% accuracy",
+        duration: skillLevel.level === "Beginner" ? "10 min" : "5 min",
+      });
+    } else {
+      exercises.push({
+        title: "Speed Bursts",
+        description: "Complete 5 short tests (30s each) pushing for maximum speed",
+        duration: "5 min",
+      });
+    }
+    
+    // Exercise 3: Skill-level appropriate challenge
+    if (skillLevel.level === "Beginner" || skillLevel.level === "Developing") {
+      exercises.push({
+        title: "Consistent Rhythm Practice",
+        description: "Focus on maintaining a steady typing rhythm without rushing",
+        duration: "5 min",
+      });
+    } else {
+      exercises.push({
+        title: "Endurance Challenge",
+        description: "Complete one 2-minute test to build typing stamina",
+        duration: "5 min",
+      });
+    }
+    
+    return exercises.slice(0, ANALYTICS_CONFIG.limits.dailyExercises);
+  }, []);
 
   const generateDailyPlan = async () => {
-    if (!analytics) return;
+    if (!analytics || !dynamicThresholds) return;
 
     const abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), AI_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => abortController.abort(), ANALYTICS_CONFIG.ai.timeoutMs);
+    const { skillLevel, accuracyFocus, isInconsistent } = dynamicThresholds;
+    
+    // Build contextual data for the prompt
+    const topMistakeKeys = analytics.mistakesHeatmap
+      .slice(0, ANALYTICS_CONFIG.limits.mistakeKeysInPrompt)
+      .map(m => sanitizeText(m.key))
+      .join(", ");
+    
+    const commonMistakes = analytics.commonMistakes
+      .slice(0, ANALYTICS_CONFIG.limits.commonMistakesInPrompt)
+      .map(m => `${sanitizeText(m.expectedKey)}→${sanitizeText(m.typedKey)}`)
+      .join(", ");
+    
+    const latestAccuracy = analytics.wpmOverTime.length > 0 
+      ? safeNumber(analytics.wpmOverTime[analytics.wpmOverTime.length - 1].accuracy) 
+      : 95;
     
     setLoadingDailyPlan(true);
     try {
@@ -405,20 +616,25 @@ Format each insight as a single concise sentence. Focus on actionable advice.`,
         signal: abortController.signal,
         body: JSON.stringify({
           conversationId: null,
-          message: `Based on my typing analytics, create a personalized daily practice plan with exactly 3 exercises:
+          message: `Create a personalized daily practice plan for a ${skillLevel.level.toLowerCase()} typist.
+
+User Profile:
+- Skill Level: ${skillLevel.level} (${skillLevel.description})
+- Primary Focus: ${accuracyFocus ? "Improving accuracy" : "Building speed"}
+- Consistency: ${isInconsistent ? "Needs improvement" : "Good"}
 
 Performance Data:
 - Average WPM: ${safeNumber(analytics.consistency.avgWpm).toFixed(1)}
-- Accuracy: ${analytics.wpmOverTime.length > 0 ? safeNumber(analytics.wpmOverTime[analytics.wpmOverTime.length - 1].accuracy).toFixed(1) : 95}%
-- Top Problem Keys: ${analytics.mistakesHeatmap.slice(0, 5).map(m => sanitizeText(m.key)).join(", ")}
-- Common Mistakes: ${analytics.commonMistakes.slice(0, 3).map(m => `${sanitizeText(m.expectedKey)}→${sanitizeText(m.typedKey)}`).join(", ")}
+- Latest Accuracy: ${latestAccuracy.toFixed(1)}%
+- Problem Keys: ${topMistakeKeys || "None identified"}
+- Common Mistakes: ${commonMistakes || "None identified"}
 
-Create 3 exercises in this exact format:
+Create exactly ${ANALYTICS_CONFIG.limits.dailyExercises} exercises in this format:
 Exercise 1: [Title] | [Description] | [Duration]
 Exercise 2: [Title] | [Description] | [Duration]
 Exercise 3: [Title] | [Description] | [Duration]
 
-Make them specific to my mistakes and skill level. Each should have a clear title, actionable description, and time duration (e.g., "10 min").`,
+Tailor exercises to ${skillLevel.level.toLowerCase()} level - ${accuracyFocus ? "prioritize accuracy drills" : "include speed challenges"}. Each should have a clear title, actionable description, and appropriate duration.`,
         }),
       });
 
@@ -468,7 +684,7 @@ Make them specific to my mistakes and skill level. Each should have a clear titl
         }
       }
 
-      setDailyPlan(exercises.length > 0 ? exercises.slice(0, 3) : generateFallbackDailyPlan(analytics));
+      setDailyPlan(exercises.length > 0 ? exercises.slice(0, ANALYTICS_CONFIG.limits.dailyExercises) : generateFallbackDailyPlan(analytics));
       toast.success("Daily practice plan generated!");
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -484,35 +700,86 @@ Make them specific to my mistakes and skill level. Each should have a clear titl
     }
   };
 
-  const generateFallbackWeeklyPlan = (avgWpm: number): WeeklyGoal[] => [
-    {
-      week: "Week 1",
-      title: "Foundation",
-      tasks: ["Practice 15 min daily", "Focus on accuracy over speed", "Learn proper finger placement"],
-      target: `${Math.ceil(avgWpm + 5)} WPM`,
-      status: "current",
-    },
-    {
-      week: "Week 2",
-      title: "Speed Building",
-      tasks: ["Increase to 20 min sessions", "Add timed challenges", "Practice problem keys"],
-      target: `${Math.ceil(avgWpm + 10)} WPM`,
-      status: "next",
-    },
-    {
-      week: "Week 3-4",
-      title: "Mastery",
-      tasks: ["Combine speed and accuracy", "Test different modes", "Maintain consistency"],
-      target: `${Math.ceil(avgWpm + 15)} WPM`,
-      status: "later",
+  const generateFallbackWeeklyPlan = useCallback((analytics: AnalyticsData): WeeklyGoal[] => {
+    const thresholds = calculateDynamicThresholds(analytics);
+    const { skillLevel, improvementRates, accuracyFocus, isInconsistent } = thresholds;
+    const avgWpm = analytics.consistency.avgWpm;
+    const topMistakeKeys = analytics.mistakesHeatmap
+      .slice(0, ANALYTICS_CONFIG.limits.mistakeKeysInWeeklyFallback)
+      .map(m => m.key)
+      .join(", ");
+    
+    // Build skill-level appropriate weekly goals with dynamic targets
+    const goals: WeeklyGoal[] = [];
+    
+    // Week 1: Foundation based on skill level
+    if (skillLevel.level === "Beginner" || skillLevel.level === "Developing") {
+      goals.push({
+        week: "Week 1",
+        title: "Building Foundation",
+        tasks: [
+          "Practice 15-20 min daily",
+          accuracyFocus ? "Focus on 95%+ accuracy before speed" : "Maintain current accuracy",
+          topMistakeKeys ? `Target problem keys: ${topMistakeKeys}` : "Work on proper finger placement"
+        ],
+        target: `${Math.ceil(avgWpm + improvementRates.week1)} WPM`,
+        status: "current",
+      });
+    } else {
+      goals.push({
+        week: "Week 1",
+        title: "Precision Tuning",
+        tasks: [
+          "10-15 min focused practice daily",
+          isInconsistent ? "Work on reducing WPM variance" : "Maintain consistency",
+          topMistakeKeys ? `Eliminate errors on: ${topMistakeKeys}` : "Fine-tune problem areas"
+        ],
+        target: `${Math.ceil(avgWpm + improvementRates.week1)} WPM`,
+        status: "current",
+      });
     }
-  ];
+    
+    // Week 2: Progressive improvement
+    goals.push({
+      week: "Week 2",
+      title: skillLevel.level === "Expert" ? "Peak Performance" : "Speed Development",
+      tasks: [
+        skillLevel.level === "Beginner" ? "Increase to 20 min sessions" : "Add speed burst exercises",
+        "Complete 3-5 timed challenges daily",
+        accuracyFocus ? "Target 97%+ accuracy" : "Push speed limits safely"
+      ],
+      target: `${Math.ceil(avgWpm + improvementRates.week2)} WPM`,
+      status: "next",
+    });
+    
+    // Week 3-4: Consolidation
+    goals.push({
+      week: "Week 3-4",
+      title: skillLevel.level === "Expert" ? "Excellence Maintenance" : "Skill Integration",
+      tasks: [
+        "Balance speed and accuracy practice",
+        "Test across different content types",
+        "Build and maintain consistent rhythm"
+      ],
+      target: `${Math.ceil(avgWpm + improvementRates.week3)} WPM`,
+      status: "later",
+    });
+    
+    return goals.slice(0, ANALYTICS_CONFIG.limits.weeklyGoals);
+  }, []);
 
   const generateWeeklyPlan = async () => {
-    if (!analytics) return;
+    if (!analytics || !dynamicThresholds) return;
 
     const abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), AI_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => abortController.abort(), ANALYTICS_CONFIG.ai.timeoutMs);
+    const { skillLevel, improvementRates, isInconsistent, accuracyFocus } = dynamicThresholds;
+    
+    // Build contextual data for the prompt
+    const topMistakeKeys = analytics.mistakesHeatmap
+      .slice(0, ANALYTICS_CONFIG.limits.mistakeKeysInPrompt)
+      .map(m => sanitizeText(m.key))
+      .join(", ");
     
     setLoadingWeeklyPlan(true);
     try {
@@ -523,20 +790,29 @@ Make them specific to my mistakes and skill level. Each should have a clear titl
         signal: abortController.signal,
         body: JSON.stringify({
           conversationId: null,
-          message: `Create a personalized 4-week improvement roadmap based on my typing data:
+          message: `Create a personalized 4-week improvement roadmap for a ${skillLevel.level.toLowerCase()} typist.
 
-Current Stats:
+User Profile:
+- Skill Level: ${skillLevel.level} (${skillLevel.description})
+- Primary Focus: ${accuracyFocus ? "Accuracy improvement" : "Speed optimization"}
+- Consistency: ${isInconsistent ? "Needs improvement" : "Good"}
+
+Current Performance:
 - Average WPM: ${safeNumber(analytics.consistency.avgWpm).toFixed(1)}
 - WPM Range: ${safeNumber(analytics.consistency.minWpm)} - ${safeNumber(analytics.consistency.maxWpm)}
-- Consistency: ${safeNumber(analytics.consistency.stdDeviation).toFixed(1)} std dev
-- Main weaknesses: ${analytics.mistakesHeatmap.slice(0, 5).map(m => sanitizeText(m.key)).join(", ")}
+- Problem Keys: ${topMistakeKeys || "None identified"}
 
-Create exactly 3 weekly goals in this format:
+Recommended Improvement Targets (based on skill level):
+- Week 1: +${improvementRates.week1} WPM (${Math.ceil(analytics.consistency.avgWpm + improvementRates.week1)} WPM)
+- Week 2: +${improvementRates.week2} WPM (${Math.ceil(analytics.consistency.avgWpm + improvementRates.week2)} WPM)
+- Week 3-4: +${improvementRates.week3} WPM (${Math.ceil(analytics.consistency.avgWpm + improvementRates.week3)} WPM)
+
+Create exactly ${ANALYTICS_CONFIG.limits.weeklyGoals} weekly goals in this format:
 Week 1: [Title] | [Task 1, Task 2, Task 3] | [Target WPM]
 Week 2: [Title] | [Task 1, Task 2, Task 3] | [Target WPM]
 Week 3-4: [Title] | [Task 1, Task 2, Task 3] | [Target WPM]
 
-Make them progressive, achievable, and specific to my current level. Use realistic WPM targets based on my average.`,
+Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} level. Use the recommended targets.`,
         }),
       });
 
@@ -575,7 +851,7 @@ Make them progressive, achievable, and specific to my current level. Use realist
       const goals: WeeklyGoal[] = [];
       const goalLines = fullResponse.split("\n").filter(l => l.includes("Week"));
       
-      for (let i = 0; i < goalLines.length && i < 3; i++) {
+      for (let i = 0; i < goalLines.length && i < ANALYTICS_CONFIG.limits.weeklyGoals; i++) {
         const line = goalLines[i];
         const parts = line.split("|").map(p => sanitizeText(p));
         if (parts.length >= 3) {
@@ -595,7 +871,7 @@ Make them progressive, achievable, and specific to my current level. Use realist
         }
       }
 
-      setWeeklyPlan(goals.length > 0 ? goals : generateFallbackWeeklyPlan(safeNumber(analytics.consistency.avgWpm)));
+      setWeeklyPlan(goals.length > 0 ? goals : generateFallbackWeeklyPlan(analytics));
       toast.success("Weekly improvement plan generated!");
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -604,7 +880,7 @@ Make them progressive, achievable, and specific to my current level. Use realist
         console.error("Weekly plan error:", error);
         toast.error("Failed to generate weekly plan");
       }
-      setWeeklyPlan(generateFallbackWeeklyPlan(safeNumber(analytics.consistency.avgWpm)));
+      setWeeklyPlan(generateFallbackWeeklyPlan(analytics));
     } finally {
       clearTimeout(timeoutId);
       setLoadingWeeklyPlan(false);
@@ -697,27 +973,16 @@ Make them progressive, achievable, and specific to my current level. Use realist
           <p className="text-muted-foreground">Track your typing improvement over time</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant={selectedDays === 7 ? "default" : "outline"}
-            onClick={() => { setSelectedDays(7); refetch(); }}
-            data-testid="button-timeframe-7"
-          >
-            7 Days
-          </Button>
-          <Button
-            variant={selectedDays === 30 ? "default" : "outline"}
-            onClick={() => { setSelectedDays(30); refetch(); }}
-            data-testid="button-timeframe-30"
-          >
-            30 Days
-          </Button>
-          <Button
-            variant={selectedDays === 90 ? "default" : "outline"}
-            onClick={() => { setSelectedDays(90); refetch(); }}
-            data-testid="button-timeframe-90"
-          >
-            90 Days
-          </Button>
+          {ANALYTICS_CONFIG.timeRangeOptions.map(days => (
+            <Button
+              key={days}
+              variant={selectedDays === days ? "default" : "outline"}
+              onClick={() => { setSelectedDays(days); refetch(); }}
+              data-testid={`button-timeframe-${days}`}
+            >
+              {days} Days
+            </Button>
+          ))}
         </div>
       </div>
 
@@ -748,12 +1013,15 @@ Make them progressive, achievable, and specific to my current level. Use realist
           <CardHeader className="pb-2">
             <CardDescription>Consistency</CardDescription>
             <CardTitle className="text-3xl" data-testid="stat-consistency">
-              {analytics.consistency.stdDeviation < 5 ? "Excellent" : analytics.consistency.stdDeviation < 10 ? "Good" : "Variable"}
+              {dynamicThresholds ? (
+                dynamicThresholds.isInconsistent ? "Needs Work" : 
+                dynamicThresholds.coefficientOfVariation < ANALYTICS_CONFIG.consistency.excellentCV ? "Excellent" : "Good"
+              ) : "Loading..."}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              ±{analytics.consistency.stdDeviation.toFixed(1)} WPM deviation
+              ±{analytics.consistency.stdDeviation.toFixed(1)} WPM ({dynamicThresholds?.coefficientOfVariation.toFixed(0) || 0}% variation)
             </p>
           </CardContent>
         </Card>
@@ -895,11 +1163,13 @@ Make them progressive, achievable, and specific to my current level. Use realist
                 <Separator />
                 <div className="pt-2">
                   <p className="text-sm text-muted-foreground">
-                    {analytics.consistency.stdDeviation < 5 
-                      ? "🎯 Excellent consistency! Your typing speed is very stable." 
-                      : analytics.consistency.stdDeviation < 10
-                      ? "👍 Good consistency. Minor variations in speed."
-                      : "⚡ Variable performance. Focus on maintaining steady speed."}
+                    {dynamicThresholds ? (
+                      dynamicThresholds.coefficientOfVariation < ANALYTICS_CONFIG.consistency.excellentCV
+                        ? "Excellent consistency! Your typing speed is very stable." 
+                        : !dynamicThresholds.isInconsistent
+                        ? "Good consistency. Minor variations in speed."
+                        : "Variable performance. Focus on maintaining steady speed."
+                    ) : "Loading consistency analysis..."}
                   </p>
                 </div>
               </CardContent>
