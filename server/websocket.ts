@@ -1260,8 +1260,21 @@ class RaceWebSocketServer {
       botService.stopAllBotsInRace(raceId, freshParticipants);
       this.cleanupExtensionState(raceId);
       
-      // Sort by WPM for timed races (highest WPM wins)
-      const sortedResults = freshParticipants.sort((a, b) => b.wpm - a.wpm);
+      // Sort by WPM for timed races with proper tie-breaking:
+      // 1. Higher WPM wins
+      // 2. If WPM tied: higher accuracy wins
+      // 3. If accuracy tied: more progress (characters typed) wins
+      // 4. If still tied: lower ID (joined first) wins
+      const sortedResults = freshParticipants.sort((a, b) => {
+        // Primary: Higher WPM
+        if (b.wpm !== a.wpm) return b.wpm - a.wpm;
+        // Secondary: Higher accuracy
+        if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+        // Tertiary: More progress (characters typed)
+        if (b.progress !== a.progress) return b.progress - a.progress;
+        // Final: Lower ID (joined first)
+        return a.id - b.id;
+      });
       
       // Update and persist positions based on WPM ranking for timed races
       for (let i = 0; i < sortedResults.length; i++) {
@@ -1367,8 +1380,21 @@ class RaceWebSocketServer {
     botService.stopAllBotsInRace(raceId, participants);
     this.cleanupExtensionState(raceId);
 
-    // Sort by WPM for timed races (highest WPM wins)
-    const sortedResults = participants.sort((a, b) => b.wpm - a.wpm);
+    // Sort by WPM for timed races with proper tie-breaking:
+    // 1. Higher WPM wins
+    // 2. If WPM tied: higher accuracy wins
+    // 3. If accuracy tied: more progress (characters typed) wins
+    // 4. If still tied: lower ID (joined first) wins
+    const sortedResults = participants.sort((a, b) => {
+      // Primary: Higher WPM
+      if (b.wpm !== a.wpm) return b.wpm - a.wpm;
+      // Secondary: Higher accuracy
+      if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+      // Tertiary: More progress (characters typed)
+      if (b.progress !== a.progress) return b.progress - a.progress;
+      // Final: Lower ID (joined first)
+      return a.id - b.id;
+    });
 
     // Persist WPM-based rankings
     for (let i = 0; i < sortedResults.length; i++) {
