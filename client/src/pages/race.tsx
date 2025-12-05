@@ -2122,95 +2122,50 @@ export default function RacePage() {
                         <span>Waiting for at least 1 more player to join...</span>
                       </div>
                     )}
-                    {(() => {
-                      const connectedCount = participants.length;
-                      // Count ready states from the Map - host is already included with isReady: true
-                      const readyCount = Array.from(readyStates.values()).filter(r => r).length;
-                      // If readyStates is empty (initial state), assume host is ready
-                      const effectiveReadyCount = readyStates.size === 0 && hostParticipantId ? 1 : readyCount;
-                      const allReady = connectedCount <= 1 || effectiveReadyCount >= connectedCount;
-                      return (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              onClick={startRace}
-                              disabled={participants.length < 2 || isStarting || !allReady}
-                              size="lg"
-                              className="w-full"
-                              data-testid="button-start-race"
-                            >
-                              {isStarting ? (
-                                <>
-                                  <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                  Starting...
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="h-4 w-4 mr-2" />
-                                  {participants.length < 2 
-                                    ? `Start Race (Need ${2 - participants.length} more)` 
-                                    : !allReady 
-                                      ? `Start Race (Waiting for ready)` 
-                                      : 'Start Race'}
-                                </>
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom">
-                            {participants.length < 2 ? (
-                              <>
-                                <p className="font-medium">Need more players</p>
-                                <p className="text-zinc-400">Share the room code with friends to start racing!</p>
-                              </>
-                            ) : !allReady ? (
-                              <>
-                                <p className="font-medium">Waiting for players</p>
-                                <p className="text-zinc-400">All players must be ready before starting</p>
-                              </>
-                            ) : (
-                              <>
-                                <p className="font-medium">Begin the race</p>
-                                <p className="text-zinc-400">A countdown will start and the race begins!</p>
-                              </>
-                            )}
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    })()}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={startRace}
+                          disabled={participants.length < 2 || isStarting}
+                          size="lg"
+                          className="w-full"
+                          data-testid="button-start-race"
+                        >
+                          {isStarting ? (
+                            <>
+                              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                              Starting...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="h-4 w-4 mr-2" />
+                              {participants.length < 2 
+                                ? `Start Race (Need ${2 - participants.length} more)` 
+                                : 'Start Race'}
+                            </>
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        {participants.length < 2 ? (
+                          <>
+                            <p className="font-medium">Need more players</p>
+                            <p className="text-zinc-400">Share the room code with friends to start racing!</p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-medium">Begin the race</p>
+                            <p className="text-zinc-400">A countdown will start and the race begins!</p>
+                          </>
+                        )}
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {/* Ready toggle button for non-host players */}
-                    <Button
-                      onClick={() => {
-                        sendWsMessage({
-                          type: "ready_toggle",
-                          raceId: race.id,
-                          participantId: myParticipant?.id,
-                        });
-                      }}
-                      variant={isReady ? "default" : "outline"}
-                      size="lg"
-                      className={`w-full ${isReady ? 'bg-green-600 hover:bg-green-700' : ''}`}
-                      data-testid="button-ready-toggle"
-                    >
-                      {isReady ? (
-                        <>
-                          <Check className="h-4 w-4 mr-2" />
-                          Ready!
-                        </>
-                      ) : (
-                        <>
-                          <Flag className="h-4 w-4 mr-2" />
-                          Click when Ready
-                        </>
-                      )}
-                    </Button>
-                    <div className="w-full py-2 px-4 bg-muted/50 rounded-lg text-center text-muted-foreground text-sm">
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Waiting for host to start the race...</span>
-                      </div>
+                  <div className="w-full py-3 px-4 bg-muted/50 rounded-lg text-center text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Waiting for host to start the race...</span>
                     </div>
                   </div>
                 )}

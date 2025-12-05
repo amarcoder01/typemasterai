@@ -769,23 +769,6 @@ class RaceWebSocketServer {
       return;
     }
     
-    // Check if all connected human players are ready
-    const allReady = connectedHumans.every(c => c.isReady);
-    const notReadyPlayers = connectedHumans.filter(c => !c.isReady).map(c => c.username);
-    
-    if (!allReady) {
-      // Notify the host that not everyone is ready
-      const client = raceRoom.clients.get(participantId);
-      if (client && client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(JSON.stringify({
-          type: "error",
-          message: `Waiting for players to ready up: ${notReadyPlayers.join(', ')}`,
-          code: "PLAYERS_NOT_READY"
-        }));
-      }
-      return;
-    }
-    
     // Set starting flag to prevent double-start
     raceRoom.isStarting = true;
     
