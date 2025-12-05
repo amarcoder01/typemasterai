@@ -1924,22 +1924,6 @@ export default function RacePage() {
                         <p className="text-zinc-400">Share this code with friends to let them join</p>
                       </TooltipContent>
                     </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={copyShareLink}
-                          data-testid="button-copy-link"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">
-                        <p className="font-medium">Copy invite link</p>
-                        <p className="text-zinc-400">Share a direct link to this room</p>
-                      </TooltipContent>
-                    </Tooltip>
                   </div>
                 </div>
                 
