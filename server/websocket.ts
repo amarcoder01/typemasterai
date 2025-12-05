@@ -22,6 +22,7 @@ interface RaceClient {
   participantId: number;
   username: string;
   lastActivity: number;
+  isReady: boolean;
 }
 
 interface RaceRoom {
@@ -33,6 +34,8 @@ interface RaceRoom {
   shardId: number;
   isFinishing?: boolean; // Prevents cleanup during race completion
   hostParticipantId?: number; // The first player to join controls the race
+  isLocked?: boolean; // Prevents new players from joining
+  kickedPlayers: Set<number>; // List of kicked participant IDs
 }
 
 interface ServerStats {
@@ -415,6 +418,15 @@ class RaceWebSocketServer {
       case "get_rating":
         await this.handleGetRating(ws, message);
         break;
+      case "ready_toggle":
+        await this.handleReadyToggle(ws, message);
+        break;
+      case "kick_player":
+        await this.handleKickPlayer(ws, message);
+        break;
+      case "lock_room":
+        await this.handleLockRoom(ws, message);
+        break;
       default:
         console.warn("Unknown message type:", message.type);
     }
@@ -470,8 +482,24 @@ class RaceWebSocketServer {
         raceId,
         clients: new Map(),
         shardId: this.getShardId(raceId),
+        kickedPlayers: new Set(),
       };
       this.races.set(raceId, raceRoom);
+    }
+
+    // Check if player was kicked from this room
+    if (raceRoom.kickedPlayers.has(participantId)) {
+      ws.send(JSON.stringify({ type: "error", message: "You have been kicked from this room" }));
+      return;
+    }
+
+    // Check if room is locked
+    if (raceRoom.isLocked) {
+      const existingClient = raceRoom.clients.get(participantId);
+      if (!existingClient) {
+        ws.send(JSON.stringify({ type: "error", message: "Room is locked - no new players allowed" }));
+        return;
+      }
     }
 
     const existingClient = raceRoom.clients.get(participantId);
@@ -483,12 +511,16 @@ class RaceWebSocketServer {
       console.log(`[WS] Host set: ${username} (${participantId}) for race ${raceId}`);
     }
 
+    // Host is always ready by default
+    const isHost = raceRoom.hostParticipantId === participantId;
+    
     const client: RaceClient = { 
       ws, 
       raceId, 
       participantId, 
       username,
       lastActivity: Date.now(),
+      isReady: isHost, // Host starts as ready, others must toggle
     };
     raceRoom.clients.set(participantId, client);
 
@@ -584,6 +616,24 @@ class RaceWebSocketServer {
     const requiredPlayers = 2;
     
     if (participants.length >= requiredPlayers) {
+      // Check if all connected players are ready
+      const connectedClients = Array.from(raceRoom.clients.values());
+      const allReady = connectedClients.every(c => c.isReady);
+      const notReadyPlayers = connectedClients.filter(c => !c.isReady).map(c => c.username);
+      
+      if (!allReady && connectedClients.length > 1) {
+        // Notify the host that not everyone is ready
+        const client = raceRoom.clients.get(participantId);
+        if (client && client.ws.readyState === WebSocket.OPEN) {
+          client.ws.send(JSON.stringify({
+            type: "error",
+            message: `Waiting for players to ready up: ${notReadyPlayers.join(', ')}`,
+            code: "PLAYERS_NOT_READY"
+          }));
+        }
+        return;
+      }
+      
       await this.startCountdown(raceId);
     } else {
       // Notify the host that more players are needed
@@ -596,6 +646,123 @@ class RaceWebSocketServer {
         }));
       }
     }
+  }
+
+  private async handleReadyToggle(ws: WebSocket, message: any) {
+    const { raceId, participantId } = message;
+    const raceRoom = this.races.get(raceId);
+    if (!raceRoom) return;
+
+    const client = raceRoom.clients.get(participantId);
+    if (!client) return;
+
+    // Toggle ready state
+    client.isReady = !client.isReady;
+
+    // Collect ready states for all participants
+    const readyStates: { participantId: number; isReady: boolean }[] = [];
+    const clientEntries = Array.from(raceRoom.clients.entries());
+    for (const [pId, c] of clientEntries) {
+      readyStates.push({ participantId: pId, isReady: c.isReady });
+    }
+
+    // Broadcast ready state update to all clients
+    this.broadcastToRace(raceId, {
+      type: "ready_state_update",
+      participantId,
+      isReady: client.isReady,
+      readyStates,
+    });
+
+    console.log(`[WS] Ready toggle: ${client.username} is now ${client.isReady ? 'ready' : 'not ready'} in race ${raceId}`);
+  }
+
+  private async handleKickPlayer(ws: WebSocket, message: any) {
+    const { raceId, participantId, targetParticipantId } = message;
+    const raceRoom = this.races.get(raceId);
+    if (!raceRoom) return;
+
+    // Only host can kick players
+    if (raceRoom.hostParticipantId !== participantId) {
+      ws.send(JSON.stringify({
+        type: "error",
+        message: "Only the host can kick players",
+        code: "NOT_HOST"
+      }));
+      return;
+    }
+
+    // Cannot kick yourself
+    if (targetParticipantId === participantId) {
+      ws.send(JSON.stringify({
+        type: "error", 
+        message: "You cannot kick yourself",
+        code: "CANNOT_KICK_SELF"
+      }));
+      return;
+    }
+
+    const targetClient = raceRoom.clients.get(targetParticipantId);
+    if (!targetClient) {
+      ws.send(JSON.stringify({
+        type: "error",
+        message: "Player not found",
+        code: "PLAYER_NOT_FOUND"
+      }));
+      return;
+    }
+
+    const kickedUsername = targetClient.username;
+
+    // Add to kicked list so they can't rejoin
+    raceRoom.kickedPlayers.add(targetParticipantId);
+
+    // Notify the kicked player
+    if (targetClient.ws.readyState === WebSocket.OPEN) {
+      targetClient.ws.send(JSON.stringify({
+        type: "kicked",
+        message: "You have been kicked from the room by the host"
+      }));
+      targetClient.ws.close();
+    }
+
+    // Remove from clients
+    raceRoom.clients.delete(targetParticipantId);
+
+    // Broadcast player kicked to remaining clients
+    this.broadcastToRace(raceId, {
+      type: "player_kicked",
+      participantId: targetParticipantId,
+      username: kickedUsername,
+    });
+
+    console.log(`[WS] Player kicked: ${kickedUsername} (${targetParticipantId}) from race ${raceId} by host`);
+  }
+
+  private async handleLockRoom(ws: WebSocket, message: any) {
+    const { raceId, participantId, locked } = message;
+    const raceRoom = this.races.get(raceId);
+    if (!raceRoom) return;
+
+    // Only host can lock/unlock room
+    if (raceRoom.hostParticipantId !== participantId) {
+      ws.send(JSON.stringify({
+        type: "error",
+        message: "Only the host can lock/unlock the room",
+        code: "NOT_HOST"
+      }));
+      return;
+    }
+
+    raceRoom.isLocked = locked;
+
+    // Broadcast lock state to all clients
+    this.broadcastToRace(raceId, {
+      type: "room_lock_changed",
+      isLocked: locked,
+    });
+
+    console.log(`[WS] Room ${raceId} ${locked ? 'locked' : 'unlocked'} by host`);
   }
 
   private async startCountdown(raceId: number) {

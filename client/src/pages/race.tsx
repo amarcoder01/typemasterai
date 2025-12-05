@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film, Zap, LogOut } from "lucide-react";
+import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film, Zap, LogOut, Lock } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -872,6 +872,9 @@ export default function RacePage() {
   } | null>(null);
   const [showLeaveConfirmation, setShowLeaveConfirmation] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [readyStates, setReadyStates] = useState<Map<number, boolean>>(new Map());
+  const [isRoomLocked, setIsRoomLocked] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     raceRef.current = race;
@@ -1531,6 +1534,39 @@ export default function RacePage() {
           });
         }
         break;
+      case "ready_state_update":
+        // Update ready states for all participants
+        if (message.readyStates) {
+          const newReadyStates = new Map<number, boolean>();
+          for (const { participantId, isReady: ready } of message.readyStates) {
+            newReadyStates.set(participantId, ready);
+          }
+          setReadyStates(newReadyStates);
+          // Update our own ready state if it changed
+          if (myParticipantRef.current && message.participantId === myParticipantRef.current.id) {
+            setIsReady(message.isReady);
+          }
+        }
+        break;
+      case "player_kicked":
+        // Remove kicked player from participants
+        setParticipants(prev => prev.filter(p => p.id !== message.participantId));
+        setReadyStates(prev => {
+          const newStates = new Map(prev);
+          newStates.delete(message.participantId);
+          return newStates;
+        });
+        toast.info(`${message.username} was kicked from the room`, { duration: 3000 });
+        break;
+      case "kicked":
+        // We were kicked from the room
+        toast.error(message.message || "You have been kicked from the room", { duration: 5000 });
+        navigate("/multiplayer");
+        break;
+      case "room_lock_changed":
+        setIsRoomLocked(message.isLocked);
+        toast.info(message.isLocked ? "Room is now locked" : "Room is now unlocked", { duration: 2000 });
+        break;
     }
   }
 
@@ -1831,53 +1867,80 @@ export default function RacePage() {
                         </TooltipContent>
                       </Tooltip>
                     ) : (
-                      participants.map((p) => (
-                        <Tooltip key={p.id}>
-                          <TooltipTrigger asChild>
-                            <div
-                              className={`flex items-center gap-3 p-3 border rounded-lg hover:border-primary/50 transition-colors cursor-default ${
-                                p.id === myParticipant?.id ? 'border-primary/50 bg-primary/5' : ''
-                              } ${p.id === hostParticipantId ? 'border-yellow-500/50' : ''}`}
-                              data-testid={`participant-${p.id}`}
-                            >
-                              <div className={`h-10 w-10 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium relative`}>
-                                {p.username[0].toUpperCase()}
-                                {p.id === hostParticipantId && (
-                                  <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5">
-                                    <Trophy className="h-3 w-3 text-white" />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex-1">
-                                <div className="font-medium flex items-center gap-2">
-                                  {p.username}
-                                  {p.id === hostParticipantId && (
-                                    <Badge variant="outline" className="text-xs px-1.5 py-0 border-yellow-500 text-yellow-500">
-                                      Host
-                                    </Badge>
-                                  )}
+                      participants.map((p) => {
+                        const playerReady = readyStates.get(p.id) ?? (p.id === hostParticipantId);
+                        return (
+                          <div
+                            key={p.id}
+                            className={`flex items-center gap-3 p-3 border rounded-lg transition-colors ${
+                              p.id === myParticipant?.id ? 'border-primary/50 bg-primary/5' : ''
+                            } ${p.id === hostParticipantId ? 'border-yellow-500/50' : ''
+                            } ${playerReady ? 'bg-green-500/5' : ''}`}
+                            data-testid={`participant-${p.id}`}
+                          >
+                            <div className={`h-10 w-10 rounded-full ${p.avatarColor || 'bg-primary'} flex items-center justify-center text-white font-medium relative`}>
+                              {p.username[0].toUpperCase()}
+                              {p.id === hostParticipantId && (
+                                <div className="absolute -top-1 -right-1 bg-yellow-500 rounded-full p-0.5">
+                                  <Trophy className="h-3 w-3 text-white" />
                                 </div>
-                                {p.id === myParticipant?.id && (
-                                  <div className="text-xs text-primary flex items-center gap-1">
-                                    <User className="h-3 w-3" />
-                                    You
-                                  </div>
+                              )}
+                              {playerReady && p.id !== hostParticipantId && (
+                                <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-0.5">
+                                  <Check className="h-3 w-3 text-white" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium flex items-center gap-2 flex-wrap">
+                                <span className="truncate">{p.username}</span>
+                                {p.id === hostParticipantId && (
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0 border-yellow-500 text-yellow-500 shrink-0">
+                                    Host
+                                  </Badge>
+                                )}
+                                {playerReady && (
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0 border-green-500 text-green-500 shrink-0">
+                                    Ready
+                                  </Badge>
                                 )}
                               </div>
+                              {p.id === myParticipant?.id && (
+                                <div className="text-xs text-primary flex items-center gap-1">
+                                  <User className="h-3 w-3" />
+                                  You
+                                </div>
+                              )}
                             </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="left" className="max-w-xs">
-                            <p className="font-medium">{p.username}</p>
-                            <p className="text-zinc-400">
-                              {p.id === hostParticipantId 
-                                ? "Room host - can start the race"
-                                : p.id === myParticipant?.id 
-                                  ? "This is you! Good luck in the race." 
-                                  : "Ready to race"}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      ))
+                            {/* Kick button - only visible to host for other players */}
+                            {myParticipant?.id === hostParticipantId && p.id !== myParticipant?.id && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                    onClick={() => {
+                                      sendWsMessage({
+                                        type: "kick_player",
+                                        raceId: race.id,
+                                        participantId: myParticipant.id,
+                                        targetParticipantId: p.id,
+                                      });
+                                    }}
+                                    data-testid={`kick-player-${p.id}`}
+                                  >
+                                    <XCircle className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Kick {p.username}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </div>
@@ -1895,6 +1958,31 @@ export default function RacePage() {
                   />
                 )}
 
+                {/* Host controls: Lock room toggle */}
+                {myParticipant?.id === hostParticipantId && (
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Lock className="h-4 w-4" />
+                      <span>Lock Room</span>
+                    </div>
+                    <Button
+                      variant={isRoomLocked ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        sendWsMessage({
+                          type: "lock_room",
+                          raceId: race.id,
+                          participantId: myParticipant.id,
+                          locked: !isRoomLocked,
+                        });
+                      }}
+                      data-testid="button-lock-room"
+                    >
+                      {isRoomLocked ? "Unlock" : "Lock"}
+                    </Button>
+                  </div>
+                )}
+
                 {/* Show Start Race button only for the host, or show waiting message for others */}
                 {/* Minimum 2 players required - like TypeRacer and other real typing race sites */}
                 {(!hostParticipantId || myParticipant?.id === hostParticipantId) ? (
@@ -1905,48 +1993,92 @@ export default function RacePage() {
                         <span>Waiting for at least 1 more player to join...</span>
                       </div>
                     )}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={startRace}
-                          disabled={participants.length < 2 || isStarting}
-                          size="lg"
-                          className="w-full"
-                          data-testid="button-start-race"
-                        >
-                          {isStarting ? (
-                            <>
-                              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                              Starting...
-                            </>
-                          ) : (
-                            <>
-                              <Play className="h-4 w-4 mr-2" />
-                              Start Race {participants.length < 2 ? `(Need ${2 - participants.length} more)` : ''}
-                            </>
-                          )}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">
-                        {participants.length < 2 ? (
-                          <>
-                            <p className="font-medium">Need more players</p>
-                            <p className="text-zinc-400">Share the room code with friends to start racing!</p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-medium">Begin the race</p>
-                            <p className="text-zinc-400">A countdown will start and the race begins!</p>
-                          </>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
+                    {(() => {
+                      const connectedCount = participants.length;
+                      const readyCount = Array.from(readyStates.values()).filter(r => r).length + (hostParticipantId ? 1 : 0);
+                      const allReady = connectedCount <= 1 || readyCount >= connectedCount;
+                      return (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              onClick={startRace}
+                              disabled={participants.length < 2 || isStarting || !allReady}
+                              size="lg"
+                              className="w-full"
+                              data-testid="button-start-race"
+                            >
+                              {isStarting ? (
+                                <>
+                                  <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                  Starting...
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="h-4 w-4 mr-2" />
+                                  {participants.length < 2 
+                                    ? `Start Race (Need ${2 - participants.length} more)` 
+                                    : !allReady 
+                                      ? `Start Race (Waiting for ready)` 
+                                      : 'Start Race'}
+                                </>
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom">
+                            {participants.length < 2 ? (
+                              <>
+                                <p className="font-medium">Need more players</p>
+                                <p className="text-zinc-400">Share the room code with friends to start racing!</p>
+                              </>
+                            ) : !allReady ? (
+                              <>
+                                <p className="font-medium">Waiting for players</p>
+                                <p className="text-zinc-400">All players must be ready before starting</p>
+                              </>
+                            ) : (
+                              <>
+                                <p className="font-medium">Begin the race</p>
+                                <p className="text-zinc-400">A countdown will start and the race begins!</p>
+                              </>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })()}
                   </div>
                 ) : (
-                  <div className="w-full py-3 px-4 bg-muted/50 rounded-lg text-center text-muted-foreground">
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Waiting for host to start the race...</span>
+                  <div className="space-y-3">
+                    {/* Ready toggle button for non-host players */}
+                    <Button
+                      onClick={() => {
+                        sendWsMessage({
+                          type: "ready_toggle",
+                          raceId: race.id,
+                          participantId: myParticipant?.id,
+                        });
+                      }}
+                      variant={isReady ? "default" : "outline"}
+                      size="lg"
+                      className={`w-full ${isReady ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                      data-testid="button-ready-toggle"
+                    >
+                      {isReady ? (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Ready!
+                        </>
+                      ) : (
+                        <>
+                          <Flag className="h-4 w-4 mr-2" />
+                          Click when Ready
+                        </>
+                      )}
+                    </Button>
+                    <div className="w-full py-2 px-4 bg-muted/50 rounded-lg text-center text-muted-foreground text-sm">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Waiting for host to start the race...</span>
+                      </div>
                     </div>
                   </div>
                 )}
