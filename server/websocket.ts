@@ -526,11 +526,11 @@ class RaceWebSocketServer {
     const botCount = participants.filter((p: any) => p.isBot === 1).length;
     
     // Only add bots if there are humans and no bots yet
-    // Randomly add 3-5 bots (so total is 4-6 participants like real races)
     if (humanCount > 0 && botCount === 0) {
-      // Random number of bots: 3, 4, or 5 (for total of 4-6 players)
-      const randomBotCount = 3 + Math.floor(Math.random() * 3); // 3, 4, or 5
-      const maxTotal = 6; // Never more than 6 total participants
+      // Random number of bots: 2, 3, or 4 (for total of 3-5 players)
+      const botOptions = [2, 3, 4];
+      const randomBotCount = botOptions[Math.floor(Math.random() * botOptions.length)];
+      const maxTotal = 5; // Never more than 5 total participants
       const availableSlots = maxTotal - participants.length;
       const botsNeeded = Math.min(randomBotCount, availableSlots);
       
@@ -749,32 +749,8 @@ class RaceWebSocketServer {
       raceCache.setRace(race, participants);
     }
 
-    const humanCount = participants.filter(p => p.isBot === 0).length;
-    const botCount = participants.filter(p => p.isBot === 1).length;
-    
-    // Limit total to 6 participants max (like real typing races)
-    // Only add bots if we don't already have enough
-    const maxTotal = 6;
-    const currentTotal = participants.length;
-    
-    if (humanCount > 0 && currentTotal < maxTotal && botCount < 5) {
-      // Fill up to 6 total, but cap bots at 5 (leaving room for humans)
-      const botsNeeded = Math.min(maxTotal - currentTotal, 5 - botCount);
-      
-      if (botsNeeded > 0) {
-        console.log(`[Bot Auto-Fill] Adding ${botsNeeded} bots to race ${raceId} (${currentTotal} -> ${currentTotal + botsNeeded} players)`);
-        const bots = await botService.addBotsToRace(raceId, botsNeeded);
-        console.log(`[Bot Auto-Fill] Successfully added ${bots.length} bots:`, bots.map(b => b.username).join(', '));
-        
-        this.broadcastToRace(raceId, {
-          type: "bots_added",
-          bots,
-        });
-        
-        participants = await storage.getRaceParticipants(raceId);
-        raceCache.updateParticipants(raceId, participants);
-      }
-    }
+    // Bots are already added when player joins - no auto-fill needed at race start
+    // This keeps the random variety (2, 3, or 4 bots) that was set initially
 
     raceCache.updateRaceStatus(raceId, "countdown");
     
