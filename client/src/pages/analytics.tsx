@@ -166,6 +166,34 @@ interface WeeklyGoal {
   status: "current" | "next" | "later";
 }
 
+interface HistoricalTrends {
+  weeklyAggregates: Array<{
+    weekStart: string;
+    weekEnd: string;
+    avgWpm: number;
+    avgAccuracy: number;
+    testCount: number;
+    bestWpm: number;
+  }>;
+  monthlyAggregates: Array<{
+    month: string;
+    avgWpm: number;
+    avgAccuracy: number;
+    testCount: number;
+    bestWpm: number;
+  }>;
+  improvement: {
+    weekOverWeek: { wpm: number; accuracy: number };
+    monthOverMonth: { wpm: number; accuracy: number };
+    allTime: { firstWpm: number; currentWpm: number; improvementPercent: number };
+  };
+  milestones: Array<{
+    type: string;
+    value: number;
+    achievedAt: string;
+  }>;
+}
+
 const formatChartDate = (dateStr: string): string => {
   try {
     const date = parseISO(dateStr);
@@ -479,6 +507,13 @@ function AnalyticsContent() {
         }
       };
     },
+    enabled: !!user,
+  });
+
+  const { data: trendsData, isLoading: trendsLoading } = useQuery<{ trends: HistoricalTrends }>({
+    queryKey: ['/api/analytics/trends'],
+    retry: ANALYTICS_CONFIG.cache.retryCount,
+    staleTime: ANALYTICS_CONFIG.cache.staleTimeMs * 2,
     enabled: !!user,
   });
 
@@ -1516,6 +1551,165 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
               </CardContent>
             </Card>
           </div>
+
+          {/* Historical Trends Section */}
+          <Card data-testid="card-historical-trends">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-cyan-400" />
+                Historical Trends
+              </CardTitle>
+              <CardDescription>Your improvement over weeks and months</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {trendsLoading ? (
+                <div className="flex items-center justify-center py-8" data-testid="trends-loading">
+                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Loading trends...</span>
+                </div>
+              ) : !trendsData?.trends || (trendsData.trends.weeklyAggregates?.length ?? 0) === 0 ? (
+                <div className="text-center py-8" data-testid="trends-empty">
+                  <Calendar className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <h3 className="text-lg font-medium text-muted-foreground mb-2">Not Enough Data Yet</h3>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                    Complete more typing tests over several weeks to see your improvement trends.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6" data-testid="trends-content">
+                  {/* Improvement Summary */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700" data-testid="trend-card-wow">
+                      <p className="text-sm text-muted-foreground mb-1">Week-over-Week</p>
+                      <div className="flex items-center gap-2">
+                        {(trendsData.trends.improvement?.weekOverWeek?.wpm ?? 0) >= 0 ? (
+                          <TrendingUp className="w-5 h-5 text-green-400" />
+                        ) : (
+                          <TrendingDown className="w-5 h-5 text-red-400" />
+                        )}
+                        <span className={`text-2xl font-bold ${(trendsData.trends.improvement?.weekOverWeek?.wpm ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`} data-testid="trend-wow-wpm">
+                          {(trendsData.trends.improvement?.weekOverWeek?.wpm ?? 0) >= 0 ? '+' : ''}{(trendsData.trends.improvement?.weekOverWeek?.wpm ?? 0).toFixed(1)} WPM
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1" data-testid="trend-wow-accuracy">
+                        Accuracy: {(trendsData.trends.improvement?.weekOverWeek?.accuracy ?? 0) >= 0 ? '+' : ''}{(trendsData.trends.improvement?.weekOverWeek?.accuracy ?? 0).toFixed(1)}%
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700" data-testid="trend-card-mom">
+                      <p className="text-sm text-muted-foreground mb-1">Month-over-Month</p>
+                      <div className="flex items-center gap-2">
+                        {(trendsData.trends.improvement?.monthOverMonth?.wpm ?? 0) >= 0 ? (
+                          <TrendingUp className="w-5 h-5 text-green-400" />
+                        ) : (
+                          <TrendingDown className="w-5 h-5 text-red-400" />
+                        )}
+                        <span className={`text-2xl font-bold ${(trendsData.trends.improvement?.monthOverMonth?.wpm ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`} data-testid="trend-mom-wpm">
+                          {(trendsData.trends.improvement?.monthOverMonth?.wpm ?? 0) >= 0 ? '+' : ''}{(trendsData.trends.improvement?.monthOverMonth?.wpm ?? 0).toFixed(1)} WPM
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1" data-testid="trend-mom-accuracy">
+                        Accuracy: {(trendsData.trends.improvement?.monthOverMonth?.accuracy ?? 0) >= 0 ? '+' : ''}{(trendsData.trends.improvement?.monthOverMonth?.accuracy ?? 0).toFixed(1)}%
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700" data-testid="trend-card-alltime">
+                      <p className="text-sm text-muted-foreground mb-1">All-Time Improvement</p>
+                      <div className="flex items-center gap-2">
+                        {(trendsData.trends.improvement?.allTime?.improvementPercent ?? 0) >= 0 ? (
+                          <TrendingUp className="w-5 h-5 text-cyan-400" />
+                        ) : (
+                          <TrendingDown className="w-5 h-5 text-orange-400" />
+                        )}
+                        <span className={`text-2xl font-bold ${(trendsData.trends.improvement?.allTime?.improvementPercent ?? 0) >= 0 ? 'text-cyan-400' : 'text-orange-400'}`} data-testid="trend-alltime">
+                          {(trendsData.trends.improvement?.allTime?.improvementPercent ?? 0) >= 0 ? '+' : ''}{(trendsData.trends.improvement?.allTime?.improvementPercent ?? 0).toFixed(0)}%
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1" data-testid="trend-alltime-range">
+                        {(trendsData.trends.improvement?.allTime?.firstWpm ?? 0).toFixed(0)} → {(trendsData.trends.improvement?.allTime?.currentWpm ?? 0).toFixed(0)} WPM
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Weekly WPM Chart */}
+                  {(trendsData.trends.weeklyAggregates?.length ?? 0) > 1 && (
+                    <div data-testid="weekly-chart-container">
+                      <h4 className="text-sm font-medium mb-3">Weekly Average WPM</h4>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={trendsData.trends.weeklyAggregates} aria-label="Weekly WPM Chart">
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                          <XAxis 
+                            dataKey="weekStart" 
+                            stroke="#888" 
+                            tickFormatter={(val) => {
+                              try { return format(parseISO(val), 'MMM d'); } catch { return val; }
+                            }}
+                            tick={{ fontSize: 11 }}
+                          />
+                          <YAxis stroke="#888" domain={['dataMin - 5', 'dataMax + 5']} />
+                          <ChartTooltip 
+                            content={({ active, payload }) => {
+                              if (!active || !payload || !payload.length) return null;
+                              const data = payload[0].payload;
+                              const weekStartStr = data?.weekStart ? (() => { try { return format(parseISO(data.weekStart), 'MMM d'); } catch { return data.weekStart; } })() : 'N/A';
+                              const weekEndStr = data?.weekEnd ? (() => { try { return format(parseISO(data.weekEnd), 'MMM d'); } catch { return data.weekEnd; } })() : 'N/A';
+                              return (
+                                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-lg">
+                                  <p className="text-sm font-medium text-white mb-1">
+                                    {weekStartStr} - {weekEndStr}
+                                  </p>
+                                  <p className="text-sm text-cyan-400">Avg WPM: {(data?.avgWpm ?? 0).toFixed(1)}</p>
+                                  <p className="text-sm text-purple-400">Best WPM: {data?.bestWpm ?? 'N/A'}</p>
+                                  <p className="text-sm text-muted-foreground">{data?.testCount ?? 0} tests</p>
+                                </div>
+                              );
+                            }}
+                          />
+                          <Bar dataKey="avgWpm" fill="#00ffff" radius={[4, 4, 0, 0]} name="Avg WPM" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  {/* Monthly Summary */}
+                  {(trendsData.trends.monthlyAggregates?.length ?? 0) > 0 && (
+                    <div data-testid="monthly-summary-container">
+                      <h4 className="text-sm font-medium mb-3">Monthly Summary</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                        {trendsData.trends.monthlyAggregates.slice(0, 6).map((month, idx) => {
+                          const monthLabel = month?.month ? (() => { try { return format(parseISO(month.month + '-01'), 'MMM yyyy'); } catch { return month.month; } })() : 'N/A';
+                          return (
+                            <div key={idx} className="bg-slate-800/30 rounded-lg p-3 border border-slate-700/50" data-testid={`monthly-card-${idx}`}>
+                              <p className="text-xs text-muted-foreground">{monthLabel}</p>
+                              <p className="text-lg font-bold text-cyan-400" data-testid={`monthly-wpm-${idx}`}>{(month?.avgWpm ?? 0).toFixed(0)}</p>
+                              <p className="text-xs text-muted-foreground" data-testid={`monthly-tests-${idx}`}>{month?.testCount ?? 0} tests</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Milestones */}
+                  {(trendsData.trends.milestones?.length ?? 0) > 0 && (
+                    <div data-testid="milestones-container">
+                      <h4 className="text-sm font-medium mb-3">Speed Milestones</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {trendsData.trends.milestones.map((milestone, idx) => {
+                          const dateStr = milestone?.achievedAt ? (() => { try { return format(parseISO(milestone.achievedAt), 'MMM d, yyyy'); } catch { return milestone.achievedAt; } })() : 'N/A';
+                          return (
+                            <Badge key={idx} variant="secondary" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/30" data-testid={`milestone-${idx}`}>
+                              {milestone?.value ?? 0} WPM ({dateStr})
+                            </Badge>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="keystroke" className="space-y-4">

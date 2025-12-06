@@ -937,6 +937,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/analytics/trends", isAuthenticated, async (req, res) => {
+    try {
+      const trends = await storage.getHistoricalTrends(req.user!.id);
+      res.json({ trends });
+    } catch (error: any) {
+      console.error("Historical trends fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch historical trends" });
+    }
+  });
+
   app.post("/api/analytics/keystrokes", isAuthenticated, async (req, res) => {
     try {
       const { testResultId, keystrokes } = req.body;

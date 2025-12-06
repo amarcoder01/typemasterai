@@ -353,6 +353,34 @@ export interface IStorage {
     commonMistakes: Array<{ expectedKey: string; typedKey: string; count: number }>;
   }>;
   
+  getHistoricalTrends(userId: string): Promise<{
+    weeklyAggregates: Array<{
+      weekStart: string;
+      weekEnd: string;
+      avgWpm: number;
+      avgAccuracy: number;
+      testCount: number;
+      bestWpm: number;
+    }>;
+    monthlyAggregates: Array<{
+      month: string;
+      avgWpm: number;
+      avgAccuracy: number;
+      testCount: number;
+      bestWpm: number;
+    }>;
+    improvement: {
+      weekOverWeek: { wpm: number; accuracy: number };
+      monthOverMonth: { wpm: number; accuracy: number };
+      allTime: { firstWpm: number; currentWpm: number; improvementPercent: number };
+    };
+    milestones: Array<{
+      type: string;
+      value: number;
+      achievedAt: string;
+    }>;
+  }>;
+  
   getUserBadgeData(userId: string): Promise<{
     bestWpm: number;
     bestAccuracy: number;
@@ -2378,6 +2406,143 @@ export class DatabaseStorage implements IStorage {
       mistakesHeatmap,
       consistency,
       commonMistakes,
+    };
+  }
+
+  async getHistoricalTrends(userId: string): Promise<{
+    weeklyAggregates: Array<{
+      weekStart: string;
+      weekEnd: string;
+      avgWpm: number;
+      avgAccuracy: number;
+      testCount: number;
+      bestWpm: number;
+    }>;
+    monthlyAggregates: Array<{
+      month: string;
+      avgWpm: number;
+      avgAccuracy: number;
+      testCount: number;
+      bestWpm: number;
+    }>;
+    improvement: {
+      weekOverWeek: { wpm: number; accuracy: number };
+      monthOverMonth: { wpm: number; accuracy: number };
+      allTime: { firstWpm: number; currentWpm: number; improvementPercent: number };
+    };
+    milestones: Array<{
+      type: string;
+      value: number;
+      achievedAt: string;
+    }>;
+  }> {
+    const weeklyQuery = await db.execute(sql`
+      SELECT 
+        DATE_TRUNC('week', created_at)::date as week_start,
+        (DATE_TRUNC('week', created_at) + INTERVAL '6 days')::date as week_end,
+        ROUND(AVG(wpm))::int as avg_wpm,
+        ROUND(AVG(accuracy)::numeric, 1) as avg_accuracy,
+        COUNT(*)::int as test_count,
+        MAX(wpm)::int as best_wpm
+      FROM test_results
+      WHERE user_id = ${userId}
+        AND created_at >= NOW() - INTERVAL '12 weeks'
+      GROUP BY DATE_TRUNC('week', created_at)
+      ORDER BY week_start ASC
+    `);
+
+    const weeklyAggregates = weeklyQuery.rows.map((row: any) => ({
+      weekStart: row.week_start?.toISOString?.()?.split('T')[0] || String(row.week_start),
+      weekEnd: row.week_end?.toISOString?.()?.split('T')[0] || String(row.week_end),
+      avgWpm: Number(row.avg_wpm) || 0,
+      avgAccuracy: Number(row.avg_accuracy) || 0,
+      testCount: Number(row.test_count) || 0,
+      bestWpm: Number(row.best_wpm) || 0,
+    }));
+
+    const monthlyQuery = await db.execute(sql`
+      SELECT 
+        TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') as month,
+        ROUND(AVG(wpm))::int as avg_wpm,
+        ROUND(AVG(accuracy)::numeric, 1) as avg_accuracy,
+        COUNT(*)::int as test_count,
+        MAX(wpm)::int as best_wpm
+      FROM test_results
+      WHERE user_id = ${userId}
+        AND created_at >= NOW() - INTERVAL '12 months'
+      GROUP BY DATE_TRUNC('month', created_at)
+      ORDER BY month ASC
+    `);
+
+    const monthlyAggregates = monthlyQuery.rows.map((row: any) => ({
+      month: row.month || '',
+      avgWpm: Number(row.avg_wpm) || 0,
+      avgAccuracy: Number(row.avg_accuracy) || 0,
+      testCount: Number(row.test_count) || 0,
+      bestWpm: Number(row.best_wpm) || 0,
+    }));
+
+    let weekOverWeek = { wpm: 0, accuracy: 0 };
+    if (weeklyAggregates.length >= 2) {
+      const current = weeklyAggregates[weeklyAggregates.length - 1];
+      const previous = weeklyAggregates[weeklyAggregates.length - 2];
+      weekOverWeek = {
+        wpm: current.avgWpm - previous.avgWpm,
+        accuracy: current.avgAccuracy - previous.avgAccuracy,
+      };
+    }
+
+    let monthOverMonth = { wpm: 0, accuracy: 0 };
+    if (monthlyAggregates.length >= 2) {
+      const current = monthlyAggregates[monthlyAggregates.length - 1];
+      const previous = monthlyAggregates[monthlyAggregates.length - 2];
+      monthOverMonth = {
+        wpm: current.avgWpm - previous.avgWpm,
+        accuracy: current.avgAccuracy - previous.avgAccuracy,
+      };
+    }
+
+    const allTimeQuery = await db.execute(sql`
+      WITH first_last AS (
+        SELECT 
+          (SELECT wpm FROM test_results WHERE user_id = ${userId} ORDER BY created_at ASC LIMIT 1) as first_wpm,
+          (SELECT AVG(wpm)::int FROM test_results WHERE user_id = ${userId} AND created_at >= NOW() - INTERVAL '7 days') as current_wpm
+      )
+      SELECT first_wpm, current_wpm FROM first_last
+    `);
+
+    const allTimeRow = allTimeQuery.rows[0] as any;
+    const firstWpm = Number(allTimeRow?.first_wpm) || 0;
+    const currentWpm = Number(allTimeRow?.current_wpm) || 0;
+    const improvementPercent = firstWpm > 0 ? Math.round(((currentWpm - firstWpm) / firstWpm) * 100) : 0;
+
+    const milestonesQuery = await db.execute(sql`
+      SELECT 
+        'wpm_record' as type,
+        wpm as value,
+        TO_CHAR(created_at, 'YYYY-MM-DD') as achieved_at
+      FROM test_results
+      WHERE user_id = ${userId}
+        AND wpm = (SELECT MAX(wpm) FROM test_results WHERE user_id = ${userId})
+      ORDER BY created_at ASC
+      LIMIT 1
+    `);
+
+    const milestones = milestonesQuery.rows.map((row: any) => ({
+      type: row.type || 'wpm_record',
+      value: Number(row.value) || 0,
+      achievedAt: row.achieved_at || '',
+    }));
+
+    return {
+      weeklyAggregates,
+      monthlyAggregates,
+      improvement: {
+        weekOverWeek,
+        monthOverMonth,
+        allTime: { firstWpm, currentWpm, improvementPercent },
+      },
+      milestones,
     };
   }
 
