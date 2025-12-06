@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Share2, Copy, Check, Twitter, Facebook, MessageCircle, Mail, Send, Clipboard, X } from "lucide-react";
+import { Download, Share2, Copy, Check, Twitter, Facebook, MessageCircle, Mail, Send, Clipboard, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { type Badge as BadgeType } from "@shared/badges";
@@ -44,6 +44,7 @@ export function BadgeShareCard({ badge, username, unlockedAt, isOpen, onClose, o
   const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [imageCopied, setImageCopied] = useState(false);
+  const [isCanvasReady, setIsCanvasReady] = useState(false);
   const { toast } = useToast();
 
   const colors = tierColors[badge.tier] || tierColors.bronze;
@@ -52,7 +53,16 @@ export function BadgeShareCard({ badge, username, unlockedAt, isOpen, onClose, o
 
   useEffect(() => {
     if (isOpen) {
-      generateCard();
+      setIsCanvasReady(false);
+      const timer = setTimeout(() => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            generateCard();
+            setIsCanvasReady(true);
+          });
+        });
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [isOpen, badge, username]);
 
@@ -342,12 +352,24 @@ export function BadgeShareCard({ badge, username, unlockedAt, isOpen, onClose, o
         </DialogHeader>
         
         <div className="flex flex-col items-center gap-4">
-          <canvas
-            ref={canvasRef}
-            className="rounded-xl shadow-2xl max-w-full h-auto border border-primary/20"
-            style={{ maxWidth: "100%", height: "auto" }}
-            data-testid="badge-share-canvas"
-          />
+          <div className="relative">
+            <canvas
+              ref={canvasRef}
+              width={600}
+              height={400}
+              className="rounded-xl shadow-2xl max-w-full h-auto border border-primary/20"
+              style={{ maxWidth: "100%", height: "auto" }}
+              data-testid="badge-share-canvas"
+            />
+            {!isCanvasReady && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-xl">
+                <div className="flex flex-col items-center gap-2">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">Generating card...</span>
+                </div>
+              </div>
+            )}
+          </div>
           
           <div className="w-full space-y-3">
             <div className="p-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
@@ -357,6 +379,7 @@ export function BadgeShareCard({ badge, username, unlockedAt, isOpen, onClose, o
                   onClick={copyImageToClipboard}
                   variant="outline"
                   className="gap-2 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20"
+                  disabled={!isCanvasReady}
                   data-testid="button-badge-copy-image"
                 >
                   {imageCopied ? <Check className="w-4 h-4 text-green-500" /> : <Clipboard className="w-4 h-4 text-purple-400" />}
@@ -366,6 +389,7 @@ export function BadgeShareCard({ badge, username, unlockedAt, isOpen, onClose, o
                   onClick={downloadCard}
                   variant="outline"
                   className="gap-2 bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20"
+                  disabled={!isCanvasReady}
                   data-testid="button-badge-download"
                 >
                   <Download className="w-4 h-4 text-blue-400" />
@@ -380,7 +404,7 @@ export function BadgeShareCard({ badge, username, unlockedAt, isOpen, onClose, o
             {'share' in navigator && (
               <Button
                 onClick={shareCard}
-                disabled={isSharing}
+                disabled={isSharing || !isCanvasReady}
                 className="w-full gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
                 data-testid="button-badge-share-native"
               >
