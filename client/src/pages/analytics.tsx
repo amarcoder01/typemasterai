@@ -3,8 +3,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from "recharts";
-import { TrendingUp, TrendingDown, Target, Keyboard, Calendar, Sparkles, Brain, Loader2, AlertTriangle, RefreshCw, LogIn } from "lucide-react";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltip, Legend, ResponsiveContainer, Area, AreaChart } from "recharts";
+import { TrendingUp, TrendingDown, Target, Keyboard, Calendar, Sparkles, Brain, Loader2, AlertTriangle, RefreshCw, LogIn, Info, WifiOff, Clock, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -287,6 +288,85 @@ const safeNumber = (value: unknown, fallback: number = 0): number => {
   return fallback;
 };
 
+const safeString = (value: unknown, fallback: string = ''): string => {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  return fallback;
+};
+
+const sanitizeWpmDataPoint = (point: Record<string, unknown>): { date: string; wpm: number; accuracy: number; testCount: number } => ({
+  date: safeString(point?.date, new Date().toISOString()),
+  wpm: safeNumber(point?.wpm, 0),
+  accuracy: safeNumber(point?.accuracy, 0),
+  testCount: safeNumber(point?.testCount, 1),
+});
+
+const sanitizeMistakeEntry = (entry: Record<string, unknown>): { key: string; errorCount: number; totalCount: number; errorRate: number } => ({
+  key: safeString(entry?.key, '?'),
+  errorCount: safeNumber(entry?.errorCount, 0),
+  totalCount: safeNumber(entry?.totalCount, 1),
+  errorRate: safeNumber(entry?.errorRate, 0),
+});
+
+const sanitizeAnalyticsData = (data: Partial<AnalyticsData> | undefined): AnalyticsData | null => {
+  if (!data) return null;
+  
+  try {
+    const wpmOverTime = Array.isArray(data.wpmOverTime) 
+      ? data.wpmOverTime.map(p => sanitizeWpmDataPoint(p as Record<string, unknown>)).filter(p => p.wpm > 0)
+      : [];
+    
+    const mistakesHeatmap = Array.isArray(data.mistakesHeatmap)
+      ? data.mistakesHeatmap.map(m => sanitizeMistakeEntry(m as Record<string, unknown>))
+      : [];
+    
+    const commonMistakes = Array.isArray(data.commonMistakes)
+      ? data.commonMistakes.map(m => ({
+          expectedKey: safeString((m as Record<string, unknown>)?.expectedKey, '?'),
+          typedKey: safeString((m as Record<string, unknown>)?.typedKey, '?'),
+          count: safeNumber((m as Record<string, unknown>)?.count, 0),
+        }))
+      : [];
+    
+    const consistency = {
+      avgWpm: safeNumber(data.consistency?.avgWpm, 0),
+      stdDeviation: safeNumber(data.consistency?.stdDeviation, 0),
+      minWpm: safeNumber(data.consistency?.minWpm, 0),
+      maxWpm: safeNumber(data.consistency?.maxWpm, 0),
+    };
+    
+    return { wpmOverTime, mistakesHeatmap, commonMistakes, consistency };
+  } catch {
+    return null;
+  }
+};
+
+interface PartialDataWarningProps {
+  hasWpmData: boolean;
+  hasMistakeData: boolean;
+  hasCommonMistakes: boolean;
+}
+
+const PartialDataWarning = ({ hasWpmData, hasMistakeData, hasCommonMistakes }: PartialDataWarningProps) => {
+  const missingParts: string[] = [];
+  if (!hasWpmData) missingParts.push('WPM history');
+  if (!hasMistakeData) missingParts.push('mistake patterns');
+  if (!hasCommonMistakes) missingParts.push('common errors');
+  
+  if (missingParts.length === 0) return null;
+  
+  return (
+    <Alert className="mb-4" data-testid="partial-data-warning">
+      <Info className="h-4 w-4" />
+      <AlertTitle>Partial Data Available</AlertTitle>
+      <AlertDescription>
+        Some analytics data is limited: {missingParts.join(', ')}. Complete more typing tests to see full insights.
+      </AlertDescription>
+    </Alert>
+  );
+};
+
 const EmptyDataState = ({ message }: { message: string }) => (
   <div className="flex flex-col items-center justify-center py-12 text-center" data-testid="empty-state">
     <Target className="w-12 h-12 text-muted-foreground mb-4" />
@@ -325,8 +405,25 @@ function AnalyticsContent() {
     enabled: !!user,
   });
 
-  const analytics = analyticsData?.analytics;
+  const rawAnalytics = analyticsData?.analytics;
+  
+  const analytics = useMemo(() => {
+    if (!rawAnalytics) return null;
+    return sanitizeAnalyticsData(rawAnalytics);
+  }, [rawAnalytics]);
+  
   const isDataValid = validateAnalyticsData(analytics);
+  
+  const partialDataFlags = useMemo(() => ({
+    hasWpmData: (analytics?.wpmOverTime?.length ?? 0) > 0,
+    hasMistakeData: (analytics?.mistakesHeatmap?.length ?? 0) > 0,
+    hasCommonMistakes: (analytics?.commonMistakes?.length ?? 0) > 0,
+  }), [analytics]);
+  
+  const hasPartialData = useMemo(() => {
+    const { hasWpmData, hasMistakeData, hasCommonMistakes } = partialDataFlags;
+    return hasWpmData && (!hasMistakeData || !hasCommonMistakes);
+  }, [partialDataFlags]);
   
   const dynamicThresholds = useMemo(() => {
     if (!isDataValid || !analytics) return null;
@@ -890,6 +987,29 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
     }
   };
 
+  const wpmTrend = useMemo(() => {
+    if (!analytics || analytics.wpmOverTime.length < 2) return 0;
+    return analytics.wpmOverTime[analytics.wpmOverTime.length - 1].wpm - analytics.wpmOverTime[0].wpm;
+  }, [analytics]);
+
+  const accuracyTrend = useMemo(() => {
+    if (!analytics || analytics.wpmOverTime.length < 2) return 0;
+    return analytics.wpmOverTime[analytics.wpmOverTime.length - 1].accuracy - analytics.wpmOverTime[0].accuracy;
+  }, [analytics]);
+
+  const totalTests = useMemo(() => {
+    if (!analytics) return 0;
+    return analytics.wpmOverTime.reduce((sum, d) => sum + safeNumber(d.testCount), 0);
+  }, [analytics]);
+
+  const formattedChartData = useMemo(() => {
+    if (!analytics) return [];
+    return analytics.wpmOverTime.map(d => ({
+      ...d,
+      formattedDate: formatChartDate(d.date),
+    }));
+  }, [analytics]);
+
   if (authLoading) {
     return (
       <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[400px]" data-testid="analytics-loading">
@@ -947,52 +1067,99 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
   }
 
   if (isError) {
+    const isNetworkError = error instanceof Error && (
+      error.message.includes('network') || 
+      error.message.includes('fetch') ||
+      error.message.includes('Failed to fetch') ||
+      error.message.includes('NetworkError')
+    );
+    const isTimeoutError = error instanceof Error && (
+      error.message.includes('timeout') ||
+      error.message.includes('Timeout') ||
+      error.message.includes('aborted')
+    );
+    const isAuthError = error instanceof Error && (
+      error.message.includes('401') ||
+      error.message.includes('unauthorized') ||
+      error.message.includes('Unauthorized')
+    );
+    
+    const getErrorIcon = () => {
+      if (isNetworkError) return <WifiOff className="h-4 w-4" />;
+      if (isTimeoutError) return <Clock className="h-4 w-4" />;
+      return <AlertTriangle className="h-4 w-4" />;
+    };
+    
+    const getErrorTitle = () => {
+      if (isNetworkError) return "Connection Problem";
+      if (isTimeoutError) return "Request Timed Out";
+      if (isAuthError) return "Authentication Required";
+      return "Failed to Load Analytics";
+    };
+    
+    const getErrorMessage = () => {
+      if (isNetworkError) {
+        return "Unable to connect to the server. Please check your internet connection and try again.";
+      }
+      if (isTimeoutError) {
+        return "The request took too long to complete. This might be due to a slow connection or server load.";
+      }
+      if (isAuthError) {
+        return "Your session may have expired. Please log in again to view your analytics.";
+      }
+      return error instanceof Error ? error.message : 'Unable to load your analytics data. Please try again.';
+    };
+    
+    const getErrorHelp = () => {
+      if (isNetworkError) {
+        return "Tip: Try refreshing the page or checking if other websites are loading.";
+      }
+      if (isTimeoutError) {
+        return "Tip: Try selecting a shorter time range (7 or 14 days) for faster loading.";
+      }
+      return null;
+    };
+    
     return (
       <div className="container mx-auto p-6 max-w-7xl">
         <Alert variant="destructive" data-testid="error-alert">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Failed to Load Analytics</AlertTitle>
-          <AlertDescription className="flex flex-col sm:flex-row sm:items-center gap-4 mt-2">
-            <span>
-              {error instanceof Error ? error.message : 'Unable to load your analytics data. Please try again.'}
-            </span>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => refetch()}
-              data-testid="button-retry"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Retry
-            </Button>
+          {getErrorIcon()}
+          <AlertTitle>{getErrorTitle()}</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 mt-2">
+            <span>{getErrorMessage()}</span>
+            {getErrorHelp() && (
+              <span className="text-xs opacity-80 flex items-center gap-1">
+                <HelpCircle className="w-3 h-3" />
+                {getErrorHelp()}
+              </span>
+            )}
+            <div className="flex gap-2 mt-1">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refetch()}
+                data-testid="button-retry"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+              {isAuthError && (
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={() => (window.location.href = "/login")}
+                  data-testid="button-login"
+                >
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Log In
+                </Button>
+              )}
+            </div>
           </AlertDescription>
         </Alert>
       </div>
     );
   }
-
-  const wpmTrend = useMemo(() => {
-    if (!analytics || analytics.wpmOverTime.length < 2) return 0;
-    return analytics.wpmOverTime[analytics.wpmOverTime.length - 1].wpm - analytics.wpmOverTime[0].wpm;
-  }, [analytics]);
-
-  const accuracyTrend = useMemo(() => {
-    if (!analytics || analytics.wpmOverTime.length < 2) return 0;
-    return analytics.wpmOverTime[analytics.wpmOverTime.length - 1].accuracy - analytics.wpmOverTime[0].accuracy;
-  }, [analytics]);
-
-  const totalTests = useMemo(() => {
-    if (!analytics) return 0;
-    return analytics.wpmOverTime.reduce((sum, d) => sum + safeNumber(d.testCount), 0);
-  }, [analytics]);
-
-  const formattedChartData = useMemo(() => {
-    if (!analytics) return [];
-    return analytics.wpmOverTime.map(d => ({
-      ...d,
-      formattedDate: formatChartDate(d.date),
-    }));
-  }, [analytics]);
 
   if (!isDataValid || !analytics || analytics.wpmOverTime.length === 0) {
     return (
@@ -1032,74 +1199,125 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
         </div>
       </div>
 
+      {/* Partial Data Warning */}
+      {hasPartialData && (
+        <PartialDataWarning
+          hasWpmData={partialDataFlags.hasWpmData}
+          hasMistakeData={partialDataFlags.hasMistakeData}
+          hasCommonMistakes={partialDataFlags.hasCommonMistakes}
+        />
+      )}
+
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Average WPM</CardDescription>
-            <CardTitle className="text-3xl" data-testid="stat-avg-wpm">
-              {analytics.consistency.avgWpm.toFixed(1)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-1 text-sm">
-              {wpmTrend >= 0 ? (
-                <TrendingUp className="w-4 h-4 text-green-500" />
-              ) : (
-                <TrendingDown className="w-4 h-4 text-red-500" />
-              )}
-              <span className={wpmTrend >= 0 ? "text-green-500" : "text-red-500"}>
-                {wpmTrend >= 0 ? "+" : ""}{wpmTrend.toFixed(1)} WPM
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+      <TooltipProvider>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-1">
+                Average WPM
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <p>Words Per Minute - measures your typing speed. The average is calculated from all tests in the selected time period.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </CardDescription>
+              <CardTitle className="text-3xl" data-testid="stat-avg-wpm">
+                {analytics.consistency.avgWpm.toFixed(1)}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-1 text-sm">
+                {wpmTrend >= 0 ? (
+                  <TrendingUp className="w-4 h-4 text-green-500" />
+                ) : (
+                  <TrendingDown className="w-4 h-4 text-red-500" />
+                )}
+                <span className={wpmTrend >= 0 ? "text-green-500" : "text-red-500"}>
+                  {wpmTrend >= 0 ? "+" : ""}{wpmTrend.toFixed(1)} WPM
+                </span>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Consistency</CardDescription>
-            <CardTitle className="text-3xl" data-testid="stat-consistency">
-              {dynamicThresholds ? (
-                dynamicThresholds.isInconsistent ? "Needs Work" : 
-                dynamicThresholds.coefficientOfVariation < ANALYTICS_CONFIG.consistency.excellentCV ? "Excellent" : "Good"
-              ) : "Loading..."}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              ±{analytics.consistency.stdDeviation.toFixed(1)} WPM ({dynamicThresholds?.coefficientOfVariation.toFixed(0) || 0}% variation)
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-1">
+                Consistency
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px]">
+                    <p>How stable your typing speed is. Lower variation means more consistent performance. Excellent: &lt;10% variation, Good: 10-15%, Needs Work: &gt;15%.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </CardDescription>
+              <CardTitle className="text-3xl" data-testid="stat-consistency">
+                {dynamicThresholds ? (
+                  dynamicThresholds.isInconsistent ? "Needs Work" : 
+                  dynamicThresholds.coefficientOfVariation < ANALYTICS_CONFIG.consistency.excellentCV ? "Excellent" : "Good"
+                ) : "Loading..."}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                ±{analytics.consistency.stdDeviation.toFixed(1)} WPM ({dynamicThresholds?.coefficientOfVariation.toFixed(0) || 0}% variation)
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Best WPM</CardDescription>
-            <CardTitle className="text-3xl" data-testid="stat-best-wpm">
-              {analytics.consistency.maxWpm}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Personal record
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-1">
+                Best WPM
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <p>Your highest typing speed achieved in a single test during this time period. This is your personal record to beat!</p>
+                  </TooltipContent>
+                </Tooltip>
+              </CardDescription>
+              <CardTitle className="text-3xl" data-testid="stat-best-wpm">
+                {analytics.consistency.maxWpm}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Personal record
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Tests</CardDescription>
-            <CardTitle className="text-3xl" data-testid="stat-total-tests">
-              {totalTests}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              In last {selectedDays} days
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-1">
+                Total Tests
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <p>The number of typing tests you've completed. More tests give you more accurate analytics and help track your improvement.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </CardDescription>
+              <CardTitle className="text-3xl" data-testid="stat-total-tests">
+                {totalTests}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                In last {selectedDays} days
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </TooltipProvider>
 
       <Tabs defaultValue="performance" className="space-y-4">
         <TabsList className="grid w-full grid-cols-5">
@@ -1136,7 +1354,7 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                     height={60}
                   />
                   <YAxis stroke="#888" domain={['dataMin - 5', 'dataMax + 5']} />
-                  <Tooltip content={<WPMTooltip />} />
+                  <ChartTooltip content={<WPMTooltip />} />
                   <Area 
                     type="monotone" 
                     dataKey="wpm" 
@@ -1177,7 +1395,7 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                       ]}
                       tickFormatter={(value) => `${value}%`}
                     />
-                    <Tooltip content={<AccuracyTooltip />} />
+                    <ChartTooltip content={<AccuracyTooltip />} />
                     <Line type="monotone" dataKey="accuracy" stroke="#a855f7" strokeWidth={2} dot={{ r: 4 }} name="Accuracy" />
                   </LineChart>
                 </ResponsiveContainer>
@@ -1303,7 +1521,7 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                           <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                           <XAxis dataKey="finger" stroke="#888" angle={-45} textAnchor="end" height={80} />
                           <YAxis stroke="#888" />
-                          <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
+                          <ChartTooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
                           <Bar dataKey="count" fill="#00ffff" />
                         </BarChart>
                       </ResponsiveContainer>
@@ -1492,7 +1710,7 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                           <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                           <XAxis dataKey="position" stroke="#888" />
                           <YAxis stroke="#888" />
-                          <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
+                          <ChartTooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
                           <Line type="monotone" dataKey="wpm" stroke="#a855f7" strokeWidth={2} dot={{ r: 3 }} />
                         </LineChart>
                       </ResponsiveContainer>
@@ -1578,7 +1796,7 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                     <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                     <XAxis dataKey="key" stroke="#888" />
                     <YAxis stroke="#888" label={{ value: 'Error Rate (%)', angle: -90, position: 'insideLeft' }} />
-                    <Tooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
+                    <ChartTooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
                     <Bar dataKey="errorRate" fill="#ef4444" />
                   </BarChart>
                 </ResponsiveContainer>
