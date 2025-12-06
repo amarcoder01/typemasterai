@@ -417,6 +417,16 @@ function AnalyticsContent() {
         slowestDigraph: string | null;
         wpmByPosition: Array<{position: number; wpm: number}> | null;
         slowestWords: Array<{word: string; time: number}> | null;
+        burstWpm: number | null;
+        adjustedWpm: number | null;
+        consistencyPercentile: number | null;
+        rollingAccuracy: number[] | null;
+        topDigraphs: Array<{digraph: string; avgTime: number; count: number}> | null;
+        bottomDigraphs: Array<{digraph: string; avgTime: number; count: number}> | null;
+        typingRhythm: number | null;
+        peakPerformanceWindow: {startPos: number; endPos: number; wpm: number} | null;
+        fatigueIndicator: number | null;
+        errorBurstCount: number | null;
       }>;
       
       // Use the latest record (first in array, sorted by createdAt DESC) for per-test metrics
@@ -456,6 +466,16 @@ function AnalyticsContent() {
           slowestDigraph: latest.slowestDigraph,
           wpmByPosition: latest.wpmByPosition,
           slowestWords: latest.slowestWords,
+          burstWpm: latest.burstWpm,
+          adjustedWpm: latest.adjustedWpm,
+          consistencyPercentile: latest.consistencyPercentile,
+          rollingAccuracy: latest.rollingAccuracy,
+          topDigraphs: latest.topDigraphs,
+          bottomDigraphs: latest.bottomDigraphs,
+          typingRhythm: latest.typingRhythm,
+          peakPerformanceWindow: latest.peakPerformanceWindow,
+          fatigueIndicator: latest.fatigueIndicator,
+          errorBurstCount: latest.errorBurstCount,
         }
       };
     },
@@ -1560,6 +1580,230 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Enhanced Industry Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription className="flex items-center gap-1">
+                      Burst WPM
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[200px]">
+                          <p>Your peak typing speed over any 5-second window. This is your burst speed potential.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </CardDescription>
+                    <CardTitle className="text-3xl text-cyan-400" data-testid="stat-burst-wpm">
+                      {keystrokeData.analytics.burstWpm ?? 'N/A'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">Peak 5-second speed</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription className="flex items-center gap-1">
+                      Adjusted WPM
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[200px]">
+                          <p>Your WPM with error penalty applied. More accurate than raw WPM for skill assessment.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </CardDescription>
+                    <CardTitle className="text-3xl text-purple-400" data-testid="stat-adjusted-wpm">
+                      {keystrokeData.analytics.adjustedWpm ?? 'N/A'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">Error-adjusted speed</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription className="flex items-center gap-1">
+                      Typing Rhythm
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[200px]">
+                          <p>How consistent your keystroke timing is. Higher = more rhythmic typing like a pro.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </CardDescription>
+                    <CardTitle className="text-3xl text-green-400" data-testid="stat-typing-rhythm">
+                      {keystrokeData.analytics.typingRhythm?.toFixed(0) ?? 'N/A'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">Rhythm score (0-100)</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription className="flex items-center gap-1">
+                      Fatigue
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[200px]">
+                          <p>Speed change from first to second half. Positive = you slowed down, negative = you warmed up.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </CardDescription>
+                    <CardTitle className={`text-3xl ${keystrokeData.analytics.fatigueIndicator !== null && keystrokeData.analytics.fatigueIndicator > 0 ? 'text-orange-400' : 'text-green-400'}`} data-testid="stat-fatigue">
+                      {keystrokeData.analytics.fatigueIndicator !== null ? `${keystrokeData.analytics.fatigueIndicator > 0 ? '+' : ''}${keystrokeData.analytics.fatigueIndicator.toFixed(0)}%` : 'N/A'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      {keystrokeData.analytics.fatigueIndicator !== null && keystrokeData.analytics.fatigueIndicator > 5 
+                        ? 'Slowing down' 
+                        : keystrokeData.analytics.fatigueIndicator !== null && keystrokeData.analytics.fatigueIndicator < -5 
+                        ? 'Warming up' 
+                        : 'Steady pace'}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Additional Performance Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Consistency Percentile</CardDescription>
+                    <CardTitle className="text-2xl" data-testid="stat-consistency-percentile">
+                      {keystrokeData.analytics.consistencyPercentile !== null 
+                        ? `Top ${100 - keystrokeData.analytics.consistencyPercentile}%` 
+                        : 'N/A'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">Your estimated ranking</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardDescription>Error Bursts</CardDescription>
+                    <CardTitle className="text-2xl" data-testid="stat-error-bursts">
+                      {keystrokeData.analytics.errorBurstCount ?? 'N/A'}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">Consecutive error sequences</p>
+                  </CardContent>
+                </Card>
+
+                {keystrokeData.analytics.peakPerformanceWindow && (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardDescription>Peak Performance</CardDescription>
+                      <CardTitle className="text-2xl text-cyan-400" data-testid="stat-peak-performance">
+                        {keystrokeData.analytics.peakPerformanceWindow.wpm} WPM
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        Best 20% window (pos {keystrokeData.analytics.peakPerformanceWindow.startPos}-{keystrokeData.analytics.peakPerformanceWindow.endPos})
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Rolling Accuracy Trend */}
+              {keystrokeData.analytics.rollingAccuracy && keystrokeData.analytics.rollingAccuracy.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Accuracy Throughout Test</CardTitle>
+                    <CardDescription>How your accuracy changed as you typed</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={keystrokeData.analytics.rollingAccuracy.map((acc, idx) => ({
+                        chunk: `${(idx + 1) * 20}%`,
+                        accuracy: acc
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                        <XAxis dataKey="chunk" stroke="#888" />
+                        <YAxis stroke="#888" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                        <ChartTooltip 
+                          contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}
+                          formatter={(value: number) => [`${value}%`, 'Accuracy']}
+                        />
+                        <Bar dataKey="accuracy" fill="#a855f7" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Top & Bottom Digraphs */}
+              {(keystrokeData.analytics.topDigraphs || keystrokeData.analytics.bottomDigraphs) && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {keystrokeData.analytics.topDigraphs && keystrokeData.analytics.topDigraphs.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-green-400">Fastest Digraphs</CardTitle>
+                        <CardDescription>Your top 5 fastest two-key combinations</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {keystrokeData.analytics.topDigraphs.map((d, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-2 rounded bg-green-500/10 border border-green-500/20">
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs text-muted-foreground">#{idx + 1}</span>
+                                <span className="font-mono text-lg">{d.digraph}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="bg-green-500/20">{d.avgTime}ms</Badge>
+                                <span className="text-xs text-muted-foreground">{d.count}x</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {keystrokeData.analytics.bottomDigraphs && keystrokeData.analytics.bottomDigraphs.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-red-400">Slowest Digraphs</CardTitle>
+                        <CardDescription>Two-key combinations that need practice</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {keystrokeData.analytics.bottomDigraphs.map((d, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-2 rounded bg-red-500/10 border border-red-500/20">
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs text-muted-foreground">#{idx + 1}</span>
+                                <span className="font-mono text-lg">{d.digraph}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="bg-red-500/20">{d.avgTime}ms</Badge>
+                                <span className="text-xs text-muted-foreground">{d.count}x</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
 
               {/* Finger Usage and Hand Balance */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

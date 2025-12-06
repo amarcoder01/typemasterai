@@ -1153,6 +1153,18 @@ export const typingAnalytics = pgTable("typing_analytics", {
   // Keyboard Heatmap Data
   keyHeatmap: jsonb("key_heatmap"), // {A: 50, B: 12, ...} frequency counts
   
+  // Enhanced Industry-Standard Metrics (Production-Ready)
+  burstWpm: integer("burst_wpm"), // Peak 5-second WPM (like Monkeytype)
+  adjustedWpm: integer("adjusted_wpm"), // WPM with error penalty
+  consistencyPercentile: integer("consistency_percentile"), // Estimated ranking (0-100)
+  rollingAccuracy: jsonb("rolling_accuracy"), // Accuracy across 5 chunks
+  topDigraphs: jsonb("top_digraphs"), // Top 5 fastest digraphs with timing
+  bottomDigraphs: jsonb("bottom_digraphs"), // Top 5 slowest digraphs with timing  
+  typingRhythm: real("typing_rhythm"), // Rhythm score (0-100)
+  peakPerformanceWindow: jsonb("peak_performance_window"), // Best 20% window
+  fatigueIndicator: real("fatigue_indicator"), // Speed drop % (positive=fatigue)
+  errorBurstCount: integer("error_burst_count"), // Consecutive error sequences
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
