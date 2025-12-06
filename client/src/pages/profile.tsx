@@ -14,13 +14,28 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame, Star } from "lucide-react";
+import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame, Star, Target, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BADGES, TOTAL_BADGES, type UserBadgeProgress } from "@shared/badges";
 import { BadgeCard } from "@/components/badge-card";
+
+interface NextAchievement {
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+  tier: string;
+  points: number;
+  icon: string;
+  color: string;
+  progress: number;
+  currentValue: number;
+  targetValue: number;
+}
 
 interface UserAchievement {
   id: number;
@@ -102,6 +117,21 @@ export default function Profile() {
     },
     enabled: !!user,
   });
+
+  const { data: nextAchievementData } = useQuery<{ nextAchievement: NextAchievement | null }>({
+    queryKey: ["next-achievement"],
+    queryFn: async () => {
+      const response = await fetch("/api/achievements/next", {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch next achievement");
+      return response.json();
+    },
+    enabled: !!user,
+    staleTime: 30000,
+  });
+
+  const nextAchievement = nextAchievementData?.nextAchievement;
 
   const unlockedAchievements: UserAchievement[] = achievementsData?.achievements || [];
   const unlockedKeys = new Set(unlockedAchievements.map(a => a.achievement.key));
@@ -300,6 +330,92 @@ export default function Profile() {
             </div>
           </div>
         </div>
+
+        {nextAchievement && (
+          <Card 
+            className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-card/80 to-purple-500/5 backdrop-blur-md shadow-lg shadow-primary/10 hover:border-primary/50 transition-all duration-300"
+            data-testid="next-badge-widget"
+          >
+            <CardContent className="p-6">
+              <div className="flex items-center gap-6">
+                <div className="relative">
+                  <div 
+                    className={cn(
+                      "w-20 h-20 rounded-2xl flex items-center justify-center text-4xl shadow-lg",
+                      "bg-gradient-to-br from-muted/80 to-muted border-2 border-border/50"
+                    )}
+                    style={{ 
+                      boxShadow: `0 8px 32px ${nextAchievement.color}20`,
+                    }}
+                  >
+                    {nextAchievement.icon}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                    <Target className="w-4 h-4 text-primary-foreground" />
+                  </div>
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                      Next Badge to Unlock
+                    </span>
+                    <Badge 
+                      variant="outline" 
+                      className="text-[10px] px-1.5 py-0 capitalize"
+                      style={{ 
+                        borderColor: nextAchievement.color,
+                        color: nextAchievement.color
+                      }}
+                      data-testid="next-badge-tier"
+                    >
+                      {nextAchievement.tier}
+                    </Badge>
+                    <Badge 
+                      variant="secondary" 
+                      className="text-[10px] px-1.5 py-0"
+                      data-testid="next-badge-points"
+                    >
+                      +{nextAchievement.points} XP
+                    </Badge>
+                  </div>
+                  
+                  <h3 className="text-xl font-bold truncate" data-testid="next-badge-name">
+                    {nextAchievement.name}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-1" data-testid="next-badge-description">
+                    {nextAchievement.description}
+                  </p>
+                  
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Progress</span>
+                      <span className="font-mono font-semibold text-primary" data-testid="next-badge-progress-text">
+                        {nextAchievement.currentValue} / {nextAchievement.targetValue}
+                        <span className="text-muted-foreground ml-2">({nextAchievement.progress}%)</span>
+                      </span>
+                    </div>
+                    <Progress 
+                      value={nextAchievement.progress} 
+                      className="h-3 bg-secondary [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-purple-500"
+                      data-testid="next-badge-progress"
+                    />
+                  </div>
+                </div>
+                
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => setLocation("/")}
+                  data-testid="next-badge-start-typing"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {chartData.length > 0 && (
           <div className="grid md:grid-cols-2 gap-6">
