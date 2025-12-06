@@ -155,7 +155,6 @@ class LeaderboardCache {
 
   set<T>(key: string, data: T): string {
     this.evictLRU();
-    this.evictIfMemoryExceeded();
     const now = Date.now();
     const etag = generateEtag(data);
     const memSize = estimateMemorySize(data);
@@ -174,6 +173,7 @@ class LeaderboardCache {
     });
     
     this.stats.memoryUsedBytes += memSize;
+    this.evictIfMemoryExceeded();
     return etag;
   }
 
@@ -261,8 +261,8 @@ class LeaderboardCache {
       },
     };
 
-    this.set(cacheKey, response);
-    return response;
+    const etag = this.set(cacheKey, response);
+    return { ...response, metadata: { ...response.metadata, etag } };
   }
 
   async getStressLeaderboard(options: {
@@ -298,8 +298,8 @@ class LeaderboardCache {
       },
     };
 
-    this.set(cacheKey, response);
-    return response;
+    const etag = this.set(cacheKey, response);
+    return { ...response, metadata: { ...response.metadata, etag } };
   }
 
   async getCodeLeaderboard(options: {
@@ -335,8 +335,8 @@ class LeaderboardCache {
       },
     };
 
-    this.set(cacheKey, response);
-    return response;
+    const etag = this.set(cacheKey, response);
+    return { ...response, metadata: { ...response.metadata, etag } };
   }
 
   async getRatingLeaderboard(options: {
@@ -372,8 +372,8 @@ class LeaderboardCache {
       },
     };
 
-    this.set(cacheKey, response);
-    return response;
+    const etag = this.set(cacheKey, response);
+    return { ...response, metadata: { ...response.metadata, etag } };
   }
 
   async getDictationLeaderboard(options: {
@@ -408,8 +408,8 @@ class LeaderboardCache {
       },
     };
 
-    this.set(cacheKey, response);
-    return response;
+    const etag = this.set(cacheKey, response);
+    return { ...response, metadata: { ...response.metadata, etag } };
   }
 
   async getAroundMe(
