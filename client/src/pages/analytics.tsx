@@ -4,13 +4,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart } from "recharts";
-import { TrendingUp, TrendingDown, Target, Keyboard, Calendar, Sparkles, Brain, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, Target, Keyboard, Calendar, Sparkles, Brain, Loader2, AlertTriangle, RefreshCw, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { format, parseISO, isValid } from "date-fns";
+import { useAuth } from "@/lib/auth-context";
+import { Link } from "wouter";
 
 // ============================================================================
 // ANALYTICS CONFIGURATION - Centralized, production-ready settings
@@ -294,6 +296,7 @@ const EmptyDataState = ({ message }: { message: string }) => (
 );
 
 function AnalyticsContent() {
+  const { user, isLoading: authLoading } = useAuth();
   const [selectedDays, setSelectedDays] = useState<number>(ANALYTICS_CONFIG.defaultTimeRange);
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
   const [loadingInsights, setLoadingInsights] = useState(false);
@@ -306,18 +309,9 @@ function AnalyticsContent() {
     queryKey: [`/api/analytics?days=${selectedDays}`],
     retry: ANALYTICS_CONFIG.cache.retryCount,
     staleTime: ANALYTICS_CONFIG.cache.staleTimeMs,
+    enabled: !!user,
   });
 
-  const analytics = analyticsData?.analytics;
-  const isDataValid = validateAnalyticsData(analytics);
-  
-  // Calculate dynamic thresholds based on user's actual data
-  const dynamicThresholds = useMemo(() => {
-    if (!isDataValid || !analytics) return null;
-    return calculateDynamicThresholds(analytics);
-  }, [analytics, isDataValid]);
-
-  // Fetch latest keystroke analytics for detailed analysis
   const { data: keystrokeData } = useQuery({
     queryKey: [`/api/analytics/user?limit=${ANALYTICS_CONFIG.limits.keystrokeAnalyticsDepth}`],
     queryFn: async () => {
@@ -328,16 +322,25 @@ function AnalyticsContent() {
       const data = await response.json();
       return data.analytics && data.analytics.length > 0 ? { analytics: data.analytics } : null;
     },
+    enabled: !!user,
   });
+
+  const analytics = analyticsData?.analytics;
+  const isDataValid = validateAnalyticsData(analytics);
   
-  const sanitizeText = (text: string): string => {
+  const dynamicThresholds = useMemo(() => {
+    if (!isDataValid || !analytics) return null;
+    return calculateDynamicThresholds(analytics);
+  }, [analytics, isDataValid]);
+
+  const sanitizeText = useCallback((text: string): string => {
     return text
       .replace(/<[^>]*>/g, '')
       .replace(/[^\x20-\x7E\n]/g, '')
       .trim();
-  };
+  }, []);
 
-  const deduplicateInsights = (insights: AIInsight[]): AIInsight[] => {
+  const deduplicateInsights = useCallback((insights: AIInsight[]): AIInsight[] => {
     const seen = new Set<string>();
     return insights.filter(insight => {
       const normalized = insight.message.toLowerCase().slice(0, 50);
@@ -345,12 +348,12 @@ function AnalyticsContent() {
       seen.add(normalized);
       return true;
     });
-  };
+  }, []);
 
-  const parseInsightsFromText = useCallback((text: string, analytics: AnalyticsData): AIInsight[] => {
+  const parseInsightsFromText = useCallback((text: string, analyticsParam: AnalyticsData): AIInsight[] => {
     const insights: AIInsight[] = [];
     const lines = text.split(/\n/).map(l => l.trim()).filter(l => l.length > 10);
-    const thresholds = calculateDynamicThresholds(analytics);
+    const thresholds = calculateDynamicThresholds(analyticsParam);
     
     const improvementKeywords = ['improve', 'focus', 'work on', 'reduce', 'avoid', 'weakness'];
     const strengthKeywords = ['strength', 'good', 'excellent', 'strong', 'well', 'consistent'];
@@ -373,7 +376,7 @@ function AnalyticsContent() {
     
     // Generate contextual fallback insights based on dynamic thresholds
     if (insights.length === 0) {
-      const topMistakeKeys = analytics.mistakesHeatmap
+      const topMistakeKeys = analyticsParam.mistakesHeatmap
         .slice(0, ANALYTICS_CONFIG.limits.mistakeKeysInFallback)
         .map(m => m.key);
       
@@ -886,6 +889,49 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
       setLoadingWeeklyPlan(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="container mx-auto px-4 py-8 flex items-center justify-center min-h-[400px]" data-testid="analytics-loading">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="container mx-auto px-4 py-8" data-testid="analytics-login-required">
+        <Card className="max-w-md mx-auto">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+              <LogIn className="w-6 h-6 text-primary" />
+            </div>
+            <CardTitle>Login Required</CardTitle>
+            <CardDescription>
+              Sign in to view your personalized typing analytics and track your progress over time.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <Link href="/login">
+              <Button className="w-full" data-testid="button-login">
+                <LogIn className="w-4 h-4 mr-2" />
+                Sign In
+              </Button>
+            </Link>
+            <p className="text-center text-sm text-muted-foreground">
+              Don't have an account?{" "}
+              <Link href="/register" className="text-primary hover:underline">
+                Create one
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
