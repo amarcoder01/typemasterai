@@ -3,207 +3,326 @@ export interface Badge {
   name: string;
   description: string;
   icon: string;
-  category: "speed" | "accuracy" | "consistency" | "milestone" | "streak";
+  category: "speed" | "accuracy" | "consistency" | "streak" | "special";
+  tier: "bronze" | "silver" | "gold" | "platinum" | "diamond";
+  points: number;
+  color: string;
   requirement: {
-    type: "wpm" | "accuracy" | "testCount" | "streak" | "bestStreak";
+    type: "wpm" | "accuracy" | "testCount" | "streak" | "special" | "shares";
     value: number;
   };
-  rarity: "common" | "rare" | "epic" | "legendary";
 }
 
 export const BADGES: Badge[] = [
-  // Speed Badges
+  // Speed Achievements (5)
   {
-    id: "speed_40",
-    name: "Getting Started",
-    description: "Reach 40 WPM",
-    icon: "🏃",
+    id: "speed_rookie_30",
+    name: "Speed Rookie",
+    description: "Reach 30 WPM",
+    icon: "Zap",
     category: "speed",
-    requirement: { type: "wpm", value: 40 },
-    rarity: "common",
+    tier: "bronze",
+    points: 10,
+    color: "amber",
+    requirement: { type: "wpm", value: 30 },
   },
   {
-    id: "speed_60",
-    name: "Speed Demon",
-    description: "Reach 60 WPM",
-    icon: "⚡",
+    id: "speed_novice_50",
+    name: "Speed Novice",
+    description: "Reach 50 WPM",
+    icon: "Zap",
     category: "speed",
-    requirement: { type: "wpm", value: 60 },
-    rarity: "rare",
+    tier: "silver",
+    points: 25,
+    color: "amber",
+    requirement: { type: "wpm", value: 50 },
   },
   {
-    id: "speed_80",
-    name: "Lightning Fingers",
+    id: "speed_expert_80",
+    name: "Speed Expert",
     description: "Reach 80 WPM",
-    icon: "🔥",
+    icon: "Zap",
     category: "speed",
+    tier: "gold",
+    points: 50,
+    color: "amber",
     requirement: { type: "wpm", value: 80 },
-    rarity: "epic",
   },
   {
-    id: "speed_100",
-    name: "Typing Master",
+    id: "speed_master_100",
+    name: "Speed Master",
     description: "Reach 100 WPM",
-    icon: "👑",
+    icon: "Zap",
     category: "speed",
+    tier: "platinum",
+    points: 100,
+    color: "amber",
     requirement: { type: "wpm", value: 100 },
-    rarity: "legendary",
   },
   {
-    id: "speed_120",
-    name: "Superhuman",
-    description: "Reach 120+ WPM",
-    icon: "🚀",
+    id: "speed_legend_120",
+    name: "Speed Legend",
+    description: "Reach 120 WPM",
+    icon: "Zap",
     category: "speed",
+    tier: "diamond",
+    points: 200,
+    color: "amber",
     requirement: { type: "wpm", value: 120 },
-    rarity: "legendary",
   },
 
-  // Accuracy Badges
+  // Accuracy Achievements (3)
   {
-    id: "accuracy_95",
-    name: "Precision Typist",
+    id: "accuracy_precise_95",
+    name: "Precision Seeker",
     description: "Achieve 95% accuracy",
-    icon: "🎯",
+    icon: "Target",
     category: "accuracy",
+    tier: "bronze",
+    points: 15,
+    color: "blue",
     requirement: { type: "accuracy", value: 95 },
-    rarity: "common",
   },
   {
-    id: "accuracy_98",
+    id: "accuracy_perfect_98",
     name: "Near Perfect",
     description: "Achieve 98% accuracy",
-    icon: "💎",
+    icon: "Target",
     category: "accuracy",
+    tier: "gold",
+    points: 75,
+    color: "blue",
     requirement: { type: "accuracy", value: 98 },
-    rarity: "rare",
   },
   {
-    id: "accuracy_99",
-    name: "Perfectionist",
-    description: "Achieve 99%+ accuracy",
-    icon: "✨",
+    id: "accuracy_flawless_100",
+    name: "Flawless Typist",
+    description: "Achieve 100% accuracy in a single test",
+    icon: "Target",
     category: "accuracy",
-    requirement: { type: "accuracy", value: 99 },
-    rarity: "epic",
+    tier: "diamond",
+    points: 250,
+    color: "blue",
+    requirement: { type: "accuracy", value: 100 },
   },
 
-  // Milestone Badges
+  // Streak Achievements (4)
   {
-    id: "tests_10",
-    name: "First Steps",
-    description: "Complete 10 tests",
-    icon: "🌱",
-    category: "milestone",
-    requirement: { type: "testCount", value: 10 },
-    rarity: "common",
-  },
-  {
-    id: "tests_50",
-    name: "Dedicated",
-    description: "Complete 50 tests",
-    icon: "🌟",
-    category: "milestone",
-    requirement: { type: "testCount", value: 50 },
-    rarity: "rare",
-  },
-  {
-    id: "tests_100",
-    name: "Centurion",
-    description: "Complete 100 tests",
-    icon: "🏆",
-    category: "milestone",
-    requirement: { type: "testCount", value: 100 },
-    rarity: "epic",
-  },
-  {
-    id: "tests_500",
-    name: "Typing Legend",
-    description: "Complete 500 tests",
-    icon: "👾",
-    category: "milestone",
-    requirement: { type: "testCount", value: 500 },
-    rarity: "legendary",
-  },
-  {
-    id: "tests_1000",
-    name: "Elite Typist",
-    description: "Complete 1000 tests",
-    icon: "🎖️",
-    category: "milestone",
-    requirement: { type: "testCount", value: 1000 },
-    rarity: "legendary",
-  },
-
-  // Streak Badges
-  {
-    id: "streak_3",
-    name: "On Fire",
-    description: "3 day streak",
-    icon: "🔥",
+    id: "streak_committed_7",
+    name: "Week Warrior",
+    description: "Maintain a 7-day streak",
+    icon: "Flame",
     category: "streak",
-    requirement: { type: "streak", value: 3 },
-    rarity: "common",
-  },
-  {
-    id: "streak_7",
-    name: "Committed",
-    description: "7 day streak",
-    icon: "📅",
-    category: "streak",
+    tier: "bronze",
+    points: 20,
+    color: "orange",
     requirement: { type: "streak", value: 7 },
-    rarity: "rare",
   },
   {
-    id: "streak_30",
-    name: "Unstoppable",
-    description: "30 day streak",
-    icon: "💪",
+    id: "streak_dedicated_30",
+    name: "Monthly Dedication",
+    description: "Maintain a 30-day streak",
+    icon: "Flame",
     category: "streak",
+    tier: "silver",
+    points: 50,
+    color: "orange",
     requirement: { type: "streak", value: 30 },
-    rarity: "epic",
   },
   {
-    id: "streak_100",
-    name: "Consistency King",
-    description: "100 day streak",
-    icon: "👑",
+    id: "streak_master_100",
+    name: "Streak Master",
+    description: "Maintain a 100-day streak",
+    icon: "Flame",
     category: "streak",
-    requirement: { type: "bestStreak", value: 100 },
-    rarity: "legendary",
+    tier: "gold",
+    points: 150,
+    color: "orange",
+    requirement: { type: "streak", value: 100 },
+  },
+  {
+    id: "streak_legend_365",
+    name: "Year-Long Dedication",
+    description: "Maintain a 365-day streak",
+    icon: "Flame",
+    category: "streak",
+    tier: "diamond",
+    points: 500,
+    color: "orange",
+    requirement: { type: "streak", value: 365 },
+  },
+
+  // Consistency Achievements (5)
+  {
+    id: "consistency_beginner_10",
+    name: "Getting Started",
+    description: "Complete 10 tests",
+    icon: "TrendingUp",
+    category: "consistency",
+    tier: "bronze",
+    points: 10,
+    color: "green",
+    requirement: { type: "testCount", value: 10 },
+  },
+  {
+    id: "consistency_regular_50",
+    name: "Regular Typist",
+    description: "Complete 50 tests",
+    icon: "TrendingUp",
+    category: "consistency",
+    tier: "silver",
+    points: 25,
+    color: "green",
+    requirement: { type: "testCount", value: 50 },
+  },
+  {
+    id: "consistency_dedicated_100",
+    name: "Dedicated Practitioner",
+    description: "Complete 100 tests",
+    icon: "TrendingUp",
+    category: "consistency",
+    tier: "gold",
+    points: 50,
+    color: "green",
+    requirement: { type: "testCount", value: 100 },
+  },
+  {
+    id: "consistency_veteran_500",
+    name: "Typing Veteran",
+    description: "Complete 500 tests",
+    icon: "TrendingUp",
+    category: "consistency",
+    tier: "platinum",
+    points: 150,
+    color: "green",
+    requirement: { type: "testCount", value: 500 },
+  },
+  {
+    id: "consistency_master_1000",
+    name: "Typing Master",
+    description: "Complete 1000 tests",
+    icon: "TrendingUp",
+    category: "consistency",
+    tier: "diamond",
+    points: 300,
+    color: "green",
+    requirement: { type: "testCount", value: 1000 },
+  },
+
+  // Special Achievements (5)
+  {
+    id: "special_first_test",
+    name: "First Steps",
+    description: "Complete your first typing test",
+    icon: "Star",
+    category: "special",
+    tier: "bronze",
+    points: 5,
+    color: "purple",
+    requirement: { type: "testCount", value: 1 },
+  },
+  {
+    id: "special_speed_accuracy",
+    name: "Speed & Precision",
+    description: "Achieve 80 WPM with 95% accuracy in one test",
+    icon: "Award",
+    category: "special",
+    tier: "platinum",
+    points: 200,
+    color: "purple",
+    requirement: { type: "special", value: 0 },
+  },
+  {
+    id: "social_first_share",
+    name: "Social Butterfly",
+    description: "Share your first typing result",
+    icon: "Share2",
+    category: "special",
+    tier: "bronze",
+    points: 15,
+    color: "cyan",
+    requirement: { type: "shares", value: 1 },
+  },
+  {
+    id: "social_sharer_10",
+    name: "Community Champion",
+    description: "Share 10 typing results",
+    icon: "Share2",
+    category: "special",
+    tier: "silver",
+    points: 50,
+    color: "cyan",
+    requirement: { type: "shares", value: 10 },
+  },
+  {
+    id: "social_influencer_25",
+    name: "Typing Influencer",
+    description: "Share 25 typing results",
+    icon: "Share2",
+    category: "special",
+    tier: "gold",
+    points: 100,
+    color: "cyan",
+    requirement: { type: "shares", value: 25 },
   },
 ];
 
-export function getRarityColor(rarity: Badge["rarity"]): string {
-  switch (rarity) {
-    case "common":
-      return "from-slate-400 to-slate-600";
-    case "rare":
-      return "from-blue-400 to-blue-600";
-    case "epic":
-      return "from-purple-400 to-purple-600";
-    case "legendary":
-      return "from-amber-400 to-amber-600";
+export function getTierColor(tier: Badge["tier"]): string {
+  switch (tier) {
+    case "bronze":
+      return "from-amber-600 to-amber-800";
+    case "silver":
+      return "from-slate-300 to-slate-500";
+    case "gold":
+      return "from-yellow-400 to-yellow-600";
+    case "platinum":
+      return "from-cyan-300 to-cyan-500";
+    case "diamond":
+      return "from-purple-400 to-pink-500";
   }
 }
 
-export function getRarityBorder(rarity: Badge["rarity"]): string {
-  switch (rarity) {
-    case "common":
-      return "border-slate-500";
-    case "rare":
-      return "border-blue-500";
-    case "epic":
-      return "border-purple-500";
-    case "legendary":
-      return "border-amber-500";
+export function getTierBorder(tier: Badge["tier"]): string {
+  switch (tier) {
+    case "bronze":
+      return "border-amber-600";
+    case "silver":
+      return "border-slate-400";
+    case "gold":
+      return "border-yellow-500";
+    case "platinum":
+      return "border-cyan-400";
+    case "diamond":
+      return "border-purple-400";
+  }
+}
+
+export function getCategoryColor(category: Badge["category"]): string {
+  switch (category) {
+    case "speed":
+      return "text-amber-500";
+    case "accuracy":
+      return "text-blue-500";
+    case "consistency":
+      return "text-green-500";
+    case "streak":
+      return "text-orange-500";
+    case "special":
+      return "text-purple-500";
   }
 }
 
 export interface UserBadgeProgress {
   badge: Badge;
   unlocked: boolean;
-  progress: number; // 0-100
+  unlockedAt?: string;
+  progress: number;
   currentValue: number;
   requiredValue: number;
 }
+
+export function getBadgeById(id: string): Badge | undefined {
+  return BADGES.find(b => b.id === id);
+}
+
+export const TOTAL_BADGES = BADGES.length;

@@ -17,10 +17,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame } from "lucide-react";
+import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BADGES, type UserBadgeProgress } from "@shared/badges";
+import { BADGES, TOTAL_BADGES, type UserBadgeProgress } from "@shared/badges";
 import { BadgeCard } from "@/components/badge-card";
+
+interface UserAchievement {
+  id: number;
+  unlockedAt: string;
+  testResultId: number | null;
+  achievement: {
+    id: number;
+    key: string;
+    name: string;
+    description: string;
+    category: string;
+    tier: string;
+    points: number;
+    icon: string;
+    color: string;
+  };
+}
 
 export default function Profile() {
   const { user } = useAuth();
@@ -62,13 +79,44 @@ export default function Profile() {
     enabled: !!user,
   });
 
-  // Calculate badge progress
+  const { data: achievementsData } = useQuery({
+    queryKey: ["achievements"],
+    queryFn: async () => {
+      const response = await fetch("/api/achievements", {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch achievements");
+      return response.json();
+    },
+    enabled: !!user,
+  });
+
+  const { data: gamificationData } = useQuery({
+    queryKey: ["gamification"],
+    queryFn: async () => {
+      const response = await fetch("/api/gamification", {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch gamification");
+      return response.json();
+    },
+    enabled: !!user,
+  });
+
+  const unlockedAchievements: UserAchievement[] = achievementsData?.achievements || [];
+  const unlockedKeys = new Set(unlockedAchievements.map(a => a.achievement.key));
+  const unlockedMap = new Map(unlockedAchievements.map(a => [a.achievement.key, a]));
+
   const badgeProgress: UserBadgeProgress[] = BADGES.map((badge) => {
+    const isUnlocked = unlockedKeys.has(badge.id);
+    const userAchievement = unlockedMap.get(badge.id);
+    
     if (!badgeData?.badgeData) {
       return {
         badge,
-        unlocked: false,
-        progress: 0,
+        unlocked: isUnlocked,
+        unlockedAt: userAchievement?.unlockedAt,
+        progress: isUnlocked ? 100 : 0,
         currentValue: 0,
         requiredValue: badge.requirement.value,
       };
@@ -76,36 +124,38 @@ export default function Profile() {
 
     const data = badgeData.badgeData;
     let currentValue = 0;
-    let unlocked = false;
 
     switch (badge.requirement.type) {
       case "wpm":
-        currentValue = data.bestWpm;
-        unlocked = currentValue >= badge.requirement.value;
+        currentValue = data.bestWpm || 0;
         break;
       case "accuracy":
-        currentValue = data.bestAccuracy; // Use raw float for accurate comparison
-        unlocked = currentValue >= badge.requirement.value; // True accuracy must meet threshold
+        currentValue = data.bestAccuracy || 0;
         break;
       case "testCount":
-        currentValue = data.totalTests;
-        unlocked = currentValue >= badge.requirement.value;
+        currentValue = data.totalTests || 0;
         break;
       case "streak":
-        currentValue = data.currentStreak;
-        unlocked = currentValue >= badge.requirement.value;
+        currentValue = Math.max(data.currentStreak || 0, data.bestStreak || 0);
         break;
-      case "bestStreak":
-        currentValue = data.bestStreak;
-        unlocked = currentValue >= badge.requirement.value;
+      case "shares":
+        currentValue = data.totalShares || 0;
+        break;
+      case "special":
+        currentValue = isUnlocked ? 1 : 0;
         break;
     }
 
-    const progress = Math.min((currentValue / badge.requirement.value) * 100, 100);
+    const progress = isUnlocked 
+      ? 100 
+      : badge.requirement.value > 0 
+        ? Math.min((currentValue / badge.requirement.value) * 100, 99.9) 
+        : 0;
 
     return {
       badge,
-      unlocked,
+      unlocked: isUnlocked,
+      unlockedAt: userAchievement?.unlockedAt,
       progress,
       currentValue,
       requiredValue: badge.requirement.value,
@@ -113,7 +163,11 @@ export default function Profile() {
   });
 
   const unlockedCount = badgeProgress.filter((b) => b.unlocked).length;
-  const totalCount = BADGES.length;
+  const totalPoints = gamificationData?.gamification?.totalPoints || 0;
+  const level = gamificationData?.gamification?.level || 1;
+  const xp = gamificationData?.gamification?.experiencePoints || 0;
+  const xpForNextLevel = level * 100;
+  const xpProgress = (xp % 100) / 100 * 100;
 
   if (!user) {
     return (
@@ -182,7 +236,7 @@ export default function Profile() {
                 <div className="flex items-center gap-3">
                   <h1 className="text-3xl font-bold">{user.username}</h1>
                   <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/20">
-                    PRO
+                    Level {level}
                   </Badge>
                 </div>
                 <p className="text-muted-foreground mt-1">{user.email}</p>
@@ -223,10 +277,26 @@ export default function Profile() {
                     <div className="text-3xl font-bold font-mono text-primary">{stats.bestWpm || 0}</div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wider">Best WPM</div>
                   </div>
+                  <div>
+                    <div className="text-3xl font-bold font-mono text-amber-500">{totalPoints}</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Total XP</div>
+                  </div>
                 </>
               ) : (
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               )}
+            </div>
+            <div className="max-w-xs">
+              <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                <span>Level {level}</span>
+                <span>{xp % 100} / 100 XP</span>
+              </div>
+              <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-500"
+                  style={{ width: `${xpProgress}%` }}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -331,8 +401,14 @@ export default function Profile() {
                         {badgeData.badgeData.currentStreak} Day Streak
                       </span>
                     </div>
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <Star className="w-5 h-5 text-amber-500" />
+                      <span className="text-sm font-semibold">
+                        {totalPoints} XP
+                      </span>
+                    </div>
                     <Badge variant="outline" className="text-base px-4 py-2">
-                      {unlockedCount} / {totalCount} Unlocked
+                      {unlockedCount} / {TOTAL_BADGES} Unlocked
                     </Badge>
                   </>
                 )}
@@ -341,12 +417,13 @@ export default function Profile() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="all" className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="speed">Speed</TabsTrigger>
                 <TabsTrigger value="accuracy">Accuracy</TabsTrigger>
-                <TabsTrigger value="milestone">Milestones</TabsTrigger>
+                <TabsTrigger value="consistency">Consistency</TabsTrigger>
                 <TabsTrigger value="streak">Streaks</TabsTrigger>
+                <TabsTrigger value="special">Special</TabsTrigger>
               </TabsList>
               <TabsContent value="all" className="mt-6">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -357,6 +434,7 @@ export default function Profile() {
                       unlocked={item.unlocked}
                       progress={item.progress}
                       currentValue={item.currentValue}
+                      unlockedAt={item.unlockedAt}
                     />
                   ))}
                 </div>
@@ -372,6 +450,7 @@ export default function Profile() {
                         unlocked={item.unlocked}
                         progress={item.progress}
                         currentValue={item.currentValue}
+                        unlockedAt={item.unlockedAt}
                       />
                     ))}
                 </div>
@@ -387,14 +466,15 @@ export default function Profile() {
                         unlocked={item.unlocked}
                         progress={item.progress}
                         currentValue={item.currentValue}
+                        unlockedAt={item.unlockedAt}
                       />
                     ))}
                 </div>
               </TabsContent>
-              <TabsContent value="milestone" className="mt-6">
+              <TabsContent value="consistency" className="mt-6">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {badgeProgress
-                    .filter((item) => item.badge.category === "milestone")
+                    .filter((item) => item.badge.category === "consistency")
                     .map((item) => (
                       <BadgeCard
                         key={item.badge.id}
@@ -402,6 +482,7 @@ export default function Profile() {
                         unlocked={item.unlocked}
                         progress={item.progress}
                         currentValue={item.currentValue}
+                        unlockedAt={item.unlockedAt}
                       />
                     ))}
                 </div>
@@ -417,6 +498,23 @@ export default function Profile() {
                         unlocked={item.unlocked}
                         progress={item.progress}
                         currentValue={item.currentValue}
+                        unlockedAt={item.unlockedAt}
+                      />
+                    ))}
+                </div>
+              </TabsContent>
+              <TabsContent value="special" className="mt-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {badgeProgress
+                    .filter((item) => item.badge.category === "special")
+                    .map((item) => (
+                      <BadgeCard
+                        key={item.badge.id}
+                        badge={item.badge}
+                        unlocked={item.unlocked}
+                        progress={item.progress}
+                        currentValue={item.currentValue}
+                        unlockedAt={item.unlockedAt}
                       />
                     ))}
                 </div>

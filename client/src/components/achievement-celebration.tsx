@@ -5,7 +5,18 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Trophy, Star, Sparkles, Share2, X } from "lucide-react";
+import { Trophy, Star, Sparkles, Share2, X, Zap, Target, Flame, TrendingUp, Award } from "lucide-react";
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Zap,
+  Target,
+  Flame,
+  TrendingUp,
+  Star,
+  Award,
+  Share2,
+  Trophy,
+};
 
 export interface UnlockedAchievement {
   id: string;
@@ -178,6 +189,7 @@ function AchievementCelebrationModal({ achievement, isOpen, onClose, queueLength
 
   const colors = tierColors[achievement.tier] || tierColors.bronze;
   const tierEmoji = tierEmojis[achievement.tier] || "🏆";
+  const IconComponent = iconMap[achievement.icon] || Trophy;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -220,21 +232,21 @@ function AchievementCelebrationModal({ achievement, isOpen, onClose, queueLength
               animate={{ scale: 1 }}
               transition={{ type: "spring", delay: 0.2, duration: 0.6 }}
               className={cn(
-                "w-28 h-28 mx-auto rounded-full flex items-center justify-center text-6xl mb-6",
+                "w-28 h-28 mx-auto rounded-full flex items-center justify-center mb-6",
                 "bg-gradient-to-br shadow-2xl ring-4 ring-offset-2 ring-offset-background",
                 colors.bg,
                 colors.border
               )}
             >
-              <motion.span
+              <motion.div
                 animate={{ 
                   rotate: [0, -10, 10, -10, 0],
                   scale: [1, 1.1, 1]
                 }}
                 transition={{ duration: 0.5, delay: 0.5 }}
               >
-                {achievement.icon}
-              </motion.span>
+                <IconComponent className="w-14 h-14 text-white drop-shadow-lg" />
+              </motion.div>
             </motion.div>
 
             <motion.div

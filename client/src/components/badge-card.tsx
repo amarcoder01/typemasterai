@@ -1,61 +1,70 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Lock } from "lucide-react";
-import { getRarityColor, getRarityBorder, type Badge as BadgeType } from "@shared/badges";
+import { Lock, Zap, Target, Flame, TrendingUp, Star, Award, Share2 } from "lucide-react";
+import { getTierColor, getTierBorder, getCategoryColor, type Badge as BadgeType } from "@shared/badges";
 import { cn } from "@/lib/utils";
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Zap,
+  Target,
+  Flame,
+  TrendingUp,
+  Star,
+  Award,
+  Share2,
+};
 
 interface BadgeCardProps {
   badge: BadgeType;
   unlocked: boolean;
   progress?: number;
   currentValue?: number;
+  unlockedAt?: string;
 }
 
-export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0 }: BadgeCardProps) {
+export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0, unlockedAt }: BadgeCardProps) {
   const isAlmostUnlocked = !unlocked && progress >= 50;
+  const IconComponent = iconMap[badge.icon] || Star;
 
   return (
     <Card
       className={cn(
         "relative p-4 transition-all duration-300",
         unlocked
-          ? `border-2 ${getRarityBorder(badge.rarity)} bg-gradient-to-br ${getRarityColor(badge.rarity)} bg-opacity-10 hover:scale-105 shadow-lg`
+          ? `border-2 ${getTierBorder(badge.tier)} bg-gradient-to-br ${getTierColor(badge.tier)} bg-opacity-10 hover:scale-105 shadow-lg`
           : "border border-border/50 bg-muted/30 opacity-70 hover:opacity-90",
         isAlmostUnlocked && "animate-pulse"
       )}
       data-testid={`badge-${badge.id}`}
     >
-      {/* Rarity indicator */}
       <div className="absolute top-2 right-2">
         <Badge
           variant={unlocked ? "default" : "secondary"}
           className={cn(
             "text-[10px] px-2 py-0.5",
-            unlocked && `bg-gradient-to-r ${getRarityColor(badge.rarity)} border-0 text-white`
+            unlocked && `bg-gradient-to-r ${getTierColor(badge.tier)} border-0 text-white`
           )}
         >
-          {badge.rarity.toUpperCase()}
+          {badge.tier.toUpperCase()}
         </Badge>
       </div>
 
-      {/* Badge icon */}
       <div className="flex flex-col items-center justify-center space-y-3">
         <div
           className={cn(
-            "w-20 h-20 rounded-full flex items-center justify-center text-4xl",
+            "w-20 h-20 rounded-full flex items-center justify-center",
             unlocked
-              ? `bg-gradient-to-br ${getRarityColor(badge.rarity)} shadow-md`
-              : "bg-muted/50 grayscale blur-[1px]"
+              ? `bg-gradient-to-br ${getTierColor(badge.tier)} shadow-md`
+              : "bg-muted/50"
           )}
         >
           {unlocked ? (
-            <span className="drop-shadow-lg">{badge.icon}</span>
+            <IconComponent className="w-10 h-10 text-white drop-shadow-lg" />
           ) : (
             <Lock className="w-8 h-8 text-muted-foreground" />
           )}
         </div>
 
-        {/* Badge name */}
         <div className="text-center space-y-1">
           <h3 className={cn("font-bold text-sm", unlocked ? "text-foreground" : "text-muted-foreground")}>
             {badge.name}
@@ -63,7 +72,6 @@ export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0 }: B
           <p className="text-xs text-muted-foreground line-clamp-2">{badge.description}</p>
         </div>
 
-        {/* Progress bar for locked badges */}
         {!unlocked && progress > 0 && (
           <div className="w-full space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
@@ -88,13 +96,23 @@ export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0 }: B
           </div>
         )}
 
-        {/* Unlocked indicator */}
         {unlocked && (
-          <div className="flex items-center gap-1 text-xs text-green-500 font-semibold">
-            <span className="text-base">✓</span>
-            Unlocked
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center gap-1 text-xs text-green-500 font-semibold">
+              <span className="text-base">✓</span>
+              Unlocked
+            </div>
+            {unlockedAt && (
+              <span className="text-[10px] text-muted-foreground">
+                {new Date(unlockedAt).toLocaleDateString()}
+              </span>
+            )}
           </div>
         )}
+
+        <div className={cn("text-xs font-semibold", getCategoryColor(badge.category))}>
+          +{badge.points} XP
+        </div>
       </div>
     </Card>
   );
