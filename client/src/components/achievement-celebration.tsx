@@ -48,6 +48,73 @@ const tierEmojis = {
   diamond: "👑",
 };
 
+let sharedAudioContext: AudioContext | null = null;
+let audioContextResumed = false;
+
+function getAudioContext(): AudioContext | null {
+  try {
+    if (!sharedAudioContext) {
+      sharedAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return sharedAudioContext;
+  } catch {
+    return null;
+  }
+}
+
+export function preWarmAudioContext() {
+  const ctx = getAudioContext();
+  if (ctx && ctx.state === "suspended" && !audioContextResumed) {
+    ctx.resume().then(() => {
+      audioContextResumed = true;
+    }).catch(() => {});
+  }
+}
+
+async function playAchievementSound(tier: string) {
+  try {
+    const audioContext = getAudioContext();
+    if (!audioContext) return;
+    
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+    
+    const tierFrequencies: Record<string, number[]> = {
+      bronze: [523.25, 659.25, 783.99],
+      silver: [587.33, 739.99, 880.00],
+      gold: [659.25, 830.61, 987.77],
+      platinum: [739.99, 932.33, 1108.73],
+      diamond: [783.99, 987.77, 1174.66, 1318.51],
+    };
+    
+    const frequencies = tierFrequencies[tier] || tierFrequencies.bronze;
+    
+    frequencies.forEach((freq, index) => {
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = freq;
+      oscillator.type = "sine";
+      
+      const startTime = audioContext.currentTime + index * 0.15;
+      const duration = 0.3;
+      
+      gainNode.gain.setValueAtTime(0, startTime);
+      gainNode.gain.linearRampToValueAtTime(0.15, startTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+      
+      oscillator.start(startTime);
+      oscillator.stop(startTime + duration);
+    });
+  } catch (error) {
+    console.warn("Could not play achievement sound:", error);
+  }
+}
+
 function triggerAchievementConfetti(tier: string) {
   const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (prefersReducedMotion) return;
@@ -103,6 +170,7 @@ function AchievementCelebrationModal({ achievement, isOpen, onClose, queueLength
   useEffect(() => {
     if (isOpen && achievement) {
       triggerAchievementConfetti(achievement.tier);
+      playAchievementSound(achievement.tier);
     }
   }, [isOpen, achievement]);
 

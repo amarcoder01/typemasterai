@@ -327,14 +327,17 @@ export class AchievementService {
 
   /**
    * Check for new achievement unlocks after a test
+   * Returns an array of newly unlocked achievements for celebration UI
    */
-  async checkAchievements(userId: string, testResult: TestResult): Promise<void> {
+  async checkAchievements(userId: string, testResult: TestResult): Promise<AchievementCheck[]> {
+    const newlyUnlocked: AchievementCheck[] = [];
+    
     try {
       // Get user stats
       const stats = await this.storage.getUserStats(userId);
       const badgeData = await this.storage.getUserBadgeData(userId);
       
-      if (!stats) return;
+      if (!stats) return newlyUnlocked;
 
       const userStats: UserStats = {
         totalTests: stats.totalTests,
@@ -360,11 +363,14 @@ export class AchievementService {
         // Check if user qualifies for this achievement
         if (achievement.check(userStats)) {
           await this.unlockAchievement(userId, achievement, testResult.id);
+          newlyUnlocked.push(achievement);
         }
       }
     } catch (error) {
       console.error('[Achievements] Check error:', error);
     }
+    
+    return newlyUnlocked;
   }
 
   /**

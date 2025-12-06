@@ -610,12 +610,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update user streak after completing a test
       await storage.updateUserStreak(req.user!.id);
       
-      // Check for achievement unlocks (async, don't block response)
-      achievementService.checkAchievements(req.user!.id, result).catch(error => {
-        console.error("Achievement check error:", error);
-      });
+      // Check for achievement unlocks and return newly unlocked achievements
+      let newAchievements: Array<{
+        key: string;
+        name: string;
+        description: string;
+        tier: string;
+        points: number;
+        icon: string;
+        category: string;
+      }> = [];
       
-      res.status(201).json({ message: "Test result saved", result });
+      try {
+        const unlocked = await achievementService.checkAchievements(req.user!.id, result);
+        newAchievements = unlocked.map(a => ({
+          key: a.key,
+          name: a.name,
+          description: a.description,
+          tier: a.tier,
+          points: a.points,
+          icon: a.icon,
+          category: a.category,
+        }));
+      } catch (error) {
+        console.error("Achievement check error:", error);
+      }
+      
+      res.status(201).json({ message: "Test result saved", result, id: result.id, newAchievements });
     } catch (error: any) {
       console.error("Save test result error:", error);
       res.status(500).json({ message: "Failed to save test result" });

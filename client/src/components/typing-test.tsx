@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { KeystrokeTracker } from "@/lib/keystroke-tracker";
+import { useAchievementCelebration, type UnlockedAchievement, preWarmAudioContext } from "@/components/achievement-celebration";
 
 type TestMode = 15 | 30 | 45 | 60 | 90 | 120 | 180 | number;
 
@@ -98,6 +99,7 @@ const TIME_PRESETS = [
 export default function TypingTest() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { celebrateMultiple } = useAchievementCelebration();
   const [mode, setMode] = useState<TestMode>(60);
   const [customTime, setCustomTime] = useState<string>("");
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -413,6 +415,28 @@ export default function TypingTest() {
         title: "Test Saved!",
         description: "Your result has been saved to your profile.",
       });
+      
+      if (data?.newAchievements && data.newAchievements.length > 0) {
+        const categoryIcons: Record<string, string> = {
+          speed: "⚡",
+          accuracy: "🎯",
+          streak: "🔥",
+          consistency: "📈",
+          special: "⭐",
+        };
+        
+        const formattedAchievements: UnlockedAchievement[] = data.newAchievements.map((a: any) => ({
+          id: a.key,
+          name: a.name,
+          description: a.description,
+          icon: categoryIcons[a.category] || "🏆",
+          tier: a.tier as UnlockedAchievement["tier"],
+          points: a.points,
+          category: a.category,
+        }));
+        
+        celebrateMultiple(formattedAchievements);
+      }
     },
     onError: (error, variables) => {
       setPendingResult(variables);
@@ -929,6 +953,7 @@ Can you beat my score? Try it here: `,
     if (!isActive && value.length === 1) {
       setIsActive(true);
       setStartTime(now);
+      preWarmAudioContext();
     }
 
     setUserInput(value);
