@@ -3696,16 +3696,21 @@ export class DatabaseStorage implements IStorage {
         dailyReminder: r.p_daily_reminder,
         dailyReminderTime: r.p_daily_reminder_time,
         streakWarning: r.p_streak_warning,
+        streakMilestone: false,
         weeklySummary: r.p_weekly_summary,
+        weeklySummaryDay: 'sunday',
         achievementUnlocked: false,
         challengeInvite: false,
         challengeComplete: false,
-        streakMilestone: false,
-        leaderboardRankChange: false,
+        leaderboardChange: false,
+        newPersonalRecord: false,
         raceInvite: false,
+        raceStarting: false,
+        socialUpdates: false,
+        tipOfTheDay: false,
+        timezone: null,
         quietHoursStart: null,
         quietHoursEnd: null,
-        weeklySummaryDay: 'sunday',
         createdAt: r.p_created_at,
         updatedAt: r.p_updated_at,
       },
@@ -4257,21 +4262,19 @@ export class DatabaseStorage implements IStorage {
     const minRating = targetRating - tolerance;
     const maxRating = targetRating + tolerance;
     
-    let query = db
+    const baseCondition = and(
+      sql`${userRatings.rating} >= ${minRating}`,
+      sql`${userRatings.rating} <= ${maxRating}`
+    );
+    
+    const whereCondition = excludeUserIds.length > 0
+      ? and(baseCondition, notInArray(userRatings.userId, excludeUserIds))
+      : baseCondition;
+    
+    return await db
       .select()
       .from(userRatings)
-      .where(
-        and(
-          sql`${userRatings.rating} >= ${minRating}`,
-          sql`${userRatings.rating} <= ${maxRating}`
-        )
-      );
-    
-    if (excludeUserIds.length > 0) {
-      query = query.where(notInArray(userRatings.userId, excludeUserIds)) as typeof query;
-    }
-    
-    return await query
+      .where(whereCondition)
       .orderBy(sql`ABS(${userRatings.rating} - ${targetRating})`)
       .limit(10);
   }
