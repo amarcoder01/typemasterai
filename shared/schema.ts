@@ -1107,8 +1107,8 @@ export const keystrokeEvents = pgTable("keystroke_events", {
   testResultId: integer("test_result_id").references(() => testResults.id, { onDelete: "cascade" }),
   key: varchar("key", { length: 10 }).notNull(),
   keyCode: varchar("key_code", { length: 50 }).notNull(),
-  pressTime: integer("press_time").notNull(), // ms timestamp
-  releaseTime: integer("release_time"), // ms timestamp (null if still pressed)
+  pressTime: bigint("press_time", { mode: "number" }).notNull(), // ms timestamp
+  releaseTime: bigint("release_time", { mode: "number" }), // ms timestamp (null if still pressed)
   dwellTime: integer("dwell_time"), // time key was held down (ms)
   flightTime: integer("flight_time"), // time since previous key release (ms)
   isCorrect: boolean("is_correct").notNull(),
