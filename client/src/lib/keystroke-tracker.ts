@@ -18,6 +18,27 @@ interface DigraphTiming {
   count: number;
 }
 
+interface AntiCheatValidation {
+  isSuspicious: boolean;
+  suspiciousFlags: string[] | null;
+  validationScore: number;
+  minKeystrokeInterval: number | null;
+  keystrokeVariance: number | null;
+  syntheticInputDetected: boolean;
+}
+
+const ANTICHEAT_THRESHOLDS = {
+  MIN_KEYSTROKE_INTERVAL_MS: 10,
+  SUSPECT_INTERVAL_MS: 25,
+  MAX_WPM_WITHOUT_FLAG: 200,
+  MAX_CONSISTENT_VARIANCE: 5,
+  MIN_KEYSTROKES_FOR_ANALYSIS: 20,
+  BURST_WINDOW_SIZE: 10,
+  BURST_THRESHOLD_RATIO: 0.8,
+  PERFECT_RHYTHM_THRESHOLD: 0.95,
+  SUSPICIOUS_FLAG_THRESHOLD: 2,
+} as const;
+
 interface TypingAnalytics {
   wpm: number;
   rawWpm: number;
@@ -49,6 +70,14 @@ interface TypingAnalytics {
   peakPerformanceWindow: { startPos: number; endPos: number; wpm: number } | null;
   fatigueIndicator: number | null; // Speed drop from first half to second half (%)
   errorBurstCount: number | null; // Number of consecutive error sequences
+  
+  // Anti-Cheat Validation
+  isSuspicious: boolean;
+  suspiciousFlags: string[] | null;
+  validationScore: number | null;
+  minKeystrokeInterval: number | null;
+  keystrokeVariance: number | null;
+  syntheticInputDetected: boolean;
 }
 
 const FINGER_MAP: Record<string, { finger: string; hand: string }> = {
@@ -184,6 +213,12 @@ export class KeystrokeTracker {
         peakPerformanceWindow: null,
         fatigueIndicator: null,
         errorBurstCount: null,
+        isSuspicious: false,
+        suspiciousFlags: null,
+        validationScore: null,
+        minKeystrokeInterval: null,
+        keystrokeVariance: null,
+        syntheticInputDetected: false,
       };
     }
 
@@ -327,6 +362,9 @@ export class KeystrokeTracker {
       ? this.estimateConsistencyPercentile(consistency)
       : null;
 
+    // === ANTI-CHEAT VALIDATION ===
+    const antiCheatValidation = this.performAntiCheatValidation(wpm, flightTimes);
+
     return {
       wpm,
       rawWpm,
@@ -356,6 +394,7 @@ export class KeystrokeTracker {
       peakPerformanceWindow,
       fatigueIndicator,
       errorBurstCount,
+      ...antiCheatValidation,
     };
   }
   
@@ -651,6 +690,117 @@ export class KeystrokeTracker {
       .map(w => w.word);
 
     return slowWords.length > 0 ? slowWords : null;
+  }
+
+  private performAntiCheatValidation(wpm: number, flightTimes: number[]): AntiCheatValidation {
+    const suspiciousFlags: string[] = [];
+    let syntheticInputDetected = false;
+    
+    if (this.events.length < ANTICHEAT_THRESHOLDS.MIN_KEYSTROKES_FOR_ANALYSIS) {
+      return {
+        isSuspicious: false,
+        suspiciousFlags: null,
+        validationScore: 100,
+        minKeystrokeInterval: null,
+        keystrokeVariance: null,
+        syntheticInputDetected: false,
+      };
+    }
+    
+    const intervals: number[] = [];
+    for (let i = 1; i < this.events.length; i++) {
+      const interval = this.events[i].pressTime - this.events[i - 1].pressTime;
+      if (interval > 0) intervals.push(interval);
+    }
+    
+    const minInterval = intervals.length > 0 ? Math.min(...intervals) : null;
+    const avgInterval = intervals.length > 0 ? intervals.reduce((a, b) => a + b, 0) / intervals.length : 0;
+    const variance = intervals.length > 1 
+      ? intervals.reduce((sum, t) => sum + Math.pow(t - avgInterval, 2), 0) / intervals.length
+      : null;
+    
+    if (minInterval !== null && minInterval < ANTICHEAT_THRESHOLDS.MIN_KEYSTROKE_INTERVAL_MS) {
+      suspiciousFlags.push('inhuman_speed');
+      syntheticInputDetected = true;
+    }
+    
+    if (wpm > ANTICHEAT_THRESHOLDS.MAX_WPM_WITHOUT_FLAG) {
+      suspiciousFlags.push('impossible_wpm');
+    }
+    
+    if (variance !== null && variance < ANTICHEAT_THRESHOLDS.MAX_CONSISTENT_VARIANCE && intervals.length > 20) {
+      suspiciousFlags.push('programmatic_pattern');
+      syntheticInputDetected = true;
+    }
+    
+    if (this.detectSuspiciousBursts(intervals)) {
+      suspiciousFlags.push('burst_typing');
+    }
+    
+    if (this.detectPerfectRhythm(intervals)) {
+      suspiciousFlags.push('perfect_rhythm');
+      syntheticInputDetected = true;
+    }
+    
+    // Flight time analysis - detect unnatural consistency in key-to-key transition times
+    if (flightTimes.length > 20) {
+      const filteredFlights = flightTimes.filter(t => t > 0 && t < 500);
+      if (filteredFlights.length > 10) {
+        const avgFlight = filteredFlights.reduce((a, b) => a + b, 0) / filteredFlights.length;
+        const flightVariance = filteredFlights.reduce((sum, t) => sum + Math.pow(t - avgFlight, 2), 0) / filteredFlights.length;
+        
+        // Extremely low flight variance (< 5ms^2) indicates programmatic input
+        if (flightVariance < ANTICHEAT_THRESHOLDS.MAX_CONSISTENT_VARIANCE) {
+          if (!suspiciousFlags.includes('programmatic_pattern')) {
+            suspiciousFlags.push('uniform_flight_times');
+          }
+          syntheticInputDetected = true;
+        }
+      }
+    }
+    
+    let validationScore = 100;
+    validationScore -= suspiciousFlags.length * 20;
+    if (syntheticInputDetected) validationScore -= 30;
+    validationScore = Math.max(0, validationScore);
+    
+    const isSuspicious = suspiciousFlags.length >= ANTICHEAT_THRESHOLDS.SUSPICIOUS_FLAG_THRESHOLD;
+    
+    return {
+      isSuspicious,
+      suspiciousFlags: suspiciousFlags.length > 0 ? suspiciousFlags : null,
+      validationScore,
+      minKeystrokeInterval: minInterval !== null ? Math.round(minInterval) : null,
+      keystrokeVariance: variance !== null ? Math.round(variance * 100) / 100 : null,
+      syntheticInputDetected,
+    };
+  }
+
+  private detectSuspiciousBursts(intervals: number[]): boolean {
+    if (intervals.length < ANTICHEAT_THRESHOLDS.BURST_WINDOW_SIZE * 2) return false;
+    
+    for (let i = 0; i <= intervals.length - ANTICHEAT_THRESHOLDS.BURST_WINDOW_SIZE; i++) {
+      const window = intervals.slice(i, i + ANTICHEAT_THRESHOLDS.BURST_WINDOW_SIZE);
+      const fastCount = window.filter(t => t < ANTICHEAT_THRESHOLDS.SUSPECT_INTERVAL_MS).length;
+      if (fastCount / window.length >= ANTICHEAT_THRESHOLDS.BURST_THRESHOLD_RATIO) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private detectPerfectRhythm(intervals: number[]): boolean {
+    if (intervals.length < 20) return false;
+    
+    let consistentCount = 0;
+    for (let i = 1; i < intervals.length; i++) {
+      const diff = Math.abs(intervals[i] - intervals[i - 1]);
+      if (diff < ANTICHEAT_THRESHOLDS.MAX_CONSISTENT_VARIANCE) {
+        consistentCount++;
+      }
+    }
+    
+    return (consistentCount / intervals.length) > ANTICHEAT_THRESHOLDS.PERFECT_RHYTHM_THRESHOLD;
   }
 
   getEvents(): KeystrokeEvent[] {

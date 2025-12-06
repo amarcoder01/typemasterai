@@ -1165,6 +1165,14 @@ export const typingAnalytics = pgTable("typing_analytics", {
   fatigueIndicator: real("fatigue_indicator"), // Speed drop % (positive=fatigue)
   errorBurstCount: integer("error_burst_count"), // Consecutive error sequences
   
+  // Anti-Cheat Validation Flags (Production-Ready)
+  isSuspicious: boolean("is_suspicious").default(false), // Overall suspicious flag
+  suspiciousFlags: jsonb("suspicious_flags"), // Array of detected anomalies
+  validationScore: integer("validation_score"), // 0-100 trustworthiness score
+  minKeystrokeInterval: integer("min_keystroke_interval"), // Fastest interval (ms) - for inhuman detection
+  keystrokeVariance: real("keystroke_variance"), // Variance in timing - too consistent = bot
+  syntheticInputDetected: boolean("synthetic_input_detected").default(false), // Clipboard/macro detection
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
