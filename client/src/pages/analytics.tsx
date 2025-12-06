@@ -400,7 +400,64 @@ function AnalyticsContent() {
       });
       if (!response.ok) return null;
       const data = await response.json();
-      return data.analytics && data.analytics.length > 0 ? { analytics: data.analytics } : null;
+      
+      if (!data.analytics || data.analytics.length === 0) return null;
+      
+      const analyticsArray = data.analytics as Array<{
+        avgDwellTime: number | null;
+        avgFlightTime: number | null;
+        consistency: number | null;
+        fingerUsage: Record<string, number> | null;
+        handBalance: number | null;
+        keyHeatmap: Record<string, number> | null;
+        wpm: number;
+        accuracy: number;
+        totalErrors: number;
+        fastestDigraph: string | null;
+        slowestDigraph: string | null;
+        wpmByPosition: Array<{position: number; wpm: number}> | null;
+        slowestWords: Array<{word: string; time: number}> | null;
+      }>;
+      
+      // Use the latest record (first in array, sorted by createdAt DESC) for per-test metrics
+      const latest = analyticsArray[0];
+      
+      // Aggregate finger usage across all tests for comprehensive view
+      const aggregatedFingerUsage: Record<string, number> = {};
+      analyticsArray.forEach(a => {
+        if (a.fingerUsage) {
+          Object.entries(a.fingerUsage).forEach(([finger, count]) => {
+            aggregatedFingerUsage[finger] = (aggregatedFingerUsage[finger] || 0) + (count as number);
+          });
+        }
+      });
+      
+      // Aggregate key heatmap across all tests for comprehensive view
+      const aggregatedKeyHeatmap: Record<string, number> = {};
+      analyticsArray.forEach(a => {
+        if (a.keyHeatmap) {
+          Object.entries(a.keyHeatmap).forEach(([key, count]) => {
+            aggregatedKeyHeatmap[key] = (aggregatedKeyHeatmap[key] || 0) + (count as number);
+          });
+        }
+      });
+      
+      // Use latest record metrics but aggregated heatmap/finger data
+      return {
+        analytics: {
+          avgDwellTime: latest.avgDwellTime,
+          avgFlightTime: latest.avgFlightTime,
+          consistency: latest.consistency,
+          handBalance: latest.handBalance,
+          fingerUsage: Object.keys(aggregatedFingerUsage).length > 0 ? aggregatedFingerUsage : latest.fingerUsage,
+          keyHeatmap: Object.keys(aggregatedKeyHeatmap).length > 0 ? aggregatedKeyHeatmap : latest.keyHeatmap,
+          totalTests: analyticsArray.length,
+          fastestDigraph: latest.fastestDigraph,
+          slowestDigraph: latest.slowestDigraph,
+          wpmByPosition: latest.wpmByPosition,
+          slowestWords: latest.slowestWords,
+        }
+      };
     },
     enabled: !!user,
   });
@@ -408,8 +465,8 @@ function AnalyticsContent() {
   const rawAnalytics = analyticsData?.analytics;
   
   const analytics = useMemo(() => {
-    if (!rawAnalytics) return null;
-    return sanitizeAnalyticsData(rawAnalytics);
+    if (!rawAnalytics) return undefined;
+    return sanitizeAnalyticsData(rawAnalytics) ?? undefined;
   }, [rawAnalytics]);
   
   const isDataValid = validateAnalyticsData(analytics);
@@ -1703,10 +1760,14 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                     </CardHeader>
                     <CardContent>
                       <ResponsiveContainer width="100%" height={250}>
-                        <LineChart data={keystrokeData.analytics.wpmByPosition.map((wpm: number, idx: number) => ({
-                          position: `${idx * 10}%`,
-                          wpm
-                        }))}>
+                        <LineChart data={
+                          Array.isArray(keystrokeData.analytics.wpmByPosition)
+                            ? keystrokeData.analytics.wpmByPosition.map((item: {position: number; wpm: number} | number, idx: number) => ({
+                                position: `${typeof item === 'object' ? item.position : idx * 10}%`,
+                                wpm: typeof item === 'object' ? item.wpm : item
+                              }))
+                            : []
+                        }>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                           <XAxis dataKey="position" stroke="#888" />
                           <YAxis stroke="#888" />
@@ -1718,7 +1779,7 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                   </Card>
                 )}
 
-                {keystrokeData.analytics.slowestWords && keystrokeData.analytics.slowestWords.length > 0 && (
+                {keystrokeData.analytics.slowestWords && Array.isArray(keystrokeData.analytics.slowestWords) && keystrokeData.analytics.slowestWords.length > 0 && (
                   <Card>
                     <CardHeader>
                       <CardTitle>Slowest Words</CardTitle>
@@ -1745,36 +1806,32 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
               </div>
 
               {/* Digraph Analysis */}
-              {keystrokeData.analytics.fastestDigraph && keystrokeData.analytics.slowestDigraph && (
+              {(keystrokeData.analytics.fastestDigraph || keystrokeData.analytics.slowestDigraph) && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Digraph Analysis</CardTitle>
-                    <CardDescription>Fastest and slowest two-key combinations</CardDescription>
+                    <CardDescription>Fastest and slowest two-key combinations from your latest test</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h4 className="text-sm font-semibold mb-3 text-green-500">Fastest Digraphs</h4>
-                        <div className="space-y-2">
-                          {keystrokeData.analytics.fastestDigraph.slice(0, 5).map((item: any, idx: number) => (
-                            <div key={idx} className="flex items-center justify-between p-2 rounded bg-green-500/10 border border-green-500/20">
-                              <span className="font-mono">{item.digraph}</span>
-                              <Badge variant="outline" className="bg-green-500/20">{item.avgTime?.toFixed(0)} ms</Badge>
-                            </div>
-                          ))}
+                      {keystrokeData.analytics.fastestDigraph && (
+                        <div>
+                          <h4 className="text-sm font-semibold mb-3 text-green-500">Fastest Digraph</h4>
+                          <div className="flex items-center justify-between p-3 rounded bg-green-500/10 border border-green-500/20">
+                            <span className="font-mono text-lg">{keystrokeData.analytics.fastestDigraph}</span>
+                            <Badge variant="outline" className="bg-green-500/20">Your fastest combo</Badge>
+                          </div>
                         </div>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-semibold mb-3 text-red-500">Slowest Digraphs</h4>
-                        <div className="space-y-2">
-                          {keystrokeData.analytics.slowestDigraph.slice(0, 5).map((item: any, idx: number) => (
-                            <div key={idx} className="flex items-center justify-between p-2 rounded bg-red-500/10 border border-red-500/20">
-                              <span className="font-mono">{item.digraph}</span>
-                              <Badge variant="outline" className="bg-red-500/20">{item.avgTime?.toFixed(0)} ms</Badge>
-                            </div>
-                          ))}
+                      )}
+                      {keystrokeData.analytics.slowestDigraph && (
+                        <div>
+                          <h4 className="text-sm font-semibold mb-3 text-red-500">Slowest Digraph</h4>
+                          <div className="flex items-center justify-between p-3 rounded bg-red-500/10 border border-red-500/20">
+                            <span className="font-mono text-lg">{keystrokeData.analytics.slowestDigraph}</span>
+                            <Badge variant="outline" className="bg-red-500/20">Needs practice</Badge>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
