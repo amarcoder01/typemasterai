@@ -621,6 +621,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category: string;
       }> = [];
       
+      let nearCompletionAchievements: Array<{
+        key: string;
+        name: string;
+        description: string;
+        category: string;
+        tier: string;
+        points: number;
+        icon: string;
+        color: string;
+        progress: number;
+        currentValue: number;
+        targetValue: number;
+      }> = [];
+      
       try {
         const unlocked = await achievementService.checkAchievements(req.user!.id, result);
         newAchievements = unlocked.map(a => ({
@@ -632,11 +646,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           icon: a.icon,
           category: a.category,
         }));
+        
+        // Get achievements at 80%+ progress for "Almost There" notifications
+        // Pass the result to include fresh data from the just-completed test
+        nearCompletionAchievements = await achievementService.getNearCompletionAchievements(req.user!.id, 80, result);
       } catch (error) {
         console.error("Achievement check error:", error);
       }
       
-      res.status(201).json({ message: "Test result saved", result, id: result.id, newAchievements });
+      res.status(201).json({ 
+        message: "Test result saved", 
+        result, 
+        id: result.id, 
+        newAchievements,
+        nearCompletionAchievements 
+      });
     } catch (error: any) {
       console.error("Save test result error:", error);
       res.status(500).json({ message: "Failed to save test result" });
@@ -691,6 +715,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Get gamification error:", error);
       res.status(500).json({ message: "Failed to fetch gamification data" });
+    }
+  });
+
+  app.get("/api/achievements/near-completion", isAuthenticated, async (req, res) => {
+    try {
+      const minProgress = parseInt(req.query.minProgress as string) || 80;
+      const nearCompletion = await achievementService.getNearCompletionAchievements(req.user!.id, minProgress);
+      res.json({ nearCompletion });
+    } catch (error: any) {
+      console.error("Get near-completion achievements error:", error);
+      res.status(500).json({ message: "Failed to fetch near-completion achievements" });
+    }
+  });
+
+  app.get("/api/achievements/next", isAuthenticated, async (req, res) => {
+    try {
+      const nextAchievement = await achievementService.getNextAchievementToUnlock(req.user!.id);
+      res.json({ nextAchievement });
+    } catch (error: any) {
+      console.error("Get next achievement error:", error);
+      res.status(500).json({ message: "Failed to fetch next achievement" });
     }
   });
 

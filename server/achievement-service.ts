@@ -12,6 +12,22 @@ interface AchievementCheck {
   icon: string;
   color: string;
   check: (stats: UserStats) => boolean;
+  getProgress?: (stats: UserStats) => number;
+  target?: number;
+}
+
+export interface NearCompletionAchievement {
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+  tier: string;
+  points: number;
+  icon: string;
+  color: string;
+  progress: number;
+  currentValue: number;
+  targetValue: number;
 }
 
 interface UserStats {
@@ -41,7 +57,9 @@ export class AchievementService {
       points: 10,
       icon: 'Zap',
       color: 'amber',
+      target: 30,
       check: (stats) => stats.bestWpm >= 30,
+      getProgress: (stats) => Math.min(100, (stats.bestWpm / 30) * 100),
     },
     {
       key: 'speed_novice_50',
@@ -52,7 +70,9 @@ export class AchievementService {
       points: 25,
       icon: 'Zap',
       color: 'amber',
+      target: 50,
       check: (stats) => stats.bestWpm >= 50,
+      getProgress: (stats) => Math.min(100, (stats.bestWpm / 50) * 100),
     },
     {
       key: 'speed_expert_80',
@@ -63,7 +83,9 @@ export class AchievementService {
       points: 50,
       icon: 'Zap',
       color: 'amber',
+      target: 80,
       check: (stats) => stats.bestWpm >= 80,
+      getProgress: (stats) => Math.min(100, (stats.bestWpm / 80) * 100),
     },
     {
       key: 'speed_master_100',
@@ -74,7 +96,9 @@ export class AchievementService {
       points: 100,
       icon: 'Zap',
       color: 'amber',
+      target: 100,
       check: (stats) => stats.bestWpm >= 100,
+      getProgress: (stats) => Math.min(100, (stats.bestWpm / 100) * 100),
     },
     {
       key: 'speed_legend_120',
@@ -85,7 +109,9 @@ export class AchievementService {
       points: 200,
       icon: 'Zap',
       color: 'amber',
+      target: 120,
       check: (stats) => stats.bestWpm >= 120,
+      getProgress: (stats) => Math.min(100, (stats.bestWpm / 120) * 100),
     },
 
     // Accuracy Achievements
@@ -98,7 +124,9 @@ export class AchievementService {
       points: 15,
       icon: 'Target',
       color: 'blue',
+      target: 95,
       check: (stats) => stats.avgAccuracy >= 95,
+      getProgress: (stats) => Math.min(100, (stats.avgAccuracy / 95) * 100),
     },
     {
       key: 'accuracy_perfect_98',
@@ -109,18 +137,22 @@ export class AchievementService {
       points: 75,
       icon: 'Target',
       color: 'blue',
+      target: 98,
       check: (stats) => stats.avgAccuracy >= 98,
+      getProgress: (stats) => Math.min(100, (stats.avgAccuracy / 98) * 100),
     },
     {
       key: 'accuracy_flawless_100',
       name: 'Flawless Typist',
-      description: 'Achieve 100% accuracy',
+      description: 'Achieve 100% accuracy in a single test',
       category: 'accuracy',
       tier: 'diamond',
       points: 250,
       icon: 'Target',
       color: 'blue',
+      target: 100,
       check: (stats) => stats.lastTestResult?.accuracy === 100,
+      getProgress: (stats) => stats.lastTestResult ? Math.min(100, stats.lastTestResult.accuracy) : stats.avgAccuracy,
     },
 
     // Streak Achievements
@@ -133,7 +165,9 @@ export class AchievementService {
       points: 20,
       icon: 'Flame',
       color: 'orange',
+      target: 7,
       check: (stats) => stats.currentStreak >= 7,
+      getProgress: (stats) => Math.min(100, (stats.currentStreak / 7) * 100),
     },
     {
       key: 'streak_dedicated_30',
@@ -144,7 +178,9 @@ export class AchievementService {
       points: 50,
       icon: 'Flame',
       color: 'orange',
+      target: 30,
       check: (stats) => stats.currentStreak >= 30,
+      getProgress: (stats) => Math.min(100, (stats.currentStreak / 30) * 100),
     },
     {
       key: 'streak_master_100',
@@ -155,7 +191,9 @@ export class AchievementService {
       points: 150,
       icon: 'Flame',
       color: 'orange',
+      target: 100,
       check: (stats) => stats.currentStreak >= 100,
+      getProgress: (stats) => Math.min(100, (stats.currentStreak / 100) * 100),
     },
     {
       key: 'streak_legend_365',
@@ -166,7 +204,9 @@ export class AchievementService {
       points: 500,
       icon: 'Flame',
       color: 'orange',
+      target: 365,
       check: (stats) => stats.currentStreak >= 365,
+      getProgress: (stats) => Math.min(100, (stats.currentStreak / 365) * 100),
     },
 
     // Consistency Achievements
@@ -179,7 +219,9 @@ export class AchievementService {
       points: 10,
       icon: 'TrendingUp',
       color: 'green',
+      target: 10,
       check: (stats) => stats.totalTests >= 10,
+      getProgress: (stats) => Math.min(100, (stats.totalTests / 10) * 100),
     },
     {
       key: 'consistency_regular_50',
@@ -190,7 +232,9 @@ export class AchievementService {
       points: 25,
       icon: 'TrendingUp',
       color: 'green',
+      target: 50,
       check: (stats) => stats.totalTests >= 50,
+      getProgress: (stats) => Math.min(100, (stats.totalTests / 50) * 100),
     },
     {
       key: 'consistency_dedicated_100',
@@ -201,7 +245,9 @@ export class AchievementService {
       points: 50,
       icon: 'TrendingUp',
       color: 'green',
+      target: 100,
       check: (stats) => stats.totalTests >= 100,
+      getProgress: (stats) => Math.min(100, (stats.totalTests / 100) * 100),
     },
     {
       key: 'consistency_veteran_500',
@@ -212,7 +258,9 @@ export class AchievementService {
       points: 150,
       icon: 'TrendingUp',
       color: 'green',
+      target: 500,
       check: (stats) => stats.totalTests >= 500,
+      getProgress: (stats) => Math.min(100, (stats.totalTests / 500) * 100),
     },
     {
       key: 'consistency_master_1000',
@@ -223,7 +271,9 @@ export class AchievementService {
       points: 300,
       icon: 'TrendingUp',
       color: 'green',
+      target: 1000,
       check: (stats) => stats.totalTests >= 1000,
+      getProgress: (stats) => Math.min(100, (stats.totalTests / 1000) * 100),
     },
 
     // Special Achievements
@@ -236,12 +286,14 @@ export class AchievementService {
       points: 5,
       icon: 'Star',
       color: 'purple',
+      target: 1,
       check: (stats) => stats.totalTests >= 1,
+      getProgress: (stats) => stats.totalTests >= 1 ? 100 : 0,
     },
     {
       key: 'special_speed_accuracy',
       name: 'Speed & Precision',
-      description: 'Achieve 80 WPM with 95% accuracy',
+      description: 'Achieve 80 WPM with 95% accuracy in one test',
       category: 'special',
       tier: 'platinum',
       points: 200,
@@ -249,6 +301,12 @@ export class AchievementService {
       color: 'purple',
       check: (stats) => stats.lastTestResult ? 
         stats.lastTestResult.wpm >= 80 && stats.lastTestResult.accuracy >= 95 : false,
+      getProgress: (stats) => {
+        if (!stats.lastTestResult) return 0;
+        const speedProgress = Math.min(100, (stats.lastTestResult.wpm / 80) * 100);
+        const accuracyProgress = Math.min(100, (stats.lastTestResult.accuracy / 95) * 100);
+        return Math.min(speedProgress, accuracyProgress);
+      },
     },
 
     // Social Sharing Achievements
@@ -261,7 +319,9 @@ export class AchievementService {
       points: 15,
       icon: 'Share2',
       color: 'cyan',
+      target: 1,
       check: (stats) => (stats.totalShares ?? 0) >= 1,
+      getProgress: (stats) => (stats.totalShares ?? 0) >= 1 ? 100 : 0,
     },
     {
       key: 'social_sharer_10',
@@ -272,7 +332,9 @@ export class AchievementService {
       points: 50,
       icon: 'Share2',
       color: 'cyan',
+      target: 10,
       check: (stats) => (stats.totalShares ?? 0) >= 10,
+      getProgress: (stats) => Math.min(100, ((stats.totalShares ?? 0) / 10) * 100),
     },
     {
       key: 'social_influencer_25',
@@ -283,7 +345,9 @@ export class AchievementService {
       points: 100,
       icon: 'Share2',
       color: 'cyan',
+      target: 25,
       check: (stats) => (stats.totalShares ?? 0) >= 25,
+      getProgress: (stats) => Math.min(100, ((stats.totalShares ?? 0) / 25) * 100),
     },
   ];
 
@@ -469,6 +533,170 @@ export class AchievementService {
       }
     } catch (error) {
       console.error('[Achievements] Unlock error:', error);
+    }
+  }
+
+  /**
+   * Get achievements that are near completion (80%+ progress but not yet unlocked)
+   * Used for "Almost There" motivational notifications
+   * @param lastTestResult - Optional: include latest test result for fresh data
+   */
+  async getNearCompletionAchievements(
+    userId: string,
+    minProgress: number = 80,
+    lastTestResult?: TestResult
+  ): Promise<NearCompletionAchievement[]> {
+    const nearCompletion: NearCompletionAchievement[] = [];
+    
+    try {
+      const stats = await this.storage.getUserStats(userId);
+      const badgeData = await this.storage.getUserBadgeData(userId);
+      
+      if (!stats) return nearCompletion;
+
+      // Use the better of stored bestWpm or current test WPM for fresh progress calculation
+      const effectiveBestWpm = lastTestResult 
+        ? Math.max(stats.bestWpm, lastTestResult.wpm) 
+        : stats.bestWpm;
+
+      const userStats: UserStats = {
+        totalTests: stats.totalTests,
+        bestWpm: effectiveBestWpm,
+        avgWpm: stats.avgWpm,
+        avgAccuracy: stats.avgAccuracy,
+        currentStreak: badgeData?.currentStreak || 0,
+        bestStreak: badgeData?.bestStreak || 0,
+        lastTestResult,
+      };
+
+      const userAchievements = await this.storage.getUserAchievements(userId);
+      const unlockedKeys = new Set(userAchievements.map(ua => ua.achievement.key));
+
+      for (const achievement of this.achievements) {
+        if (unlockedKeys.has(achievement.key)) {
+          continue;
+        }
+
+        if (!achievement.getProgress) {
+          continue;
+        }
+
+        const progress = achievement.getProgress(userStats);
+        
+        if (progress >= minProgress && progress < 100) {
+          let currentValue = 0;
+          const targetValue = achievement.target || 0;
+          
+          if (achievement.category === 'speed') {
+            currentValue = userStats.bestWpm;
+          } else if (achievement.category === 'accuracy') {
+            currentValue = Math.round(userStats.avgAccuracy);
+          } else if (achievement.category === 'streak') {
+            currentValue = userStats.currentStreak;
+          } else if (achievement.category === 'consistency') {
+            currentValue = userStats.totalTests;
+          } else if (achievement.key.startsWith('social_')) {
+            currentValue = userStats.totalShares || 0;
+          } else if (achievement.key === 'special_speed_accuracy' && lastTestResult) {
+            // For combo achievements, show progress as percentage
+            currentValue = Math.round(progress);
+          }
+
+          nearCompletion.push({
+            key: achievement.key,
+            name: achievement.name,
+            description: achievement.description,
+            category: achievement.category,
+            tier: achievement.tier,
+            points: achievement.points,
+            icon: achievement.icon,
+            color: achievement.color,
+            progress: Math.round(progress),
+            currentValue: Math.max(0, Math.round(currentValue)),
+            targetValue,
+          });
+        }
+      }
+
+      nearCompletion.sort((a, b) => b.progress - a.progress);
+
+    } catch (error) {
+      console.error('[Achievements] Near completion check error:', error);
+    }
+    
+    return nearCompletion;
+  }
+
+  /**
+   * Get the closest achievement to unlock for guidance
+   */
+  async getNextAchievementToUnlock(userId: string): Promise<NearCompletionAchievement | null> {
+    try {
+      const stats = await this.storage.getUserStats(userId);
+      const badgeData = await this.storage.getUserBadgeData(userId);
+      
+      if (!stats) return null;
+
+      const userStats: UserStats = {
+        totalTests: stats.totalTests,
+        bestWpm: stats.bestWpm,
+        avgWpm: stats.avgWpm,
+        avgAccuracy: stats.avgAccuracy,
+        currentStreak: badgeData?.currentStreak || 0,
+        bestStreak: badgeData?.bestStreak || 0,
+      };
+
+      const userAchievements = await this.storage.getUserAchievements(userId);
+      const unlockedKeys = new Set(userAchievements.map(ua => ua.achievement.key));
+
+      let closest: { achievement: AchievementCheck; progress: number; currentValue: number } | null = null;
+
+      for (const achievement of this.achievements) {
+        if (unlockedKeys.has(achievement.key)) {
+          continue;
+        }
+
+        if (!achievement.getProgress) {
+          continue;
+        }
+
+        const progress = achievement.getProgress(userStats);
+        
+        if (progress < 100 && (!closest || progress > closest.progress)) {
+          let currentValue = 0;
+          
+          if (achievement.category === 'speed') {
+            currentValue = userStats.bestWpm;
+          } else if (achievement.category === 'accuracy') {
+            currentValue = userStats.avgAccuracy;
+          } else if (achievement.category === 'streak') {
+            currentValue = userStats.currentStreak;
+          } else if (achievement.category === 'consistency') {
+            currentValue = userStats.totalTests;
+          }
+
+          closest = { achievement, progress, currentValue };
+        }
+      }
+
+      if (!closest) return null;
+
+      return {
+        key: closest.achievement.key,
+        name: closest.achievement.name,
+        description: closest.achievement.description,
+        category: closest.achievement.category,
+        tier: closest.achievement.tier,
+        points: closest.achievement.points,
+        icon: closest.achievement.icon,
+        color: closest.achievement.color,
+        progress: Math.round(closest.progress),
+        currentValue: Math.round(closest.currentValue),
+        targetValue: closest.achievement.target || 0,
+      };
+    } catch (error) {
+      console.error('[Achievements] Next achievement error:', error);
+      return null;
     }
   }
 }

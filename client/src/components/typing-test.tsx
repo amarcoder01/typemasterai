@@ -437,6 +437,57 @@ export default function TypingTest() {
         
         celebrateMultiple(formattedAchievements);
       }
+      
+      // Show "Almost There" notifications for near-completion achievements (80%+)
+      if (data?.nearCompletionAchievements && data.nearCompletionAchievements.length > 0) {
+        const categoryIcons: Record<string, string> = {
+          speed: "⚡",
+          accuracy: "🎯",
+          streak: "🔥",
+          consistency: "📈",
+          special: "⭐",
+        };
+        
+        // Show only the top 1-2 closest achievements to avoid notification spam
+        const topNearAchievements = data.nearCompletionAchievements.slice(0, 2);
+        
+        // Delay near-completion toasts to avoid overlap with celebration modal
+        setTimeout(() => {
+          topNearAchievements.forEach((achievement: any, index: number) => {
+            setTimeout(() => {
+              const icon = categoryIcons[achievement.category] || "🎯";
+              const remaining = Math.max(0, achievement.targetValue - achievement.currentValue);
+              
+              let progressMessage = "";
+              if (achievement.category === "speed") {
+                progressMessage = remaining > 0 
+                  ? `Just ${remaining} more WPM to go!` 
+                  : `${achievement.progress}% there!`;
+              } else if (achievement.category === "accuracy") {
+                const accuracyRemaining = Math.max(0, achievement.targetValue - achievement.currentValue);
+                progressMessage = accuracyRemaining > 0 
+                  ? `Just ${accuracyRemaining.toFixed(1)}% more accuracy needed!`
+                  : `${achievement.progress}% there - keep it accurate!`;
+              } else if (achievement.category === "streak") {
+                progressMessage = remaining > 0 
+                  ? `${remaining} more day${remaining !== 1 ? 's' : ''} to unlock!`
+                  : `${achievement.progress}% there!`;
+              } else if (achievement.category === "consistency") {
+                progressMessage = remaining > 0 
+                  ? `${remaining} more test${remaining !== 1 ? 's' : ''} to go!`
+                  : `${achievement.progress}% there!`;
+              } else {
+                progressMessage = `${achievement.progress}% complete!`;
+              }
+              
+              toast({
+                title: `${icon} Almost There: ${achievement.name}`,
+                description: progressMessage,
+              });
+            }, index * 1500);
+          });
+        }, data.newAchievements?.length > 0 ? 4000 : 500);
+      }
     },
     onError: (error, variables) => {
       setPendingResult(variables);
