@@ -1,7 +1,8 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Keyboard, BarChart2, User, Settings, Trophy, LogOut, Sparkles, Github, Twitter, Mail, Globe, Zap, Shield, BookOpen, Users, Award, TrendingUp, Code, Book, Headphones } from "lucide-react";
+import { Keyboard, BarChart2, User, Settings, Trophy, LogOut, Sparkles, Github, Twitter, Mail, Globe, Zap, Shield, BookOpen, Users, Award, TrendingUp, Code, Book, Headphones, Star } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,10 +13,31 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
+
+  const { data: gamificationData } = useQuery({
+    queryKey: ["gamification"],
+    queryFn: async () => {
+      const response = await fetch("/api/gamification", {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch gamification");
+      return response.json();
+    },
+    enabled: !!user,
+    staleTime: 30000,
+  });
+
+  const level = gamificationData?.gamification?.level || 1;
+  const xp = gamificationData?.gamification?.experiencePoints || 0;
+  const xpForNextLevel = level * 100;
+  const xpInCurrentLevel = xp % 100;
+  const xpProgress = (xpInCurrentLevel / 100) * 100;
 
   const navItems = [
     { href: "/", icon: Keyboard, label: "Type" },
@@ -69,30 +91,65 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             })}
 
             {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="ml-2 h-10 w-10 rounded-full p-0">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-primary text-primary-foreground">
-                        {user.username[0].toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col">
-                      <span className="font-semibold">{user.username}</span>
-                      <span className="text-xs text-muted-foreground">{user.email}</span>
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link href="/profile">
+                      <div 
+                        className="flex items-center gap-2 ml-3 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-all cursor-pointer"
+                        data-testid="xp-level-display"
+                      >
+                        <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-bold text-xs shadow-lg shadow-amber-500/25">
+                          {level}
+                        </div>
+                        <div className="flex flex-col gap-0.5 min-w-[80px]">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-semibold text-amber-500/90 uppercase tracking-wider">Level {level}</span>
+                            <span className="text-[10px] font-mono text-muted-foreground">{xpInCurrentLevel}/{100}</span>
+                          </div>
+                          <Progress 
+                            value={xpProgress} 
+                            className="h-1.5 bg-amber-950/30 [&>div]:bg-gradient-to-r [&>div]:from-amber-500 [&>div]:to-orange-500"
+                            data-testid="xp-progress-bar"
+                          />
+                        </div>
+                        <Star className="w-3.5 h-3.5 text-amber-500 ml-0.5" />
+                      </div>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="bg-card border-border">
+                    <div className="text-sm">
+                      <p className="font-semibold text-amber-500">Level {level}</p>
+                      <p className="text-muted-foreground">{xpInCurrentLevel} / 100 XP to next level</p>
+                      <p className="text-xs text-muted-foreground mt-1">Total: {xp} XP</p>
                     </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} data-testid="button-logout">
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </TooltipContent>
+                </Tooltip>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="ml-2 h-10 w-10 rounded-full p-0">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {user.username[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col">
+                        <span className="font-semibold">{user.username}</span>
+                        <span className="text-xs text-muted-foreground">{user.email}</span>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} data-testid="button-logout">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             ) : (
               <div className="flex items-center gap-2 ml-2">
                 <Link href="/login">
