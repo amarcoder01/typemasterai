@@ -24,7 +24,7 @@ const PROCESSED_RACE_TTL = 60 * 60 * 1000;
 
 function cleanupProcessedRaces() {
   const now = Date.now();
-  for (const [raceId, timestamp] of processedRaces.entries()) {
+  for (const [raceId, timestamp] of Array.from(processedRaces.entries())) {
     if (now - timestamp > PROCESSED_RACE_TTL) {
       processedRaces.delete(raceId);
     }

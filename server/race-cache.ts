@@ -201,6 +201,36 @@ class RaceCache {
       try {
         await this.flushCallback(dirtyUpdates);
         this.stats.flushes++;
+        
+        // Clean up successfully flushed entries from progressBuffer
+        // Only keep entries that have been updated since we started the flush
+        const now = Date.now();
+        const STALE_THRESHOLD_MS = 30 * 1000; // 30 seconds
+        const entriesToDelete: number[] = [];
+        
+        for (const [id, update] of Array.from(this.progressBuffer.entries())) {
+          // Delete if not dirty and older than threshold (participant finished or disconnected)
+          if (!update.dirty && now - update.lastUpdate > STALE_THRESHOLD_MS) {
+            entriesToDelete.push(id);
+          }
+        }
+        
+        for (const id of entriesToDelete) {
+          this.progressBuffer.delete(id);
+        }
+        
+        // Enforce max size cap on progressBuffer to prevent unbounded growth
+        const MAX_PROGRESS_BUFFER_SIZE = 5000;
+        if (this.progressBuffer.size > MAX_PROGRESS_BUFFER_SIZE) {
+          // Remove oldest entries first
+          const sorted = Array.from(this.progressBuffer.entries())
+            .sort((a, b) => a[1].lastUpdate - b[1].lastUpdate);
+          const toRemove = sorted.slice(0, this.progressBuffer.size - MAX_PROGRESS_BUFFER_SIZE);
+          for (const [id] of toRemove) {
+            this.progressBuffer.delete(id);
+          }
+          console.log(`[RaceCache] Progress buffer capped, removed ${toRemove.length} oldest entries`);
+        }
       } catch (error) {
         console.error("[RaceCache] Failed to flush progress updates:", error);
         const dirtyEntries = Array.from(dirtyUpdates.entries());
