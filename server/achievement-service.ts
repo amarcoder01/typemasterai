@@ -14,6 +14,7 @@ interface AchievementCheck {
   check: (stats: UserStats) => boolean;
   getProgress?: (stats: UserStats) => number;
   target?: number;
+  isSecret?: boolean;
 }
 
 export interface NearCompletionAchievement {
@@ -39,6 +40,10 @@ interface UserStats {
   bestStreak: number;
   lastTestResult?: TestResult;
   totalShares?: number;
+  testHour?: number;
+  consecutivePerfectAccuracy?: number;
+  testsCompletedToday?: number;
+  best100WpmInFirst10Tests?: boolean;
 }
 
 export class AchievementService {
@@ -349,6 +354,78 @@ export class AchievementService {
       check: (stats) => (stats.totalShares ?? 0) >= 25,
       getProgress: (stats) => Math.min(100, ((stats.totalShares ?? 0) / 25) * 100),
     },
+
+    // Secret Achievements (hidden until unlocked)
+    {
+      key: 'secret_night_owl',
+      name: 'Night Owl',
+      description: 'Complete a test between midnight and 4 AM',
+      category: 'special',
+      tier: 'gold',
+      points: 75,
+      icon: 'Moon',
+      color: 'indigo',
+      isSecret: true,
+      check: (stats) => {
+        const hour = stats.testHour ?? -1;
+        return hour >= 0 && hour < 4;
+      },
+    },
+    {
+      key: 'secret_early_bird',
+      name: 'Early Bird',
+      description: 'Complete a test between 5 AM and 7 AM',
+      category: 'special',
+      tier: 'gold',
+      points: 75,
+      icon: 'Sunrise',
+      color: 'yellow',
+      isSecret: true,
+      check: (stats) => {
+        const hour = stats.testHour ?? -1;
+        return hour >= 5 && hour < 7;
+      },
+    },
+    {
+      key: 'secret_speed_demon',
+      name: 'Speed Demon',
+      description: 'Achieve 100+ WPM within your first 10 tests',
+      category: 'special',
+      tier: 'platinum',
+      points: 150,
+      icon: 'Rocket',
+      color: 'red',
+      isSecret: true,
+      check: (stats) => stats.best100WpmInFirst10Tests === true,
+    },
+    {
+      key: 'secret_perfectionist',
+      name: 'Perfectionist',
+      description: 'Get 100% accuracy 5 times in a row',
+      category: 'special',
+      tier: 'diamond',
+      points: 200,
+      icon: 'Sparkles',
+      color: 'pink',
+      isSecret: true,
+      target: 5,
+      check: (stats) => (stats.consecutivePerfectAccuracy ?? 0) >= 5,
+      getProgress: (stats) => Math.min(100, ((stats.consecutivePerfectAccuracy ?? 0) / 5) * 100),
+    },
+    {
+      key: 'secret_marathon_runner',
+      name: 'Marathon Runner',
+      description: 'Complete 10 tests in a single day',
+      category: 'special',
+      tier: 'gold',
+      points: 100,
+      icon: 'Timer',
+      color: 'emerald',
+      isSecret: true,
+      target: 10,
+      check: (stats) => (stats.testsCompletedToday ?? 0) >= 10,
+      getProgress: (stats) => Math.min(100, ((stats.testsCompletedToday ?? 0) / 10) * 100),
+    },
   ];
 
   constructor(storage: IStorage, notificationScheduler?: NotificationScheduler) {
@@ -377,7 +454,7 @@ export class AchievementService {
             points: achievement.points,
             icon: achievement.icon,
             color: achievement.color,
-            isSecret: false,
+            isSecret: achievement.isSecret ?? false,
             isActive: true,
           });
         }
@@ -403,6 +480,9 @@ export class AchievementService {
       
       if (!stats) return newlyUnlocked;
 
+      // Calculate extended stats for secret achievements
+      const extendedStats = await this.calculateExtendedStats(userId, testResult);
+
       const userStats: UserStats = {
         totalTests: stats.totalTests,
         bestWpm: stats.bestWpm,
@@ -411,6 +491,7 @@ export class AchievementService {
         currentStreak: badgeData?.currentStreak || 0,
         bestStreak: badgeData?.bestStreak || 0,
         lastTestResult: testResult,
+        ...extendedStats,
       };
 
       // Get user's existing achievements
@@ -435,6 +516,74 @@ export class AchievementService {
     }
     
     return newlyUnlocked;
+  }
+
+  /**
+   * Calculate extended stats for secret achievements
+   */
+  private async calculateExtendedStats(
+    userId: string,
+    testResult: TestResult
+  ): Promise<{
+    testHour: number;
+    consecutivePerfectAccuracy: number;
+    testsCompletedToday: number;
+    best100WpmInFirst10Tests: boolean;
+  }> {
+    try {
+      // Get hour from test result's createdAt
+      const testDate = testResult.createdAt ? new Date(testResult.createdAt) : new Date();
+      const testHour = testDate.getHours();
+
+      // Get user's recent test results to calculate extended stats
+      const recentTests = await this.storage.getUserTestResults(userId, 100);
+      
+      // Calculate consecutive perfect accuracy
+      let consecutivePerfectAccuracy = 0;
+      for (const test of recentTests) {
+        if (test.accuracy === 100) {
+          consecutivePerfectAccuracy++;
+        } else {
+          break;
+        }
+      }
+
+      // Calculate tests completed today
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const testsCompletedToday = recentTests.filter(test => {
+        const testDay = test.createdAt ? new Date(test.createdAt) : null;
+        if (!testDay) return false;
+        testDay.setHours(0, 0, 0, 0);
+        return testDay.getTime() === today.getTime();
+      }).length;
+
+      // Check if achieved 100+ WPM in first 10 tests
+      const userStats = await this.storage.getUserStats(userId);
+      const totalTests = userStats?.totalTests ?? 0;
+      let best100WpmInFirst10Tests = false;
+      
+      if (totalTests <= 10) {
+        // Still in first 10 tests, check if any test hit 100+ WPM
+        const first10Tests = recentTests.slice(0, 10);
+        best100WpmInFirst10Tests = first10Tests.some(test => test.wpm >= 100);
+      }
+
+      return {
+        testHour,
+        consecutivePerfectAccuracy,
+        testsCompletedToday,
+        best100WpmInFirst10Tests,
+      };
+    } catch (error) {
+      console.error('[Achievements] Extended stats error:', error);
+      return {
+        testHour: -1,
+        consecutivePerfectAccuracy: 0,
+        testsCompletedToday: 0,
+        best100WpmInFirst10Tests: false,
+      };
+    }
   }
 
   /**

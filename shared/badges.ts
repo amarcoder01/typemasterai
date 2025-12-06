@@ -3,14 +3,15 @@ export interface Badge {
   name: string;
   description: string;
   icon: string;
-  category: "speed" | "accuracy" | "consistency" | "streak" | "special";
+  category: "speed" | "accuracy" | "consistency" | "streak" | "special" | "secret";
   tier: "bronze" | "silver" | "gold" | "platinum" | "diamond";
   points: number;
   color: string;
   requirement: {
-    type: "wpm" | "accuracy" | "testCount" | "streak" | "special" | "shares";
+    type: "wpm" | "accuracy" | "testCount" | "streak" | "special" | "shares" | "secret";
     value: number;
   };
+  isSecret?: boolean;
 }
 
 export const BADGES: Badge[] = [
@@ -265,6 +266,68 @@ export const BADGES: Badge[] = [
     color: "cyan",
     requirement: { type: "shares", value: 25 },
   },
+
+  // Secret Achievements (5) - Hidden until unlocked
+  {
+    id: "secret_night_owl",
+    name: "Night Owl",
+    description: "Complete a test between midnight and 4 AM",
+    icon: "Moon",
+    category: "secret",
+    tier: "gold",
+    points: 75,
+    color: "indigo",
+    requirement: { type: "secret", value: 0 },
+    isSecret: true,
+  },
+  {
+    id: "secret_early_bird",
+    name: "Early Bird",
+    description: "Complete a test between 5 AM and 7 AM",
+    icon: "Sunrise",
+    category: "secret",
+    tier: "gold",
+    points: 75,
+    color: "yellow",
+    requirement: { type: "secret", value: 0 },
+    isSecret: true,
+  },
+  {
+    id: "secret_speed_demon",
+    name: "Speed Demon",
+    description: "Achieve 100+ WPM within your first 10 tests",
+    icon: "Rocket",
+    category: "secret",
+    tier: "platinum",
+    points: 150,
+    color: "red",
+    requirement: { type: "secret", value: 0 },
+    isSecret: true,
+  },
+  {
+    id: "secret_perfectionist",
+    name: "Perfectionist",
+    description: "Get 100% accuracy 5 times in a row",
+    icon: "Sparkles",
+    category: "secret",
+    tier: "diamond",
+    points: 200,
+    color: "pink",
+    requirement: { type: "secret", value: 5 },
+    isSecret: true,
+  },
+  {
+    id: "secret_marathon_runner",
+    name: "Marathon Runner",
+    description: "Complete 10 tests in a single day",
+    icon: "Timer",
+    category: "secret",
+    tier: "gold",
+    points: 100,
+    color: "emerald",
+    requirement: { type: "secret", value: 10 },
+    isSecret: true,
+  },
 ];
 
 export function getTierColor(tier: Badge["tier"]): string {
@@ -309,6 +372,8 @@ export function getCategoryColor(category: Badge["category"]): string {
       return "text-orange-500";
     case "special":
       return "text-purple-500";
+    case "secret":
+      return "text-indigo-500";
   }
 }
 

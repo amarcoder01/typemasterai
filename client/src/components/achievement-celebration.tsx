@@ -5,7 +5,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Trophy, Star, Sparkles, Share2, X, Zap, Target, Flame, TrendingUp, Award } from "lucide-react";
+import { Trophy, Star, Sparkles, Share2, X, Zap, Target, Flame, TrendingUp, Award, Moon, Sunrise, Rocket, Timer } from "lucide-react";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Zap,
@@ -16,6 +16,11 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Award,
   Share2,
   Trophy,
+  Moon,
+  Sunrise,
+  Rocket,
+  Sparkles,
+  Timer,
 };
 
 export interface UnlockedAchievement {

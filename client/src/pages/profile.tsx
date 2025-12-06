@@ -417,13 +417,14 @@ export default function Profile() {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="all" className="w-full">
-              <TabsList className="grid w-full grid-cols-6">
+              <TabsList className="grid w-full grid-cols-7">
                 <TabsTrigger value="all">All</TabsTrigger>
                 <TabsTrigger value="speed">Speed</TabsTrigger>
                 <TabsTrigger value="accuracy">Accuracy</TabsTrigger>
                 <TabsTrigger value="consistency">Consistency</TabsTrigger>
                 <TabsTrigger value="streak">Streaks</TabsTrigger>
                 <TabsTrigger value="special">Special</TabsTrigger>
+                <TabsTrigger value="secret" className="text-indigo-400">Secret</TabsTrigger>
               </TabsList>
               <TabsContent value="all" className="mt-6">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -507,6 +508,27 @@ export default function Profile() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {badgeProgress
                     .filter((item) => item.badge.category === "special")
+                    .map((item) => (
+                      <BadgeCard
+                        key={item.badge.id}
+                        badge={item.badge}
+                        unlocked={item.unlocked}
+                        progress={item.progress}
+                        currentValue={item.currentValue}
+                        unlockedAt={item.unlockedAt}
+                      />
+                    ))}
+                </div>
+              </TabsContent>
+              <TabsContent value="secret" className="mt-6">
+                <div className="mb-4 p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                  <p className="text-sm text-indigo-400">
+                    Secret badges are hidden until you unlock them. Explore different ways to practice typing to discover them!
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {badgeProgress
+                    .filter((item) => item.badge.category === "secret")
                     .map((item) => (
                       <BadgeCard
                         key={item.badge.id}

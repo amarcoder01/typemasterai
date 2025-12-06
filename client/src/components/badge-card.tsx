@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Lock, Zap, Target, Flame, TrendingUp, Star, Award, Share2 } from "lucide-react";
+import { Lock, Zap, Target, Flame, TrendingUp, Star, Award, Share2, Moon, Sunrise, Rocket, Sparkles, Timer, HelpCircle } from "lucide-react";
 import { getTierColor, getTierBorder, getCategoryColor, type Badge as BadgeType } from "@shared/badges";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,11 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Star,
   Award,
   Share2,
+  Moon,
+  Sunrise,
+  Rocket,
+  Sparkles,
+  Timer,
 };
 
 interface BadgeCardProps {
@@ -25,6 +30,8 @@ interface BadgeCardProps {
 export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0, unlockedAt }: BadgeCardProps) {
   const isAlmostUnlocked = !unlocked && progress >= 50;
   const IconComponent = iconMap[badge.icon] || Star;
+  const isSecret = badge.isSecret === true;
+  const isHiddenSecret = isSecret && !unlocked;
 
   return (
     <Card
@@ -32,8 +39,10 @@ export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0, unl
         "relative p-4 transition-all duration-300",
         unlocked
           ? `border-2 ${getTierBorder(badge.tier)} bg-gradient-to-br ${getTierColor(badge.tier)} bg-opacity-10 hover:scale-105 shadow-lg`
-          : "border border-border/50 bg-muted/30 opacity-70 hover:opacity-90",
-        isAlmostUnlocked && "animate-pulse"
+          : isHiddenSecret
+            ? "border border-dashed border-indigo-500/50 bg-gradient-to-br from-indigo-950/20 to-purple-950/20 hover:border-indigo-400/70"
+            : "border border-border/50 bg-muted/30 opacity-70 hover:opacity-90",
+        isAlmostUnlocked && !isHiddenSecret && "animate-pulse"
       )}
       data-testid={`badge-${badge.id}`}
     >
@@ -42,10 +51,11 @@ export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0, unl
           variant={unlocked ? "default" : "secondary"}
           className={cn(
             "text-[10px] px-2 py-0.5",
-            unlocked && `bg-gradient-to-r ${getTierColor(badge.tier)} border-0 text-white`
+            unlocked && `bg-gradient-to-r ${getTierColor(badge.tier)} border-0 text-white`,
+            isHiddenSecret && "bg-indigo-500/20 text-indigo-400 border-indigo-500/30"
           )}
         >
-          {badge.tier.toUpperCase()}
+          {isHiddenSecret ? "???" : badge.tier.toUpperCase()}
         </Badge>
       </div>
 
@@ -55,21 +65,33 @@ export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0, unl
             "w-20 h-20 rounded-full flex items-center justify-center",
             unlocked
               ? `bg-gradient-to-br ${getTierColor(badge.tier)} shadow-md`
-              : "bg-muted/50"
+              : isHiddenSecret
+                ? "bg-gradient-to-br from-indigo-600/30 to-purple-600/30 animate-pulse"
+                : "bg-muted/50"
           )}
         >
           {unlocked ? (
             <IconComponent className="w-10 h-10 text-white drop-shadow-lg" />
+          ) : isHiddenSecret ? (
+            <HelpCircle className="w-10 h-10 text-indigo-400" />
           ) : (
             <Lock className="w-8 h-8 text-muted-foreground" />
           )}
         </div>
 
         <div className="text-center space-y-1">
-          <h3 className={cn("font-bold text-sm", unlocked ? "text-foreground" : "text-muted-foreground")}>
-            {badge.name}
+          <h3 className={cn(
+            "font-bold text-sm", 
+            unlocked ? "text-foreground" : isHiddenSecret ? "text-indigo-400" : "text-muted-foreground"
+          )}>
+            {isHiddenSecret ? "???" : badge.name}
           </h3>
-          <p className="text-xs text-muted-foreground line-clamp-2">{badge.description}</p>
+          <p className={cn(
+            "text-xs line-clamp-2",
+            isHiddenSecret ? "text-indigo-400/70 italic" : "text-muted-foreground"
+          )}>
+            {isHiddenSecret ? "Unlock to reveal this secret badge!" : badge.description}
+          </p>
         </div>
 
         {!unlocked && progress > 0 && (
