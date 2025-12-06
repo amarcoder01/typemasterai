@@ -718,6 +718,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/showcase-badges", isAuthenticated, async (req, res) => {
+    try {
+      const gamification = await storage.getUserGamification(req.user!.id);
+      const showcaseBadges = (gamification?.featuredBadges as string[] | null) || [];
+      res.json({ showcaseBadges });
+    } catch (error: any) {
+      console.error("Get showcase badges error:", error);
+      res.status(500).json({ message: "Failed to fetch showcase badges" });
+    }
+  });
+
+  app.put("/api/showcase-badges", isAuthenticated, async (req, res) => {
+    try {
+      const { badgeKeys } = req.body;
+      
+      if (!Array.isArray(badgeKeys)) {
+        return res.status(400).json({ message: "badgeKeys must be an array" });
+      }
+      
+      if (badgeKeys.length > 5) {
+        return res.status(400).json({ message: "Maximum 5 badges can be showcased" });
+      }
+      
+      const validKeys = badgeKeys.filter((key: any) => typeof key === "string" && key.length > 0);
+      
+      const userAchievements = await storage.getUserAchievements(req.user!.id);
+      const unlockedKeys = new Set(userAchievements.map(a => a.achievement.key));
+      const validUnlockedKeys = validKeys.filter((key: string) => unlockedKeys.has(key));
+      
+      if (validUnlockedKeys.length > 0 && validUnlockedKeys.length < 3) {
+        return res.status(400).json({ message: "Minimum 3 badges required for showcase (or 0 to clear)" });
+      }
+      
+      if (validUnlockedKeys.length > 5) {
+        return res.status(400).json({ message: "Maximum 5 badges can be showcased" });
+      }
+      
+      let gamification = await storage.getUserGamification(req.user!.id);
+      if (!gamification) {
+        gamification = await storage.createUserGamification({
+          userId: req.user!.id,
+          totalPoints: 0,
+          level: 1,
+          experiencePoints: 0,
+          totalAchievements: 0,
+          totalChallengesCompleted: 0,
+          totalShares: 0,
+        });
+      }
+      
+      await storage.updateUserGamification(req.user!.id, {
+        featuredBadges: validUnlockedKeys,
+      });
+      
+      res.json({ showcaseBadges: validUnlockedKeys });
+    } catch (error: any) {
+      console.error("Update showcase badges error:", error);
+      res.status(500).json({ message: "Failed to update showcase badges" });
+    }
+  });
+
   app.get("/api/achievements/near-completion", isAuthenticated, async (req, res) => {
     try {
       const minProgress = parseInt(req.query.minProgress as string) || 80;

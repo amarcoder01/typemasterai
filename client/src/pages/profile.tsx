@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { 
   BarChart, 
   Bar, 
@@ -15,12 +16,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/lib/auth-context";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame, Star, Target, ChevronRight } from "lucide-react";
+import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame, Star, Target, ChevronRight, Trophy, Sparkles, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BADGES, TOTAL_BADGES, type UserBadgeProgress } from "@shared/badges";
+import { BADGES, TOTAL_BADGES, type UserBadgeProgress, getTierColor, getTierBorder } from "@shared/badges";
 import { BadgeCard } from "@/components/badge-card";
 
 interface NextAchievement {
@@ -131,6 +134,40 @@ export default function Profile() {
     staleTime: 30000,
   });
 
+  const { data: showcaseBadgesData, refetch: refetchShowcase } = useQuery<{ showcaseBadges: string[] }>({
+    queryKey: ["showcase-badges"],
+    queryFn: async () => {
+      const response = await fetch("/api/showcase-badges", {
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to fetch showcase badges");
+      return response.json();
+    },
+    enabled: !!user,
+  });
+
+  const queryClient = useQueryClient();
+  const [showShowcaseModal, setShowShowcaseModal] = useState(false);
+  const [selectedShowcaseBadges, setSelectedShowcaseBadges] = useState<string[]>([]);
+
+  const showcaseMutation = useMutation({
+    mutationFn: async (badgeKeys: string[]) => {
+      const response = await fetch("/api/showcase-badges", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ badgeKeys }),
+      });
+      if (!response.ok) throw new Error("Failed to update showcase badges");
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchShowcase();
+      setShowShowcaseModal(false);
+    },
+  });
+
+  const showcaseBadges = showcaseBadgesData?.showcaseBadges || [];
   const nextAchievement = nextAchievementData?.nextAchievement;
 
   const unlockedAchievements: UserAchievement[] = achievementsData?.achievements || [];
@@ -328,6 +365,57 @@ export default function Profile() {
                 />
               </div>
             </div>
+            
+            {unlockedCount > 0 && (
+              <div className="pt-3 border-t border-border/30">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-amber-500" />
+                    <span className="text-sm font-semibold">Badge Showcase</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs h-7 px-2"
+                    onClick={() => {
+                      setSelectedShowcaseBadges(showcaseBadges);
+                      setShowShowcaseModal(true);
+                    }}
+                    data-testid="button-edit-showcase"
+                  >
+                    <Edit className="w-3 h-3 mr-1" />
+                    Edit
+                  </Button>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {showcaseBadges.length > 0 ? (
+                    showcaseBadges.map((badgeKey) => {
+                      const badge = BADGES.find(b => b.id === badgeKey);
+                      if (!badge) return null;
+                      return (
+                        <div
+                          key={badge.id}
+                          className={cn(
+                            "relative group flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all hover:scale-105",
+                            getTierBorder(badge.tier),
+                            `bg-gradient-to-br ${getTierColor(badge.tier)} bg-opacity-20`
+                          )}
+                          title={badge.description}
+                          data-testid={`showcase-badge-${badge.id}`}
+                        >
+                          <span className="text-lg">{badge.icon}</span>
+                          <span className="text-sm font-medium">{badge.name}</span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      No badges showcased yet. Click Edit to select up to 5 badges to display!
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -660,6 +748,137 @@ export default function Profile() {
             </Tabs>
           </CardContent>
         </Card>
+
+        <Dialog open={showShowcaseModal} onOpenChange={setShowShowcaseModal}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" data-testid="showcase-modal">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-500" />
+                Select Badges to Showcase
+              </DialogTitle>
+              <DialogDescription>
+                Choose up to 5 unlocked badges to display prominently on your profile. These badges will be visible to other users.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="space-y-1">
+                  <span className="text-sm text-muted-foreground">
+                    {selectedShowcaseBadges.length} / 5 badges selected
+                  </span>
+                  {selectedShowcaseBadges.length > 0 && selectedShowcaseBadges.length < 3 && (
+                    <p className="text-xs text-amber-500" data-testid="showcase-min-warning">
+                      Select at least 3 badges to save your showcase
+                    </p>
+                  )}
+                </div>
+                {selectedShowcaseBadges.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedShowcaseBadges([])}
+                    data-testid="button-clear-selection"
+                  >
+                    Clear All
+                  </Button>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {badgeProgress
+                  .filter((item) => item.unlocked)
+                  .map((item) => {
+                    const isSelected = selectedShowcaseBadges.includes(item.badge.id);
+                    const canSelect = selectedShowcaseBadges.length < 5 || isSelected;
+                    
+                    return (
+                      <div
+                        key={item.badge.id}
+                        className={cn(
+                          "relative flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all",
+                          isSelected 
+                            ? `${getTierBorder(item.badge.tier)} bg-gradient-to-br ${getTierColor(item.badge.tier)} bg-opacity-10` 
+                            : "border-border hover:border-primary/50",
+                          !canSelect && "opacity-50 cursor-not-allowed"
+                        )}
+                        onClick={() => {
+                          if (!canSelect) return;
+                          if (isSelected) {
+                            setSelectedShowcaseBadges(prev => prev.filter(k => k !== item.badge.id));
+                          } else {
+                            setSelectedShowcaseBadges(prev => [...prev, item.badge.id]);
+                          }
+                        }}
+                        data-testid={`showcase-select-${item.badge.id}`}
+                      >
+                        <div className={cn(
+                          "w-12 h-12 rounded-lg flex items-center justify-center text-2xl",
+                          `bg-gradient-to-br ${getTierColor(item.badge.tier)}`
+                        )}>
+                          {item.badge.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-sm truncate">{item.badge.name}</div>
+                          <div className="text-xs text-muted-foreground truncate">{item.badge.description}</div>
+                          <Badge 
+                            variant="outline" 
+                            className="text-[10px] px-1.5 py-0 mt-1 capitalize"
+                            style={{ borderColor: item.badge.color, color: item.badge.color }}
+                          >
+                            {item.badge.tier}
+                          </Badge>
+                        </div>
+                        <div className={cn(
+                          "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
+                          isSelected 
+                            ? "bg-primary border-primary" 
+                            : "border-muted-foreground/30"
+                        )}>
+                          {isSelected && <Check className="w-4 h-4 text-primary-foreground" />}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+              
+              {badgeProgress.filter(item => item.unlocked).length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>You haven't unlocked any badges yet!</p>
+                  <p className="text-sm mt-2">Complete typing tests to earn badges.</p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setShowShowcaseModal(false)}
+                data-testid="button-cancel-showcase"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => showcaseMutation.mutate(selectedShowcaseBadges)}
+                disabled={showcaseMutation.isPending || (selectedShowcaseBadges.length > 0 && selectedShowcaseBadges.length < 3)}
+                data-testid="button-save-showcase"
+              >
+                {showcaseMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Save Showcase
+                  </>
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
   );
 }
