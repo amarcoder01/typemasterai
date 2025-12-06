@@ -653,6 +653,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/achievements", isAuthenticated, async (req, res) => {
+    try {
+      const achievements = await storage.getUserAchievements(req.user!.id);
+      res.json({ achievements });
+    } catch (error: any) {
+      console.error("Get achievements error:", error);
+      res.status(500).json({ message: "Failed to fetch achievements" });
+    }
+  });
+
+  app.get("/api/gamification", isAuthenticated, async (req, res) => {
+    try {
+      const gamification = await storage.getUserGamification(req.user!.id);
+      res.json({ gamification: gamification || { totalPoints: 0, level: 1, experiencePoints: 0, totalAchievements: 0 } });
+    } catch (error: any) {
+      console.error("Get gamification error:", error);
+      res.status(500).json({ message: "Failed to fetch gamification data" });
+    }
+  });
+
   app.get("/api/leaderboard", async (req, res) => {
     try {
       const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);

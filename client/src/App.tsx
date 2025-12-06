@@ -10,6 +10,7 @@ import { NetworkProvider } from "@/lib/network-context";
 import { ErrorProvider } from "@/lib/error-context";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { AchievementCelebrationProvider } from "@/components/achievement-celebration";
 import Layout from "@/components/layout";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -109,20 +110,22 @@ function App() {
           <NetworkProvider>
             <ErrorProvider>
               <AuthProvider>
-                <TooltipProvider>
-                  <NetworkStatusBanner />
-                  <Toaster />
-                  <SonnerToaster 
-                    position="top-right"
-                    richColors
-                    closeButton
-                    toastOptions={{
-                      duration: 5000,
-                      className: "font-sans",
-                    }}
-                  />
-                  <Router />
-                </TooltipProvider>
+                <AchievementCelebrationProvider>
+                  <TooltipProvider>
+                    <NetworkStatusBanner />
+                    <Toaster />
+                    <SonnerToaster 
+                      position="top-right"
+                      richColors
+                      closeButton
+                      toastOptions={{
+                        duration: 5000,
+                        className: "font-sans",
+                      }}
+                    />
+                    <Router />
+                  </TooltipProvider>
+                </AchievementCelebrationProvider>
               </AuthProvider>
             </ErrorProvider>
           </NetworkProvider>
