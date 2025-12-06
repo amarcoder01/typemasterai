@@ -847,8 +847,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/leaderboard/around-me", isAuthenticated, leaderboardAroundMeLimiter, async (req, res) => {
     try {
       const range = Math.min(Math.max(1, parseInt(req.query.range as string) || 5), 20);
+      const rawTimeframe = (req.query.timeframe as string) || "all";
+      const validTimeframes = ["all", "daily", "weekly", "monthly"];
+      const timeframe = validTimeframes.includes(rawTimeframe) ? rawTimeframe as "all" | "daily" | "weekly" | "monthly" : "all";
       
-      const result = await leaderboardCache.getAroundMe("global", req.user!.id, { range });
+      const result = await leaderboardCache.getAroundMe("global", req.user!.id, { range, timeframe });
       
       res.set('Cache-Control', 'private, max-age=10');
       res.set('X-Cache', result.cacheHit ? 'HIT' : 'MISS');
@@ -856,6 +859,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         userRank: result.userRank,
         entries: result.entries,
+        timeframe,
       });
     } catch (error: any) {
       console.error("Get leaderboard around me error:", error);

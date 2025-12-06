@@ -253,7 +253,7 @@ export interface IStorage {
     isVerified: boolean;
   }>>;
   getLeaderboardCount(timeframe?: string): Promise<number>;
-  getLeaderboardAroundUser(userId: string, range?: number): Promise<{ userRank: number; entries: any[] }>;
+  getLeaderboardAroundUser(userId: string, range?: number, timeframe?: string): Promise<{ userRank: number; entries: any[] }>;
 
   getStressTestLeaderboardPaginated(difficulty: string | undefined, limit: number, offset: number): Promise<Array<{
     userId: string;
@@ -1260,7 +1260,9 @@ export class DatabaseStorage implements IStorage {
     return (result.rows[0] as any)?.count || 0;
   }
 
-  async getLeaderboardAroundUser(userId: string, range: number = 5): Promise<{ userRank: number; entries: any[] }> {
+  async getLeaderboardAroundUser(userId: string, range: number = 5, timeframe?: string): Promise<{ userRank: number; entries: any[] }> {
+    const dateFilter = this.getTimeframeDateFilter(timeframe);
+    
     const rankResult = await db.execute(sql`
       WITH ranked_results AS (
         SELECT 
@@ -1271,6 +1273,7 @@ export class DatabaseStorage implements IStorage {
             ORDER BY tr.wpm DESC
           ) as user_rank
         FROM test_results tr
+        WHERE tr.created_at >= ${dateFilter}
       ),
       user_best AS (
         SELECT user_id, wpm FROM ranked_results WHERE user_rank = 1
@@ -1307,9 +1310,13 @@ export class DatabaseStorage implements IStorage {
             ORDER BY tr.wpm DESC, tr.created_at DESC
           ) as user_rank
         FROM test_results tr
+        WHERE tr.created_at >= ${dateFilter}
       ),
       test_counts AS (
-        SELECT user_id, COUNT(*)::int as total_tests FROM test_results GROUP BY user_id
+        SELECT user_id, COUNT(*)::int as total_tests 
+        FROM test_results 
+        WHERE created_at >= ${dateFilter}
+        GROUP BY user_id
       ),
       final_ranking AS (
         SELECT 

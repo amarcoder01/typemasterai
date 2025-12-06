@@ -48,9 +48,9 @@ function LeaderboardContent() {
   });
 
   const { data: aroundMeData } = useQuery({
-    queryKey: ["leaderboard-around-me"],
+    queryKey: ["leaderboard-around-me", timeframe],
     queryFn: async () => {
-      const response = await fetch("/api/leaderboard/around-me?range=3");
+      const response = await fetch(`/api/leaderboard/around-me?range=3&timeframe=${timeframe}`);
       if (!response.ok) return null;
       return response.json();
     },

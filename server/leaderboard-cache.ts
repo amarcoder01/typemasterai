@@ -420,10 +420,11 @@ class LeaderboardCache {
       language?: string;
       tier?: string;
       range?: number;
+      timeframe?: TimeFrame;
     } = {}
   ): Promise<{ userRank: number; entries: any[]; cacheHit: boolean }> {
-    const { range = 5 } = options;
-    const cacheKey = this.getCacheKey(type, { ...options, userId });
+    const { range = 5, timeframe } = options;
+    const cacheKey = this.getCacheKey(type, { ...options, userId, timeframe });
     
     const cached = this.get<{ userRank: number; entries: any[] }>(cacheKey, CACHE_TTL_MS.aroundMe);
     if (cached) {
@@ -434,7 +435,7 @@ class LeaderboardCache {
 
     switch (type) {
       case "global":
-        result = await storage.getLeaderboardAroundUser(userId, range);
+        result = await storage.getLeaderboardAroundUser(userId, range, timeframe);
         break;
       case "stress":
         result = await storage.getStressLeaderboardAroundUser(userId, options.difficulty, range);
