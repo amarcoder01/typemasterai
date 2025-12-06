@@ -23,8 +23,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame, Star, Target, ChevronRight, Trophy, Sparkles, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BADGES, TOTAL_BADGES, type UserBadgeProgress, getTierColor, getTierBorder } from "@shared/badges";
+import { BADGES, TOTAL_BADGES, type UserBadgeProgress, getTierColor, getTierBorder, type Badge as BadgeType } from "@shared/badges";
 import { BadgeCard } from "@/components/badge-card";
+import { BadgeShareCard } from "@/components/badge-share-card";
 
 interface NextAchievement {
   key: string;
@@ -149,6 +150,8 @@ export default function Profile() {
   const queryClient = useQueryClient();
   const [showShowcaseModal, setShowShowcaseModal] = useState(false);
   const [selectedShowcaseBadges, setSelectedShowcaseBadges] = useState<string[]>([]);
+  const [badgeToShare, setBadgeToShare] = useState<BadgeType | null>(null);
+  const [showBadgeShareCard, setShowBadgeShareCard] = useState(false);
 
   const showcaseMutation = useMutation({
     mutationFn: async (badgeKeys: string[]) => {
@@ -166,6 +169,26 @@ export default function Profile() {
       setShowShowcaseModal(false);
     },
   });
+
+  const handleBadgeShare = (badge: BadgeType) => {
+    setBadgeToShare(badge);
+    setShowBadgeShareCard(true);
+  };
+
+  const handleShareTracked = async (platform: string) => {
+    try {
+      await fetch("/api/share/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ type: "badge", platform, badgeId: badgeToShare?.id }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["badges"] });
+      queryClient.invalidateQueries({ queryKey: ["gamification"] });
+    } catch (error) {
+      console.error("Failed to track share:", error);
+    }
+  };
 
   const showcaseBadges = showcaseBadgesData?.showcaseBadges || [];
   const nextAchievement = nextAchievementData?.nextAchievement;
@@ -640,6 +663,7 @@ export default function Profile() {
                       progress={item.progress}
                       currentValue={item.currentValue}
                       unlockedAt={item.unlockedAt}
+                      onShare={item.unlocked ? handleBadgeShare : undefined}
                     />
                   ))}
                 </div>
@@ -656,6 +680,7 @@ export default function Profile() {
                         progress={item.progress}
                         currentValue={item.currentValue}
                         unlockedAt={item.unlockedAt}
+                        onShare={item.unlocked ? handleBadgeShare : undefined}
                       />
                     ))}
                 </div>
@@ -672,6 +697,7 @@ export default function Profile() {
                         progress={item.progress}
                         currentValue={item.currentValue}
                         unlockedAt={item.unlockedAt}
+                        onShare={item.unlocked ? handleBadgeShare : undefined}
                       />
                     ))}
                 </div>
@@ -688,6 +714,7 @@ export default function Profile() {
                         progress={item.progress}
                         currentValue={item.currentValue}
                         unlockedAt={item.unlockedAt}
+                        onShare={item.unlocked ? handleBadgeShare : undefined}
                       />
                     ))}
                 </div>
@@ -704,6 +731,7 @@ export default function Profile() {
                         progress={item.progress}
                         currentValue={item.currentValue}
                         unlockedAt={item.unlockedAt}
+                        onShare={item.unlocked ? handleBadgeShare : undefined}
                       />
                     ))}
                 </div>
@@ -720,6 +748,7 @@ export default function Profile() {
                         progress={item.progress}
                         currentValue={item.currentValue}
                         unlockedAt={item.unlockedAt}
+                        onShare={item.unlocked ? handleBadgeShare : undefined}
                       />
                     ))}
                 </div>
@@ -741,6 +770,7 @@ export default function Profile() {
                         progress={item.progress}
                         currentValue={item.currentValue}
                         unlockedAt={item.unlockedAt}
+                        onShare={item.unlocked ? handleBadgeShare : undefined}
                       />
                     ))}
                 </div>
@@ -879,6 +909,20 @@ export default function Profile() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {badgeToShare && (
+          <BadgeShareCard
+            badge={badgeToShare}
+            username={user?.username}
+            unlockedAt={badgeProgress.find(b => b.badge.id === badgeToShare.id)?.unlockedAt}
+            isOpen={showBadgeShareCard}
+            onClose={() => {
+              setShowBadgeShareCard(false);
+              setBadgeToShare(null);
+            }}
+            onShareTracked={handleShareTracked}
+          />
+        )}
       </div>
   );
 }

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Lock, Zap, Target, Flame, TrendingUp, Star, Award, Share2, Moon, Sunrise, Rocket, Sparkles, Timer, HelpCircle } from "lucide-react";
 import { getTierColor, getTierBorder, getCategoryColor, type Badge as BadgeType } from "@shared/badges";
 import { cn } from "@/lib/utils";
@@ -25,9 +26,10 @@ interface BadgeCardProps {
   progress?: number;
   currentValue?: number;
   unlockedAt?: string;
+  onShare?: (badge: BadgeType) => void;
 }
 
-export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0, unlockedAt }: BadgeCardProps) {
+export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0, unlockedAt, onShare }: BadgeCardProps) {
   const isAlmostUnlocked = !unlocked && progress >= 50;
   const IconComponent = iconMap[badge.icon] || Star;
   const isSecret = badge.isSecret === true;
@@ -128,6 +130,21 @@ export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0, unl
               <span className="text-[10px] text-muted-foreground">
                 {new Date(unlockedAt).toLocaleDateString()}
               </span>
+            )}
+            {onShare && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[10px] text-muted-foreground hover:text-primary mt-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShare(badge);
+                }}
+                data-testid={`button-share-badge-${badge.id}`}
+              >
+                <Share2 className="w-3 h-3 mr-1" />
+                Share
+              </Button>
             )}
           </div>
         )}

@@ -5,7 +5,10 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Trophy, Star, Sparkles, Share2, X, Zap, Target, Flame, TrendingUp, Award, Moon, Sunrise, Rocket, Timer } from "lucide-react";
+import { Trophy, Star, Sparkles, Share2, X, Zap, Target, Flame, TrendingUp, Award, Moon, Sunrise, Rocket, Timer, Image } from "lucide-react";
+import { BadgeShareCard } from "@/components/badge-share-card";
+import { BADGES } from "@shared/badges";
+import { useAuth } from "@/lib/auth-context";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Zap,
@@ -183,12 +186,30 @@ interface AchievementCelebrationModalProps {
 }
 
 function AchievementCelebrationModal({ achievement, isOpen, onClose, queueLength }: AchievementCelebrationModalProps) {
+  const { user } = useAuth();
+  const [showShareCard, setShowShareCard] = useState(false);
+
   useEffect(() => {
     if (isOpen && achievement) {
       triggerAchievementConfetti(achievement.tier);
       playAchievementSound(achievement.tier);
     }
   }, [isOpen, achievement]);
+
+  const handleShareTracked = async (platform: string) => {
+    try {
+      await fetch("/api/share/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ platform, type: "badge", badgeId: achievement?.id }),
+      });
+    } catch (error) {
+      console.error("Failed to track share:", error);
+    }
+  };
+
+  const badgeData = achievement ? BADGES.find(b => b.id === achievement.id) : null;
 
   if (!achievement) return null;
 
@@ -292,6 +313,17 @@ function AchievementCelebrationModal({ achievement, isOpen, onClose, queueLength
               
               <Button
                 variant="outline"
+                onClick={() => setShowShareCard(true)}
+                className="w-full"
+                size="lg"
+                data-testid="button-share-achievement"
+              >
+                <Image className="w-4 h-4 mr-2" />
+                Share with Visual Card
+              </Button>
+              
+              <Button
+                variant="ghost"
                 onClick={() => {
                   const text = `I just unlocked the "${achievement.name}" achievement on TypeMasterAI! ${achievement.icon}`;
                   const url = "https://typemasterai.com";
@@ -300,18 +332,29 @@ function AchievementCelebrationModal({ achievement, isOpen, onClose, queueLength
                     "_blank",
                     "width=600,height=400"
                   );
+                  handleShareTracked('twitter_quick');
                 }}
-                className="w-full"
-                size="lg"
-                data-testid="button-share-achievement"
+                className="w-full text-muted-foreground"
+                size="sm"
+                data-testid="button-quick-share-twitter"
               >
-                <Share2 className="w-4 h-4 mr-2" />
-                Share Achievement
+                <Share2 className="w-3 h-3 mr-2" />
+                Quick Share to Twitter
               </Button>
             </motion.div>
           </div>
         </motion.div>
       </DialogContent>
+
+      {badgeData && (
+        <BadgeShareCard
+          badge={badgeData}
+          username={user?.username}
+          isOpen={showShareCard}
+          onClose={() => setShowShareCard(false)}
+          onShareTracked={handleShareTracked}
+        />
+      )}
     </Dialog>
   );
 }
