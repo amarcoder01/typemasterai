@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
-import { ArrowLeft, Trophy, Zap, Flame, Award, Info, Target, BarChart3, Timer, CheckCircle2, Medal, Crown, Star, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Trophy, Zap, Flame, Award, Info, Target, BarChart3, Timer, CheckCircle2, Medal, Crown, Star, HelpCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -13,6 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 type Difficulty = 'all' | 'beginner' | 'intermediate' | 'expert' | 'nightmare' | 'impossible';
 
@@ -40,13 +41,13 @@ const DIFFICULTY_DESCRIPTIONS: Record<Exclude<Difficulty, 'all'>, string> = {
   impossible: 'Text teleports, ALL effects active, reality ceases to exist - 120 seconds',
 };
 
-export default function StressLeaderboard() {
+function StressLeaderboardContent() {
   const { user } = useAuth();
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('all');
   const [offset, setOffset] = useState(0);
   const limit = 50;
 
-  const { data: leaderboardData, isLoading: leaderboardLoading, isFetching } = useQuery({
+  const { data: leaderboardData, isLoading: leaderboardLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ['stress-leaderboard', selectedDifficulty, offset, limit],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
@@ -54,9 +55,14 @@ export default function StressLeaderboard() {
       const res = await fetch(`/api/stress-test/leaderboard?${params}`, {
         credentials: 'include',
       });
-      if (!res.ok) throw new Error('Failed to fetch leaderboard');
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to fetch leaderboard');
+      }
       return res.json();
     },
+    staleTime: 30000,
+    retry: 2,
   });
 
   const { data: statsData, isLoading: statsLoading } = useQuery({
@@ -289,7 +295,24 @@ export default function StressLeaderboard() {
             <TabsContent value={selectedDifficulty}>
               <Card>
                 <CardContent className="p-0">
-                  {leaderboardLoading ? (
+                  {isError ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+                      <p className="text-lg font-medium text-destructive mb-2">Failed to load leaderboard</p>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {error instanceof Error ? error.message : "An unexpected error occurred"}
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => refetch()}
+                        disabled={isFetching}
+                        data-testid="retry-button"
+                      >
+                        <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+                        Try Again
+                      </Button>
+                    </div>
+                  ) : leaderboardLoading ? (
                     <div className="text-center py-12">
                       <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                       <p className="text-muted-foreground">Loading leaderboard...</p>
@@ -477,5 +500,13 @@ export default function StressLeaderboard() {
         </div>
       </div>
     </TooltipProvider>
+  );
+}
+
+export default function StressLeaderboard() {
+  return (
+    <ErrorBoundary>
+      <StressLeaderboardContent />
+    </ErrorBoundary>
   );
 }

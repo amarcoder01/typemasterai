@@ -166,6 +166,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     legacyHeaders: false,
   });
 
+  const leaderboardLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 60,
+    message: { message: "Too many leaderboard requests, please slow down" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  const leaderboardAroundMeLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000,
+    max: 30,
+    message: { message: "Too many personalized leaderboard requests, please slow down" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
   passport.use(
     new LocalStrategy(
       { usernameField: "email", passReqToCallback: true },
@@ -800,12 +816,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/leaderboard", async (req, res) => {
+  app.get("/api/leaderboard", leaderboardLimiter, async (req, res) => {
     try {
       const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
       const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
       const cursor = req.query.cursor as string | undefined;
-      const timeframe = (req.query.timeframe as string) || "all";
+      const rawTimeframe = (req.query.timeframe as string) || "all";
+      const validTimeframes = ["all", "daily", "weekly", "monthly"];
+      const timeframe = validTimeframes.includes(rawTimeframe) ? rawTimeframe : "all";
       
       const actualOffset = cursor ? leaderboardCache.decodeCursor(cursor) : offset;
       
@@ -826,7 +844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/leaderboard/around-me", isAuthenticated, async (req, res) => {
+  app.get("/api/leaderboard/around-me", isAuthenticated, leaderboardAroundMeLimiter, async (req, res) => {
     try {
       const range = Math.min(Math.max(1, parseInt(req.query.range as string) || 5), 20);
       
@@ -845,15 +863,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/leaderboard/time-based", async (req, res) => {
+  app.get("/api/leaderboard/time-based", leaderboardLimiter, async (req, res) => {
     try {
-      const timeframe = req.query.timeframe as "daily" | "weekly" | "monthly";
-      const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
-      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
-      
-      if (!["daily", "weekly", "monthly"].includes(timeframe)) {
+      const rawTimeframe = req.query.timeframe as string;
+      const validTimeframes = ["daily", "weekly", "monthly"];
+      if (!validTimeframes.includes(rawTimeframe)) {
         return res.status(400).json({ message: "Invalid timeframe. Must be daily, weekly, or monthly" });
       }
+      const timeframe = rawTimeframe as "daily" | "weekly" | "monthly";
+      const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
       
       const entries = await storage.getTimeBasedLeaderboard(timeframe, limit, offset);
       const total = await storage.getTimeBasedLeaderboardCount(timeframe);
@@ -2591,9 +2610,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/code/leaderboard", async (req, res) => {
+  app.get("/api/code/leaderboard", leaderboardLimiter, async (req, res) => {
     try {
-      const language = req.query.language as string | undefined;
+      const rawLanguage = req.query.language as string | undefined;
+      const validLanguages = ["javascript", "typescript", "python", "java", "go", "rust", "csharp"];
+      const language = rawLanguage && validLanguages.includes(rawLanguage) ? rawLanguage : undefined;
       const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
       const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
       const cursor = req.query.cursor as string | undefined;
@@ -2617,9 +2638,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/code/leaderboard/around-me", isAuthenticated, async (req, res) => {
+  app.get("/api/code/leaderboard/around-me", isAuthenticated, leaderboardAroundMeLimiter, async (req, res) => {
     try {
-      const language = req.query.language as string | undefined;
+      const rawLanguage = req.query.language as string | undefined;
+      const validLanguages = ["javascript", "typescript", "python", "java", "go", "rust", "csharp"];
+      const language = rawLanguage && validLanguages.includes(rawLanguage) ? rawLanguage : undefined;
       const range = Math.min(Math.max(1, parseInt(req.query.range as string) || 5), 20);
       
       const result = await leaderboardCache.getAroundMe("code", req.user!.id, { language, range });
@@ -3149,7 +3172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dictation/leaderboard", async (req, res) => {
+  app.get("/api/dictation/leaderboard", leaderboardLimiter, async (req, res) => {
     try {
       const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 20), 100);
       const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
@@ -3173,7 +3196,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dictation/leaderboard/around-me", isAuthenticated, async (req, res) => {
+  app.get("/api/dictation/leaderboard/around-me", isAuthenticated, leaderboardAroundMeLimiter, async (req, res) => {
     try {
       const range = Math.min(Math.max(1, parseInt(req.query.range as string) || 5), 20);
       
@@ -3340,9 +3363,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/stress-test/leaderboard", async (req, res) => {
+  app.get("/api/stress-test/leaderboard", leaderboardLimiter, async (req, res) => {
     try {
-      const difficulty = req.query.difficulty as string | undefined;
+      const rawDifficulty = req.query.difficulty as string | undefined;
+      const validDifficulties = ["beginner", "intermediate", "expert", "nightmare", "impossible"];
+      const difficulty = rawDifficulty && validDifficulties.includes(rawDifficulty) ? rawDifficulty : undefined;
       const limit = Math.min(Math.max(1, parseInt(req.query.limit as string) || 50), 100);
       const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
       const cursor = req.query.cursor as string | undefined;
@@ -3366,9 +3391,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/stress-test/leaderboard/around-me", isAuthenticated, async (req, res) => {
+  app.get("/api/stress-test/leaderboard/around-me", isAuthenticated, leaderboardAroundMeLimiter, async (req, res) => {
     try {
-      const difficulty = req.query.difficulty as string | undefined;
+      const rawDifficulty = req.query.difficulty as string | undefined;
+      const validDifficulties = ["beginner", "intermediate", "expert", "nightmare", "impossible"];
+      const difficulty = rawDifficulty && validDifficulties.includes(rawDifficulty) ? rawDifficulty : undefined;
       const range = Math.min(Math.max(1, parseInt(req.query.range as string) || 5), 20);
       
       const result = await leaderboardCache.getAroundMe("stress", req.user!.id, { difficulty, range });

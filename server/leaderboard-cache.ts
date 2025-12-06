@@ -1,4 +1,5 @@
 import { storage } from "./storage";
+import crypto from "crypto";
 
 export type LeaderboardType = "global" | "code" | "stress" | "dictation" | "rating";
 export type TimeFrame = "all" | "daily" | "weekly" | "monthly";
@@ -8,6 +9,7 @@ interface CacheEntry<T> {
   timestamp: number;
   lastAccessed: number;
   hits: number;
+  etag: string;
 }
 
 interface LeaderboardEntry {
@@ -35,6 +37,7 @@ interface PaginatedResponse<T> {
     cacheHit: boolean;
     timeframe: TimeFrame;
     lastUpdated: number;
+    etag?: string;
   };
 }
 
@@ -49,6 +52,18 @@ const CACHE_TTL_MS = {
 };
 
 const MAX_CACHE_SIZE = 100;
+const MAX_MEMORY_MB = 50;
+
+function generateEtag(data: any): string {
+  const hash = crypto.createHash('md5');
+  hash.update(JSON.stringify(data));
+  return `"${hash.digest('hex').substring(0, 16)}"`;
+}
+
+function estimateMemorySize(obj: any): number {
+  const str = JSON.stringify(obj);
+  return Buffer.byteLength(str, 'utf8');
+}
 
 class LeaderboardCache {
   private cache = new Map<string, CacheEntry<any>>();
@@ -56,6 +71,7 @@ class LeaderboardCache {
     hits: 0,
     misses: 0,
     evictions: 0,
+    memoryUsedBytes: 0,
   };
 
   private getCacheKey(
@@ -109,7 +125,7 @@ class LeaderboardCache {
     }
   }
 
-  get<T>(key: string, ttl: number): T | null {
+  get<T>(key: string, ttl: number): { data: T; etag: string } | null {
     const entry = this.cache.get(key);
     if (!entry) {
       this.stats.misses++;
@@ -117,6 +133,7 @@ class LeaderboardCache {
     }
 
     if (this.isExpired(entry, ttl)) {
+      this.stats.memoryUsedBytes -= estimateMemorySize(entry.data);
       this.cache.delete(key);
       this.stats.misses++;
       return null;
@@ -125,18 +142,65 @@ class LeaderboardCache {
     entry.lastAccessed = Date.now();
     entry.hits++;
     this.stats.hits++;
-    return entry.data as T;
+    return { data: entry.data as T, etag: entry.etag };
   }
 
-  set<T>(key: string, data: T): void {
+  getEtag(key: string, ttl: number): string | null {
+    const entry = this.cache.get(key);
+    if (!entry || this.isExpired(entry, ttl)) {
+      return null;
+    }
+    return entry.etag;
+  }
+
+  set<T>(key: string, data: T): string {
     this.evictLRU();
+    this.evictIfMemoryExceeded();
     const now = Date.now();
+    const etag = generateEtag(data);
+    const memSize = estimateMemorySize(data);
+    
+    const existingEntry = this.cache.get(key);
+    if (existingEntry) {
+      this.stats.memoryUsedBytes -= estimateMemorySize(existingEntry.data);
+    }
+    
     this.cache.set(key, {
       data,
       timestamp: now,
       lastAccessed: now,
       hits: 0,
+      etag,
     });
+    
+    this.stats.memoryUsedBytes += memSize;
+    return etag;
+  }
+
+  private evictIfMemoryExceeded(): void {
+    const maxBytes = MAX_MEMORY_MB * 1024 * 1024;
+    while (this.stats.memoryUsedBytes > maxBytes && this.cache.size > 0) {
+      let lruKey: string | null = null;
+      let lruTime = Infinity;
+
+      for (const [key, entry] of this.cache.entries()) {
+        if (entry.lastAccessed < lruTime) {
+          lruTime = entry.lastAccessed;
+          lruKey = key;
+        }
+      }
+
+      if (lruKey) {
+        const entry = this.cache.get(lruKey);
+        if (entry) {
+          this.stats.memoryUsedBytes -= estimateMemorySize(entry.data);
+        }
+        this.cache.delete(lruKey);
+        this.stats.evictions++;
+      } else {
+        break;
+      }
+    }
   }
 
   invalidate(pattern?: string): void {
@@ -174,7 +238,7 @@ class LeaderboardCache {
     
     const cached = this.get<PaginatedResponse<any>>(cacheKey, CACHE_TTL_MS.global);
     if (cached) {
-      return { ...cached, metadata: { ...cached.metadata, cacheHit: true } };
+      return { ...cached.data, metadata: { ...cached.data.metadata, cacheHit: true, etag: cached.etag } };
     }
 
     const entries = await storage.getLeaderboardPaginated(limit, offset, timeframe);
@@ -211,7 +275,7 @@ class LeaderboardCache {
     
     const cached = this.get<PaginatedResponse<any>>(cacheKey, CACHE_TTL_MS.stress);
     if (cached) {
-      return { ...cached, metadata: { ...cached.metadata, cacheHit: true } };
+      return { ...cached.data, metadata: { ...cached.data.metadata, cacheHit: true, etag: cached.etag } };
     }
 
     const entries = await storage.getStressTestLeaderboardPaginated(difficulty, limit, offset);
@@ -248,7 +312,7 @@ class LeaderboardCache {
     
     const cached = this.get<PaginatedResponse<any>>(cacheKey, CACHE_TTL_MS.code);
     if (cached) {
-      return { ...cached, metadata: { ...cached.metadata, cacheHit: true } };
+      return { ...cached.data, metadata: { ...cached.data.metadata, cacheHit: true, etag: cached.etag } };
     }
 
     const entries = await storage.getCodeLeaderboardPaginated(language, limit, offset);
@@ -285,7 +349,7 @@ class LeaderboardCache {
     
     const cached = this.get<PaginatedResponse<any>>(cacheKey, CACHE_TTL_MS.rating);
     if (cached) {
-      return { ...cached, metadata: { ...cached.metadata, cacheHit: true } };
+      return { ...cached.data, metadata: { ...cached.data.metadata, cacheHit: true, etag: cached.etag } };
     }
 
     const entries = await storage.getRatingLeaderboardPaginated(tier, limit, offset);
@@ -321,7 +385,7 @@ class LeaderboardCache {
     
     const cached = this.get<PaginatedResponse<any>>(cacheKey, CACHE_TTL_MS.dictation);
     if (cached) {
-      return { ...cached, metadata: { ...cached.metadata, cacheHit: true } };
+      return { ...cached.data, metadata: { ...cached.data.metadata, cacheHit: true, etag: cached.etag } };
     }
 
     const entries = await storage.getDictationLeaderboardPaginated(limit, offset);
@@ -363,7 +427,7 @@ class LeaderboardCache {
     
     const cached = this.get<{ userRank: number; entries: any[] }>(cacheKey, CACHE_TTL_MS.aroundMe);
     if (cached) {
-      return { ...cached, cacheHit: true };
+      return { ...cached.data, cacheHit: true };
     }
 
     let result: { userRank: number; entries: any[] };

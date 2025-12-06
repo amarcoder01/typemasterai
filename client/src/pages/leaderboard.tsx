@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trophy, Medal, Clock, Target, ChevronLeft, ChevronRight, ShieldCheck, User } from "lucide-react";
+import { Trophy, Medal, Clock, Target, ChevronLeft, ChevronRight, ShieldCheck, User, AlertCircle, RefreshCw } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
@@ -13,23 +13,28 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 type Timeframe = "all" | "daily" | "weekly" | "monthly";
 
-export default function Leaderboard() {
+function LeaderboardContent() {
   const [timeframe, setTimeframe] = useState<Timeframe>("all");
   const [offset, setOffset] = useState(0);
   const limit = 20;
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ["leaderboard", timeframe, offset, limit],
     queryFn: async () => {
       const response = await fetch(`/api/leaderboard?limit=${limit}&offset=${offset}&timeframe=${timeframe}`);
-      if (!response.ok) throw new Error("Failed to fetch leaderboard");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to fetch leaderboard");
+      }
       return response.json();
     },
     placeholderData: keepPreviousData,
     staleTime: 30000,
+    retry: 2,
   });
 
   const { data: userData } = useQuery({
@@ -147,7 +152,24 @@ export default function Leaderboard() {
 
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
           <CardContent className="p-0">
-            {isLoading ? (
+            {isError ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+                <p className="text-lg font-medium text-destructive mb-2">Failed to load leaderboard</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {error instanceof Error ? error.message : "An unexpected error occurred"}
+                </p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => refetch()}
+                  disabled={isFetching}
+                  data-testid="retry-button"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+                  Try Again
+                </Button>
+              </div>
+            ) : isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
               </div>
@@ -283,5 +305,13 @@ export default function Leaderboard() {
         </Card>
       </div>
     </TooltipProvider>
+  );
+}
+
+export default function Leaderboard() {
+  return (
+    <ErrorBoundary>
+      <LeaderboardContent />
+    </ErrorBoundary>
   );
 }

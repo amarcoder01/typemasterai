@@ -2,8 +2,10 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trophy, Code, Zap, Target, Medal } from "lucide-react";
+import { Trophy, Code, Zap, Target, Medal, AlertCircle, RefreshCw } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 const PROGRAMMING_LANGUAGES = {
   all: "All Languages",
@@ -16,20 +18,24 @@ const PROGRAMMING_LANGUAGES = {
   csharp: "C#",
 };
 
-export default function CodeLeaderboard() {
+function CodeLeaderboardContent() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>("all");
   const [offset, setOffset] = useState(0);
   const limit = 20;
 
-  const { data: leaderboardData, isLoading } = useQuery({
+  const { data: leaderboardData, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["codeLeaderboard", selectedLanguage, offset, limit],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
       if (selectedLanguage !== "all") params.set("language", selectedLanguage);
       const response = await fetch(`/api/code/leaderboard?${params}`);
-      if (!response.ok) throw new Error("Failed to fetch code leaderboard");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to fetch code leaderboard");
+      }
       return response.json();
     },
+    retry: 2,
   });
 
   const leaderboard = leaderboardData?.entries || [];
@@ -78,7 +84,24 @@ export default function CodeLeaderboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isError ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <AlertCircle className="w-12 h-12 text-destructive mb-4" />
+              <p className="text-lg font-medium text-destructive mb-2">Failed to load leaderboard</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                {error instanceof Error ? error.message : "An unexpected error occurred"}
+              </p>
+              <Button 
+                variant="outline" 
+                onClick={() => refetch()}
+                disabled={isFetching}
+                data-testid="retry-button"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+                Try Again
+              </Button>
+            </div>
+          ) : isLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
               <p className="text-muted-foreground mt-4">Loading leaderboard...</p>
@@ -180,5 +203,13 @@ export default function CodeLeaderboard() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function CodeLeaderboard() {
+  return (
+    <ErrorBoundary>
+      <CodeLeaderboardContent />
+    </ErrorBoundary>
   );
 }
