@@ -20,7 +20,7 @@ type Timeframe = "all" | "daily" | "weekly" | "monthly";
 function LeaderboardContent() {
   const [timeframe, setTimeframe] = useState<Timeframe>("all");
   const [offset, setOffset] = useState(0);
-  const limit = 20;
+  const limit = 15;
 
   const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ["leaderboard", timeframe, offset, limit],
