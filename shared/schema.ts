@@ -400,7 +400,7 @@ export const keystrokeAnalytics = pgTable("keystroke_analytics", {
   typedKey: text("typed_key").notNull(),
   isCorrect: integer("is_correct").notNull(),
   position: integer("position").notNull(),
-  timestamp: integer("timestamp").notNull(),
+  timestamp: bigint("timestamp", { mode: "number" }).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   userIdIdx: index("keystroke_user_id_idx").on(table.userId),
@@ -413,7 +413,7 @@ export const insertKeystrokeAnalyticsSchema = createInsertSchema(keystrokeAnalyt
   typedKey: z.string().min(1),
   isCorrect: z.number().int().min(0).max(1),
   position: z.number().int().min(0),
-  timestamp: z.number().int().min(0),
+  timestamp: z.number().int(),
 }).omit({ id: true, createdAt: true });
 
 export type InsertKeystrokeAnalytics = z.infer<typeof insertKeystrokeAnalyticsSchema>;
