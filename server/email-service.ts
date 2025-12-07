@@ -612,84 +612,206 @@ export class EmailService {
     ipAddress?: string;
     changedAt: string;
   }): string {
-    const greeting = params.username ? `Hi ${params.username},` : "Hi,";
+    const greeting = params.username ? `Hi ${params.username},` : "Hi there,";
+    const formattedDate = new Date(params.changedAt).toLocaleString("en-US", { 
+      weekday: "long",
+      year: "numeric",
+      month: "long", 
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short"
+    });
     
     return `
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
   <meta name="referrer" content="no-referrer">
-  <title>Password Changed</title>
+  <title>Password Changed Successfully</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  </style>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0b; color: #fafafa;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0a0a0b;">
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f5;">
     <tr>
       <td align="center" style="padding: 40px 20px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #18181b; border-radius: 16px; border: 1px solid #27272a;">
-          <!-- Header -->
+        
+        <!-- Main Container -->
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);">
+          
+          <!-- Header with Logo -->
           <tr>
-            <td style="padding: 40px 40px 20px; text-align: center;">
-              <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 16px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 32px;">🔐</span>
-              </div>
-              <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #fafafa;">Password Changed</h1>
+            <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px 40px; text-align: center;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="background-color: #ffffff; width: 48px; height: 48px; border-radius: 12px; text-align: center; vertical-align: middle;">
+                          <span style="font-size: 24px; line-height: 48px;">⌨️</span>
+                        </td>
+                        <td style="padding-left: 12px;">
+                          <span style="font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">TypeMasterAI</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           
-          <!-- Content -->
+          <!-- Success Icon Banner -->
           <tr>
-            <td style="padding: 20px 40px;">
-              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #a1a1aa;">
+            <td style="background-color: #dcfce7; padding: 24px 40px; text-align: center; border-bottom: 1px solid #bbf7d0;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width: 56px; height: 56px; background-color: #22c55e; border-radius: 50%; text-align: center; vertical-align: middle;">
+                          <span style="font-size: 28px; line-height: 56px; color: #ffffff;">✓</span>
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin: 16px 0 0; font-size: 20px; font-weight: 600; color: #166534;">Password Changed Successfully</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Main Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.6; color: #18181b;">
                 ${greeting}
               </p>
-              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #a1a1aa;">
-                Your TypeMasterAI account password was successfully changed.
+              <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #3f3f46;">
+                Your TypeMasterAI account password has been successfully updated. You can now use your new password to sign in.
               </p>
               
-              <!-- Security Info -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top: 20px; background-color: #27272a; border-radius: 12px;">
+              <!-- Change Details Card -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
                 <tr>
-                  <td style="padding: 16px;">
-                    <p style="margin: 0; font-size: 13px; color: #71717a;">
-                      <strong style="color: #a1a1aa;">Change Details:</strong><br>
-                      ${params.ipAddress ? `IP Address: ${params.ipAddress}<br>` : ""}
-                      Time: ${new Date(params.changedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
-                    </p>
+                  <td style="background-color: #f4f4f5; border-radius: 12px; padding: 20px; border-left: 4px solid #6366f1;">
+                    <p style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">Change Details</p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <span style="font-size: 14px; color: #71717a;">Date & Time:</span>
+                        </td>
+                        <td style="padding: 4px 0; text-align: right;">
+                          <span style="font-size: 14px; font-weight: 500; color: #18181b;">${formattedDate}</span>
+                        </td>
+                      </tr>
+                      ${params.ipAddress ? `
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <span style="font-size: 14px; color: #71717a;">IP Address:</span>
+                        </td>
+                        <td style="padding: 4px 0; text-align: right;">
+                          <span style="font-size: 14px; font-weight: 500; color: #18181b;">${params.ipAddress}</span>
+                        </td>
+                      </tr>
+                      ` : ""}
+                    </table>
                   </td>
                 </tr>
               </table>
               
-              <!-- Warning -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top: 20px; background-color: #422006; border-radius: 12px; border: 1px solid #854d0e;">
+              <p style="margin: 0 0 24px; font-size: 14px; line-height: 1.6; color: #52525b;">
+                For your security, all other active sessions have been automatically logged out.
+              </p>
+              
+              <!-- Warning Alert -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
                 <tr>
-                  <td style="padding: 16px;">
-                    <p style="margin: 0; font-size: 14px; color: #fbbf24;">
-                      <strong>⚠️ Didn't make this change?</strong><br>
-                      <span style="color: #fcd34d;">If you didn't change your password, your account may have been compromised. Please contact support immediately and secure your account.</span>
-                    </p>
+                  <td style="background-color: #fef3c7; border-radius: 12px; padding: 20px; border: 1px solid #fcd34d;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width: 24px; vertical-align: top; padding-right: 12px;">
+                          <span style="font-size: 20px;">⚠️</span>
+                        </td>
+                        <td>
+                          <p style="margin: 0 0 4px; font-size: 14px; font-weight: 600; color: #92400e;">Didn't make this change?</p>
+                          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #a16207;">
+                            If you didn't change your password, your account may have been compromised. Please <a href="${this.appUrl}/forgot-password" style="color: #b45309; font-weight: 600;">reset your password immediately</a> and contact our support team.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
               
-              <p style="margin: 24px 0 0; font-size: 14px; line-height: 1.6; color: #71717a;">
-                For your security, all other sessions have been logged out.
-              </p>
+              <!-- CTA Button -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center" style="padding: 8px 0;">
+                    <a href="${this.appUrl}/login" style="display: inline-block; padding: 14px 32px; background-color: #6366f1; color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; border-radius: 8px; mso-padding-alt: 0;">
+                      <!--[if mso]>
+                      <i style="mso-font-width: 200%; mso-text-raise: 24pt;">&nbsp;</i>
+                      <![endif]-->
+                      <span style="mso-text-raise: 12pt;">Sign In to Your Account</span>
+                      <!--[if mso]>
+                      <i style="mso-font-width: 200%;">&nbsp;</i>
+                      <![endif]-->
+                    </a>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           
           <!-- Footer -->
           <tr>
-            <td style="padding: 30px 40px; border-top: 1px solid #27272a;">
-              <p style="margin: 0; font-size: 13px; color: #52525b; text-align: center;">
-                © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
-                <a href="${this.appUrl}" style="color: #6366f1; text-decoration: none;">typemasterai.com</a>
+            <td style="background-color: #f9fafb; padding: 24px 40px; border-top: 1px solid #e4e4e7;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <p style="margin: 0 0 8px; font-size: 14px; color: #71717a;">
+                      Need help? <a href="${this.appUrl}/contact" style="color: #6366f1; text-decoration: none; font-weight: 500;">Contact Support</a>
+                    </p>
+                    <p style="margin: 0; font-size: 12px; color: #a1a1aa;">
+                      © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
+                      <a href="${this.appUrl}" style="color: #a1a1aa; text-decoration: none;">typemasterai.com</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+        </table>
+        
+        <!-- Security Note -->
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; width: 100%;">
+          <tr>
+            <td style="padding: 24px 20px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
+                This is an automated security notification. Please do not reply to this email.<br>
+                If you have any questions, visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
               </p>
             </td>
           </tr>
         </table>
+        
       </td>
     </tr>
   </table>
@@ -704,92 +826,226 @@ export class EmailService {
     ipAddress?: string;
     requestTime: string;
   }): string {
-    const greeting = params.username ? `Hi ${params.username},` : "Hi,";
+    const greeting = params.username ? `Hi ${params.username},` : "Hi there,";
+    const formattedTime = new Date(params.requestTime).toLocaleString("en-US", { 
+      weekday: "long",
+      year: "numeric",
+      month: "long", 
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short"
+    });
     
     return `
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="referrer" content="no-referrer">
   <title>Reset Your Password</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  </style>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0b; color: #fafafa;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0a0a0b;">
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f5;">
     <tr>
       <td align="center" style="padding: 40px 20px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #18181b; border-radius: 16px; border: 1px solid #27272a;">
-          <!-- Header -->
+        
+        <!-- Main Container -->
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);">
+          
+          <!-- Header with Logo -->
           <tr>
-            <td style="padding: 40px 40px 20px; text-align: center;">
-              <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); border-radius: 16px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 32px;">⌨️</span>
-              </div>
-              <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #fafafa;">Reset Your Password</h1>
+            <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px 40px; text-align: center;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="background-color: #ffffff; width: 48px; height: 48px; border-radius: 12px; text-align: center; vertical-align: middle;">
+                          <span style="font-size: 24px; line-height: 48px;">⌨️</span>
+                        </td>
+                        <td style="padding-left: 12px;">
+                          <span style="font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">TypeMasterAI</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           
-          <!-- Content -->
+          <!-- Key Icon Banner -->
           <tr>
-            <td style="padding: 20px 40px;">
-              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #a1a1aa;">
+            <td style="background-color: #eef2ff; padding: 24px 40px; text-align: center; border-bottom: 1px solid #c7d2fe;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width: 56px; height: 56px; background-color: #6366f1; border-radius: 50%; text-align: center; vertical-align: middle;">
+                          <span style="font-size: 28px; line-height: 56px; color: #ffffff;">🔑</span>
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin: 16px 0 0; font-size: 20px; font-weight: 600; color: #4338ca;">Password Reset Request</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Main Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.6; color: #18181b;">
                 ${greeting}
               </p>
-              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #a1a1aa;">
+              <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #3f3f46;">
                 We received a request to reset your password for your TypeMasterAI account. Click the button below to create a new password:
               </p>
               
               <!-- CTA Button -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
-                  <td style="padding: 20px 0;" align="center">
-                    <a href="${params.resetUrl}" style="display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 12px; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);">
-                      Reset Password
+                  <td align="center" style="padding: 16px 0 24px;">
+                    <a href="${params.resetUrl}" style="display: inline-block; padding: 16px 40px; background-color: #6366f1; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 8px; mso-padding-alt: 0;">
+                      <!--[if mso]>
+                      <i style="mso-font-width: 200%; mso-text-raise: 24pt;">&nbsp;</i>
+                      <![endif]-->
+                      <span style="mso-text-raise: 12pt;">Reset My Password</span>
+                      <!--[if mso]>
+                      <i style="mso-font-width: 200%;">&nbsp;</i>
+                      <![endif]-->
                     </a>
                   </td>
                 </tr>
               </table>
               
-              <p style="margin: 20px 0; font-size: 14px; line-height: 1.6; color: #71717a;">
-                This link will expire in <strong style="color: #a1a1aa;">${params.expiresInMinutes} minutes</strong> for security reasons.
-              </p>
-              
-              <p style="margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: #71717a;">
-                If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged.
-              </p>
-              
-              <!-- Security Info -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top: 20px; background-color: #27272a; border-radius: 12px;">
+              <!-- Expiry Notice -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
                 <tr>
-                  <td style="padding: 16px;">
-                    <p style="margin: 0; font-size: 13px; color: #71717a;">
-                      <strong style="color: #a1a1aa;">Security Information:</strong><br>
-                      ${params.ipAddress ? `Request IP: ${params.ipAddress}<br>` : ""}
-                      Request Time: ${new Date(params.requestTime).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+                  <td style="background-color: #fef3c7; border-radius: 8px; padding: 14px 16px; text-align: center;">
+                    <p style="margin: 0; font-size: 14px; color: #92400e;">
+                      <span style="font-weight: 600;">⏱ This link expires in ${params.expiresInMinutes} minutes</span> for your security.
                     </p>
                   </td>
                 </tr>
               </table>
               
-              <!-- Fallback URL -->
-              <p style="margin: 24px 0 0; font-size: 12px; line-height: 1.6; color: #52525b;">
-                If the button doesn't work, copy and paste this link into your browser:<br>
-                <a href="${params.resetUrl}" style="color: #6366f1; word-break: break-all;">${params.resetUrl}</a>
-              </p>
+              <!-- Security Details Card -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+                <tr>
+                  <td style="background-color: #f4f4f5; border-radius: 12px; padding: 20px; border-left: 4px solid #6366f1;">
+                    <p style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">Request Details</p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <span style="font-size: 14px; color: #71717a;">Date & Time:</span>
+                        </td>
+                        <td style="padding: 4px 0; text-align: right;">
+                          <span style="font-size: 14px; font-weight: 500; color: #18181b;">${formattedTime}</span>
+                        </td>
+                      </tr>
+                      ${params.ipAddress ? `
+                      <tr>
+                        <td style="padding: 4px 0;">
+                          <span style="font-size: 14px; color: #71717a;">IP Address:</span>
+                        </td>
+                        <td style="padding: 4px 0; text-align: right;">
+                          <span style="font-size: 14px; font-weight: 500; color: #18181b;">${params.ipAddress}</span>
+                        </td>
+                      </tr>
+                      ` : ""}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Safety Note -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+                <tr>
+                  <td style="background-color: #f0fdf4; border-radius: 12px; padding: 16px; border: 1px solid #bbf7d0;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width: 24px; vertical-align: top; padding-right: 12px;">
+                          <span style="font-size: 18px;">🔒</span>
+                        </td>
+                        <td>
+                          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #166534;">
+                            <strong>Didn't request this?</strong> You can safely ignore this email. Your password will remain unchanged and no action is needed.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Alternative Link -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="border-top: 1px solid #e4e4e7; padding-top: 20px;">
+                    <p style="margin: 0 0 8px; font-size: 13px; color: #71717a;">
+                      If the button doesn't work, copy and paste this link into your browser:
+                    </p>
+                    <p style="margin: 0; font-size: 12px; word-break: break-all;">
+                      <a href="${params.resetUrl}" style="color: #6366f1; text-decoration: none;">${params.resetUrl}</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           
           <!-- Footer -->
           <tr>
-            <td style="padding: 30px 40px; border-top: 1px solid #27272a;">
-              <p style="margin: 0; font-size: 13px; color: #52525b; text-align: center;">
-                © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
-                <a href="${this.appUrl}" style="color: #6366f1; text-decoration: none;">typemasterai.com</a>
+            <td style="background-color: #f9fafb; padding: 24px 40px; border-top: 1px solid #e4e4e7;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <p style="margin: 0 0 8px; font-size: 14px; color: #71717a;">
+                      Need help? <a href="${this.appUrl}/contact" style="color: #6366f1; text-decoration: none; font-weight: 500;">Contact Support</a>
+                    </p>
+                    <p style="margin: 0; font-size: 12px; color: #a1a1aa;">
+                      © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
+                      <a href="${this.appUrl}" style="color: #a1a1aa; text-decoration: none;">typemasterai.com</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+        </table>
+        
+        <!-- Security Note -->
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; width: 100%;">
+          <tr>
+            <td style="padding: 24px 20px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
+                This is an automated security notification. Please do not reply to this email.<br>
+                If you have any questions, visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
               </p>
             </td>
           </tr>
         </table>
+        
       </td>
     </tr>
   </table>
@@ -801,96 +1057,260 @@ export class EmailService {
     verifyUrl: string;
     username?: string;
   }): string {
-    const greeting = params.username ? `Welcome ${params.username}!` : "Welcome!";
+    const greeting = params.username ? `Welcome, ${params.username}!` : "Welcome!";
     
     return `
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>Verify Your Email</title>
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="referrer" content="no-referrer">
+  <title>Verify Your Email - TypeMasterAI</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  </style>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0b; color: #fafafa;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0a0a0b;">
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f5;">
     <tr>
       <td align="center" style="padding: 40px 20px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #18181b; border-radius: 16px; border: 1px solid #27272a;">
-          <!-- Header -->
+        
+        <!-- Main Container -->
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);">
+          
+          <!-- Header with Logo -->
           <tr>
-            <td style="padding: 40px 40px 20px; text-align: center;">
-              <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 16px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
-                <span style="font-size: 32px;">✉️</span>
-              </div>
-              <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #fafafa;">Verify Your Email</h1>
+            <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px 40px; text-align: center;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="background-color: #ffffff; width: 48px; height: 48px; border-radius: 12px; text-align: center; vertical-align: middle;">
+                          <span style="font-size: 24px; line-height: 48px;">⌨️</span>
+                        </td>
+                        <td style="padding-left: 12px;">
+                          <span style="font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">TypeMasterAI</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           
-          <!-- Content -->
+          <!-- Welcome Banner -->
           <tr>
-            <td style="padding: 20px 40px;">
-              <p style="margin: 0 0 20px; font-size: 18px; font-weight: 600; color: #fafafa;">
+            <td style="background-color: #dbeafe; padding: 24px 40px; text-align: center; border-bottom: 1px solid #bfdbfe;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width: 56px; height: 56px; background-color: #3b82f6; border-radius: 50%; text-align: center; vertical-align: middle;">
+                          <span style="font-size: 28px; line-height: 56px; color: #ffffff;">✉️</span>
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin: 16px 0 0; font-size: 20px; font-weight: 600; color: #1e40af;">Verify Your Email Address</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Main Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 8px; font-size: 20px; font-weight: 600; line-height: 1.4; color: #18181b;">
                 ${greeting}
               </p>
-              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #a1a1aa;">
-                Thanks for signing up for TypeMasterAI! Please verify your email address to get started on your typing journey.
+              <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #3f3f46;">
+                Thanks for signing up for TypeMasterAI! Please verify your email address to complete your registration and unlock all features.
               </p>
               
               <!-- CTA Button -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
                 <tr>
-                  <td style="padding: 20px 0;" align="center">
-                    <a href="${params.verifyUrl}" style="display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 12px; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.4);">
+                  <td align="center" style="padding: 8px 0 24px;">
+                    <!--[if mso]>
+                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${params.verifyUrl}" style="height:52px;v-text-anchor:middle;width:220px;" arcsize="12%" stroke="f" fillcolor="#22c55e">
+                      <w:anchorlock/>
+                      <center style="color:#ffffff;font-family:sans-serif;font-size:16px;font-weight:600;">Verify Email Address</center>
+                    </v:roundrect>
+                    <![endif]-->
+                    <!--[if !mso]><!-->
+                    <a href="${params.verifyUrl}" style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 12px; box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3); transition: transform 0.2s;">
                       Verify Email Address
                     </a>
+                    <!--<![endif]-->
                   </td>
                 </tr>
               </table>
               
-              <p style="margin: 20px 0; font-size: 14px; line-height: 1.6; color: #71717a;">
-                This link will expire in <strong style="color: #a1a1aa;">24 hours</strong>.
-              </p>
-              
-              <p style="margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: #71717a;">
-                If you didn't create an account with TypeMasterAI, you can safely ignore this email.
-              </p>
-              
-              <!-- Features Teaser -->
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top: 20px; background-color: #27272a; border-radius: 12px;">
+              <!-- Expiry Notice -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
                 <tr>
-                  <td style="padding: 20px;">
-                    <p style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: #fafafa;">
-                      What awaits you:
+                  <td style="background-color: #fef3c7; border-radius: 12px; padding: 16px 20px; border-left: 4px solid #f59e0b;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width: 24px; vertical-align: top;">
+                          <span style="font-size: 16px;">⏰</span>
+                        </td>
+                        <td style="padding-left: 12px;">
+                          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #92400e;">
+                            This verification link will expire in <strong>24 hours</strong>. If it expires, you can request a new one from the login page.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Features Card -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+                <tr>
+                  <td style="background-color: #f4f4f5; border-radius: 12px; padding: 24px; border-left: 4px solid #6366f1;">
+                    <p style="margin: 0 0 16px; font-size: 15px; font-weight: 600; color: #18181b;">
+                      🎉 Here's what awaits you:
                     </p>
-                    <ul style="margin: 0; padding: 0 0 0 20px; color: #a1a1aa; font-size: 14px; line-height: 1.8;">
-                      <li>Real-time typing analytics and progress tracking</li>
-                      <li>Multiplayer racing with players worldwide</li>
-                      <li>AI-powered practice recommendations</li>
-                      <li>Achievements and leaderboards</li>
-                    </ul>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="padding: 6px 0;">
+                          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                            <tr>
+                              <td style="width: 24px; vertical-align: top;">
+                                <span style="color: #22c55e; font-size: 14px;">✓</span>
+                              </td>
+                              <td style="padding-left: 8px;">
+                                <span style="font-size: 14px; color: #3f3f46;">Real-time typing analytics & progress tracking</span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0;">
+                          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                            <tr>
+                              <td style="width: 24px; vertical-align: top;">
+                                <span style="color: #22c55e; font-size: 14px;">✓</span>
+                              </td>
+                              <td style="padding-left: 8px;">
+                                <span style="font-size: 14px; color: #3f3f46;">Multiplayer racing with players worldwide</span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0;">
+                          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                            <tr>
+                              <td style="width: 24px; vertical-align: top;">
+                                <span style="color: #22c55e; font-size: 14px;">✓</span>
+                              </td>
+                              <td style="padding-left: 8px;">
+                                <span style="font-size: 14px; color: #3f3f46;">AI-powered practice recommendations</span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 6px 0;">
+                          <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                            <tr>
+                              <td style="width: 24px; vertical-align: top;">
+                                <span style="color: #22c55e; font-size: 14px;">✓</span>
+                              </td>
+                              <td style="padding-left: 8px;">
+                                <span style="font-size: 14px; color: #3f3f46;">Achievements, challenges & leaderboards</span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Safety Note -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+                <tr>
+                  <td style="background-color: #f0fdf4; border-radius: 12px; padding: 16px 20px; border-left: 4px solid #22c55e;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width: 24px; vertical-align: top;">
+                          <span style="font-size: 16px;">💡</span>
+                        </td>
+                        <td style="padding-left: 12px;">
+                          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #166534;">
+                            If you didn't create an account with TypeMasterAI, you can safely ignore this email. No action is required.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
               
               <!-- Fallback URL -->
-              <p style="margin: 24px 0 0; font-size: 12px; line-height: 1.6; color: #52525b;">
-                If the button doesn't work, copy and paste this link into your browser:<br>
-                <a href="${params.verifyUrl}" style="color: #22c55e; word-break: break-all;">${params.verifyUrl}</a>
+              <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #71717a;">
+                If the button above doesn't work, copy and paste this link into your browser:<br>
+                <a href="${params.verifyUrl}" style="color: #6366f1; word-break: break-all; text-decoration: none;">${params.verifyUrl}</a>
               </p>
             </td>
           </tr>
           
           <!-- Footer -->
           <tr>
-            <td style="padding: 30px 40px; border-top: 1px solid #27272a;">
-              <p style="margin: 0; font-size: 13px; color: #52525b; text-align: center;">
-                © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
-                <a href="${this.appUrl}" style="color: #6366f1; text-decoration: none;">typemasterai.com</a>
+            <td style="background-color: #fafafa; padding: 24px 40px; border-top: 1px solid #e4e4e7;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <p style="margin: 0 0 8px; font-size: 14px; color: #71717a;">
+                      Need help? <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none; font-weight: 500;">Visit our Help Center</a>
+                    </p>
+                    <p style="margin: 0; font-size: 12px; color: #a1a1aa;">
+                      © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
+                      <a href="${this.appUrl}" style="color: #a1a1aa; text-decoration: none;">typemasterai.com</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+        </table>
+        
+        <!-- Security Note -->
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; width: 100%;">
+          <tr>
+            <td style="padding: 24px 20px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
+                This is an automated email from TypeMasterAI. Please do not reply to this email.<br>
+                If you have any questions, visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
               </p>
             </td>
           </tr>
         </table>
+        
       </td>
     </tr>
   </table>
