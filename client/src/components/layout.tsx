@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Keyboard, BarChart2, User, Settings, Trophy, LogOut, Sparkles, Github, Twitter, Mail, Globe, Zap, Shield, BookOpen, Users, Award, TrendingUp, Code, Book, Headphones, Star } from "lucide-react";
+import { Keyboard, BarChart2, User, Settings, Trophy, LogOut, Sparkles, Github, Twitter, Mail, Globe, Zap, Shield, BookOpen, Users, Award, TrendingUp, Code, Book, Headphones, Star, Menu, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,10 +16,16 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location]);
 
   const { data: gamificationData } = useQuery({
     queryKey: ["gamification"],
@@ -39,19 +46,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const xpInCurrentLevel = xp % 100;
   const xpProgress = (xpInCurrentLevel / 100) * 100;
 
-  const navItems = [
+  const primaryNavItems = [
     { href: "/", icon: Keyboard, label: "Type" },
     { href: "/code-mode", icon: Code, label: "Code Mode" },
     { href: "/books", icon: Book, label: "Books" },
     { href: "/dictation-mode", icon: Headphones, label: "Dictation" },
     { href: "/stress-test", icon: Zap, label: "Stress Test" },
     { href: "/multiplayer", icon: Users, label: "Multiplayer" },
+  ];
+
+  const secondaryNavItems = [
     { href: "/leaderboard", icon: Trophy, label: "Leaderboard" },
     { href: "/analytics", icon: BarChart2, label: "Analytics" },
     { href: "/chat", icon: Sparkles, label: "AI Chat" },
     { href: "/profile", icon: User, label: "Profile" },
     { href: "/settings", icon: Settings, label: "Settings" },
   ];
+
+  const allNavItems = [...primaryNavItems, ...secondaryNavItems];
 
   const handleLogout = async () => {
     await logout();
@@ -61,75 +73,80 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground flex flex-col">
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground font-mono font-bold text-xl">
               T
             </div>
-            <h1 className="text-xl font-bold tracking-tight">TypeMasterAI</h1>
+            <h1 className="text-lg font-bold tracking-tight hidden sm:block">TypeMasterAI</h1>
           </div>
 
-          <nav className="flex items-center gap-1">
-            {navItems.map((item) => {
+          <nav className="hidden xl:flex items-center gap-0.5">
+            {allNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;
               return (
                 <Link key={item.href} href={item.href}>
                   <div
                     className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-md transition-all duration-200 text-sm font-medium cursor-pointer",
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all duration-200 text-xs font-medium cursor-pointer whitespace-nowrap",
                       isActive
                         ? "text-primary bg-primary/10"
                         : "text-muted-foreground hover:text-foreground hover:bg-accent"
                     )}
+                    data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                   >
-                    <Icon className="w-4 h-4" />
-                    <span className="hidden sm:inline">{item.label}</span>
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{item.label}</span>
                   </div>
                 </Link>
               );
             })}
+          </nav>
+
+          <div className="flex items-center gap-2">
+            {user && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/profile">
+                    <div 
+                      className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-all cursor-pointer"
+                      data-testid="xp-level-display"
+                    >
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-bold text-[10px] shadow-lg shadow-amber-500/25">
+                        {level}
+                      </div>
+                      <div className="flex flex-col gap-0.5 min-w-[60px]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] font-semibold text-amber-500/90 uppercase tracking-wider">Lv {level}</span>
+                          <span className="text-[9px] font-mono text-muted-foreground">{xpInCurrentLevel}/100</span>
+                        </div>
+                        <Progress 
+                          value={xpProgress} 
+                          className="h-1 bg-amber-950/30 [&>div]:bg-gradient-to-r [&>div]:from-amber-500 [&>div]:to-orange-500"
+                          data-testid="xp-progress-bar"
+                        />
+                      </div>
+                    </div>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="bg-card border-border">
+                  <div className="text-sm">
+                    <p className="font-semibold text-amber-500">Level {level}</p>
+                    <p className="text-muted-foreground">{xpInCurrentLevel} / 100 XP to next level</p>
+                    <p className="text-xs text-muted-foreground mt-1">Total: {xp} XP</p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            )}
 
             {user ? (
               <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link href="/profile">
-                      <div 
-                        className="flex items-center gap-2 ml-3 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-all cursor-pointer"
-                        data-testid="xp-level-display"
-                      >
-                        <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-bold text-xs shadow-lg shadow-amber-500/25">
-                          {level}
-                        </div>
-                        <div className="flex flex-col gap-0.5 min-w-[80px]">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-semibold text-amber-500/90 uppercase tracking-wider">Level {level}</span>
-                            <span className="text-[10px] font-mono text-muted-foreground">{xpInCurrentLevel}/{100}</span>
-                          </div>
-                          <Progress 
-                            value={xpProgress} 
-                            className="h-1.5 bg-amber-950/30 [&>div]:bg-gradient-to-r [&>div]:from-amber-500 [&>div]:to-orange-500"
-                            data-testid="xp-progress-bar"
-                          />
-                        </div>
-                        <Star className="w-3.5 h-3.5 text-amber-500 ml-0.5" />
-                      </div>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="bg-card border-border">
-                    <div className="text-sm">
-                      <p className="font-semibold text-amber-500">Level {level}</p>
-                      <p className="text-muted-foreground">{xpInCurrentLevel} / 100 XP to next level</p>
-                      <p className="text-xs text-muted-foreground mt-1">Total: {xp} XP</p>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="ml-2 h-10 w-10 rounded-full p-0">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-primary text-primary-foreground">
+                    <Button variant="ghost" className="h-8 w-8 rounded-full p-0">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                           {user.username[0].toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
@@ -151,24 +168,124 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </DropdownMenu>
               </>
             ) : (
-              <div className="flex items-center gap-2 ml-2">
+              <div className="hidden sm:flex items-center gap-1">
                 <Link href="/login">
-                  <Button variant="ghost" size="sm" data-testid="button-nav-login">
+                  <Button variant="ghost" size="sm" className="text-xs h-8" data-testid="button-nav-login">
                     Sign In
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button size="sm" data-testid="button-nav-register">
+                  <Button size="sm" className="text-xs h-8" data-testid="button-nav-register">
                     Sign Up
                   </Button>
                 </Link>
               </div>
             )}
-          </nav>
+
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm" className="xl:hidden h-8 w-8 p-0" data-testid="button-mobile-menu">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-72 p-0">
+                <SheetHeader className="p-4 border-b">
+                  <SheetTitle className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center text-primary-foreground font-mono font-bold text-lg">
+                      T
+                    </div>
+                    TypeMasterAI
+                  </SheetTitle>
+                </SheetHeader>
+                
+                {user && (
+                  <div className="p-4 border-b">
+                    <Link href="/profile" onClick={() => setMobileMenuOpen(false)}>
+                      <div 
+                        className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20"
+                      >
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-bold text-sm shadow-lg shadow-amber-500/25">
+                          {level}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-semibold text-amber-500/90">Level {level}</span>
+                            <span className="text-xs font-mono text-muted-foreground">{xpInCurrentLevel}/100 XP</span>
+                          </div>
+                          <Progress 
+                            value={xpProgress} 
+                            className="h-2 bg-amber-950/30 [&>div]:bg-gradient-to-r [&>div]:from-amber-500 [&>div]:to-orange-500"
+                          />
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+                )}
+
+                <div className="p-2 overflow-y-auto max-h-[calc(100vh-200px)]">
+                  <div className="space-y-1">
+                    {allNavItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = location === item.href;
+                      return (
+                        <Link key={item.href} href={item.href}>
+                          <div
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium cursor-pointer",
+                              isActive
+                                ? "text-primary bg-primary/10"
+                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                            )}
+                            data-testid={`mobile-nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                          >
+                            <Icon className="w-4 h-4" />
+                            <span>{item.label}</span>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  
+                  {!user && (
+                    <div className="mt-4 pt-4 border-t space-y-2">
+                      <Link href="/login">
+                        <Button variant="outline" className="w-full" onClick={() => setMobileMenuOpen(false)} data-testid="mobile-button-login">
+                          Sign In
+                        </Button>
+                      </Link>
+                      <Link href="/register">
+                        <Button className="w-full" onClick={() => setMobileMenuOpen(false)} data-testid="mobile-button-register">
+                          Sign Up
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                  
+                  {user && (
+                    <div className="mt-4 pt-4 border-t">
+                      <Button 
+                        variant="ghost" 
+                        className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => {
+                          handleLogout();
+                          setMobileMenuOpen(false);
+                        }}
+                        data-testid="mobile-button-logout"
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Logout
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 pt-24 pb-12 container mx-auto px-4">
+      <main className="flex-1 pt-20 pb-12 container mx-auto px-4">
         {children}
       </main>
 
