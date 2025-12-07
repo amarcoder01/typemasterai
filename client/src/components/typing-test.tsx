@@ -1313,8 +1313,8 @@ Can you beat my score? Try it here: `,
   return (
     <TooltipProvider delayDuration={300}>
       <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
-        {/* API Error Banner - only show when there's an error and not currently fetching */}
-        {((languagesError && !languagesFetching) || (modesError && !modesFetching)) && (
+        {/* API Error Banner - only show when there's an error and not currently fetching, hidden in zen mode */}
+        {!(zenMode && isActive) && ((languagesError && !languagesFetching) || (modesError && !modesFetching)) && (
           <div className="flex items-center justify-center gap-2 p-2 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
             <AlertCircle className="w-4 h-4" />
             <span>Some options may be limited. </span>
@@ -1331,11 +1331,9 @@ Can you beat my score? Try it here: `,
           </div>
         )}
 
-        {/* Language & Mode Selectors - Hidden in Zen Mode when typing */}
-        <div className={cn(
-          "flex flex-col gap-4 transition-opacity duration-300",
-          zenMode && isActive && "opacity-0 h-0 overflow-hidden"
-        )}>
+        {/* Language & Mode Selectors - Removed from DOM in Zen Mode when typing */}
+        {!(zenMode && isActive) && (
+        <div className="flex flex-col gap-4 transition-opacity duration-300">
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <div className="flex items-center gap-1.5">
               <Tooltip>
@@ -1764,12 +1762,11 @@ Can you beat my score? Try it here: `,
           )}
         </div>
       </div>
+        )}
 
-      {/* Stats Overview (Live) - 6 metrics like Monkeytype - Hidden in Zen Mode when typing */}
-      <div className={cn(
-        "grid grid-cols-3 md:grid-cols-6 gap-3 transition-opacity duration-300",
-        zenMode && isActive && "opacity-0 h-0 overflow-hidden"
-      )}>
+      {/* Stats Overview (Live) - 6 metrics like Monkeytype - Removed from DOM in Zen Mode when typing */}
+      {!(zenMode && isActive) && (
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 transition-opacity duration-300">
          <Tooltip>
            <TooltipTrigger asChild>
              <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
@@ -1854,6 +1851,7 @@ Can you beat my score? Try it here: `,
            </TooltipContent>
          </Tooltip>
       </div>
+      )}
 
       {/* Typing Area */}
       <div className="relative min-h-[300px] max-h-[400px] overflow-hidden group">
@@ -2009,26 +2007,26 @@ Can you beat my score? Try it here: `,
         )}
       </div>
 
-      {/* Controls - Hidden in Zen Mode when typing */}
-      <div className={cn(
-        "flex justify-center transition-opacity duration-300",
-        zenMode && isActive && "opacity-0 h-0 overflow-hidden"
-      )}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              onClick={resetTest}
-              className="flex items-center gap-2 px-8 py-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-secondary-foreground font-medium"
-            >
-              <RefreshCw className="w-5 h-5" />
-              Restart Test
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Get a new paragraph and restart the test</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
+      {/* Controls - Removed from DOM in Zen Mode when typing for accessibility */}
+      {!(zenMode && isActive) && (
+        <div className="flex justify-center transition-opacity duration-300">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={resetTest}
+                className="flex items-center gap-2 px-8 py-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-secondary-foreground font-medium"
+                data-testid="button-restart-test"
+              >
+                <RefreshCw className="w-5 h-5" />
+                Restart Test
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Get a new paragraph and restart the test</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      )}
 
       {/* Result Modal / Section */}
       <AnimatePresence>
