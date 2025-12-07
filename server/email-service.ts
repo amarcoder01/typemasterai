@@ -217,6 +217,9 @@ export class EmailService {
       sgMail.setApiKey(apiKey);
       this.initialized = true;
       console.log("[EmailService] Initialized with SendGrid API");
+      console.log(`[EmailService] From Email: ${this.fromEmail || "(NOT SET)"}`);
+      console.log(`[EmailService] From Name: ${this.fromName}`);
+      console.log(`[EmailService] API Key length: ${apiKey.length}`);
     } else {
       console.warn("[EmailService] No SendGrid API key found - emails will be logged only");
     }
@@ -433,6 +436,14 @@ export class EmailService {
       batchId: options.batchId,
     };
 
+    console.log(`[EmailService] Attempting to send email:`, {
+      to: sanitizedTo,
+      from: this.fromEmail,
+      fromName: this.fromName,
+      subject: options.subject,
+      initialized: this.initialized,
+    });
+
     let lastError: EmailError | undefined;
     let attempts = 0;
 
@@ -464,6 +475,10 @@ export class EmailService {
           statusCode: lastError.statusCode,
           retryable: lastError.retryable,
         });
+        
+        if (error.response?.body) {
+          console.error(`[EmailService] SendGrid error body:`, JSON.stringify(error.response.body, null, 2));
+        }
 
         this.circuitBreaker.recordFailure();
 
