@@ -1057,7 +1057,7 @@ function AnalyticsContent() {
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => abortController.abort(), ANALYTICS_CONFIG.ai.timeoutMs);
     
-    const payload = buildComprehensiveAnalyticsPayload(analytics, keystrokeData, dynamicThresholds, trendsData);
+    const payload = buildComprehensiveAnalyticsPayload(analytics, keystrokeData ?? null, dynamicThresholds, trendsData);
     const { benchmarks } = ANALYTICS_CONFIG;
     
     const formatDigraphs = (digraphs: Array<{ digraph: string; avgTime: number }>) =>
