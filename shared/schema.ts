@@ -1156,7 +1156,7 @@ export const typingAnalytics = pgTable("typing_analytics", {
   // Enhanced Industry-Standard Metrics (Production-Ready)
   burstWpm: integer("burst_wpm"), // Peak 5-second WPM (like Monkeytype)
   adjustedWpm: integer("adjusted_wpm"), // WPM with error penalty
-  consistencyPercentile: integer("consistency_percentile"), // Estimated ranking (0-100)
+  consistencyRating: integer("consistency_percentile"), // Rhythm rating based on timing consistency (0-100)
   rollingAccuracy: jsonb("rolling_accuracy"), // Accuracy across 5 chunks
   topDigraphs: jsonb("top_digraphs"), // Top 5 fastest digraphs with timing
   bottomDigraphs: jsonb("bottom_digraphs"), // Top 5 slowest digraphs with timing  

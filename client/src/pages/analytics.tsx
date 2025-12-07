@@ -447,7 +447,7 @@ function AnalyticsContent() {
         slowestWords: Array<{word: string; time: number}> | null;
         burstWpm: number | null;
         adjustedWpm: number | null;
-        consistencyPercentile: number | null;
+        consistencyRating: number | null;
         rollingAccuracy: number[] | null;
         topDigraphs: Array<{digraph: string; avgTime: number; count: number}> | null;
         bottomDigraphs: Array<{digraph: string; avgTime: number; count: number}> | null;
@@ -496,7 +496,7 @@ function AnalyticsContent() {
           slowestWords: latest.slowestWords,
           burstWpm: latest.burstWpm,
           adjustedWpm: latest.adjustedWpm,
-          consistencyPercentile: latest.consistencyPercentile,
+          consistencyRating: latest.consistencyRating,
           rollingAccuracy: latest.rollingAccuracy,
           topDigraphs: latest.topDigraphs,
           bottomDigraphs: latest.bottomDigraphs,
@@ -1876,15 +1876,25 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardDescription>Consistency Percentile</CardDescription>
-                    <CardTitle className="text-2xl" data-testid="stat-consistency-percentile">
-                      {keystrokeData.analytics.consistencyPercentile !== null 
-                        ? `Top ${100 - keystrokeData.analytics.consistencyPercentile}%` 
+                    <CardDescription className="flex items-center gap-1">
+                      Rhythm Rating
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-[200px]">
+                          <p>Your typing rhythm quality based on consistency. Higher = more consistent key timing.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </CardDescription>
+                    <CardTitle className="text-2xl" data-testid="stat-rhythm-rating">
+                      {keystrokeData.analytics.consistencyRating !== null 
+                        ? `${keystrokeData.analytics.consistencyRating}/100` 
                         : 'N/A'}
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm text-muted-foreground">Your estimated ranking</p>
+                    <p className="text-sm text-muted-foreground">Based on timing variance</p>
                   </CardContent>
                 </Card>
 

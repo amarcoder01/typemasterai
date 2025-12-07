@@ -62,7 +62,7 @@ interface TypingAnalytics {
   // Enhanced industry-standard metrics
   burstWpm: number | null; // Peak 5-second WPM (like Monkeytype)
   adjustedWpm: number | null; // WPM with error penalty (industry standard)
-  consistencyPercentile: number | null; // Estimated percentile (0-100)
+  consistencyRating: number | null; // Rhythm rating based on timing consistency (0-100)
   rollingAccuracy: number[] | null; // Accuracy across 5 chunks for trend analysis
   topDigraphs: DigraphTiming[] | null; // Top 5 fastest digraphs with timing
   bottomDigraphs: DigraphTiming[] | null; // Top 5 slowest digraphs with timing
@@ -205,7 +205,7 @@ export class KeystrokeTracker {
         testResultId,
         burstWpm: null,
         adjustedWpm: null,
-        consistencyPercentile: null,
+        consistencyRating: null,
         rollingAccuracy: null,
         topDigraphs: null,
         bottomDigraphs: null,
@@ -350,9 +350,26 @@ export class KeystrokeTracker {
     // 1. Burst WPM - Peak 5-second performance window (like Monkeytype)
     const burstWpm = this.calculateBurstWpm();
     
-    // 2. Adjusted WPM - Industry standard: (raw WPM - errors) or (correct chars / 5) / minutes
-    // More accurate than simple net WPM as it penalizes errors more heavily
-    const adjustedWpm = Math.max(0, Math.round(rawWpm - (totalErrors * 0.5)));
+    // 2. Adjusted WPM - Calculate from actual correct keystrokes and test duration
+    // This is more accurate than applying a fixed penalty per error
+    let adjustedWpm: number | null = null;
+    if (this.events.length >= 2) {
+      const firstEvent = this.events[0];
+      const lastEvent = this.events[this.events.length - 1];
+      if (firstEvent.pressTime && lastEvent.releaseTime) {
+        const testDurationMs = lastEvent.releaseTime - firstEvent.pressTime;
+        const testDurationMinutes = testDurationMs / 60000;
+        if (testDurationMinutes > 0) {
+          const correctChars = this.events.filter(e => e.isCorrect).length;
+          // Standard WPM formula: (correct characters / 5) / minutes
+          adjustedWpm = Math.round((correctChars / 5) / testDurationMinutes);
+        }
+      }
+    }
+    // Fallback to penalty-based calculation if we couldn't calculate from events
+    if (adjustedWpm === null) {
+      adjustedWpm = Math.max(0, Math.round(rawWpm - totalErrors));
+    }
     
     // 3. Rolling Accuracy - Accuracy across 5 chunks for trend analysis
     const rollingAccuracy = this.calculateRollingAccuracy();
@@ -375,10 +392,10 @@ export class KeystrokeTracker {
     // 8. Error Burst Count - Consecutive error sequences (indicates struggle points)
     const errorBurstCount = this.calculateErrorBurstCount();
     
-    // 9. Consistency Percentile - Estimated ranking based on consistency score
-    // Based on typical distribution: 90+ = top 10%, 80-90 = top 25%, etc.
-    const consistencyPercentile = consistency !== null 
-      ? this.estimateConsistencyPercentile(consistency)
+    // 9. Consistency/Rhythm Rating - Same as consistency score (0-100)
+    // This measures how consistent the timing is between keystrokes
+    const consistencyRating = consistency !== null 
+      ? this.getConsistencyRating(consistency)
       : null;
 
     // === ANTI-CHEAT VALIDATION ===
@@ -405,7 +422,7 @@ export class KeystrokeTracker {
       testResultId,
       burstWpm,
       adjustedWpm,
-      consistencyPercentile,
+      consistencyRating,
       rollingAccuracy,
       topDigraphs,
       bottomDigraphs,
@@ -604,18 +621,11 @@ export class KeystrokeTracker {
     return burstCount;
   }
   
-  // Estimate consistency percentile based on typical distribution
-  private estimateConsistencyPercentile(consistency: number): number {
-    // Based on typical typing test data distribution
-    if (consistency >= 95) return 99;
-    if (consistency >= 90) return 95;
-    if (consistency >= 85) return 85;
-    if (consistency >= 80) return 75;
-    if (consistency >= 75) return 60;
-    if (consistency >= 70) return 50;
-    if (consistency >= 60) return 35;
-    if (consistency >= 50) return 20;
-    return 10;
+  // Get rhythm rating - simply returns the consistency score
+  // Consistency score (0-100) directly measures typing rhythm stability
+  // Higher scores indicate more consistent timing between keystrokes
+  private getConsistencyRating(consistency: number): number {
+    return Math.max(0, Math.min(100, Math.round(consistency)));
   }
 
   private calculateWpmByPosition(): number[] | null {
