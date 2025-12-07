@@ -647,6 +647,7 @@ export default function Settings() {
                 />
               </div>
 
+{/* Zen Mode setting hidden for now
               <div className="flex items-center justify-between">
                  <Label htmlFor="zen-mode" className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
@@ -672,6 +673,7 @@ export default function Settings() {
                   data-testid="switch-zen-mode"
                 />
               </div>
+*/}
             </CardContent>
           </Card>
 

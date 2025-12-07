@@ -2026,6 +2026,7 @@ Can you beat my score? Try it here: `,
             </TooltipContent>
           </Tooltip>
           
+{/* Zen Mode button hidden for now
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -2056,6 +2057,7 @@ Can you beat my score? Try it here: `,
               <p>{zenMode ? "Disable Zen Mode - show stats while typing" : "Enable Zen Mode - hide stats while typing"}</p>
             </TooltipContent>
           </Tooltip>
+*/}
         </div>
       )}
 
