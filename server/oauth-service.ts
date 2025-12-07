@@ -226,13 +226,18 @@ export function getClearCookieOptions(secure: boolean): {
 }
 
 function getBaseUrl(): string {
+  // Prioritize APP_URL for production OAuth redirects (stable domain)
+  if (process.env.APP_URL) {
+    return process.env.APP_URL;
+  }
+  // Fallback to Replit domains for development if APP_URL not set
   if (process.env.REPLIT_DEV_DOMAIN) {
     return `https://${process.env.REPLIT_DEV_DOMAIN}`;
   }
   if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
     return `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
   }
-  return process.env.APP_URL || "http://localhost:5000";
+  return "http://localhost:5000";
 }
 
 type OAuthProfileInfo = {
