@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useState, forwardRef } from "react";
 import { cn } from "@/lib/utils";
 import { HelpCircle, Eye, EyeOff, Check, X, AlertTriangle } from "lucide-react";
@@ -24,12 +24,18 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
     return (
       <motion.div
         className="space-y-2"
-        initial={{ opacity: 0, x: -20 }}
+        initial={{ opacity: 0, x: -30 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: delay * 0.1, duration: 0.4, ease: "easeOut" }}
+        transition={{ delay: delay * 0.08, duration: 0.5, ease: "easeOut" }}
       >
         <div className="flex items-center gap-1.5">
-          <label className="text-sm font-medium text-zinc-300">{label}</label>
+          <motion.label 
+            className="text-sm font-medium text-zinc-300"
+            animate={isFocused ? { color: "hsl(var(--primary))" } : { color: "rgb(212 212 216)" }}
+            transition={{ duration: 0.2 }}
+          >
+            {label}
+          </motion.label>
           {tooltip && (
             <TooltipProvider>
               <Tooltip>
@@ -42,58 +48,97 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
               </Tooltip>
             </TooltipProvider>
           )}
-          {error && (
-            <motion.span
-              className="text-xs text-red-400 ml-auto flex items-center gap-1"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-            >
-              <X className="h-3 w-3" />
-              {error}
-            </motion.span>
-          )}
-          {success && !error && (
-            <motion.span
-              className="ml-auto"
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: "spring", stiffness: 500 }}
-            >
-              <Check className="h-4 w-4 text-green-500" />
-            </motion.span>
-          )}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.span
+                className="text-xs text-red-400 ml-auto flex items-center gap-1"
+                initial={{ opacity: 0, scale: 0.8, x: 10 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.8, x: 10 }}
+              >
+                <X className="h-3 w-3" />
+                {error}
+              </motion.span>
+            )}
+            {success && !error && (
+              <motion.span
+                className="ml-auto"
+                initial={{ opacity: 0, scale: 0, rotate: -180 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                exit={{ opacity: 0, scale: 0 }}
+                transition={{ type: "spring", stiffness: 500, damping: 15 }}
+              >
+                <Check className="h-4 w-4 text-green-500" />
+              </motion.span>
+            )}
+          </AnimatePresence>
         </div>
         
         <div className="relative group">
           <motion.div
             className={cn(
-              "absolute -inset-0.5 rounded-lg opacity-0 blur-sm transition-opacity duration-300",
-              isFocused && "opacity-100",
-              error ? "bg-red-500/30" : "bg-primary/40"
+              "absolute -inset-0.5 rounded-lg blur-md transition-all duration-300",
+              error ? "bg-red-500/40" : "bg-primary/50"
             )}
-            animate={isFocused ? { opacity: 0.6 } : { opacity: 0 }}
+            animate={isFocused ? { opacity: 0.7, scale: 1 } : { opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
           />
           
+          <motion.div
+            className="absolute -inset-px rounded-lg overflow-hidden pointer-events-none"
+            animate={isFocused ? { opacity: 1 } : { opacity: 0 }}
+          >
+            <motion.div
+              className={cn(
+                "absolute inset-0",
+                error 
+                  ? "bg-gradient-to-r from-red-500/30 via-red-400/30 to-red-500/30" 
+                  : "bg-gradient-to-r from-primary/30 via-purple-500/30 to-primary/30"
+              )}
+              animate={{
+                backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+              style={{ backgroundSize: "200% 200%" }}
+            />
+          </motion.div>
+          
           <div className="relative">
-            {icon && (
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                {icon}
-              </div>
-            )}
+            <AnimatePresence>
+              {icon && (
+                <motion.div 
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-10"
+                  animate={isFocused ? { 
+                    color: error ? "rgb(239 68 68)" : "hsl(var(--primary))",
+                    scale: 1.1,
+                  } : { 
+                    color: "rgb(113 113 122)",
+                    scale: 1,
+                  }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {icon}
+                </motion.div>
+              )}
+            </AnimatePresence>
             
             <input
               ref={ref}
               type={inputType}
               className={cn(
-                "w-full h-11 bg-zinc-900/80 border rounded-lg px-4 text-sm text-white placeholder:text-zinc-500",
+                "w-full h-12 bg-zinc-900/80 border rounded-lg px-4 text-sm text-white placeholder:text-zinc-500",
                 "focus:outline-none transition-all duration-300",
-                "hover:border-zinc-600",
+                "hover:border-zinc-600 hover:bg-zinc-900",
                 icon && "pl-10",
                 isPassword && "pr-10",
                 error 
                   ? "border-red-500/50 focus:border-red-500" 
                   : isFocused 
-                    ? "border-primary/70 shadow-lg shadow-primary/10" 
+                    ? "border-primary/70 shadow-lg shadow-primary/20" 
                     : "border-zinc-800",
                 className
               )}
@@ -103,18 +148,38 @@ export const AuthInput = forwardRef<HTMLInputElement, AuthInputProps>(
             />
             
             {isPassword && (
-              <button
+              <motion.button
                 type="button"
                 tabIndex={-1}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors z-10"
                 onClick={() => setShowPassword(!showPassword)}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
               >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
+                <AnimatePresence mode="wait">
+                  {showPassword ? (
+                    <motion.div
+                      key="hide"
+                      initial={{ opacity: 0, rotate: -90 }}
+                      animate={{ opacity: 1, rotate: 0 }}
+                      exit={{ opacity: 0, rotate: 90 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <EyeOff className="h-4 w-4" />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="show"
+                      initial={{ opacity: 0, rotate: 90 }}
+                      animate={{ opacity: 1, rotate: 0 }}
+                      exit={{ opacity: 0, rotate: -90 }}
+                      transition={{ duration: 0.15 }}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.button>
             )}
           </div>
         </div>
@@ -216,11 +281,16 @@ export function CapsLockWarning({ show }: CapsLockWarningProps) {
   return (
     <motion.div
       className="flex items-center gap-2 text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2"
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
+      initial={{ opacity: 0, y: -10, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
     >
-      <AlertTriangle className="h-4 w-4" />
+      <motion.div
+        animate={{ rotate: [0, -10, 10, 0] }}
+        transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
+      >
+        <AlertTriangle className="h-4 w-4" />
+      </motion.div>
       Caps Lock is on
     </motion.div>
   );

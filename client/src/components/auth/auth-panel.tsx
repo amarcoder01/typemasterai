@@ -10,19 +10,86 @@ export function AuthPanel({ children, className }: AuthPanelProps) {
   return (
     <motion.div
       className={cn(
-        "w-full max-w-md relative",
+        "w-full max-w-md relative group",
         className
       )}
-      initial={{ opacity: 0, y: 20, scale: 0.98 }}
+      initial={{ opacity: 0, y: 30, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
     >
-      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/30 via-purple-500/20 to-primary/30 rounded-2xl blur-lg opacity-50" />
-      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-purple-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <motion.div 
+        className="absolute -inset-1 bg-gradient-to-r from-primary/40 via-purple-500/30 to-pink-500/40 rounded-2xl blur-xl"
+        animate={{
+          opacity: [0.4, 0.6, 0.4],
+          scale: [1, 1.02, 1],
+        }}
+        transition={{
+          duration: 3,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
       
-      <div className="relative bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/80 rounded-2xl shadow-2xl shadow-black/40 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-zinc-900/50 via-transparent to-zinc-900/30 pointer-events-none" />
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-zinc-600 to-transparent" />
+      <motion.div 
+        className="absolute -inset-0.5 rounded-2xl overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+      >
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-r from-primary via-purple-500 to-primary"
+          animate={{
+            backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
+          }}
+          transition={{
+            duration: 5,
+            repeat: Infinity,
+            ease: "linear",
+          }}
+          style={{ backgroundSize: "200% 200%", opacity: 0.3 }}
+        />
+      </motion.div>
+      
+      <div className="relative bg-zinc-950/90 backdrop-blur-xl border border-zinc-800/50 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
+        <motion.div 
+          className="absolute inset-0 bg-gradient-to-br from-zinc-900/60 via-transparent to-zinc-900/40 pointer-events-none"
+          animate={{
+            opacity: [0.5, 0.7, 0.5],
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+        
+        <motion.div 
+          className="absolute top-0 left-0 right-0 h-px"
+          style={{
+            background: "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.5), hsl(262 83% 58% / 0.5), transparent)",
+          }}
+          animate={{
+            opacity: [0.5, 1, 0.5],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+        
+        <motion.div
+          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent"
+          initial={{ x: "-100%" }}
+          animate={{ x: "200%" }}
+          transition={{
+            duration: 3,
+            repeat: Infinity,
+            repeatDelay: 5,
+            ease: "easeInOut",
+          }}
+        />
+        
         <div className="relative z-10">
           {children}
         </div>
@@ -40,14 +107,26 @@ export function AuthPanelHeader({ title, description }: AuthPanelHeaderProps) {
   return (
     <motion.div 
       className="p-6 pb-2"
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2, duration: 0.4 }}
+      transition={{ delay: 0.3, duration: 0.5 }}
     >
-      <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-zinc-300 bg-clip-text text-transparent">
+      <motion.h2 
+        className="text-2xl font-bold bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.4, duration: 0.5 }}
+      >
         {title}
-      </h2>
-      <p className="text-sm text-muted-foreground mt-1">{description}</p>
+      </motion.h2>
+      <motion.p 
+        className="text-sm text-muted-foreground mt-1"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5, duration: 0.4 }}
+      >
+        {description}
+      </motion.p>
     </motion.div>
   );
 }
@@ -58,9 +137,14 @@ interface AuthPanelContentProps {
 
 export function AuthPanelContent({ children }: AuthPanelContentProps) {
   return (
-    <div className="p-6 pt-4 space-y-4">
+    <motion.div 
+      className="p-6 pt-4 space-y-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.4, duration: 0.5 }}
+    >
       {children}
-    </div>
+    </motion.div>
   );
 }
 
@@ -72,9 +156,9 @@ export function AuthPanelFooter({ children }: AuthPanelFooterProps) {
   return (
     <motion.div 
       className="p-6 pt-2"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.5, duration: 0.4 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.6, duration: 0.5 }}
     >
       {children}
     </motion.div>

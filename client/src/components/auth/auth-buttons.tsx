@@ -1,7 +1,7 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Github, Loader2, Check, ArrowRight } from "lucide-react";
+import { Github, Loader2, Check, ArrowRight, Sparkles } from "lucide-react";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -37,34 +37,34 @@ export function SocialButton({ provider, onClick, isRegister = false, delay = 0,
     google: {
       icon: <GoogleIcon className="w-5 h-5" />,
       label: isRegister ? "Sign up with Google" : "Continue with Google",
-      hoverBg: "hover:bg-white/5",
       hoverBorder: "group-hover:border-blue-500/50",
+      glowColor: "rgba(66, 133, 244, 0.3)",
     },
     github: {
       icon: <Github className="w-5 h-5" />,
       label: isRegister ? "Sign up with GitHub" : "Continue with GitHub",
-      hoverBg: "hover:bg-white/5",
       hoverBorder: "group-hover:border-zinc-500/50",
+      glowColor: "rgba(255, 255, 255, 0.15)",
     },
     facebook: {
       icon: <FacebookIcon className="w-5 h-5" />,
       label: isRegister ? "Sign up with Facebook" : "Continue with Facebook",
-      hoverBg: "hover:bg-blue-500/5",
       hoverBorder: "group-hover:border-blue-600/50",
+      glowColor: "rgba(24, 119, 242, 0.3)",
     },
   };
 
-  const { icon, label, hoverBg, hoverBorder } = config[provider];
+  const { icon, label, hoverBorder, glowColor } = config[provider];
 
   return (
     <motion.button
       type="button"
       className={cn(
-        "group relative w-full h-11 flex items-center justify-center gap-3",
+        "group relative w-full h-12 flex items-center justify-center gap-3",
         "bg-zinc-900/60 border border-zinc-800 rounded-lg",
         "text-sm font-medium text-zinc-200",
         "transition-all duration-300",
-        hoverBg,
+        "hover:bg-zinc-800/80",
         "disabled:opacity-50 disabled:cursor-not-allowed",
         "overflow-hidden"
       )}
@@ -72,25 +72,43 @@ export function SocialButton({ provider, onClick, isRegister = false, delay = 0,
       disabled={disabled}
       onHoverStart={() => setIsHovered(true)}
       onHoverEnd={() => setIsHovered(false)}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: delay * 0.1, duration: 0.3 }}
-      whileHover={{ scale: 1.02 }}
+      initial={{ opacity: 0, y: 15, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: delay * 0.08, duration: 0.4 }}
+      whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
     >
       <motion.div
-        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"
-        initial={{ x: "-100%" }}
-        animate={isHovered ? { x: "100%" } : { x: "-100%" }}
-        transition={{ duration: 0.5 }}
+        className="absolute inset-0 rounded-lg"
+        animate={isHovered ? { 
+          boxShadow: `0 0 30px ${glowColor}`,
+          opacity: 1,
+        } : { 
+          boxShadow: "0 0 0px transparent",
+          opacity: 0,
+        }}
+        transition={{ duration: 0.3 }}
       />
       
       <motion.div
-        className={cn("absolute inset-0 border rounded-lg transition-colors", hoverBorder)}
+        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"
+        initial={{ x: "-200%" }}
+        animate={isHovered ? { x: "200%" } : { x: "-200%" }}
+        transition={{ duration: 0.6 }}
+      />
+      
+      <motion.div
+        className={cn("absolute inset-0 border rounded-lg transition-colors duration-300", hoverBorder)}
         style={{ borderColor: "transparent" }}
       />
       
-      <span className="relative z-10">{icon}</span>
+      <motion.span 
+        className="relative z-10"
+        animate={isHovered ? { scale: 1.1, rotate: 5 } : { scale: 1, rotate: 0 }}
+        transition={{ duration: 0.2 }}
+      >
+        {icon}
+      </motion.span>
       <span className="relative z-10">{label}</span>
     </motion.button>
   );
@@ -104,65 +122,123 @@ interface SubmitButtonProps {
 }
 
 export function SubmitButton({ isLoading, isSuccess, children, disabled }: SubmitButtonProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  
   return (
     <motion.button
       type="submit"
       className={cn(
         "relative w-full h-12 flex items-center justify-center gap-2",
-        "bg-gradient-to-r from-primary via-primary to-purple-600",
+        "bg-gradient-to-r from-primary via-purple-600 to-primary",
         "text-white font-semibold rounded-lg",
         "transition-all duration-300",
-        "hover:shadow-lg hover:shadow-primary/30",
         "disabled:opacity-50 disabled:cursor-not-allowed",
         "overflow-hidden group"
       )}
+      style={{ backgroundSize: "200% 100%" }}
       disabled={disabled || isLoading}
-      whileHover={{ scale: disabled ? 1 : 1.02 }}
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
+      whileHover={{ scale: disabled ? 1 : 1.02, y: disabled ? 0 : -2 }}
       whileTap={{ scale: disabled ? 1 : 0.98 }}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.4, duration: 0.3 }}
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ 
+        opacity: 1, 
+        y: 0,
+        backgroundPosition: isHovered ? ["0% 50%", "100% 50%"] : "0% 50%",
+      }}
+      transition={{ 
+        duration: 0.4,
+        backgroundPosition: { duration: 0.5 },
+      }}
     >
       <motion.div
-        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+        className="absolute inset-0 rounded-lg"
+        animate={{
+          boxShadow: isHovered 
+            ? "0 0 40px hsl(var(--primary) / 0.5), 0 0 80px hsl(var(--primary) / 0.3)"
+            : "0 0 20px hsl(var(--primary) / 0.3)",
+        }}
+        transition={{ duration: 0.3 }}
+      />
+      
+      <motion.div
+        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
         initial={{ x: "-100%" }}
         animate={{ x: "200%" }}
         transition={{ 
           duration: 1.5, 
           repeat: Infinity, 
-          repeatDelay: 3,
+          repeatDelay: 2,
           ease: "easeInOut" 
         }}
       />
       
       <motion.div
-        className="absolute inset-0 bg-gradient-to-r from-primary to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="absolute inset-0"
+        style={{
+          background: "radial-gradient(circle at center, hsl(var(--primary) / 0.3) 0%, transparent 70%)",
+        }}
+        animate={{
+          scale: [1, 1.5, 1],
+          opacity: [0.3, 0.6, 0.3],
+        }}
+        transition={{
+          duration: 2,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
       />
 
-      <span className="relative z-10 flex items-center gap-2">
-        {isLoading ? (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span>Please wait...</span>
-          </>
-        ) : isSuccess ? (
-          <>
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 500 }}
-            >
-              <Check className="h-5 w-5" />
-            </motion.div>
-            <span>Success!</span>
-          </>
-        ) : (
-          <>
-            {children}
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </>
-        )}
-      </span>
+      <AnimatePresence mode="wait">
+        <motion.span 
+          key={isLoading ? "loading" : isSuccess ? "success" : "default"}
+          className="relative z-10 flex items-center gap-2"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+        >
+          {isLoading ? (
+            <>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              >
+                <Loader2 className="h-5 w-5" />
+              </motion.div>
+              <span>Please wait...</span>
+            </>
+          ) : isSuccess ? (
+            <>
+              <motion.div
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 500, damping: 15 }}
+              >
+                <Check className="h-5 w-5" />
+              </motion.div>
+              <span>Success!</span>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                <Sparkles className="h-4 w-4" />
+              </motion.div>
+            </>
+          ) : (
+            <>
+              {children}
+              <motion.div
+                animate={{ x: isHovered ? 5 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ArrowRight className="h-4 w-4" />
+              </motion.div>
+            </>
+          )}
+        </motion.span>
+      </AnimatePresence>
     </motion.button>
   );
 }
@@ -175,15 +251,27 @@ export function AuthDivider({ text = "Or continue with email" }: AuthDividerProp
   return (
     <motion.div 
       className="relative my-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.3, duration: 0.4 }}
+      initial={{ opacity: 0, scaleX: 0 }}
+      animate={{ opacity: 1, scaleX: 1 }}
+      transition={{ delay: 0.3, duration: 0.5 }}
     >
       <div className="absolute inset-0 flex items-center">
-        <div className="w-full border-t border-zinc-800" />
+        <motion.div 
+          className="w-full border-t border-zinc-800"
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ delay: 0.4, duration: 0.6 }}
+        />
       </div>
       <div className="relative flex justify-center text-xs uppercase">
-        <span className="bg-zinc-950 px-3 text-muted-foreground">{text}</span>
+        <motion.span 
+          className="bg-zinc-950 px-3 text-muted-foreground"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.4 }}
+        >
+          {text}
+        </motion.span>
       </div>
     </motion.div>
   );
@@ -197,12 +285,14 @@ interface AuthLinkProps {
 }
 
 export function AuthLink({ text, linkText, onClick, testId }: AuthLinkProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  
   return (
     <motion.p 
       className="text-sm text-center text-muted-foreground"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.5, duration: 0.4 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.6, duration: 0.4 }}
     >
       {text}{" "}
       <motion.button
@@ -210,14 +300,24 @@ export function AuthLink({ text, linkText, onClick, testId }: AuthLinkProps) {
         onClick={onClick}
         className="text-primary hover:text-primary/80 font-medium transition-colors relative"
         data-testid={testId}
+        onHoverStart={() => setIsHovered(true)}
+        onHoverEnd={() => setIsHovered(false)}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
       >
-        {linkText}
         <motion.span
-          className="absolute -bottom-0.5 left-0 right-0 h-px bg-primary"
+          animate={isHovered ? { 
+            textShadow: "0 0 10px hsl(var(--primary) / 0.5)",
+          } : {
+            textShadow: "0 0 0px transparent",
+          }}
+        >
+          {linkText}
+        </motion.span>
+        <motion.span
+          className="absolute -bottom-0.5 left-0 right-0 h-px bg-gradient-to-r from-primary via-purple-500 to-primary"
           initial={{ scaleX: 0 }}
-          whileHover={{ scaleX: 1 }}
+          animate={{ scaleX: isHovered ? 1 : 0 }}
           transition={{ duration: 0.2 }}
         />
       </motion.button>
