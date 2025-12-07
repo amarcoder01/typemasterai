@@ -208,7 +208,7 @@ export class EmailService {
     retryMaxDelayMs?: number;
     retryBackoffMultiplier?: number;
   }) {
-    const apiKey = process.env.NDGRID_API_KEY || process.env.SENDGRID_API_KEY;
+    const apiKey = process.env.SENDGRID_API_KEY;
     this.fromEmail = process.env.SENDGRID_FROM_EMAIL || "";
     this.fromName = process.env.SENDGRID_FROM_NAME || "TypeMasterAI";
     this.appUrl = process.env.APP_URL || "https://typemasterai.com";

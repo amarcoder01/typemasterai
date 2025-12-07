@@ -1404,7 +1404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         AuthLogger.logAuthEvent("FORGOT_PASSWORD_USER_RATE_LIMITED", req, {
           userId: user.id,
           email: normalizedEmail,
-          recentRequests,
+          metadata: { recentRequests },
         });
         await addTimingJitter(100, 300);
         storeIdempotencyResult(idempotencyKey, { message: successMessage });
@@ -1484,6 +1484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/auth/reset-password", authLimiter, payloadLimitMiddleware(5), async (req, res) => {
+    res.setHeader("Referrer-Policy", "no-referrer");
     const startTime = Date.now();
     
     try {
@@ -1541,8 +1542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (resetToken?.tokenHash) {
             const attemptResult = await storage.incrementTokenFailedAttempts(resetToken.tokenHash);
             AuthLogger.logAuthEvent("TOKEN_VALIDATION_FAILED", req, {
-              failedAttempts: attemptResult.failedAttempts,
-              locked: attemptResult.locked,
+              metadata: { failedAttempts: attemptResult.failedAttempts, locked: attemptResult.locked },
             });
             if (attemptResult.locked) {
               AuthLogger.logPasswordReset(req, "unknown", "failed", "Token locked due to too many attempts");
@@ -1602,7 +1602,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           AuthLogger.logAuthEvent("PASSWORD_CHANGED_EMAIL_FAILED", req, {
             level: "warn",
             userId: user.id,
-            error: emailError,
+            error: emailError as Error,
           });
         }
       }
