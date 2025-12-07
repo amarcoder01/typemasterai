@@ -47,20 +47,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const xpProgress = (xpInCurrentLevel / 100) * 100;
 
   const primaryNavItems = [
-    { href: "/", icon: Keyboard, label: "Type" },
-    { href: "/code-mode", icon: Code, label: "Code Mode" },
-    { href: "/books", icon: Book, label: "Books" },
-    { href: "/dictation-mode", icon: Headphones, label: "Dictation" },
-    { href: "/stress-test", icon: Zap, label: "Stress Test" },
-    { href: "/multiplayer", icon: Users, label: "Multiplayer" },
+    { href: "/", icon: Keyboard, label: "Type", description: "Practice typing with various texts and languages" },
+    { href: "/code-mode", icon: Code, label: "Code Mode", description: "Practice typing real programming code" },
+    { href: "/books", icon: Book, label: "Books", description: "Type passages from famous books" },
+    { href: "/dictation-mode", icon: Headphones, label: "Dictation", description: "Listen and type what you hear" },
+    { href: "/stress-test", icon: Zap, label: "Stress Test", description: "Test your typing under pressure" },
+    { href: "/multiplayer", icon: Users, label: "Multiplayer", description: "Race against other players in real-time" },
   ];
 
   const secondaryNavItems = [
-    { href: "/leaderboard", icon: Trophy, label: "Leaderboard" },
-    { href: "/analytics", icon: BarChart2, label: "Analytics" },
-    { href: "/chat", icon: Sparkles, label: "AI Chat" },
-    { href: "/profile", icon: User, label: "Profile" },
-    { href: "/settings", icon: Settings, label: "Settings" },
+    { href: "/leaderboard", icon: Trophy, label: "Leaderboard", description: "See top typists and rankings" },
+    { href: "/analytics", icon: BarChart2, label: "Analytics", description: "View your typing statistics and progress" },
+    { href: "/chat", icon: Sparkles, label: "AI Chat", description: "Get AI-powered typing tips and help" },
+    { href: "/profile", icon: User, label: "Profile", description: "View and edit your profile" },
+    { href: "/settings", icon: Settings, label: "Settings", description: "Customize your typing experience" },
   ];
 
   const allNavItems = [...primaryNavItems, ...secondaryNavItems];
@@ -86,20 +86,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               const Icon = item.icon;
               const isActive = location === item.href;
               return (
-                <Link key={item.href} href={item.href}>
-                  <div
-                    className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all duration-200 text-xs font-medium cursor-pointer whitespace-nowrap",
-                      isActive
-                        ? "text-primary bg-primary/10"
-                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                    )}
-                    data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span>{item.label}</span>
-                  </div>
-                </Link>
+                <Tooltip key={item.href}>
+                  <TooltipTrigger asChild>
+                    <Link href={item.href}>
+                      <div
+                        className={cn(
+                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all duration-200 text-xs font-medium cursor-pointer whitespace-nowrap",
+                          isActive
+                            ? "text-primary bg-primary/10"
+                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        )}
+                        data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span>{item.label}</span>
+                      </div>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="bg-card border-border">
+                    <p className="text-sm">{item.description}</p>
+                  </TooltipContent>
+                </Tooltip>
               );
             })}
           </nav>
