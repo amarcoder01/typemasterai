@@ -1750,7 +1750,7 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
 
   if (!isDataValid || !analytics || analytics.wpmOverTime.length === 0) {
     return (
-      <div className="container mx-auto p-6 max-w-7xl">
+      <div className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl">
         <div className="text-center py-12" data-testid="empty-analytics">
           <Keyboard className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
           <h2 className="text-2xl font-bold mb-2">No Analytics Data Yet</h2>
@@ -1766,13 +1766,13 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold" data-testid="heading-analytics">Progress Analytics</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold" data-testid="heading-analytics">Progress Analytics</h1>
           <p className="text-muted-foreground">Track your typing improvement over time</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {ANALYTICS_CONFIG.timeRangeOptions.map(days => (
             <Button
               key={days}

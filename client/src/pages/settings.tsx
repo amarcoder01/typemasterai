@@ -543,7 +543,7 @@ export default function Settings() {
                   onValueChange={(value) => handleSoundTypeChange(value as SoundType)}
                   disabled={!soundEnabled}
                 >
-                  <SelectTrigger className="w-[180px]" data-testid="select-sound-type">
+                  <SelectTrigger className="w-[140px] sm:w-[180px]" data-testid="select-sound-type">
                     <SelectValue placeholder="Select sound" />
                   </SelectTrigger>
                   <SelectContent>
