@@ -1518,7 +1518,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         throw tokenStateError;
       }
 
-      const user = await storage.getUserById(resetToken!.userId);
+      const user = await storage.getUser(resetToken!.userId);
       const userEmail = user?.email || "unknown";
 
       const hashedPassword = await bcrypt.hash(password, 12);
