@@ -26,20 +26,21 @@ const ANALYTICS_CONFIG = {
   
   // AI Configuration
   ai: {
-    timeoutMs: 30000,
+    timeoutMs: 45000,
     maxRetries: 2,
   },
   
   // Display limits - how many items to show in various contexts
   limits: {
-    insightsDisplay: 8,
-    mistakeKeysInPrompt: 5,
+    insightsDisplay: 10,
+    mistakeKeysInPrompt: 8,
     mistakeKeysInFallback: 5,
     mistakeKeysInWeeklyFallback: 3,
-    commonMistakesInPrompt: 5,
-    dailyExercises: 3,
-    weeklyGoals: 3,
+    commonMistakesInPrompt: 8,
+    dailyExercises: 4,
+    weeklyGoals: 4,
     keystrokeAnalyticsDepth: 10,
+    digraphsInPrompt: 5,
   },
   
   // Query caching
@@ -49,7 +50,7 @@ const ANALYTICS_CONFIG = {
   },
   
   // Skill level thresholds (WPM) - configurable speed tiers
-  // These can be adjusted based on target audience or research data
+  // Based on industry research from typing.com, keybr.com, and Ratatype
   skillThresholds: {
     beginner: 30,       // Below this = beginner
     developing: 40,     // 30-40 WPM
@@ -94,6 +95,76 @@ const ANALYTICS_CONFIG = {
     minStdDevAbsolute: 10, // Minimum absolute std dev threshold
     excellentCV: 10, // CV% below this = excellent consistency
   },
+  
+  // Industry-standard benchmarks for professional-grade insights
+  // Based on research from Typing.com, Monkeytype, and academic typing studies
+  benchmarks: {
+    // Average typist benchmarks (industry standard ranges)
+    wpm: {
+      average: 41,           // Average adult typing speed
+      professional: 65,      // Professional typist minimum
+      elite: 100,            // Top 1% typists
+      worldClass: 150,       // Competitive speed typing
+    },
+    accuracy: {
+      acceptable: 92,        // Minimum acceptable for work
+      good: 96,              // Good professional standard
+      excellent: 98,         // High accuracy target
+      perfect: 99.5,         // Near-perfect typing
+    },
+    consistency: {
+      excellent: 8,          // CV% - very consistent
+      good: 12,              // CV% - consistent
+      needsWork: 18,         // CV% - some variation
+      poor: 25,              // CV% - significant variation
+    },
+    // Timing benchmarks (milliseconds)
+    timing: {
+      avgFlightTime: {
+        fast: 80,            // Fast transition between keys
+        average: 120,        // Normal typing rhythm
+        slow: 180,           // Slow, deliberate typing
+      },
+      avgDwellTime: {
+        quick: 70,           // Quick key press
+        normal: 100,         // Normal key hold
+        long: 150,           // Long key press (potential issue)
+      },
+    },
+    // Fatigue indicators
+    fatigue: {
+      none: 0.05,            // <5% slowdown = no fatigue
+      mild: 0.10,            // 5-10% slowdown = mild fatigue
+      moderate: 0.20,        // 10-20% slowdown = moderate fatigue
+      significant: 0.30,     // >30% slowdown = significant fatigue
+    },
+    // Hand balance (% left hand usage - 50% is perfect balance)
+    handBalance: {
+      balanced: { min: 45, max: 55 },
+      slightImbalance: { min: 40, max: 60 },
+      imbalanced: { min: 30, max: 70 },
+    },
+    // Typing rhythm (coefficient of variation in keystroke timing)
+    rhythm: {
+      excellent: 15,         // Very consistent rhythm
+      good: 25,              // Consistent rhythm
+      irregular: 40,         // Irregular rhythm
+      erratic: 60,           // Very inconsistent
+    },
+  },
+  
+  // Finger names mapping for readable output
+  fingerNames: {
+    L_Pinky: "Left Pinky",
+    L_Ring: "Left Ring",
+    L_Middle: "Left Middle",
+    L_Index: "Left Index",
+    R_Index: "Right Index",
+    R_Middle: "Right Middle",
+    R_Ring: "Right Ring",
+    R_Pinky: "Right Pinky",
+    Thumb: "Thumb (Space)",
+  } as Record<string, string>,
 } as const;
 
 // Dynamic thresholds calculator - derives all thresholds from config and user data
@@ -147,9 +218,67 @@ interface AnalyticsData {
 }
 
 interface AIInsight {
-  type: "improvement" | "strength" | "practice";
+  type: "improvement" | "strength" | "practice" | "warning" | "milestone";
+  category: "speed" | "accuracy" | "rhythm" | "ergonomics" | "technique" | "endurance" | "general";
   message: string;
-  priority: "high" | "medium" | "low";
+  priority: "critical" | "high" | "medium" | "low";
+  dataPoint?: string;
+  benchmark?: string;
+  actionItem?: string;
+}
+
+interface ComprehensiveAnalyticsPayload {
+  userProfile: {
+    skillLevel: string;
+    skillDescription: string;
+    focusArea: string;
+  };
+  coreMetrics: {
+    avgWpm: number;
+    wpmRange: { min: number; max: number };
+    consistency: { isConsistent: boolean; cvPercent: number; rating: string };
+    avgAccuracy: number;
+    testCount: number;
+  };
+  advancedMetrics: {
+    burstWpm: number | null;
+    adjustedWpm: number | null;
+    typingRhythm: { value: number | null; rating: string };
+    timing: {
+      avgDwellTime: { value: number | null; rating: string };
+      avgFlightTime: { value: number | null; rating: string };
+    };
+    fatigue: { indicator: number | null; rating: string };
+    errorBurstCount: number | null;
+  };
+  digraphAnalysis: {
+    fastest: string | null;
+    slowest: string | null;
+    topDigraphs: Array<{ digraph: string; avgTime: number; count: number }>;
+    bottomDigraphs: Array<{ digraph: string; avgTime: number; count: number }>;
+  };
+  ergonomics: {
+    handBalance: { value: number | null; rating: string };
+    fingerUsage: Record<string, { count: number; percentage: number }>;
+    weakestFingers: string[];
+    strongestFingers: string[];
+  };
+  problemAreas: {
+    topMistakeKeys: Array<{ key: string; errorRate: number }>;
+    commonMistakes: Array<{ expected: string; typed: string; count: number }>;
+    slowestWords: Array<{ word: string; time: number }>;
+  };
+  benchmarkComparisons: {
+    wpmVsAverage: { difference: number; percentile: string };
+    wpmVsProfessional: { difference: number; percentile: string };
+    accuracyRating: string;
+    consistencyRating: string;
+  };
+  trends: {
+    weekOverWeek: { wpm: number; accuracy: number };
+    monthOverMonth: { wpm: number; accuracy: number };
+    allTimeImprovement: number;
+  } | null;
 }
 
 interface DailyExercise {
@@ -403,6 +532,198 @@ const EmptyDataState = ({ message }: { message: string }) => (
   </div>
 );
 
+const buildComprehensiveAnalyticsPayload = (
+  analytics: AnalyticsData,
+  keystrokeData: {
+    analytics: {
+      avgDwellTime: number | null;
+      avgFlightTime: number | null;
+      consistency: number | null;
+      fingerUsage: Record<string, number> | null;
+      handBalance: number | null;
+      burstWpm: number | null;
+      adjustedWpm: number | null;
+      typingRhythm: number | null;
+      fatigueIndicator: number | null;
+      errorBurstCount: number | null;
+      fastestDigraph: string | null;
+      slowestDigraph: string | null;
+      topDigraphs: Array<{ digraph: string; avgTime: number; count: number }> | null;
+      bottomDigraphs: Array<{ digraph: string; avgTime: number; count: number }> | null;
+      slowestWords: Array<{ word: string; time: number }> | null;
+    };
+  } | null,
+  dynamicThresholds: ReturnType<typeof calculateDynamicThresholds>,
+  trendsData: { trends: HistoricalTrends } | undefined
+): ComprehensiveAnalyticsPayload => {
+  const { benchmarks, fingerNames, limits } = ANALYTICS_CONFIG;
+  const ks = keystrokeData?.analytics;
+
+  const getRhythmRating = (rhythm: number | null): string => {
+    if (rhythm === null) return "Unknown";
+    if (rhythm < benchmarks.rhythm.excellent) return "Excellent";
+    if (rhythm < benchmarks.rhythm.good) return "Good";
+    if (rhythm < benchmarks.rhythm.irregular) return "Irregular";
+    return "Erratic";
+  };
+
+  const getDwellTimeRating = (dwell: number | null): string => {
+    if (dwell === null) return "Unknown";
+    if (dwell < benchmarks.timing.avgDwellTime.quick) return "Quick";
+    if (dwell < benchmarks.timing.avgDwellTime.normal) return "Normal";
+    return "Long";
+  };
+
+  const getFlightTimeRating = (flight: number | null): string => {
+    if (flight === null) return "Unknown";
+    if (flight < benchmarks.timing.avgFlightTime.fast) return "Fast";
+    if (flight < benchmarks.timing.avgFlightTime.average) return "Average";
+    return "Slow";
+  };
+
+  const getFatigueRating = (fatigue: number | null): string => {
+    if (fatigue === null) return "Unknown";
+    if (fatigue < benchmarks.fatigue.none) return "None";
+    if (fatigue < benchmarks.fatigue.mild) return "Mild";
+    if (fatigue < benchmarks.fatigue.moderate) return "Moderate";
+    return "Significant";
+  };
+
+  const getHandBalanceRating = (balance: number | null): string => {
+    if (balance === null) return "Unknown";
+    const { balanced, slightImbalance } = benchmarks.handBalance;
+    if (balance >= balanced.min && balance <= balanced.max) return "Balanced";
+    if (balance >= slightImbalance.min && balance <= slightImbalance.max) return "Slight imbalance";
+    return "Imbalanced";
+  };
+
+  const getConsistencyRating = (cv: number): string => {
+    if (cv < benchmarks.consistency.excellent) return "Excellent";
+    if (cv < benchmarks.consistency.good) return "Good";
+    if (cv < benchmarks.consistency.needsWork) return "Needs work";
+    return "Poor";
+  };
+
+  const getAccuracyRating = (accuracy: number): string => {
+    if (accuracy >= benchmarks.accuracy.perfect) return "Near-perfect";
+    if (accuracy >= benchmarks.accuracy.excellent) return "Excellent";
+    if (accuracy >= benchmarks.accuracy.good) return "Good";
+    if (accuracy >= benchmarks.accuracy.acceptable) return "Acceptable";
+    return "Needs improvement";
+  };
+
+  const getWpmPercentile = (wpm: number): string => {
+    if (wpm >= benchmarks.wpm.worldClass) return "Top 0.1%";
+    if (wpm >= benchmarks.wpm.elite) return "Top 1%";
+    if (wpm >= benchmarks.wpm.professional) return "Top 10%";
+    if (wpm >= benchmarks.wpm.average) return "Above average";
+    return "Below average";
+  };
+
+  const fingerUsageWithPercentages: Record<string, { count: number; percentage: number }> = {};
+  let totalFingerUsage = 0;
+  if (ks?.fingerUsage) {
+    totalFingerUsage = Object.values(ks.fingerUsage).reduce((sum, count) => sum + count, 0);
+    Object.entries(ks.fingerUsage).forEach(([finger, count]) => {
+      fingerUsageWithPercentages[fingerNames[finger] || finger] = {
+        count,
+        percentage: totalFingerUsage > 0 ? (count / totalFingerUsage) * 100 : 0,
+      };
+    });
+  }
+
+  const sortedFingers = Object.entries(fingerUsageWithPercentages).sort((a, b) => a[1].percentage - b[1].percentage);
+  const weakestFingers = sortedFingers.slice(0, 2).map(([finger]) => finger);
+  const strongestFingers = sortedFingers.slice(-2).reverse().map(([finger]) => finger);
+
+  const avgAccuracy = analytics.wpmOverTime.length > 0
+    ? analytics.wpmOverTime.reduce((sum, d) => sum + d.accuracy, 0) / analytics.wpmOverTime.length
+    : 95;
+
+  return {
+    userProfile: {
+      skillLevel: dynamicThresholds.skillLevel.level,
+      skillDescription: dynamicThresholds.skillLevel.description,
+      focusArea: dynamicThresholds.accuracyFocus ? "Accuracy improvement" : "Speed optimization",
+    },
+    coreMetrics: {
+      avgWpm: analytics.consistency.avgWpm,
+      wpmRange: { min: analytics.consistency.minWpm, max: analytics.consistency.maxWpm },
+      consistency: {
+        isConsistent: !dynamicThresholds.isInconsistent,
+        cvPercent: dynamicThresholds.coefficientOfVariation,
+        rating: getConsistencyRating(dynamicThresholds.coefficientOfVariation),
+      },
+      avgAccuracy,
+      testCount: analytics.wpmOverTime.length,
+    },
+    advancedMetrics: {
+      burstWpm: ks?.burstWpm ?? null,
+      adjustedWpm: ks?.adjustedWpm ?? null,
+      typingRhythm: {
+        value: ks?.typingRhythm ?? null,
+        rating: getRhythmRating(ks?.typingRhythm ?? null),
+      },
+      timing: {
+        avgDwellTime: {
+          value: ks?.avgDwellTime ?? null,
+          rating: getDwellTimeRating(ks?.avgDwellTime ?? null),
+        },
+        avgFlightTime: {
+          value: ks?.avgFlightTime ?? null,
+          rating: getFlightTimeRating(ks?.avgFlightTime ?? null),
+        },
+      },
+      fatigue: {
+        indicator: ks?.fatigueIndicator ?? null,
+        rating: getFatigueRating(ks?.fatigueIndicator ?? null),
+      },
+      errorBurstCount: ks?.errorBurstCount ?? null,
+    },
+    digraphAnalysis: {
+      fastest: ks?.fastestDigraph ?? null,
+      slowest: ks?.slowestDigraph ?? null,
+      topDigraphs: (ks?.topDigraphs ?? []).slice(0, limits.digraphsInPrompt),
+      bottomDigraphs: (ks?.bottomDigraphs ?? []).slice(0, limits.digraphsInPrompt),
+    },
+    ergonomics: {
+      handBalance: {
+        value: ks?.handBalance ?? null,
+        rating: getHandBalanceRating(ks?.handBalance ?? null),
+      },
+      fingerUsage: fingerUsageWithPercentages,
+      weakestFingers,
+      strongestFingers,
+    },
+    problemAreas: {
+      topMistakeKeys: analytics.mistakesHeatmap
+        .slice(0, limits.mistakeKeysInPrompt)
+        .map(m => ({ key: m.key, errorRate: m.errorRate })),
+      commonMistakes: analytics.commonMistakes
+        .slice(0, limits.commonMistakesInPrompt)
+        .map(m => ({ expected: m.expectedKey, typed: m.typedKey, count: m.count })),
+      slowestWords: (ks?.slowestWords ?? []).slice(0, 5),
+    },
+    benchmarkComparisons: {
+      wpmVsAverage: {
+        difference: analytics.consistency.avgWpm - benchmarks.wpm.average,
+        percentile: getWpmPercentile(analytics.consistency.avgWpm),
+      },
+      wpmVsProfessional: {
+        difference: analytics.consistency.avgWpm - benchmarks.wpm.professional,
+        percentile: analytics.consistency.avgWpm >= benchmarks.wpm.professional ? "Professional level" : "Below professional",
+      },
+      accuracyRating: getAccuracyRating(avgAccuracy),
+      consistencyRating: getConsistencyRating(dynamicThresholds.coefficientOfVariation),
+    },
+    trends: trendsData?.trends ? {
+      weekOverWeek: trendsData.trends.improvement.weekOverWeek,
+      monthOverMonth: trendsData.trends.improvement.monthOverMonth,
+      allTimeImprovement: trendsData.trends.improvement.allTime.improvementPercent,
+    } : null,
+  };
+};
+
 function AnalyticsContent() {
   const { user, isLoading: authLoading } = useAuth();
   const [selectedDays, setSelectedDays] = useState<number>(ANALYTICS_CONFIG.defaultTimeRange);
@@ -564,26 +885,101 @@ function AnalyticsContent() {
     const lines = text.split(/\n/).map(l => l.trim()).filter(l => l.length > 10);
     const thresholds = calculateDynamicThresholds(analyticsParam);
     
-    const improvementKeywords = ['improve', 'focus', 'work on', 'reduce', 'avoid', 'weakness'];
-    const strengthKeywords = ['strength', 'good', 'excellent', 'strong', 'well', 'consistent'];
-    const practiceKeywords = ['practice', 'exercise', 'drill', 'try', 'recommend', 'suggest'];
+    const structuredPattern = /\[(\w+)\|(\w+)\|(\w+)\]\s*(.+?)(?:\s*ACTION:\s*(.+))?$/i;
+    const stripLeadingPattern = /^[\d.)\-*•\s]+/;
+    
+    const typeMap: Record<string, AIInsight["type"]> = {
+      improvement: "improvement",
+      strength: "strength",
+      practice: "practice",
+      warning: "warning",
+      milestone: "milestone",
+    };
+    
+    const categoryMap: Record<string, AIInsight["category"]> = {
+      speed: "speed",
+      accuracy: "accuracy",
+      rhythm: "rhythm",
+      ergonomics: "ergonomics",
+      technique: "technique",
+      endurance: "endurance",
+      general: "general",
+    };
+    
+    const priorityMap: Record<string, AIInsight["priority"]> = {
+      critical: "critical",
+      high: "high",
+      medium: "medium",
+      low: "low",
+    };
     
     for (const line of lines) {
-      const cleanLine = sanitizeText(line.replace(/^[\d.)\-*•]+\s*/, ''));
-      if (cleanLine.length < 15) continue;
+      const cleanedLine = line.replace(stripLeadingPattern, '');
+      const structuredMatch = cleanedLine.match(structuredPattern);
       
-      const lowerLine = cleanLine.toLowerCase();
-      
-      if (improvementKeywords.some(kw => lowerLine.includes(kw))) {
-        insights.push({ type: "improvement", message: cleanLine, priority: "high" });
-      } else if (strengthKeywords.some(kw => lowerLine.includes(kw))) {
-        insights.push({ type: "strength", message: cleanLine, priority: "medium" });
-      } else if (practiceKeywords.some(kw => lowerLine.includes(kw))) {
-        insights.push({ type: "practice", message: cleanLine, priority: "medium" });
+      if (structuredMatch) {
+        const [, typeRaw, categoryRaw, priorityRaw, messageRaw, actionRaw] = structuredMatch;
+        const type = typeMap[typeRaw.toLowerCase()] || "practice";
+        const category = categoryMap[categoryRaw.toLowerCase()] || "general";
+        const priority = priorityMap[priorityRaw.toLowerCase()] || "medium";
+        
+        let message = sanitizeText(messageRaw);
+        const actionItem = actionRaw ? sanitizeText(actionRaw) : undefined;
+        
+        const dataPointMatch = message.match(/\(([^)]+(?:WPM|%|ms|CV)[^)]*)\)/i);
+        const dataPoint = dataPointMatch ? dataPointMatch[1] : undefined;
+        
+        const benchmarkMatch = message.match(/(?:vs|compared to|benchmark:?\s*)([^.]+)/i);
+        const benchmark = benchmarkMatch ? benchmarkMatch[1].trim() : undefined;
+        
+        insights.push({ type, category, message, priority, dataPoint, benchmark, actionItem });
+      } else {
+        const cleanLine = sanitizeText(line.replace(/^[\d.)\-*•]+\s*/, ''));
+        if (cleanLine.length < 15) continue;
+        
+        const lowerLine = cleanLine.toLowerCase();
+        
+        const warningKeywords = ['warning', 'caution', 'alert', 'critical', 'fatigue', 'strain'];
+        const milestoneKeywords = ['milestone', 'achieved', 'reached', 'congratulations', 'breakthrough'];
+        const improvementKeywords = ['improve', 'focus', 'work on', 'reduce', 'avoid', 'weakness', 'error', 'mistake'];
+        const strengthKeywords = ['strength', 'good', 'excellent', 'strong', 'well', 'consistent', 'above average'];
+        const practiceKeywords = ['practice', 'exercise', 'drill', 'try', 'recommend', 'suggest', 'action'];
+        
+        let type: AIInsight["type"] = "practice";
+        let priority: AIInsight["priority"] = "medium";
+        let category: AIInsight["category"] = "general";
+        
+        if (warningKeywords.some(kw => lowerLine.includes(kw))) {
+          type = "warning";
+          priority = "critical";
+          category = "endurance";
+        } else if (milestoneKeywords.some(kw => lowerLine.includes(kw))) {
+          type = "milestone";
+          priority = "low";
+          category = "general";
+        } else if (improvementKeywords.some(kw => lowerLine.includes(kw))) {
+          type = "improvement";
+          priority = "high";
+          if (lowerLine.includes("accuracy") || lowerLine.includes("error")) category = "accuracy";
+          else if (lowerLine.includes("speed") || lowerLine.includes("wpm")) category = "speed";
+          else if (lowerLine.includes("rhythm") || lowerLine.includes("consistent")) category = "rhythm";
+        } else if (strengthKeywords.some(kw => lowerLine.includes(kw))) {
+          type = "strength";
+          priority = "medium";
+        } else if (practiceKeywords.some(kw => lowerLine.includes(kw))) {
+          type = "practice";
+          priority = "medium";
+          category = "technique";
+        }
+        
+        const actionMatch = cleanLine.match(/ACTION:\s*(.+)/i);
+        const actionItem = actionMatch ? actionMatch[1].trim() : undefined;
+        const message = actionMatch ? cleanLine.replace(/ACTION:\s*.+/i, '').trim() : cleanLine;
+        
+        insights.push({ type, category, message, priority, actionItem });
       }
     }
     
-    // Generate contextual fallback insights based on dynamic thresholds
     if (insights.length === 0) {
       const topMistakeKeys = analyticsParam.mistakesHeatmap
         .slice(0, ANALYTICS_CONFIG.limits.mistakeKeysInFallback)
@@ -592,39 +988,48 @@ function AnalyticsContent() {
       if (topMistakeKeys.length > 0) {
         insights.push({
           type: "improvement",
+          category: "accuracy",
           message: `Focus on keys with high error rates: ${topMistakeKeys.join(", ")}`,
           priority: "high",
+          actionItem: `Practice typing words containing ${topMistakeKeys[0]} for 5 minutes daily`,
         });
       }
       
-      // Use dynamic consistency threshold instead of hardcoded value
       if (thresholds.isInconsistent) {
         insights.push({
           type: "improvement",
+          category: "rhythm",
           message: `Work on consistency - your WPM varies by ${thresholds.coefficientOfVariation.toFixed(0)}% between tests`,
           priority: "high",
+          dataPoint: `${thresholds.coefficientOfVariation.toFixed(0)}% CV`,
+          actionItem: "Complete 5 tests at 80% of your max speed to build consistency",
         });
       }
       
-      // Use skill level for contextual advice instead of hardcoded WPM thresholds
       const { skillLevel } = thresholds;
       if (skillLevel.level === "Beginner" || skillLevel.level === "Developing") {
         insights.push({
           type: "practice",
+          category: "technique",
           message: `${skillLevel.description}. Practice daily for 15-20 minutes to build muscle memory`,
           priority: "medium",
+          actionItem: "Complete at least 3 typing tests daily, focusing on accuracy over speed",
         });
       } else if (skillLevel.level === "Advanced" || skillLevel.level === "Expert") {
         insights.push({
           type: "strength",
+          category: "speed",
           message: `${skillLevel.description}. Your typing speed is excellent - maintain quality with focused practice`,
           priority: "medium",
+          benchmark: `Professional: 65 WPM, Elite: 100 WPM`,
         });
       } else {
         insights.push({
           type: "practice",
+          category: "general",
           message: `${skillLevel.description}. Continue regular practice to improve both speed and accuracy`,
           priority: "medium",
+          actionItem: "Alternate between accuracy-focused and speed-focused practice sessions",
         });
       }
     }
@@ -637,18 +1042,18 @@ function AnalyticsContent() {
 
     const abortController = new AbortController();
     const timeoutId = setTimeout(() => abortController.abort(), ANALYTICS_CONFIG.ai.timeoutMs);
-    const { skillLevel, isInconsistent, coefficientOfVariation, accuracyFocus } = dynamicThresholds;
     
-    // Build contextual prompt based on user's skill level and data
-    const topMistakeKeys = analytics.mistakesHeatmap
-      .slice(0, ANALYTICS_CONFIG.limits.mistakeKeysInPrompt)
-      .map(m => `${sanitizeText(m.key)} (${safeNumber(m.errorRate).toFixed(1)}% error rate)`)
-      .join(", ");
+    const payload = buildComprehensiveAnalyticsPayload(analytics, keystrokeData, dynamicThresholds, trendsData);
+    const { benchmarks } = ANALYTICS_CONFIG;
     
-    const commonMistakes = analytics.commonMistakes
-      .slice(0, ANALYTICS_CONFIG.limits.commonMistakesInPrompt)
-      .map(m => `"${sanitizeText(m.expectedKey)}" typed as "${sanitizeText(m.typedKey)}" (${m.count}x)`)
-      .join(", ");
+    const formatDigraphs = (digraphs: Array<{ digraph: string; avgTime: number }>) =>
+      digraphs.map(d => `"${d.digraph}" (${d.avgTime.toFixed(0)}ms)`).join(", ");
+    
+    const formatMistakeKeys = (keys: Array<{ key: string; errorRate: number }>) =>
+      keys.map(k => `"${k.key}" (${k.errorRate.toFixed(1)}% error rate)`).join(", ");
+    
+    const formatCommonMistakes = (mistakes: Array<{ expected: string; typed: string; count: number }>) =>
+      mistakes.map(m => `"${m.expected}"→"${m.typed}" (${m.count}x)`).join(", ");
     
     setLoadingInsights(true);
     try {
@@ -659,28 +1064,78 @@ function AnalyticsContent() {
         signal: abortController.signal,
         body: JSON.stringify({
           conversationId: null,
-          message: `Analyze my typing performance and provide personalized insights.
+          message: `You are an expert typing coach analyzing detailed keystroke analytics. Provide research-backed, actionable insights.
 
-User Profile:
-- Skill Level: ${skillLevel.level} (${skillLevel.description})
-- Focus Area: ${accuracyFocus ? "Accuracy improvement" : "Speed optimization"}
+## USER PROFILE
+- Skill Level: ${payload.userProfile.skillLevel} (${payload.userProfile.skillDescription})
+- Focus Area: ${payload.userProfile.focusArea}
+- Tests Completed: ${payload.coreMetrics.testCount}
 
-Performance Metrics:
-- Average WPM: ${safeNumber(analytics.consistency.avgWpm).toFixed(1)}
-- WPM Range: ${safeNumber(analytics.consistency.minWpm)} - ${safeNumber(analytics.consistency.maxWpm)}
-- Consistency: ${isInconsistent ? `Needs work (${coefficientOfVariation.toFixed(0)}% variation)` : "Good consistency"}
-- Tests in period: ${analytics.wpmOverTime.length}
+## CORE METRICS
+- Average WPM: ${payload.coreMetrics.avgWpm.toFixed(1)} (${payload.benchmarkComparisons.wpmVsAverage.percentile})
+- WPM Range: ${payload.coreMetrics.wpmRange.min} - ${payload.coreMetrics.wpmRange.max}
+- Average Accuracy: ${payload.coreMetrics.avgAccuracy.toFixed(1)}% (${payload.benchmarkComparisons.accuracyRating})
+- Consistency: ${payload.coreMetrics.consistency.rating} (CV: ${payload.coreMetrics.consistency.cvPercent.toFixed(1)}%)
 
-Problem Areas:
-- Top Mistake Keys: ${topMistakeKeys || "None identified"}
-- Common Errors: ${commonMistakes || "None identified"}
+## ADVANCED METRICS
+${payload.advancedMetrics.burstWpm ? `- Burst WPM: ${payload.advancedMetrics.burstWpm.toFixed(0)} (peak short-burst speed)` : ""}
+${payload.advancedMetrics.adjustedWpm ? `- Adjusted WPM: ${payload.advancedMetrics.adjustedWpm.toFixed(1)} (accuracy-weighted)` : ""}
+- Typing Rhythm: ${payload.advancedMetrics.typingRhythm.rating}${payload.advancedMetrics.typingRhythm.value ? ` (CV: ${payload.advancedMetrics.typingRhythm.value.toFixed(0)}%)` : ""}
+- Key Transition Speed: ${payload.advancedMetrics.timing.avgFlightTime.rating}${payload.advancedMetrics.timing.avgFlightTime.value ? ` (${payload.advancedMetrics.timing.avgFlightTime.value.toFixed(0)}ms avg)` : ""}
+- Fatigue: ${payload.advancedMetrics.fatigue.rating}${payload.advancedMetrics.fatigue.indicator ? ` (${(payload.advancedMetrics.fatigue.indicator * 100).toFixed(0)}% slowdown)` : ""}
+${payload.advancedMetrics.errorBurstCount ? `- Error Bursts: ${payload.advancedMetrics.errorBurstCount} clusters of consecutive errors` : ""}
 
-Provide insights tailored to my ${skillLevel.level.toLowerCase()} skill level:
-1. ${ANALYTICS_CONFIG.limits.dailyExercises} specific improvement areas based on my mistakes
-2. 2 strengths or positive patterns in my typing
-3. ${ANALYTICS_CONFIG.limits.dailyExercises} practice recommendations appropriate for ${skillLevel.level.toLowerCase()} level
+## DIGRAPH ANALYSIS (Two-Key Combinations)
+${payload.digraphAnalysis.fastest ? `- Fastest: "${payload.digraphAnalysis.fastest}"` : ""}
+${payload.digraphAnalysis.slowest ? `- Slowest: "${payload.digraphAnalysis.slowest}"` : ""}
+${payload.digraphAnalysis.topDigraphs.length > 0 ? `- Best Digraphs: ${formatDigraphs(payload.digraphAnalysis.topDigraphs)}` : ""}
+${payload.digraphAnalysis.bottomDigraphs.length > 0 ? `- Struggling Digraphs: ${formatDigraphs(payload.digraphAnalysis.bottomDigraphs)}` : ""}
 
-Format each insight as a single concise sentence. Focus on actionable, level-appropriate advice.`,
+## ERGONOMICS
+- Hand Balance: ${payload.ergonomics.handBalance.rating}${payload.ergonomics.handBalance.value ? ` (${payload.ergonomics.handBalance.value.toFixed(0)}% left hand)` : ""}
+${payload.ergonomics.weakestFingers.length > 0 ? `- Weaker Fingers: ${payload.ergonomics.weakestFingers.join(", ")}` : ""}
+${payload.ergonomics.strongestFingers.length > 0 ? `- Stronger Fingers: ${payload.ergonomics.strongestFingers.join(", ")}` : ""}
+
+## PROBLEM AREAS
+${payload.problemAreas.topMistakeKeys.length > 0 ? `- Error-Prone Keys: ${formatMistakeKeys(payload.problemAreas.topMistakeKeys)}` : "- No significant error-prone keys identified"}
+${payload.problemAreas.commonMistakes.length > 0 ? `- Common Substitutions: ${formatCommonMistakes(payload.problemAreas.commonMistakes)}` : ""}
+${payload.problemAreas.slowestWords.length > 0 ? `- Slow Words: ${payload.problemAreas.slowestWords.map(w => `"${w.word}"`).join(", ")}` : ""}
+
+## BENCHMARKS
+- Industry Average: ${benchmarks.wpm.average} WPM | Professional: ${benchmarks.wpm.professional} WPM | Elite: ${benchmarks.wpm.elite} WPM
+- Your Position: ${payload.benchmarkComparisons.wpmVsAverage.difference > 0 ? `+${payload.benchmarkComparisons.wpmVsAverage.difference.toFixed(0)}` : payload.benchmarkComparisons.wpmVsAverage.difference.toFixed(0)} WPM vs average
+${payload.trends ? `
+## PROGRESS TRENDS
+- Week-over-week: ${payload.trends.weekOverWeek.wpm > 0 ? "+" : ""}${payload.trends.weekOverWeek.wpm.toFixed(1)} WPM
+- Month-over-month: ${payload.trends.monthOverMonth.wpm > 0 ? "+" : ""}${payload.trends.monthOverMonth.wpm.toFixed(1)} WPM
+- All-time improvement: ${payload.trends.allTimeImprovement.toFixed(0)}%` : ""}
+
+---
+
+Provide exactly 10 insights. Each insight MUST be on its own line using this EXACT format (do NOT number them):
+
+[TYPE|CATEGORY|PRIORITY] Your insight message citing a specific metric. ACTION: A specific exercise or technique.
+
+Valid TYPE values: IMPROVEMENT, STRENGTH, PRACTICE, WARNING, MILESTONE
+Valid CATEGORY values: speed, accuracy, rhythm, ergonomics, technique, endurance, general
+Valid PRIORITY values: critical, high, medium, low
+
+DISTRIBUTION:
+- 3-4 IMPROVEMENT insights targeting specific weaknesses (cite error rates, slow digraphs, or rhythm issues)
+- 2-3 STRENGTH insights recognizing achievements (cite metrics that exceed benchmarks)
+- 2-3 PRACTICE insights with specific drills (reference problematic keys/digraphs)
+- 1 WARNING if fatigue or critical issues detected, otherwise 1 MILESTONE insight
+
+RULES:
+- Start each line directly with the bracket notation [TYPE|CATEGORY|PRIORITY]
+- Do NOT use numbers, bullets, or any prefix before the brackets
+- Each ACTION must be specific (e.g., "Practice 'th' digraph 50 times daily" not "practice more")
+- Reference industry benchmarks where relevant
+- Tailor advice to ${payload.userProfile.skillLevel.toLowerCase()} skill level
+
+EXAMPLE OUTPUT:
+[IMPROVEMENT|accuracy|high] Your "e" key has a 12.5% error rate, significantly above the 5% acceptable threshold. ACTION: Complete 3 sets of 20 words containing "e" at slow speed daily.
+[STRENGTH|speed|medium] Your 65 WPM average exceeds the industry average of 41 WPM by 58%. ACTION: Maintain this level with 10-minute daily practice sessions.`,
         }),
       });
 
@@ -2396,33 +2851,103 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
             <CardContent>
               {aiInsights.length > 0 ? (
                 <div className="space-y-3">
-                  {aiInsights.map((insight, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-4 rounded-lg border ${
-                        insight.type === "improvement"
-                          ? "border-orange-500/50 bg-orange-500/10"
-                          : insight.type === "strength"
-                          ? "border-green-500/50 bg-green-500/10"
-                          : "border-blue-500/50 bg-blue-500/10"
-                      }`}
-                      data-testid={`insight-${idx}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Badge
-                          variant={insight.type === "improvement" ? "destructive" : insight.type === "strength" ? "default" : "secondary"}
-                        >
-                          {insight.type === "improvement" ? "🎯 Improve" : insight.type === "strength" ? "✨ Strength" : "📚 Practice"}
-                        </Badge>
-                        <p className="flex-1 text-sm">{insight.message}</p>
+                  {aiInsights.map((insight, idx) => {
+                    const typeStyles = {
+                      improvement: "border-orange-500/50 bg-orange-500/10",
+                      strength: "border-green-500/50 bg-green-500/10",
+                      practice: "border-blue-500/50 bg-blue-500/10",
+                      warning: "border-red-500/50 bg-red-500/10",
+                      milestone: "border-purple-500/50 bg-purple-500/10",
+                    };
+                    const typeLabels = {
+                      improvement: "Improve",
+                      strength: "Strength",
+                      practice: "Practice",
+                      warning: "Warning",
+                      milestone: "Milestone",
+                    };
+                    const typeIcons = {
+                      improvement: "🎯",
+                      strength: "✨",
+                      practice: "📚",
+                      warning: "⚠️",
+                      milestone: "🏆",
+                    };
+                    const priorityColors = {
+                      critical: "bg-red-500 text-white",
+                      high: "bg-orange-500 text-white",
+                      medium: "bg-yellow-500 text-black",
+                      low: "bg-green-500 text-white",
+                    };
+                    const categoryIcons: Record<string, string> = {
+                      speed: "⚡",
+                      accuracy: "🎯",
+                      rhythm: "🎵",
+                      ergonomics: "🖐️",
+                      technique: "🔧",
+                      endurance: "💪",
+                      general: "📊",
+                    };
+                    
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-4 rounded-lg border ${typeStyles[insight.type]}`}
+                        data-testid={`insight-${idx}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex flex-col gap-1">
+                            <Badge
+                              variant={insight.type === "improvement" || insight.type === "warning" ? "destructive" : insight.type === "strength" || insight.type === "milestone" ? "default" : "secondary"}
+                              className="whitespace-nowrap"
+                            >
+                              {typeIcons[insight.type]} {typeLabels[insight.type]}
+                            </Badge>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[10px] px-1.5 py-0 ${priorityColors[insight.priority]}`}
+                            >
+                              {insight.priority.toUpperCase()}
+                            </Badge>
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm opacity-70">{categoryIcons[insight.category]}</span>
+                              <p className="text-sm font-medium">{insight.message}</p>
+                            </div>
+                            {(insight.dataPoint || insight.benchmark) && (
+                              <div className="flex flex-wrap gap-2 text-xs">
+                                {insight.dataPoint && (
+                                  <span className="px-2 py-0.5 rounded bg-slate-700/50 text-cyan-300">
+                                    📈 {insight.dataPoint}
+                                  </span>
+                                )}
+                                {insight.benchmark && (
+                                  <span className="px-2 py-0.5 rounded bg-slate-700/50 text-purple-300">
+                                    📊 vs {insight.benchmark}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {insight.actionItem && (
+                              <div className="mt-2 p-2 rounded bg-slate-800/50 border border-slate-700/50">
+                                <p className="text-xs text-muted-foreground mb-1">Action:</p>
+                                <p className="text-sm text-cyan-400">{insight.actionItem}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Brain className="w-12 h-12 mx-auto mb-3 opacity-50" />
                   <p>Click "Generate Insights" to get AI-powered recommendations</p>
+                  <p className="text-xs mt-2 text-muted-foreground/70">
+                    Analyzes your speed, accuracy, rhythm, and technique with industry benchmarks
+                  </p>
                 </div>
               )}
             </CardContent>
