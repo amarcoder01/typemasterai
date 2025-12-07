@@ -2009,8 +2009,11 @@ Can you beat my score? Try it here: `,
         )}
       </div>
 
-      {/* Controls */}
-      <div className="flex justify-center">
+      {/* Controls - Hidden in Zen Mode when typing */}
+      <div className={cn(
+        "flex justify-center transition-opacity duration-300",
+        zenMode && isActive && "opacity-0 h-0 overflow-hidden"
+      )}>
         <Tooltip>
           <TooltipTrigger asChild>
             <button
