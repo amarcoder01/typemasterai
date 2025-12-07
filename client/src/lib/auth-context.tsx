@@ -57,8 +57,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Login failed");
+        const errorData = await response.json();
+        const errorMessage = errorData.error?.message || errorData.message || "Invalid email or password";
+        throw new Error(errorMessage);
       }
 
       return response.json();
@@ -78,8 +79,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Registration failed");
+        const errorData = await response.json();
+        const errorMessage = errorData.error?.message || errorData.message || "Registration failed. Please try again.";
+        throw new Error(errorMessage);
       }
 
       return response.json();

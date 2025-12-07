@@ -98,7 +98,7 @@ export default function Login() {
       triggerSuccessConfetti();
       setTimeout(() => setLocation("/"), 800);
     } catch (err: any) {
-      setError(err.message || "Login failed. Please try again.");
+      setError(err.message || "Invalid email or password. Please try again.");
       setIsLoading(false);
     }
   };
