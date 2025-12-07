@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -16,6 +17,169 @@ import { cn } from "@/lib/utils";
 import { BADGES, TOTAL_BADGES, type UserBadgeProgress, getTierColor, getTierBorder, type Badge as BadgeType } from "@shared/badges";
 import { BadgeCard } from "@/components/badge-card";
 import { BadgeShareCard } from "@/components/badge-share-card";
+
+function ProfileHeaderSkeleton() {
+  return (
+    <div className="flex items-start gap-6 p-6 rounded-2xl bg-card/70 backdrop-blur-md border border-border/50 shadow-xl">
+      <Skeleton className="w-24 h-24 rounded-full" />
+      <div className="flex-1 space-y-3">
+        <div className="flex items-start justify-between">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-8 w-40" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-4 w-64 mt-2" />
+            <div className="flex items-center gap-4 mt-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-28" />
+            </div>
+          </div>
+          <Skeleton className="h-9 w-28" />
+        </div>
+        <div className="flex gap-8">
+          <div>
+            <Skeleton className="h-8 w-16 mb-1" />
+            <Skeleton className="h-3 w-12" />
+          </div>
+          <div>
+            <Skeleton className="h-8 w-16 mb-1" />
+            <Skeleton className="h-3 w-14" />
+          </div>
+          <div>
+            <Skeleton className="h-8 w-16 mb-1" />
+            <Skeleton className="h-3 w-14" />
+          </div>
+        </div>
+        <div className="max-w-xs space-y-2">
+          <div className="flex justify-between">
+            <Skeleton className="h-3 w-12" />
+            <Skeleton className="h-3 w-16" />
+          </div>
+          <Skeleton className="h-2 w-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatsSkeleton() {
+  return (
+    <div className="flex gap-8">
+      <div>
+        <Skeleton className="h-8 w-16 mb-1" />
+        <Skeleton className="h-3 w-12" />
+      </div>
+      <div>
+        <Skeleton className="h-8 w-16 mb-1" />
+        <Skeleton className="h-3 w-14" />
+      </div>
+      <div>
+        <Skeleton className="h-8 w-16 mb-1" />
+        <Skeleton className="h-3 w-14" />
+      </div>
+    </div>
+  );
+}
+
+function BadgeCardSkeleton() {
+  return (
+    <div className="p-4 rounded-xl border-2 border-border/50 bg-card/50 space-y-3">
+      <div className="flex items-center gap-3">
+        <Skeleton className="w-12 h-12 rounded-lg" />
+        <div className="flex-1">
+          <Skeleton className="h-4 w-24 mb-1" />
+          <Skeleton className="h-3 w-32" />
+        </div>
+      </div>
+      <Skeleton className="h-2 w-full" />
+    </div>
+  );
+}
+
+function TestHistorySkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center gap-4 p-4 rounded-lg bg-card/50 border border-border/30">
+          <Skeleton className="w-12 h-12 rounded-lg" />
+          <div className="flex-1">
+            <Skeleton className="h-4 w-24 mb-2" />
+            <Skeleton className="h-3 w-48" />
+          </div>
+          <Skeleton className="h-8 w-16" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ErrorState({ 
+  message, 
+  onRetry, 
+  isRetrying,
+  testId = "button-retry"
+}: { 
+  message: string; 
+  onRetry: () => void; 
+  isRetrying?: boolean;
+  testId?: string;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center p-6 text-center space-y-3 bg-destructive/5 border border-destructive/20 rounded-lg">
+      <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          className="h-5 w-5 text-destructive" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+        >
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+      </div>
+      <p className="text-sm text-muted-foreground">{message}</p>
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={onRetry}
+        disabled={isRetrying}
+        data-testid={testId}
+      >
+        {isRetrying ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Retrying...
+          </>
+        ) : (
+          <>
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              className="h-4 w-4 mr-2" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            >
+              <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+              <path d="M21 3v5h-5" />
+            </svg>
+            Retry
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Zap,
@@ -80,7 +244,7 @@ export default function Profile() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  const { data: statsData } = useQuery({
+  const { data: statsData, error: statsError, isLoading: statsLoading, refetch: refetchStats, isFetching: statsRefetching } = useQuery({
     queryKey: ["stats"],
     queryFn: async () => {
       const response = await fetch("/api/stats", {
@@ -92,7 +256,7 @@ export default function Profile() {
     enabled: !!user,
   });
 
-  const { data: resultsData } = useQuery({
+  const { data: resultsData, error: resultsError, isLoading: resultsLoading, refetch: refetchResults, isFetching: resultsRefetching } = useQuery({
     queryKey: ["test-results"],
     queryFn: async () => {
       const response = await fetch("/api/test-results?limit=10", {
@@ -104,7 +268,7 @@ export default function Profile() {
     enabled: !!user,
   });
 
-  const { data: badgeData } = useQuery({
+  const { data: badgeData, error: badgeError, isLoading: badgeLoading, refetch: refetchBadges, isFetching: badgeRefetching } = useQuery({
     queryKey: ["badges"],
     queryFn: async () => {
       const response = await fetch("/api/badges", {
@@ -116,7 +280,7 @@ export default function Profile() {
     enabled: !!user,
   });
 
-  const { data: achievementsData } = useQuery({
+  const { data: achievementsData, error: achievementsError, isLoading: achievementsLoading, refetch: refetchAchievements, isFetching: achievementsRefetching } = useQuery({
     queryKey: ["achievements"],
     queryFn: async () => {
       const response = await fetch("/api/achievements", {
@@ -128,7 +292,7 @@ export default function Profile() {
     enabled: !!user,
   });
 
-  const { data: gamificationData } = useQuery({
+  const { data: gamificationData, error: gamificationError, isLoading: gamificationLoading, refetch: refetchGamification, isFetching: gamificationRefetching } = useQuery({
     queryKey: ["gamification"],
     queryFn: async () => {
       const response = await fetch("/api/gamification", {
@@ -412,52 +576,57 @@ export default function Profile() {
                 </TooltipContent>
               </Tooltip>
             </div>
-            <TooltipProvider delayDuration={200}>
+            {statsError ? (
+              <ErrorState 
+                message="Failed to load stats. Please try again." 
+                onRetry={() => refetchStats()} 
+                isRetrying={statsRefetching}
+                testId="button-retry-stats"
+              />
+            ) : statsLoading ? (
+              <StatsSkeleton />
+            ) : stats ? (
               <div className="flex gap-8">
-                {stats ? (
-                  <>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help" data-testid="stat-avg-wpm">
-                          <div className="text-3xl font-bold font-mono">{stats.avgWpm || 0}</div>
-                          <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg WPM</div>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs">
-                        <p className="font-semibold">Average Words Per Minute</p>
-                        <p className="text-xs text-muted-foreground mt-1">Your average typing speed across all tests. Higher is better!</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help" data-testid="stat-best-wpm">
-                          <div className="text-3xl font-bold font-mono text-primary">{stats.bestWpm || 0}</div>
-                          <div className="text-xs text-muted-foreground uppercase tracking-wider">Best WPM</div>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs">
-                        <p className="font-semibold">Personal Best Speed</p>
-                        <p className="text-xs text-muted-foreground mt-1">Your highest typing speed ever recorded. Keep practicing to beat it!</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="cursor-help" data-testid="stat-total-xp">
-                          <div className="text-3xl font-bold font-mono text-amber-500">{totalPoints}</div>
-                          <div className="text-xs text-muted-foreground uppercase tracking-wider">Total XP</div>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs">
-                        <p className="font-semibold">Experience Points</p>
-                        <p className="text-xs text-muted-foreground mt-1">Earn XP by completing tests, unlocking badges, and maintaining streaks. XP contributes to your level!</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </>
-                ) : (
-                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="cursor-help" data-testid="stat-avg-wpm">
+                      <div className="text-3xl font-bold font-mono">{stats.avgWpm || 0}</div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg WPM</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-semibold">Average Words Per Minute</p>
+                    <p className="text-xs text-muted-foreground mt-1">Your average typing speed across all tests. Higher is better!</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="cursor-help" data-testid="stat-best-wpm">
+                      <div className="text-3xl font-bold font-mono text-primary">{stats.bestWpm || 0}</div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider">Best WPM</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-semibold">Personal Best Speed</p>
+                    <p className="text-xs text-muted-foreground mt-1">Your highest typing speed ever recorded. Keep practicing to beat it!</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="cursor-help" data-testid="stat-total-xp">
+                      <div className="text-3xl font-bold font-mono text-amber-500">{totalPoints}</div>
+                      <div className="text-xs text-muted-foreground uppercase tracking-wider">Total XP</div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-semibold">Experience Points</p>
+                    <p className="text-xs text-muted-foreground mt-1">Earn XP by completing tests, unlocking badges, and maintaining streaks. XP contributes to your level!</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
-            </TooltipProvider>
+            ) : (
+              <StatsSkeleton />
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="max-w-xs cursor-help" data-testid="level-progress">
@@ -480,91 +649,89 @@ export default function Profile() {
             </Tooltip>
             
             {unlockedCount > 0 && (
-              <TooltipProvider delayDuration={200}>
-                <div className="pt-3 border-t border-border/30">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Trophy className="w-4 h-4 text-amber-500" />
-                      <span className="text-sm font-semibold">Badge Showcase</span>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs">
-                          <p className="text-sm">Display your top achievements on your profile. Select up to 5 badges to showcase.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
+              <div className="pt-3 border-t border-border/30">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-amber-500" />
+                    <span className="text-sm font-semibold">Badge Showcase</span>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-7 px-2"
-                          onClick={() => {
-                            setSelectedShowcaseBadges(showcaseBadges);
-                            setShowShowcaseModal(true);
-                          }}
-                          data-testid="button-edit-showcase"
-                        >
-                          <Edit className="w-3 h-3 mr-1" />
-                          Edit
-                        </Button>
+                        <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
                       </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Customize your badge showcase</p>
+                      <TooltipContent side="top" className="max-w-xs">
+                        <p className="text-sm">Display your top achievements on your profile. Select up to 5 badges to showcase.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  <div className="flex gap-2 flex-wrap">
-                    {showcaseBadges.length > 0 ? (
-                      showcaseBadges.map((badgeKey) => {
-                        const badge = BADGES.find(b => b.id === badgeKey);
-                        if (!badge) return null;
-                        return (
-                          <Tooltip key={badge.id}>
-                            <TooltipTrigger asChild>
-                              <div
-                                className={cn(
-                                  "relative group flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all hover:scale-105 cursor-pointer",
-                                  getTierBorder(badge.tier),
-                                  `bg-gradient-to-br ${getTierColor(badge.tier)} bg-opacity-20`
-                                )}
-                                data-testid={`showcase-badge-${badge.id}`}
-                              >
-                                <div className={cn(
-                                  "w-7 h-7 rounded-md flex items-center justify-center",
-                                  `bg-gradient-to-br ${getTierColor(badge.tier)}`
-                                )}>
-                                  <BadgeIcon iconName={badge.icon} className="w-4 h-4 text-white drop-shadow-sm" />
-                                </div>
-                                <span className="text-sm font-medium">{badge.name}</span>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="bottom" className="max-w-xs">
-                              <div className="space-y-1">
-                                <p className="font-semibold">{badge.name}</p>
-                                <p className="text-xs text-muted-foreground">{badge.description}</p>
-                                <div className="flex items-center gap-2 pt-1">
-                                  <Badge variant="outline" className="text-[10px] capitalize" style={{ borderColor: badge.color, color: badge.color }}>
-                                    {badge.tier}
-                                  </Badge>
-                                  <span className="text-xs text-primary">+{badge.points} XP</span>
-                                </div>
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        );
-                      })
-                    ) : (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground italic">
-                        <Sparkles className="w-4 h-4" />
-                        <p>No badges showcased yet. Click Edit to select up to 5 badges to display!</p>
-                      </div>
-                    )}
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs h-7 px-2"
+                        onClick={() => {
+                          setSelectedShowcaseBadges(showcaseBadges);
+                          setShowShowcaseModal(true);
+                        }}
+                        data-testid="button-edit-showcase"
+                      >
+                        <Edit className="w-3 h-3 mr-1" />
+                        Edit
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Customize your badge showcase</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-              </TooltipProvider>
+                <div className="flex gap-2 flex-wrap">
+                  {showcaseBadges.length > 0 ? (
+                    showcaseBadges.map((badgeKey) => {
+                      const badge = BADGES.find(b => b.id === badgeKey);
+                      if (!badge) return null;
+                      return (
+                        <Tooltip key={badge.id}>
+                          <TooltipTrigger asChild>
+                            <div
+                              className={cn(
+                                "relative group flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all hover:scale-105 cursor-pointer",
+                                getTierBorder(badge.tier),
+                                `bg-gradient-to-br ${getTierColor(badge.tier)} bg-opacity-20`
+                              )}
+                              data-testid={`showcase-badge-${badge.id}`}
+                            >
+                              <div className={cn(
+                                "w-7 h-7 rounded-md flex items-center justify-center",
+                                `bg-gradient-to-br ${getTierColor(badge.tier)}`
+                              )}>
+                                <BadgeIcon iconName={badge.icon} className="w-4 h-4 text-white drop-shadow-sm" />
+                              </div>
+                              <span className="text-sm font-medium">{badge.name}</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-xs">
+                            <div className="space-y-1">
+                              <p className="font-semibold">{badge.name}</p>
+                              <p className="text-xs text-muted-foreground">{badge.description}</p>
+                              <div className="flex items-center gap-2 pt-1">
+                                <Badge variant="outline" className="text-[10px] capitalize" style={{ borderColor: badge.color, color: badge.color }}>
+                                  {badge.tier}
+                                </Badge>
+                                <span className="text-xs text-primary">+{badge.points} XP</span>
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    })
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground italic">
+                      <Sparkles className="w-4 h-4" />
+                      <p>No badges showcased yet. Click Edit to select up to 5 badges to display!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -1060,6 +1227,7 @@ export default function Profile() {
             onShareTracked={handleShareTracked}
           />
         )}
+      </TooltipProvider>
       </div>
   );
 }
