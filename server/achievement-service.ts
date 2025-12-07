@@ -531,9 +531,18 @@ export class AchievementService {
     best100WpmInFirst10Tests: boolean;
   }> {
     try {
-      // Get hour from test result's createdAt
+      // Get user's timezone for accurate time-based achievements
+      const user = await this.storage.getUser(userId);
+      const userTimezone = user?.timezone || 'UTC';
+      
+      // Get hour from test result's createdAt in user's timezone
       const testDate = testResult.createdAt ? new Date(testResult.createdAt) : new Date();
-      const testHour = testDate.getHours();
+      const hourFormatter = new Intl.DateTimeFormat('en-US', { 
+        timeZone: userTimezone, 
+        hour: 'numeric', 
+        hour12: false 
+      });
+      const testHour = parseInt(hourFormatter.format(testDate), 10);
 
       // Get user's recent test results to calculate extended stats
       const recentTests = await this.storage.getUserTestResults(userId, 100);
@@ -548,14 +557,19 @@ export class AchievementService {
         }
       }
 
-      // Calculate tests completed today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Calculate tests completed today in user's timezone
+      const dateFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: userTimezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+      const todayStr = dateFormatter.format(new Date());
       const testsCompletedToday = recentTests.filter(test => {
         const testDay = test.createdAt ? new Date(test.createdAt) : null;
         if (!testDay) return false;
-        testDay.setHours(0, 0, 0, 0);
-        return testDay.getTime() === today.getTime();
+        const testDayStr = dateFormatter.format(testDay);
+        return testDayStr === todayStr;
       }).length;
 
       // Check if achieved 100+ WPM in first 10 tests
