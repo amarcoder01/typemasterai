@@ -1414,9 +1414,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
 
       try {
-        await authSecurityService.sendPasswordResetEmail(user.id, user.email, ipAddress, user.username);
+        console.log(`[ForgotPassword] Sending reset email to ${normalizedEmail} for user ${user.id}`);
+        const emailResult = await authSecurityService.sendPasswordResetEmail(user.id, user.email, ipAddress, user.username);
+        if (emailResult.success) {
+          console.log(`[ForgotPassword] Email sent successfully to ${normalizedEmail}, messageId: ${emailResult.messageId}`);
+        } else {
+          console.error(`[ForgotPassword] Email sending failed for ${normalizedEmail}:`, emailResult.error);
+        }
         AuthLogger.logPasswordReset(req, normalizedEmail, "requested");
-      } catch (emailError) {
+      } catch (emailError: any) {
+        console.error(`[ForgotPassword] Exception sending email to ${normalizedEmail}:`, emailError.message, emailError.stack);
         AuthLogger.logAuthEvent("PASSWORD_RESET_EMAIL_FAILED", req, {
           level: "error",
           userId: user.id,
