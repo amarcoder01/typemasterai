@@ -237,7 +237,7 @@ interface ComprehensiveAnalyticsPayload {
     avgWpm: number;
     wpmRange: { min: number; max: number };
     consistency: { isConsistent: boolean; cvPercent: number; rating: string };
-    avgAccuracy: number;
+    avgAccuracy: number | null;
     testCount: number;
   };
   advancedMetrics: {
@@ -363,8 +363,15 @@ const WPMTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   );
 };
 
-const AccuracyTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+interface ExtendedTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number; name: string; color?: string; payload?: { testCount?: number; wpm?: number; accuracy?: number } }>;
+  label?: string;
+}
+
+const AccuracyTooltip = ({ active, payload, label }: ExtendedTooltipProps) => {
   if (!active || !payload || !payload.length) return null;
+  const dataPoint = payload[0]?.payload;
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-lg">
       <p className="text-sm font-medium text-white mb-1">{formatTooltipDate(label || '')}</p>
@@ -373,6 +380,11 @@ const AccuracyTooltip = ({ active, payload, label }: CustomTooltipProps) => {
           Accuracy: {typeof entry.value === 'number' ? entry.value.toFixed(1) : entry.value}%
         </p>
       ))}
+      {dataPoint?.testCount && (
+        <p className="text-xs text-muted-foreground mt-1">
+          Based on {dataPoint.testCount} test{dataPoint.testCount > 1 ? 's' : ''}
+        </p>
+      )}
     </div>
   );
 };
@@ -638,7 +650,7 @@ const buildComprehensiveAnalyticsPayload = (
 
   const avgAccuracy = analytics.wpmOverTime.length > 0
     ? analytics.wpmOverTime.reduce((sum, d) => sum + d.accuracy, 0) / analytics.wpmOverTime.length
-    : 95;
+    : null;
 
   return {
     userProfile: {
@@ -713,7 +725,7 @@ const buildComprehensiveAnalyticsPayload = (
         difference: analytics.consistency.avgWpm - benchmarks.wpm.professional,
         percentile: analytics.consistency.avgWpm >= benchmarks.wpm.professional ? "Professional level" : "Below professional",
       },
-      accuracyRating: getAccuracyRating(avgAccuracy),
+      accuracyRating: avgAccuracy !== null ? getAccuracyRating(avgAccuracy) : "No data",
       consistencyRating: getConsistencyRating(dynamicThresholds.coefficientOfVariation),
     },
     trends: trendsData?.trends ? {
@@ -1076,7 +1088,7 @@ function AnalyticsContent() {
 ## CORE METRICS
 - Average WPM: ${payload.coreMetrics.avgWpm.toFixed(1)} (${payload.benchmarkComparisons.wpmVsAverage.percentile})
 - WPM Range: ${payload.coreMetrics.wpmRange.min} - ${payload.coreMetrics.wpmRange.max}
-- Average Accuracy: ${payload.coreMetrics.avgAccuracy.toFixed(1)}% (${payload.benchmarkComparisons.accuracyRating})
+- Average Accuracy: ${payload.coreMetrics.avgAccuracy !== null ? `${payload.coreMetrics.avgAccuracy.toFixed(1)}%` : "N/A"} (${payload.benchmarkComparisons.accuracyRating})
 - Consistency: ${payload.coreMetrics.consistency.rating} (CV: ${payload.coreMetrics.consistency.cvPercent.toFixed(1)}%)
 
 ## ADVANCED METRICS
@@ -1274,7 +1286,7 @@ EXAMPLE OUTPUT:
     
     const latestAccuracy = analytics.wpmOverTime.length > 0 
       ? safeNumber(analytics.wpmOverTime[analytics.wpmOverTime.length - 1].accuracy) 
-      : 95;
+      : 0;
     
     setLoadingDailyPlan(true);
     try {
