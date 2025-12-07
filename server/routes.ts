@@ -549,6 +549,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ providers: availability });
   });
 
+  app.get("/api/auth/providers/availability", (req, res) => {
+    const availability = getProviderAvailability();
+    res.json(availability);
+  });
+
   app.get("/api/auth/providers", isAuthenticated, async (req, res) => {
     try {
       const accounts = await storage.getUserOAuthAccounts(req.user!.id);
