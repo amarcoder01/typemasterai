@@ -2758,78 +2758,237 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
         </TabsContent>
 
         <TabsContent value="mistakes" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {(!analytics.mistakesHeatmap || analytics.mistakesHeatmap.length === 0) && 
+           (!analytics.commonMistakes || analytics.commonMistakes.length === 0) ? (
             <Card>
-              <CardHeader>
-                <CardTitle>Mistake Heatmap</CardTitle>
-                <CardDescription>Keys with highest error rates</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={analytics.mistakesHeatmap.slice(0, 10)}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                    <XAxis dataKey="key" stroke="#888" />
-                    <YAxis stroke="#888" label={{ value: 'Error Rate (%)', angle: -90, position: 'insideLeft' }} />
-                    <ChartTooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
-                    <Bar dataKey="errorRate" fill="#ef4444" />
-                  </BarChart>
-                </ResponsiveContainer>
+              <CardContent className="py-12">
+                <EmptyDataState message="No mistake data available yet. Complete more typing tests with the advanced keystroke tracking enabled to see your error patterns and areas for improvement." />
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Common Typing Errors</CardTitle>
-                <CardDescription>Most frequent mistakes you make</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-2">
-                    {analytics.commonMistakes.slice(0, 15).map((mistake, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
-                        data-testid={`mistake-${idx}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <Badge variant="destructive" className="font-mono">
-                            {mistake.expectedKey}
-                          </Badge>
-                          <span className="text-muted-foreground">→</span>
-                          <Badge variant="outline" className="font-mono">
-                            {mistake.typedKey}
-                          </Badge>
-                        </div>
-                        <span className="text-sm text-muted-foreground">{mistake.count}x</span>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          Mistake Heatmap
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-xs">
+                                <p>Shows which keys you mistype most often. Higher bars indicate keys that need more practice. Error rate = (errors / total presses) × 100%</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </CardTitle>
+                        <CardDescription>Keys with highest error rates</CardDescription>
                       </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
+                      {analytics.mistakesHeatmap.length > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {analytics.mistakesHeatmap.length} keys tracked
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {analytics.mistakesHeatmap.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                        <Keyboard className="w-10 h-10 text-muted-foreground mb-3" />
+                        <p className="text-sm text-muted-foreground">No keystroke errors recorded yet.</p>
+                        <p className="text-xs text-muted-foreground mt-1">Complete typing tests to see your error patterns.</p>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={analytics.mistakesHeatmap.slice(0, 10)}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+                          <XAxis dataKey="key" stroke="#888" />
+                          <YAxis stroke="#888" label={{ value: 'Error Rate (%)', angle: -90, position: 'insideLeft' }} />
+                          <ChartTooltip 
+                            contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}
+                            content={({ active, payload, label }) => {
+                              if (!active || !payload || !payload.length) return null;
+                              const data = payload[0]?.payload as { key: string; errorRate: number; errorCount: number; totalCount: number };
+                              return (
+                                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-lg">
+                                  <p className="text-sm font-bold text-white mb-1">Key: "{data?.key}"</p>
+                                  <p className="text-sm text-red-400">Error Rate: {data?.errorRate?.toFixed(1)}%</p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {data?.errorCount} errors out of {data?.totalCount} presses
+                                  </p>
+                                  <p className="text-xs text-cyan-400 mt-2">
+                                    {data?.errorRate > 10 ? "⚠️ High error rate - focus practice here" : 
+                                     data?.errorRate > 5 ? "📊 Moderate - room for improvement" : 
+                                     "✓ Good accuracy on this key"}
+                                  </p>
+                                </div>
+                              );
+                            }}
+                          />
+                          <Bar dataKey="errorRate" fill="#ef4444" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </CardContent>
+                </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Detailed Error Analysis</CardTitle>
-              <CardDescription>Keys sorted by total errors</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {analytics.mistakesHeatmap.slice(0, 24).map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex flex-col items-center justify-center p-4 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors"
-                    data-testid={`heatmap-key-${item.key}`}
-                  >
-                    <div className="text-2xl font-mono font-bold mb-2">{item.key}</div>
-                    <div className="text-xs text-destructive font-semibold">{item.errorRate.toFixed(1)}%</div>
-                    <div className="text-xs text-muted-foreground">{item.errorCount} errors</div>
-                  </div>
-                ))}
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          Common Typing Errors
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-xs">
+                                <p>Shows which keys you frequently substitute for others. The red badge is what you should have typed, and the outlined badge is what you actually typed.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </CardTitle>
+                        <CardDescription>Most frequent mistakes you make</CardDescription>
+                      </div>
+                      {analytics.commonMistakes.length > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {analytics.commonMistakes.reduce((sum, m) => sum + m.count, 0)} total errors
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {analytics.commonMistakes.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-[300px] text-center">
+                        <Target className="w-10 h-10 text-muted-foreground mb-3" />
+                        <p className="text-sm text-muted-foreground">No substitution errors recorded yet.</p>
+                        <p className="text-xs text-muted-foreground mt-1">Great job! Or complete more tests to track patterns.</p>
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-[300px]">
+                        <div className="space-y-2">
+                          {analytics.commonMistakes.slice(0, 15).map((mistake, idx) => (
+                            <TooltipProvider key={idx}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div
+                                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary/70 transition-colors cursor-help"
+                                    data-testid={`mistake-${idx}`}
+                                  >
+                                    <div className="flex items-center gap-3">
+                                      <Badge variant="destructive" className="font-mono">
+                                        {mistake.expectedKey}
+                                      </Badge>
+                                      <span className="text-muted-foreground">→</span>
+                                      <Badge variant="outline" className="font-mono">
+                                        {mistake.typedKey}
+                                      </Badge>
+                                    </div>
+                                    <span className="text-sm text-muted-foreground">{mistake.count}x</span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="left" className="max-w-xs">
+                                  <p className="text-sm">
+                                    You typed "{mistake.typedKey}" instead of "{mistake.expectedKey}" {mistake.count} time{mistake.count > 1 ? 's' : ''}.
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {mistake.count >= 10 ? "⚠️ Frequent mistake - practice this key pair" :
+                                     mistake.count >= 5 ? "📊 Moderate occurrence" :
+                                     "✓ Minor issue"}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        Detailed Error Analysis
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs">
+                              <p>Visual grid of all tracked keys. Keys with higher error rates are highlighted. Hover over each key for detailed statistics.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </CardTitle>
+                      <CardDescription>Keys sorted by total errors - hover for details</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-500/20 border border-red-500/50"></span> High</span>
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-yellow-500/20 border border-yellow-500/50"></span> Medium</span>
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-green-500/20 border border-green-500/50"></span> Low</span>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {analytics.mistakesHeatmap.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <Keyboard className="w-10 h-10 text-muted-foreground mb-3" />
+                      <p className="text-sm text-muted-foreground">No detailed error data available yet.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                      {analytics.mistakesHeatmap.slice(0, 24).map((item, idx) => {
+                        const severity = item.errorRate > 10 ? 'high' : item.errorRate > 5 ? 'medium' : 'low';
+                        const severityStyles = {
+                          high: 'border-red-500/50 bg-red-500/10 hover:bg-red-500/20',
+                          medium: 'border-yellow-500/50 bg-yellow-500/10 hover:bg-yellow-500/20',
+                          low: 'border-green-500/50 bg-green-500/10 hover:bg-green-500/20',
+                        };
+                        return (
+                          <TooltipProvider key={idx}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div
+                                  className={`flex flex-col items-center justify-center p-4 rounded-lg border transition-colors cursor-help ${severityStyles[severity]}`}
+                                  data-testid={`heatmap-key-${item.key}`}
+                                >
+                                  <div className="text-2xl font-mono font-bold mb-2">{item.key}</div>
+                                  <div className={`text-xs font-semibold ${severity === 'high' ? 'text-red-400' : severity === 'medium' ? 'text-yellow-400' : 'text-green-400'}`}>
+                                    {item.errorRate.toFixed(1)}%
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">{item.errorCount} errors</div>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                <div className="space-y-1">
+                                  <p className="font-semibold">Key: "{item.key}"</p>
+                                  <p className="text-sm">Error Rate: {item.errorRate.toFixed(2)}%</p>
+                                  <p className="text-sm">{item.errorCount} errors / {item.totalCount} presses</p>
+                                  <p className={`text-xs mt-1 ${severity === 'high' ? 'text-red-400' : severity === 'medium' ? 'text-yellow-400' : 'text-green-400'}`}>
+                                    {severity === 'high' ? '⚠️ Priority practice recommended' :
+                                     severity === 'medium' ? '📊 Some room for improvement' :
+                                     '✓ Good accuracy'}
+                                  </p>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="insights" className="space-y-4">
