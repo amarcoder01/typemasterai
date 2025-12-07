@@ -170,14 +170,13 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
           </motion.div>
 
           <motion.div
-            className="grid grid-cols-3 gap-4 mt-4"
+            className="grid grid-cols-2 gap-4 mt-4"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.6 }}
           >
             <StatCard value="10M+" label="Tests Taken" delay={0.7} />
-            <StatCard value="150+" label="WPM Record" delay={0.8} />
-            <StatCard value="50K+" label="Active Users" delay={0.9} />
+            <StatCard value="50K+" label="Active Users" delay={0.8} />
           </motion.div>
 
           <motion.div
