@@ -13,7 +13,6 @@ import {
   AuthPanelContent,
   AuthPanelFooter,
   AuthInput,
-  PasswordStrengthMeter,
   CapsLockWarning,
   SocialButton,
   SubmitButton,
@@ -265,7 +264,7 @@ export default function Register() {
               delay={5}
             />
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               <AuthInput
                 label="Password"
                 type="password"
@@ -275,12 +274,9 @@ export default function Register() {
                 onKeyDown={handleKeyDown}
                 required
                 data-testid="input-password"
-                tooltip="Must include uppercase, lowercase, number, and special character"
                 icon={<Lock className="h-4 w-4" />}
                 delay={6}
               />
-              
-              <PasswordStrengthMeter password={password} />
               
               <AnimatePresence>
                 <CapsLockWarning show={capsLockOn} />
@@ -299,7 +295,7 @@ export default function Register() {
               tooltip="Re-enter your password to make sure it matches"
               icon={<Lock className="h-4 w-4" />}
               delay={7}
-              success={passwordsMatch}
+              success={!!passwordsMatch}
               error={passwordsDontMatch ? "Passwords don't match" : undefined}
             />
           </AuthPanelContent>
