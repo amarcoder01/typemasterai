@@ -326,80 +326,158 @@ export default function Profile() {
 
   return (
       <div className="max-w-5xl mx-auto space-y-8">
+        <TooltipProvider delayDuration={200}>
         <div className="flex items-start gap-6 p-6 rounded-2xl bg-card/70 backdrop-blur-md border border-border/50 shadow-xl">
-          <Avatar className="w-24 h-24 border-4 border-background shadow-xl">
-            <AvatarFallback className={cn(user.avatarColor || "bg-primary", "text-primary-foreground text-3xl")}>
-              {user.username[0].toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Avatar className="w-24 h-24 border-4 border-background shadow-xl cursor-pointer">
+                <AvatarFallback className={cn(user.avatarColor || "bg-primary", "text-primary-foreground text-3xl")}>
+                  {user.username[0].toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Your profile avatar</p>
+            </TooltipContent>
+          </Tooltip>
           <div className="flex-1 space-y-3">
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-3xl font-bold">{user.username}</h1>
-                  <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/20">
-                    Level {level}
-                  </Badge>
+                  <h1 className="text-3xl font-bold" data-testid="text-username">{user.username}</h1>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/20 cursor-help" data-testid="badge-level">
+                        Level {level}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs">
+                      <p className="font-semibold">Your Level</p>
+                      <p className="text-xs text-muted-foreground mt-1">Levels are earned by gaining XP. Each level requires 100 XP. Keep typing to level up!</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-                <p className="text-muted-foreground mt-1">{user.email}</p>
+                <p className="text-muted-foreground mt-1" data-testid="text-email">{user.email}</p>
                 {user.bio && (
-                  <p className="text-foreground/80 mt-2 max-w-2xl">{user.bio}</p>
+                  <p className="text-foreground/80 mt-2 max-w-2xl" data-testid="text-bio">{user.bio}</p>
                 )}
                 <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
                   {user.country && (
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4" />
-                      <span>{user.country}</span>
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1 cursor-help" data-testid="text-country">
+                          <MapPin className="w-4 h-4" />
+                          <span>{user.country}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Your location</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                   {user.keyboardLayout && (
-                    <div className="flex items-center gap-1">
-                      <Keyboard className="w-4 h-4" />
-                      <span>{user.keyboardLayout}</span>
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1 cursor-help" data-testid="text-keyboard">
+                          <Keyboard className="w-4 h-4" />
+                          <span>{user.keyboardLayout}</span>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Your keyboard layout</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                   {stats && (
-                    <span>{stats.totalTests} Tests Completed</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help" data-testid="text-tests-count">{stats.totalTests} Tests Completed</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Total typing tests you've completed</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setLocation("/profile/edit")} data-testid="button-edit-profile">
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Profile
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" onClick={() => setLocation("/profile/edit")} data-testid="button-edit-profile">
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Profile
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Customize your avatar, bio, and preferences</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
-            <div className="flex gap-8">
-              {stats ? (
-                <>
-                  <div>
-                    <div className="text-3xl font-bold font-mono">{stats.avgWpm || 0}</div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg WPM</div>
-                  </div>
-                  <div>
-                    <div className="text-3xl font-bold font-mono text-primary">{stats.bestWpm || 0}</div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Best WPM</div>
-                  </div>
-                  <div>
-                    <div className="text-3xl font-bold font-mono text-amber-500">{totalPoints}</div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wider">Total XP</div>
-                  </div>
-                </>
-              ) : (
-                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-              )}
-            </div>
-            <div className="max-w-xs">
-              <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>Level {level}</span>
-                <span>{xp % 100} / 100 XP</span>
+            <TooltipProvider delayDuration={200}>
+              <div className="flex gap-8">
+                {stats ? (
+                  <>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="cursor-help" data-testid="stat-avg-wpm">
+                          <div className="text-3xl font-bold font-mono">{stats.avgWpm || 0}</div>
+                          <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg WPM</div>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="font-semibold">Average Words Per Minute</p>
+                        <p className="text-xs text-muted-foreground mt-1">Your average typing speed across all tests. Higher is better!</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="cursor-help" data-testid="stat-best-wpm">
+                          <div className="text-3xl font-bold font-mono text-primary">{stats.bestWpm || 0}</div>
+                          <div className="text-xs text-muted-foreground uppercase tracking-wider">Best WPM</div>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="font-semibold">Personal Best Speed</p>
+                        <p className="text-xs text-muted-foreground mt-1">Your highest typing speed ever recorded. Keep practicing to beat it!</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="cursor-help" data-testid="stat-total-xp">
+                          <div className="text-3xl font-bold font-mono text-amber-500">{totalPoints}</div>
+                          <div className="text-xs text-muted-foreground uppercase tracking-wider">Total XP</div>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs">
+                        <p className="font-semibold">Experience Points</p>
+                        <p className="text-xs text-muted-foreground mt-1">Earn XP by completing tests, unlocking badges, and maintaining streaks. XP contributes to your level!</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </>
+                ) : (
+                  <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                )}
               </div>
-              <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-500"
-                  style={{ width: `${xpProgress}%` }}
-                />
-              </div>
-            </div>
+            </TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="max-w-xs cursor-help" data-testid="level-progress">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>Level {level}</span>
+                    <span>{xp % 100} / 100 XP</span>
+                  </div>
+                  <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-500"
+                      style={{ width: `${xpProgress}%` }}
+                    />
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p className="font-semibold">Level Progress</p>
+                <p className="text-xs text-muted-foreground mt-1">Earn 100 XP to reach the next level. Complete tests and unlock badges to earn XP faster!</p>
+              </TooltipContent>
+            </Tooltip>
             
             {unlockedCount > 0 && (
               <TooltipProvider delayDuration={200}>
