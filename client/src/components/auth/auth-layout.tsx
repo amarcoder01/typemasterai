@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Keyboard, Sparkles, Zap, TrendingUp, Users, Brain, Trophy, BarChart3, Gamepad2, Star, CheckCircle2 } from "lucide-react";
+import { Keyboard, Sparkles } from "lucide-react";
 
 interface Particle {
   id: number;
@@ -193,9 +193,9 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
     <div className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden">
       <AnimatedBackground />
       
-      <div className="w-full max-w-6xl relative z-10 grid lg:grid-cols-2 gap-8 lg:gap-16 items-center">
+      <div className="w-full max-w-5xl relative z-10 grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
         <motion.div
-          className="hidden lg:flex flex-col gap-6"
+          className="hidden lg:flex flex-col gap-8"
           initial={{ opacity: 0, x: -50 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
@@ -207,12 +207,12 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
             transition={{ delay: 0.2, duration: 0.6 }}
           >
             <motion.div 
-              className="relative w-14 h-14"
+              className="relative w-16 h-16"
               whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ type: "spring", stiffness: 400 }}
             >
               <motion.div
-                className="absolute inset-0 bg-gradient-to-br from-primary to-purple-600 rounded-xl"
+                className="absolute inset-0 bg-gradient-to-br from-primary to-purple-600 rounded-2xl"
                 animate={{
                   boxShadow: [
                     "0 0 20px hsl(var(--primary) / 0.3)",
@@ -223,12 +223,12 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
                 transition={{ duration: 2, repeat: Infinity }}
               />
               <div className="relative w-full h-full flex items-center justify-center text-white">
-                <Keyboard className="w-7 h-7" />
+                <Keyboard className="w-8 h-8" />
               </div>
             </motion.div>
             <div>
               <motion.h2 
-                className="text-xl font-bold bg-gradient-to-r from-white via-primary/90 to-purple-400 bg-clip-text text-transparent"
+                className="text-2xl font-bold bg-gradient-to-r from-white via-primary/90 to-purple-400 bg-clip-text text-transparent"
                 animate={{
                   backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
                 }}
@@ -237,20 +237,20 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
               >
                 TypeMasterAI
               </motion.h2>
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-primary" />
-                The #1 AI-Powered Typing Platform
+                Master your typing skills
               </p>
             </div>
           </motion.div>
 
           <motion.div
-            className="space-y-4"
+            className="space-y-6"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.6 }}
           >
-            <h1 className="text-3xl lg:text-4xl font-bold leading-tight">
+            <h1 className="text-4xl lg:text-5xl font-bold leading-tight">
               <motion.span 
                 className="bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent inline-block"
                 initial={{ opacity: 0, y: 20 }}
@@ -261,7 +261,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
               </motion.span>
             </h1>
             <motion.p 
-              className="text-base text-muted-foreground leading-relaxed"
+              className="text-lg text-muted-foreground leading-relaxed max-w-md"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.7, duration: 0.6 }}
@@ -271,106 +271,25 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
           </motion.div>
 
           <motion.div
-            className="space-y-3"
-            initial={{ opacity: 0, y: 20 }}
+            className="grid grid-cols-2 gap-4 mt-4"
+            initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.6 }}
           >
-            <p className="text-xs font-medium text-primary uppercase tracking-wider">Why Choose Us</p>
-            <div className="grid gap-2.5">
-              <BenefitItem 
-                icon={<Brain className="w-4 h-4" />}
-                title="AI-Powered Learning"
-                description="Smart algorithms adapt to your skill level"
-                delay={0}
-              />
-              <BenefitItem 
-                icon={<TrendingUp className="w-4 h-4" />}
-                title="Track Your Progress"
-                description="Detailed analytics show your improvement"
-                delay={0.1}
-              />
-              <BenefitItem 
-                icon={<Gamepad2 className="w-4 h-4" />}
-                title="Race Against Others"
-                description="Compete in real-time multiplayer races"
-                delay={0.2}
-              />
-              <BenefitItem 
-                icon={<Trophy className="w-4 h-4" />}
-                title="Climb the Ranks"
-                description="Global leaderboards with ELO ratings"
-                delay={0.3}
-              />
-            </div>
+            <StatCard value="10M+" label="Tests Taken" delay={0.7} />
+            <StatCard value="50K+" label="Active Users" delay={0.8} />
           </motion.div>
 
           <motion.div
-            className="flex items-center gap-6 pt-2"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9, duration: 0.6 }}
+            className="flex flex-wrap gap-3 mt-2"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1, duration: 0.6 }}
           >
-            <div className="flex items-center gap-2">
-              <div className="flex -space-x-2">
-                {[1, 2, 3, 4].map((i) => (
-                  <motion.div
-                    key={i}
-                    className="w-8 h-8 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-800 border-2 border-zinc-900 flex items-center justify-center text-xs font-medium"
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 1 + i * 0.1 }}
-                  >
-                    <Users className="w-3.5 h-3.5 text-zinc-400" />
-                  </motion.div>
-                ))}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white">50K+</p>
-                <p className="text-xs text-muted-foreground">Active typists</p>
-              </div>
-            </div>
-            
-            <div className="h-8 w-px bg-zinc-800" />
-            
-            <div>
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 1.2 + i * 0.05 }}
-                  >
-                    <Star className="w-3.5 h-3.5 fill-yellow-500 text-yellow-500" />
-                  </motion.div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">4.9 average rating</p>
-            </div>
-          </motion.div>
-
-          <motion.div
-            className="bg-zinc-900/40 backdrop-blur-sm border border-zinc-800/50 rounded-xl p-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.1, duration: 0.6 }}
-          >
-            <div className="flex items-start gap-3">
-              <motion.div
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center flex-shrink-0"
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ duration: 3, repeat: Infinity }}
-              >
-                <Zap className="w-5 h-5 text-primary" />
-              </motion.div>
-              <div>
-                <p className="text-sm text-zinc-300 italic">
-                  "Went from 45 WPM to 95 WPM in just 3 months! The AI practice sessions are incredibly effective."
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">— Sarah K., Software Developer</p>
-              </div>
-            </div>
+            <FeatureTag icon="🎯" text="AI-Powered Practice" delay={0} />
+            <FeatureTag icon="🏆" text="Global Leaderboards" delay={0.1} />
+            <FeatureTag icon="📊" text="Advanced Analytics" delay={0.2} />
+            <FeatureTag icon="🎮" text="Multiplayer Racing" delay={0.3} />
           </motion.div>
         </motion.div>
 
@@ -414,25 +333,57 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
   );
 }
 
-function BenefitItem({ icon, title, description, delay }: { icon: React.ReactNode; title: string; description: string; delay: number }) {
+function StatCard({ value, label, delay }: { value: string; label: string; delay: number }) {
   return (
     <motion.div
-      className="flex items-start gap-3 group cursor-default"
+      className="relative bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 rounded-xl p-4 text-center overflow-hidden group cursor-default"
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ delay, duration: 0.5, type: "spring" }}
+      whileHover={{ scale: 1.05, borderColor: "hsl(var(--primary) / 0.5)" }}
+    >
+      <motion.div
+        className="absolute inset-0 bg-gradient-to-r from-primary/10 via-purple-500/10 to-primary/10"
+        initial={{ x: "-100%" }}
+        whileHover={{ x: "100%" }}
+        transition={{ duration: 0.6 }}
+      />
+      <motion.div
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{
+          background: "radial-gradient(circle at center, hsl(var(--primary) / 0.1) 0%, transparent 70%)",
+        }}
+      />
+      <motion.div 
+        className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent relative z-10"
+        animate={{ 
+          scale: [1, 1.02, 1],
+        }}
+        transition={{ duration: 2, repeat: Infinity }}
+      >
+        {value}
+      </motion.div>
+      <div className="text-xs text-muted-foreground mt-1 relative z-10">{label}</div>
+    </motion.div>
+  );
+}
+
+function FeatureTag({ icon, text, delay }: { icon: string; text: string; delay: number }) {
+  return (
+    <motion.div
+      className="flex items-center gap-2 bg-zinc-900/60 backdrop-blur-sm border border-zinc-800 rounded-full px-3 py-1.5 text-sm cursor-default group"
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.7 + delay, duration: 0.4 }}
-      whileHover={{ x: 5 }}
+      transition={{ delay: 1 + delay, duration: 0.4 }}
+      whileHover={{ scale: 1.08, borderColor: "hsl(var(--primary) / 0.5)" }}
     >
-      <motion.div 
-        className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary flex-shrink-0 mt-0.5"
-        whileHover={{ scale: 1.1, borderColor: "hsl(var(--primary) / 0.5)" }}
+      <motion.span
+        animate={{ rotate: [0, 10, -10, 0] }}
+        transition={{ duration: 2, repeat: Infinity, delay: delay }}
       >
         {icon}
-      </motion.div>
-      <div>
-        <p className="text-sm font-medium text-white group-hover:text-primary transition-colors">{title}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
+      </motion.span>
+      <span className="text-zinc-300 group-hover:text-white transition-colors">{text}</span>
     </motion.div>
   );
 }
