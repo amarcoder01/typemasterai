@@ -1,9 +1,27 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Lock, Zap, Target, Flame, TrendingUp, Star, Award, Share2, Moon, Sunrise, Rocket, Sparkles, Timer, HelpCircle } from "lucide-react";
 import { getTierColor, getTierBorder, getCategoryColor, type Badge as BadgeType } from "@shared/badges";
 import { cn } from "@/lib/utils";
+
+const tierDescriptions: Record<string, string> = {
+  bronze: "Entry-level achievement - Great start!",
+  silver: "Intermediate milestone - Keep going!",
+  gold: "Advanced accomplishment - Impressive!",
+  platinum: "Expert-level mastery - Outstanding!",
+  diamond: "Ultimate achievement - Legendary!",
+};
+
+const categoryTips: Record<string, string> = {
+  speed: "Practice regularly to increase your typing speed",
+  accuracy: "Focus on precision over speed to unlock these",
+  consistency: "Keep taking tests to build your practice habit",
+  streak: "Type every day to maintain and grow your streak",
+  special: "Complete unique challenges to unlock these",
+  secret: "Hidden achievements - explore to discover them!",
+};
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Zap,
@@ -35,9 +53,59 @@ export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0, unl
   const isSecret = badge.isSecret === true;
   const isHiddenSecret = isSecret && !unlocked;
 
+  const tooltipContent = isHiddenSecret ? (
+    <div className="space-y-2 max-w-xs">
+      <p className="font-semibold text-indigo-400">Secret Badge</p>
+      <p className="text-xs text-muted-foreground">
+        This is a hidden achievement. Keep exploring different ways to practice typing to discover it!
+      </p>
+      <div className="flex items-center gap-2 pt-1">
+        <Badge variant="outline" className="text-[10px] border-indigo-500/50 text-indigo-400">
+          ???
+        </Badge>
+        <span className="text-xs text-muted-foreground">??? XP</span>
+      </div>
+    </div>
+  ) : (
+    <div className="space-y-2 max-w-xs">
+      <p className="font-semibold">{badge.name}</p>
+      <p className="text-xs text-muted-foreground">{badge.description}</p>
+      <div className="flex items-center gap-2 pt-1 flex-wrap">
+        <Badge 
+          variant="outline" 
+          className="text-[10px] capitalize"
+          style={{ borderColor: badge.color, color: badge.color }}
+        >
+          {badge.tier}
+        </Badge>
+        <Badge variant="secondary" className="text-[10px] capitalize">
+          {badge.category}
+        </Badge>
+        <span className={cn("text-xs font-medium", getCategoryColor(badge.category))}>
+          +{badge.points} XP
+        </span>
+      </div>
+      <p className="text-[10px] text-muted-foreground italic pt-1">
+        {tierDescriptions[badge.tier]}
+      </p>
+      {!unlocked && (
+        <p className="text-[10px] text-primary/80 pt-1">
+          {categoryTips[badge.category]}
+        </p>
+      )}
+      {unlocked && unlockedAt && (
+        <p className="text-[10px] text-green-500/80 pt-1">
+          Unlocked on {new Date(unlockedAt).toLocaleDateString()}
+        </p>
+      )}
+    </div>
+  );
+
   return (
-    <Card
-      className={cn(
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Card
+          className={cn(
         "relative p-4 transition-all duration-300",
         unlocked
           ? `border-2 ${getTierBorder(badge.tier)} bg-gradient-to-br ${getTierColor(badge.tier)} bg-opacity-10 hover:scale-105 shadow-lg`
@@ -153,6 +221,11 @@ export function BadgeCard({ badge, unlocked, progress = 0, currentValue = 0, unl
           +{badge.points} XP
         </div>
       </div>
-    </Card>
+        </Card>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="p-3">
+        {tooltipContent}
+      </TooltipContent>
+    </Tooltip>
   );
 }
