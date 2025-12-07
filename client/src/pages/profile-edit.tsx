@@ -2,8 +2,6 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +10,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/searchable-select";
 
 const AVATAR_COLORS = [
   { value: "bg-primary", label: "Amber", class: "bg-primary" },
@@ -24,7 +23,7 @@ const AVATAR_COLORS = [
   { value: "bg-cyan-500", label: "Cyan", class: "bg-cyan-500" },
 ];
 
-const COUNTRIES = [
+const COUNTRY_OPTIONS = [
   "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia",
   "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus",
   "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil",
@@ -50,7 +49,7 @@ const COUNTRIES = [
   "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine",
   "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu",
   "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe", "Other"
-];
+].map(c => ({ value: c, label: c }));
 
 const KEYBOARD_LAYOUTS = ["QWERTY", "DVORAK", "COLEMAK", "AZERTY", "QWERTZ", "Other"];
 
@@ -188,18 +187,15 @@ export default function ProfileEdit() {
             <CardDescription>Your country or region</CardDescription>
           </CardHeader>
           <CardContent>
-            <Select value={country} onValueChange={setCountry}>
-              <SelectTrigger data-testid="select-country">
-                <SelectValue placeholder="Select your country" />
-              </SelectTrigger>
-              <SelectContent>
-                {COUNTRIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={country}
+              onValueChange={setCountry}
+              options={COUNTRY_OPTIONS}
+              placeholder="Select your country"
+              searchPlaceholder="Search countries..."
+              emptyText="No country found."
+              data-testid="select-country"
+            />
           </CardContent>
         </Card>
 

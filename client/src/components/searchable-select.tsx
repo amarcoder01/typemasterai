@@ -24,6 +24,10 @@ interface SearchableSelectProps {
   searchPlaceholder?: string;
   emptyText?: string;
   icon?: React.ReactNode;
+  className?: string;
+  triggerClassName?: string;
+  contentClassName?: string;
+  "data-testid"?: string;
 }
 
 export function SearchableSelect({
@@ -34,6 +38,10 @@ export function SearchableSelect({
   searchPlaceholder = "Search...",
   emptyText = "No results found.",
   icon,
+  className,
+  triggerClassName,
+  contentClassName,
+  "data-testid": dataTestId,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
 
@@ -46,8 +54,8 @@ export function SearchableSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[200px] justify-between bg-secondary hover:bg-secondary/80"
-          data-testid={`searchable-select-${placeholder.toLowerCase().replace(/\s+/g, '-')}`}
+          className={cn("w-full justify-between bg-secondary hover:bg-secondary/80", triggerClassName)}
+          data-testid={dataTestId || `searchable-select-${placeholder.toLowerCase().replace(/\s+/g, '-')}`}
         >
           <div className="flex items-center gap-2">
             {icon}
@@ -58,7 +66,7 @@ export function SearchableSelect({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent className={cn("w-full min-w-[200px] p-0", contentClassName)} align="start">
         <Command>
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
