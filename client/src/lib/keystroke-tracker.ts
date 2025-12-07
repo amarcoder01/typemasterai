@@ -366,9 +366,10 @@ export class KeystrokeTracker {
         }
       }
     }
-    // Fallback to penalty-based calculation if we couldn't calculate from events
+    // Fallback: use the already-calculated net WPM (which is passed in as 'wpm')
+    // This ensures we always use time-normalized calculations
     if (adjustedWpm === null) {
-      adjustedWpm = Math.max(0, Math.round(rawWpm - totalErrors));
+      adjustedWpm = Math.max(0, wpm);
     }
     
     // 3. Rolling Accuracy - Accuracy across 5 chunks for trend analysis
@@ -510,6 +511,7 @@ export class KeystrokeTracker {
   }
   
   // Typing rhythm score based on interkey timing variance
+  // Uses same scaling as consistency for uniformity
   private calculateTypingRhythm(flightTimes: number[]): number | null {
     if (flightTimes.length < 3) return null;
     
@@ -527,12 +529,13 @@ export class KeystrokeTracker {
     const variance = filteredTimes.reduce((sum, t) => sum + Math.pow(t - mean, 2), 0) / filteredTimes.length;
     const stdDev = Math.sqrt(variance);
     
-    // Coefficient of variation - lower is better rhythm
-    const cv = (stdDev / mean) * 100;
+    // Coefficient of variation (0-1 range) - lower is better rhythm
+    const cv = stdDev / mean;
     
-    // Convert to 0-100 score where 100 is perfect rhythm
-    // CV of 20% = 80 score, CV of 50% = 50 score, CV of 100% = 0 score
-    const rhythmScore = Math.max(0, Math.min(100, 100 - cv));
+    // Convert to 0-100 score using same scaling as consistency formula
+    // Flight times naturally have higher variance, so use gentler scaling (cv * 50)
+    // This matches the consistency calculation for uniform metrics
+    const rhythmScore = Math.max(0, Math.min(100, 100 - (cv * 50)));
     
     return Math.round(rhythmScore);
   }
