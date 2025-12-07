@@ -1312,7 +1312,7 @@ Can you beat my score? Try it here: `,
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="w-full max-w-5xl mx-auto flex flex-col gap-8">
+      <div className="w-full max-w-5xl mx-auto flex flex-col gap-4 md:gap-8 px-2 sm:px-0">
         {/* API Error Banner - only show when there's an error and not currently fetching, hidden in zen mode */}
         {!(zenMode && isActive) && ((languagesError && !languagesFetching) || (modesError && !modesFetching)) && (
           <div className="flex items-center justify-center gap-2 p-2 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
@@ -1333,8 +1333,8 @@ Can you beat my score? Try it here: `,
 
         {/* Language & Mode Selectors - Removed from DOM in Zen Mode when typing */}
         {!(zenMode && isActive) && (
-        <div className="flex flex-col gap-4 transition-opacity duration-300">
-          <div className="flex items-center justify-center gap-4 flex-wrap">
+        <div className="flex flex-col gap-3 md:gap-4 transition-opacity duration-300">
+          <div className="flex items-center justify-center gap-2 md:gap-4 flex-wrap">
             <div className="flex items-center gap-1.5">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -1472,11 +1472,11 @@ Can you beat my score? Try it here: `,
           </div>
 
         {/* Time Mode Selector */}
-        <div className="flex flex-col gap-3">
-          <div className="flex justify-center items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 mr-1">
-              <Timer className="w-4 h-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground font-medium">Duration:</span>
+        <div className="flex flex-col gap-2 md:gap-3">
+          <div className="flex justify-center items-center gap-1.5 md:gap-2 flex-wrap">
+            <div className="flex items-center gap-1 md:gap-1.5 mr-0.5 md:mr-1">
+              <Timer className="w-3.5 h-3.5 md:w-4 md:h-4 text-muted-foreground" />
+              <span className="text-[10px] md:text-xs text-muted-foreground font-medium">Duration:</span>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors" aria-label="Duration help">
@@ -1499,7 +1499,7 @@ Can you beat my score? Try it here: `,
                       setShowCustomInput(false);
                     }}
                     className={cn(
-                      "px-4 py-2 rounded-full text-sm font-medium transition-all",
+                      "px-2.5 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium transition-all",
                       mode === preset.value && !showCustomInput
                         ? "bg-primary text-primary-foreground" 
                         : "bg-secondary text-muted-foreground hover:text-foreground"
@@ -1519,7 +1519,7 @@ Can you beat my score? Try it here: `,
                 <button
                   onClick={() => setShowCustomInput(!showCustomInput)}
                   className={cn(
-                    "px-4 py-2 rounded-full text-sm font-medium transition-all",
+                    "px-2.5 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium transition-all",
                     showCustomInput
                       ? "bg-primary text-primary-foreground" 
                       : "bg-secondary text-muted-foreground hover:text-foreground"
@@ -1540,15 +1540,16 @@ Can you beat my score? Try it here: `,
                   onClick={resetTest}
                   disabled={isGenerating}
                   className={cn(
-                    "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2",
+                    "px-2.5 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium transition-all flex items-center gap-1.5 md:gap-2",
                     isGenerating
                       ? "bg-primary/50 text-primary-foreground cursor-not-allowed"
                       : "bg-secondary text-muted-foreground hover:text-foreground"
                   )}
                   data-testid="button-new-paragraph"
                 >
-                  <RefreshCw className={cn("w-4 h-4", isGenerating && "animate-spin")} />
-                  {isGenerating ? "Generating..." : "New Paragraph"}
+                  <RefreshCw className={cn("w-3.5 h-3.5 md:w-4 md:h-4", isGenerating && "animate-spin")} />
+                  <span className="hidden sm:inline">{isGenerating ? "Generating..." : "New Paragraph"}</span>
+                  <span className="sm:hidden">{isGenerating ? "..." : "New"}</span>
                 </button>
               </TooltipTrigger>
               <TooltipContent>
@@ -1766,12 +1767,12 @@ Can you beat my score? Try it here: `,
 
       {/* Stats Overview (Live) - 6 metrics like Monkeytype - Removed from DOM in Zen Mode when typing */}
       {!(zenMode && isActive) && (
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 transition-opacity duration-300">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3 transition-opacity duration-300">
          <Tooltip>
            <TooltipTrigger asChild>
-             <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Time</span>
-               <span className="text-2xl md:text-3xl font-mono font-bold text-primary" data-testid="text-time-left">{formatTime(timeLeft)}</span>
+             <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Time</span>
+               <span className="text-xl md:text-3xl font-mono font-bold text-primary" data-testid="text-time-left">{formatTime(timeLeft)}</span>
              </div>
            </TooltipTrigger>
            <TooltipContent className="max-w-[220px]">
@@ -1781,9 +1782,9 @@ Can you beat my score? Try it here: `,
          </Tooltip>
          <Tooltip>
            <TooltipTrigger asChild>
-             <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">WPM</span>
-               <span className="text-2xl md:text-3xl font-mono font-bold" data-testid="text-wpm">{wpm}</span>
+             <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">WPM</span>
+               <span className="text-xl md:text-3xl font-mono font-bold" data-testid="text-wpm">{wpm}</span>
              </div>
            </TooltipTrigger>
            <TooltipContent className="max-w-[260px]">
@@ -1794,9 +1795,9 @@ Can you beat my score? Try it here: `,
          </Tooltip>
          <Tooltip>
            <TooltipTrigger asChild>
-             <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Raw</span>
-               <span className="text-2xl md:text-3xl font-mono font-bold text-muted-foreground" data-testid="text-raw-wpm">{rawWpm}</span>
+             <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Raw</span>
+               <span className="text-xl md:text-3xl font-mono font-bold text-muted-foreground" data-testid="text-raw-wpm">{rawWpm}</span>
              </div>
            </TooltipTrigger>
            <TooltipContent className="max-w-[260px]">
@@ -1806,9 +1807,9 @@ Can you beat my score? Try it here: `,
          </Tooltip>
          <Tooltip>
            <TooltipTrigger asChild>
-             <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Accuracy</span>
-               <span className="text-2xl md:text-3xl font-mono font-bold" data-testid="text-accuracy">{accuracy}%</span>
+             <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Acc</span>
+               <span className="text-xl md:text-3xl font-mono font-bold" data-testid="text-accuracy">{accuracy}%</span>
              </div>
            </TooltipTrigger>
            <TooltipContent className="max-w-[240px]">
@@ -1819,9 +1820,9 @@ Can you beat my score? Try it here: `,
          </Tooltip>
          <Tooltip>
            <TooltipTrigger asChild>
-             <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Consistency</span>
-               <span className={cn("text-2xl md:text-3xl font-mono font-bold", 
+             <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Cons</span>
+               <span className={cn("text-xl md:text-3xl font-mono font-bold", 
                  consistency >= 80 ? "text-green-500" : consistency >= 60 ? "text-yellow-500" : "text-orange-500"
                )} data-testid="text-consistency">{consistency}%</span>
              </div>
@@ -1834,9 +1835,9 @@ Can you beat my score? Try it here: `,
          </Tooltip>
          <Tooltip>
            <TooltipTrigger asChild>
-             <div className="flex flex-col items-center p-3 rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-[10px] uppercase tracking-wider mb-1">Status</span>
-               <span className={cn("text-2xl md:text-3xl font-mono font-bold", isActive ? "text-green-500" : "text-muted-foreground")} data-testid="text-status">
+             <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-border cursor-help">
+               <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Status</span>
+               <span className={cn("text-xl md:text-3xl font-mono font-bold", isActive ? "text-green-500" : "text-muted-foreground")} data-testid="text-status">
                  {isActive ? "GO" : isFinished ? "DONE" : "READY"}
                </span>
              </div>
@@ -1854,7 +1855,7 @@ Can you beat my score? Try it here: `,
       )}
 
       {/* Typing Area */}
-      <div className="relative min-h-[300px] max-h-[400px] overflow-hidden group">
+      <div className="relative min-h-[200px] md:min-h-[300px] max-h-[300px] md:max-h-[400px] overflow-hidden group">
         {/* Error State */}
         {paragraphError && !text && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
@@ -1940,7 +1941,7 @@ Can you beat my score? Try it here: `,
             lang={language}
             dir={isRTL ? "rtl" : "ltr"}
             className={cn(
-              "w-full h-full max-h-[400px] overflow-y-auto p-8 text-2xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300 scroll-smooth",
+              "w-full h-full max-h-[300px] md:max-h-[400px] overflow-y-auto p-4 md:p-8 text-lg sm:text-xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300 scroll-smooth",
               !isActive && !isFinished && !hasInteracted && "blur-[2px] opacity-60 group-hover:blur-0 group-hover:opacity-100"
             )}
             onClick={() => {
@@ -2009,16 +2010,17 @@ Can you beat my score? Try it here: `,
 
       {/* Controls - Removed from DOM in Zen Mode when typing for accessibility */}
       {!(zenMode && isActive) && (
-        <div className="flex justify-center gap-3 transition-opacity duration-300">
+        <div className="flex justify-center gap-2 md:gap-3 transition-opacity duration-300">
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={resetTest}
-                className="flex items-center gap-2 px-8 py-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-secondary-foreground font-medium"
+                className="flex items-center gap-1.5 md:gap-2 px-4 md:px-8 py-2 md:py-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-secondary-foreground font-medium text-sm md:text-base"
                 data-testid="button-restart-test"
               >
-                <RefreshCw className="w-5 h-5" />
-                Restart Test
+                <RefreshCw className="w-4 h-4 md:w-5 md:h-5" />
+                <span className="hidden sm:inline">Restart Test</span>
+                <span className="sm:hidden">Restart</span>
               </button>
             </TooltipTrigger>
             <TooltipContent>
@@ -2068,29 +2070,29 @@ Can you beat my score? Try it here: `,
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-2 sm:p-4"
           >
-            <div className="bg-card border border-border p-8 rounded-2xl shadow-2xl max-w-lg w-full relative overflow-hidden">
+            <div className="bg-card border border-border p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-2xl shadow-2xl max-w-lg w-full relative overflow-hidden max-h-[90vh] overflow-y-auto">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-primary animate-gradient" />
               
-              <h2 className="text-3xl font-bold mb-8 text-center">Test Complete!</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 md:mb-8 text-center">Test Complete!</h2>
               
-              <div className="grid grid-cols-2 gap-6 mb-8">
-                <div className="flex flex-col items-center p-4 bg-background/50 rounded-xl">
-                  <div className="text-muted-foreground text-sm mb-1 flex items-center gap-2">
-                    <Zap className="w-4 h-4" /> WPM
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
+                <div className="flex flex-col items-center p-3 sm:p-4 bg-background/50 rounded-lg sm:rounded-xl">
+                  <div className="text-muted-foreground text-xs sm:text-sm mb-1 flex items-center gap-1.5 sm:gap-2">
+                    <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> WPM
                   </div>
-                  <div className="text-5xl font-mono font-bold text-primary">{wpm}</div>
+                  <div className="text-3xl sm:text-4xl md:text-5xl font-mono font-bold text-primary">{wpm}</div>
                 </div>
-                <div className="flex flex-col items-center p-4 bg-background/50 rounded-xl">
-                  <div className="text-muted-foreground text-sm mb-1 flex items-center gap-2">
-                    <Target className="w-4 h-4" /> Accuracy
+                <div className="flex flex-col items-center p-3 sm:p-4 bg-background/50 rounded-lg sm:rounded-xl">
+                  <div className="text-muted-foreground text-xs sm:text-sm mb-1 flex items-center gap-1.5 sm:gap-2">
+                    <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Accuracy
                   </div>
-                  <div className="text-5xl font-mono font-bold">{accuracy}%</div>
+                  <div className="text-3xl sm:text-4xl md:text-5xl font-mono font-bold">{accuracy}%</div>
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-2 sm:space-y-3 md:space-y-4">
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Raw WPM</span>
                   <span className="font-mono text-foreground">{wpm + Math.round((100 - accuracy) / 2)}</span>

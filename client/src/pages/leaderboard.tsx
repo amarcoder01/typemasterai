@@ -309,7 +309,7 @@ function LeaderboardContent() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto px-4 sm:px-0">
         {!isOnline && (
           <div className="mb-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg flex items-center gap-2 text-orange-500">
             <WifiOff className="w-4 h-4" />
@@ -317,11 +317,11 @@ function LeaderboardContent() {
           </div>
         )}
 
-        <div className="flex flex-col items-center gap-4 mb-10">
+        <div className="flex flex-col items-center gap-3 sm:gap-4 mb-6 sm:mb-10">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="p-3 rounded-full bg-primary/10 text-primary cursor-help">
-                <Trophy className="w-8 h-8" />
+              <div className="p-2.5 sm:p-3 rounded-full bg-primary/10 text-primary cursor-help">
+                <Trophy className="w-6 h-6 sm:w-8 sm:h-8" />
               </div>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-xs">
@@ -331,8 +331,8 @@ function LeaderboardContent() {
               </p>
             </TooltipContent>
           </Tooltip>
-          <h1 className="text-3xl font-bold">Global Leaderboard</h1>
-          <p className="text-muted-foreground">Top typists worldwide</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Global Leaderboard</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Top typists worldwide</p>
         </div>
 
         <div className="mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">

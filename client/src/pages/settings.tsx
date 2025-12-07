@@ -402,16 +402,16 @@ export default function Settings() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="max-w-2xl mx-auto space-y-8">
+      <div className="max-w-2xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-0">
         <div className="space-y-2">
-           <h1 className="text-3xl font-bold">Settings</h1>
-           <p className="text-muted-foreground">
+           <h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
+           <p className="text-sm sm:text-base text-muted-foreground">
              Customize your typing experience
              {!user && " (Settings are saved locally on this device)"}
            </p>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Appearance */}
           <Card>
             <CardHeader>
@@ -445,7 +445,7 @@ export default function Settings() {
                   <span className="font-normal text-xs text-muted-foreground">Select your preferred color scheme</span>
                 </Label>
                 <Select value={theme} onValueChange={(value) => setTheme(value as any)}>
-                  <SelectTrigger className="w-[180px]" data-testid="select-theme">
+                  <SelectTrigger className="w-[140px] sm:w-[180px]" data-testid="select-theme">
                     <SelectValue placeholder="Select theme" />
                   </SelectTrigger>
                   <SelectContent>

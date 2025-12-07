@@ -415,38 +415,38 @@ export default function Profile() {
 
   if (!user) {
     return (
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto px-4 sm:px-0">
           <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardContent className="p-12">
-              <div className="flex flex-col items-center text-center space-y-6">
-                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                  <UserIcon className="w-10 h-10 text-primary" />
+            <CardContent className="p-6 sm:p-12">
+              <div className="flex flex-col items-center text-center space-y-4 sm:space-y-6">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                  <UserIcon className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-3xl font-bold">View Your Typing Stats</h2>
-                  <p className="text-muted-foreground max-w-md">
+                  <h2 className="text-2xl sm:text-3xl font-bold">View Your Typing Stats</h2>
+                  <p className="text-sm sm:text-base text-muted-foreground max-w-md">
                     Sign in to access your personal profile, track your progress over time, and see detailed analytics of your typing performance.
                   </p>
                 </div>
-                <div className="grid grid-cols-3 gap-4 w-full max-w-md pt-4">
-                  <div className="p-4 bg-background/50 rounded-lg">
-                    <div className="text-2xl font-bold text-primary">📊</div>
-                    <div className="text-xs text-muted-foreground mt-1">Charts</div>
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full max-w-md pt-4">
+                  <div className="p-3 sm:p-4 bg-background/50 rounded-lg">
+                    <div className="text-xl sm:text-2xl font-bold text-primary">📊</div>
+                    <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Charts</div>
                   </div>
-                  <div className="p-4 bg-background/50 rounded-lg">
-                    <div className="text-2xl font-bold text-primary">📈</div>
-                    <div className="text-xs text-muted-foreground mt-1">History</div>
+                  <div className="p-3 sm:p-4 bg-background/50 rounded-lg">
+                    <div className="text-xl sm:text-2xl font-bold text-primary">📈</div>
+                    <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">History</div>
                   </div>
-                  <div className="p-4 bg-background/50 rounded-lg">
-                    <div className="text-2xl font-bold text-primary">🏆</div>
-                    <div className="text-xs text-muted-foreground mt-1">Stats</div>
+                  <div className="p-3 sm:p-4 bg-background/50 rounded-lg">
+                    <div className="text-xl sm:text-2xl font-bold text-primary">🏆</div>
+                    <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Stats</div>
                   </div>
                 </div>
-                <div className="flex gap-3 pt-4">
-                  <Button onClick={() => setLocation("/register")} size="lg">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4 w-full sm:w-auto">
+                  <Button onClick={() => setLocation("/register")} size="lg" className="w-full sm:w-auto">
                     Create Account
                   </Button>
-                  <Button onClick={() => setLocation("/login")} variant="outline" size="lg">
+                  <Button onClick={() => setLocation("/login")} variant="outline" size="lg" className="w-full sm:w-auto">
                     Sign In
                   </Button>
                 </div>
@@ -460,13 +460,13 @@ export default function Profile() {
   const stats = statsData?.stats;
 
   return (
-      <div className="max-w-5xl mx-auto space-y-8">
+      <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-0">
         <TooltipProvider delayDuration={200}>
-        <div className="flex items-start gap-6 p-6 rounded-2xl bg-card/70 backdrop-blur-md border border-border/50 shadow-xl">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 p-4 sm:p-6 rounded-2xl bg-card/70 backdrop-blur-md border border-border/50 shadow-xl">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Avatar className="w-24 h-24 border-4 border-background shadow-xl cursor-pointer">
-                <AvatarFallback className={cn(user.avatarColor || "bg-primary", "text-primary-foreground text-3xl")}>
+              <Avatar className="w-20 h-20 sm:w-24 sm:h-24 border-4 border-background shadow-xl cursor-pointer shrink-0">
+                <AvatarFallback className={cn(user.avatarColor || "bg-primary", "text-primary-foreground text-2xl sm:text-3xl")}>
                   {user.username[0].toUpperCase()}
                 </AvatarFallback>
               </Avatar>
@@ -475,11 +475,11 @@ export default function Profile() {
               <p>Your profile avatar</p>
             </TooltipContent>
           </Tooltip>
-          <div className="flex-1 space-y-3">
-            <div className="flex items-start justify-between">
+          <div className="flex-1 space-y-3 w-full text-center sm:text-left">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-3 sm:gap-0">
               <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-3xl font-bold" data-testid="text-username">{user.username}</h1>
+                <div className="flex items-center justify-center sm:justify-start gap-2 sm:gap-3 flex-wrap">
+                  <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-username">{user.username}</h1>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/20 cursor-help" data-testid="badge-level">
@@ -496,7 +496,7 @@ export default function Profile() {
                 {user.bio && (
                   <p className="text-foreground/80 mt-2 max-w-2xl" data-testid="text-bio">{user.bio}</p>
                 )}
-                <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                <div className="flex items-center justify-center sm:justify-start gap-3 sm:gap-4 mt-2 text-xs sm:text-sm text-muted-foreground flex-wrap">
                   {user.country && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -557,12 +557,12 @@ export default function Profile() {
             ) : statsLoading ? (
               <StatsSkeleton />
             ) : stats ? (
-              <div className="flex gap-8">
+              <div className="flex justify-center sm:justify-start gap-6 sm:gap-8 flex-wrap">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="cursor-help" data-testid="stat-avg-wpm">
-                      <div className="text-3xl font-bold font-mono">{stats.avgWpm || 0}</div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wider">Avg WPM</div>
+                    <div className="cursor-help text-center sm:text-left" data-testid="stat-avg-wpm">
+                      <div className="text-2xl sm:text-3xl font-bold font-mono">{stats.avgWpm || 0}</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">Avg WPM</div>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
@@ -572,9 +572,9 @@ export default function Profile() {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="cursor-help" data-testid="stat-best-wpm">
-                      <div className="text-3xl font-bold font-mono text-primary">{stats.bestWpm || 0}</div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wider">Best WPM</div>
+                    <div className="cursor-help text-center sm:text-left" data-testid="stat-best-wpm">
+                      <div className="text-2xl sm:text-3xl font-bold font-mono text-primary">{stats.bestWpm || 0}</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">Best WPM</div>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
@@ -584,9 +584,9 @@ export default function Profile() {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="cursor-help" data-testid="stat-total-xp">
-                      <div className="text-3xl font-bold font-mono text-amber-500">{totalPoints}</div>
-                      <div className="text-xs text-muted-foreground uppercase tracking-wider">Total XP</div>
+                    <div className="cursor-help text-center sm:text-left" data-testid="stat-total-xp">
+                      <div className="text-2xl sm:text-3xl font-bold font-mono text-amber-500">{totalPoints}</div>
+                      <div className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">Total XP</div>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
@@ -600,8 +600,8 @@ export default function Profile() {
             )}
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="max-w-xs cursor-help" data-testid="level-progress">
-                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                <div className="max-w-xs mx-auto sm:mx-0 cursor-help" data-testid="level-progress">
+                  <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground mb-1">
                     <span>Level {level}</span>
                     <span>{xp % 100} / 100 XP</span>
                   </div>
