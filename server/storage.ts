@@ -2337,21 +2337,40 @@ export class DatabaseStorage implements IStorage {
       testCount: Number(row.test_count) || 0,
     }));
 
-    // Get mistakes heatmap (errors per key) - join keystroke_events with test_results to filter by user
+    // Get mistakes heatmap by combining key_heatmap (total) and error_keys (errors)
+    // This gives accurate error rates per key
     const heatmapQuery = await db.execute(sql`
+      WITH error_counts AS (
+        SELECT 
+          UPPER(key_value) as key,
+          COUNT(*)::int as error_count
+        FROM typing_analytics,
+          jsonb_array_elements_text(error_keys) as key_value
+        WHERE user_id = ${userId}
+          AND created_at >= ${cutoffDate}
+          AND error_keys IS NOT NULL
+        GROUP BY UPPER(key_value)
+      ),
+      total_counts AS (
+        SELECT 
+          key_name as key,
+          SUM((key_count)::int)::int as total_count
+        FROM typing_analytics,
+          jsonb_each_text(key_heatmap) as kv(key_name, key_count)
+        WHERE user_id = ${userId}
+          AND created_at >= ${cutoffDate}
+          AND key_heatmap IS NOT NULL
+          AND key_name != 'BACKSPACE'
+        GROUP BY key_name
+      )
       SELECT 
-        ke.expected_key as key,
-        COUNT(CASE WHEN ke.is_correct = false THEN 1 END)::int as error_count,
-        COUNT(*)::int as total_count,
-        (COUNT(CASE WHEN ke.is_correct = false THEN 1 END)::float / NULLIF(COUNT(*), 0) * 100)::numeric(5,2) as error_rate
-      FROM keystroke_events ke
-      JOIN test_results tr ON ke.test_result_id = tr.id
-      WHERE tr.user_id = ${userId}
-        AND ke.created_at >= ${cutoffDate}
-        AND ke.expected_key IS NOT NULL
-      GROUP BY ke.expected_key
-      HAVING COUNT(CASE WHEN ke.is_correct = false THEN 1 END) > 0
-      ORDER BY error_count DESC
+        e.key,
+        e.error_count,
+        COALESCE(t.total_count, e.error_count) as total_count,
+        ROUND((e.error_count::float / NULLIF(COALESCE(t.total_count, e.error_count), 0) * 100)::numeric, 2) as error_rate
+      FROM error_counts e
+      LEFT JOIN total_counts t ON UPPER(e.key) = UPPER(t.key)
+      ORDER BY e.error_count DESC
       LIMIT 50
     `);
 
@@ -2382,26 +2401,27 @@ export class DatabaseStorage implements IStorage {
       maxWpm: Number(consistencyData?.max_wpm) || 0,
     };
 
-    // Get common mistakes (expected key vs typed key) - join keystroke_events with test_results
+    // Get common mistakes from typing_analytics error_keys JSONB field
+    // Show which keys the user frequently makes errors on
     const mistakesQuery = await db.execute(sql`
       SELECT 
-        ke.expected_key,
-        ke.key as typed_key,
+        key_value as expected_key,
+        '?' as typed_key,
         COUNT(*)::int as count
-      FROM keystroke_events ke
-      JOIN test_results tr ON ke.test_result_id = tr.id
-      WHERE tr.user_id = ${userId}
-        AND ke.is_correct = false
-        AND ke.created_at >= ${cutoffDate}
-        AND ke.expected_key IS NOT NULL
-      GROUP BY ke.expected_key, ke.key
+      FROM typing_analytics,
+        jsonb_array_elements_text(error_keys) as key_value
+      WHERE user_id = ${userId}
+        AND created_at >= ${cutoffDate}
+        AND error_keys IS NOT NULL
+        AND jsonb_array_length(error_keys) > 0
+      GROUP BY key_value
       ORDER BY count DESC
       LIMIT 20
     `);
 
     const commonMistakes = mistakesQuery.rows.map((row: any) => ({
       expectedKey: row.expected_key || '',
-      typedKey: row.typed_key || '',
+      typedKey: row.typed_key || '?',
       count: Number(row.count) || 0,
     }));
 
