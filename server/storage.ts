@@ -197,11 +197,14 @@ export interface IStorage {
   markEmailVerified(userId: string, token: string): Promise<void>;
   deleteEmailVerificationToken(userId: string): Promise<void>;
   
-  // Password Reset
+  // Password Reset (with secure token hashing)
   createPasswordResetToken(userId: string, token: string, expiresAt: Date, ipAddress?: string): Promise<PasswordResetToken>;
+  getPasswordResetTokenByHash(tokenHash: string): Promise<PasswordResetToken | undefined>;
   getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined>;
-  markPasswordResetTokenUsed(token: string): Promise<void>;
+  markPasswordResetTokenUsed(tokenHash: string): Promise<void>;
+  incrementTokenFailedAttempts(tokenHash: string): Promise<{ failedAttempts: number; locked: boolean }>;
   deletePasswordResetTokens(userId: string): Promise<void>;
+  getRecentPasswordResetRequests(userId: string, minutes: number): Promise<number>;
   
   // User Sessions
   createUserSession(session: InsertUserSession): Promise<UserSession>;
@@ -926,40 +929,85 @@ export class DatabaseStorage implements IStorage {
       .where(eq(emailVerificationTokens.userId, userId));
   }
 
-  // Password Reset
+  // Password Reset (with secure token hashing)
+  private hashToken(token: string): string {
+    const crypto = require("crypto");
+    return crypto.createHash("sha256").update(token).digest("hex");
+  }
+
   async createPasswordResetToken(
     userId: string,
     token: string,
     expiresAt: Date,
     ipAddress?: string
   ): Promise<PasswordResetToken> {
+    const tokenHash = this.hashToken(token);
     const inserted = await db
       .insert(passwordResetTokens)
-      .values({ userId, token, expiresAt, ipAddress })
+      .values({ userId, token: null, tokenHash, expiresAt, ipAddress, failedAttempts: 0 })
       .returning();
     return inserted[0];
   }
 
-  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+  async getPasswordResetTokenByHash(tokenHash: string): Promise<PasswordResetToken | undefined> {
     const result = await db
       .select()
       .from(passwordResetTokens)
-      .where(eq(passwordResetTokens.token, token))
+      .where(eq(passwordResetTokens.tokenHash, tokenHash))
       .limit(1);
     return result[0];
   }
 
-  async markPasswordResetTokenUsed(token: string): Promise<void> {
+  async getPasswordResetToken(token: string): Promise<PasswordResetToken | undefined> {
+    const tokenHash = this.hashToken(token);
+    return this.getPasswordResetTokenByHash(tokenHash);
+  }
+
+  async markPasswordResetTokenUsed(tokenHash: string): Promise<void> {
     await db
       .update(passwordResetTokens)
       .set({ used: true, usedAt: new Date() })
-      .where(eq(passwordResetTokens.token, token));
+      .where(eq(passwordResetTokens.tokenHash, tokenHash));
+  }
+
+  async incrementTokenFailedAttempts(tokenHash: string): Promise<{ failedAttempts: number; locked: boolean }> {
+    const MAX_FAILED_ATTEMPTS = 5;
+    const result = await db
+      .update(passwordResetTokens)
+      .set({ 
+        failedAttempts: sql`${passwordResetTokens.failedAttempts} + 1`,
+        lockedAt: sql`CASE WHEN ${passwordResetTokens.failedAttempts} + 1 >= ${MAX_FAILED_ATTEMPTS} THEN NOW() ELSE ${passwordResetTokens.lockedAt} END`
+      })
+      .where(eq(passwordResetTokens.tokenHash, tokenHash))
+      .returning({ failedAttempts: passwordResetTokens.failedAttempts, lockedAt: passwordResetTokens.lockedAt });
+    
+    if (result.length === 0) {
+      return { failedAttempts: 0, locked: false };
+    }
+    return { 
+      failedAttempts: result[0].failedAttempts, 
+      locked: result[0].lockedAt !== null 
+    };
   }
 
   async deletePasswordResetTokens(userId: string): Promise<void> {
     await db
       .delete(passwordResetTokens)
       .where(eq(passwordResetTokens.userId, userId));
+  }
+
+  async getRecentPasswordResetRequests(userId: string, minutes: number): Promise<number> {
+    const cutoffTime = new Date(Date.now() - minutes * 60 * 1000);
+    const result = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.userId, userId),
+          sql`${passwordResetTokens.createdAt} >= ${cutoffTime}`
+        )
+      );
+    return Number(result[0]?.count || 0);
   }
 
   // User Sessions

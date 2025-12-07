@@ -1398,6 +1398,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ message: successMessage });
       }
 
+      const MAX_RESETS_PER_HOUR = 3;
+      const recentRequests = await storage.getRecentPasswordResetRequests(user.id, 60);
+      if (recentRequests >= MAX_RESETS_PER_HOUR) {
+        AuthLogger.logAuthEvent("FORGOT_PASSWORD_USER_RATE_LIMITED", req, {
+          userId: user.id,
+          email: normalizedEmail,
+          recentRequests,
+        });
+        await addTimingJitter(100, 300);
+        storeIdempotencyResult(idempotencyKey, { message: successMessage });
+        return res.json({ message: successMessage });
+      }
+
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
 
       try {
@@ -1429,6 +1442,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/validate-reset-token", async (req, res) => {
+    res.setHeader("Referrer-Policy", "no-referrer");
+    
     try {
       const token = req.query.token as string;
 
@@ -1448,6 +1463,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (new Date() > resetToken.expiresAt) {
         return res.json({ valid: false, reason: "expired" });
+      }
+
+      if (resetToken.lockedAt) {
+        return res.json({ valid: false, reason: "locked" });
       }
 
       res.json({ valid: true });
@@ -1512,27 +1531,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
         TokenSecurity.validateTokenState(resetToken);
       } catch (tokenStateError) {
         if (tokenStateError instanceof AuthError) {
+          if (resetToken?.tokenHash) {
+            const attemptResult = await storage.incrementTokenFailedAttempts(resetToken.tokenHash);
+            AuthLogger.logAuthEvent("TOKEN_VALIDATION_FAILED", req, {
+              failedAttempts: attemptResult.failedAttempts,
+              locked: attemptResult.locked,
+            });
+            if (attemptResult.locked) {
+              AuthLogger.logPasswordReset(req, "unknown", "failed", "Token locked due to too many attempts");
+              return res.status(429).json({
+                error: {
+                  code: AuthErrorCode.RATE_LIMITED,
+                  message: "Too many failed attempts. This reset link has been disabled for security.",
+                },
+              });
+            }
+          }
           AuthLogger.logPasswordReset(req, "unknown", "failed", tokenStateError.message);
           return res.status(tokenStateError.statusCode).json(tokenStateError.toJSON());
         }
         throw tokenStateError;
       }
 
+      if (resetToken!.lockedAt) {
+        AuthLogger.logPasswordReset(req, "unknown", "failed", "Token already locked");
+        return res.status(429).json({
+          error: {
+            code: AuthErrorCode.RATE_LIMITED,
+            message: "This reset link has been disabled due to too many failed attempts.",
+          },
+        });
+      }
+
       const user = await storage.getUser(resetToken!.userId);
       const userEmail = user?.email || "unknown";
+      const username = user?.username;
 
       const hashedPassword = await bcrypt.hash(password, 12);
+      const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       
       try {
         await DatabaseErrorHandler.withRetry(async () => {
           await storage.updateUserPassword(resetToken!.userId, hashedPassword);
-          await storage.markPasswordResetTokenUsed(sanitizedToken);
+          await storage.markPasswordResetTokenUsed(resetToken!.tokenHash);
           await storage.deletePasswordResetTokens(resetToken!.userId);
+          await storage.revokeAllUserSessions(resetToken!.userId);
         });
       } catch (dbError: any) {
         const errorInfo = DatabaseErrorHandler.handle(dbError, "reset-password");
         AuthLogger.logPasswordReset(req, userEmail, "failed", `Database error: ${dbError.code}`);
         return res.status(errorInfo.authError.statusCode).json(errorInfo.authError.toJSON());
+      }
+
+      if (user) {
+        try {
+          const { emailService } = require("./email-service");
+          await emailService.sendPasswordChangedEmail(userEmail, {
+            username,
+            ipAddress,
+          });
+          AuthLogger.logAuthEvent("PASSWORD_CHANGED_EMAIL_SENT", req, { userId: user.id });
+        } catch (emailError) {
+          AuthLogger.logAuthEvent("PASSWORD_CHANGED_EMAIL_FAILED", req, {
+            level: "warn",
+            userId: user.id,
+            error: emailError,
+          });
+        }
       }
 
       AuthLogger.logPasswordReset(req, userEmail, "completed");

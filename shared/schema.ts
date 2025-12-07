@@ -105,14 +105,17 @@ export const emailVerificationTokens = pgTable("email_verification_tokens", {
 export const passwordResetTokens = pgTable("password_reset_tokens", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  token: varchar("token", { length: 64 }).notNull().unique(),
+  token: varchar("token", { length: 64 }),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
   used: boolean("used").default(false).notNull(),
   usedAt: timestamp("used_at"),
   ipAddress: varchar("ip_address", { length: 45 }),
+  failedAttempts: integer("failed_attempts").default(0).notNull(),
+  lockedAt: timestamp("locked_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
-  tokenIdx: index("password_reset_tokens_token_idx").on(table.token),
+  tokenHashIdx: index("password_reset_tokens_token_hash_idx").on(table.tokenHash),
   userIdIdx: index("password_reset_tokens_user_id_idx").on(table.userId),
 }));
 

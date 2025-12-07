@@ -567,6 +567,121 @@ export class EmailService {
     });
   }
 
+  async sendPasswordChangedEmail(
+    email: string,
+    options?: {
+      username?: string;
+      ipAddress?: string;
+    }
+  ): Promise<EmailSendResult> {
+    const html = this.generatePasswordChangedEmailHtml({
+      username: options?.username,
+      ipAddress: options?.ipAddress,
+      changedAt: new Date().toISOString(),
+    });
+
+    return this.send({
+      to: email,
+      subject: "Your Password Was Changed - TypeMasterAI",
+      html,
+      category: ["security_alert", "transactional"],
+      customArgs: {
+        email_type: "password_changed",
+        user_email: email,
+      },
+    });
+  }
+
+  private generatePasswordChangedEmailHtml(params: {
+    username?: string;
+    ipAddress?: string;
+    changedAt: string;
+  }): string {
+    const greeting = params.username ? `Hi ${params.username},` : "Hi,";
+    
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="referrer" content="no-referrer">
+  <title>Password Changed</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0b; color: #fafafa;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #0a0a0b;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #18181b; border-radius: 16px; border: 1px solid #27272a;">
+          <!-- Header -->
+          <tr>
+            <td style="padding: 40px 40px 20px; text-align: center;">
+              <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border-radius: 16px; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                <span style="font-size: 32px;">🔐</span>
+              </div>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #fafafa;">Password Changed</h1>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 20px 40px;">
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #a1a1aa;">
+                ${greeting}
+              </p>
+              <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #a1a1aa;">
+                Your TypeMasterAI account password was successfully changed.
+              </p>
+              
+              <!-- Security Info -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top: 20px; background-color: #27272a; border-radius: 12px;">
+                <tr>
+                  <td style="padding: 16px;">
+                    <p style="margin: 0; font-size: 13px; color: #71717a;">
+                      <strong style="color: #a1a1aa;">Change Details:</strong><br>
+                      ${params.ipAddress ? `IP Address: ${params.ipAddress}<br>` : ""}
+                      Time: ${new Date(params.changedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Warning -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top: 20px; background-color: #422006; border-radius: 12px; border: 1px solid #854d0e;">
+                <tr>
+                  <td style="padding: 16px;">
+                    <p style="margin: 0; font-size: 14px; color: #fbbf24;">
+                      <strong>⚠️ Didn't make this change?</strong><br>
+                      <span style="color: #fcd34d;">If you didn't change your password, your account may have been compromised. Please contact support immediately and secure your account.</span>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              
+              <p style="margin: 24px 0 0; font-size: 14px; line-height: 1.6; color: #71717a;">
+                For your security, all other sessions have been logged out.
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px 40px; border-top: 1px solid #27272a;">
+              <p style="margin: 0; font-size: 13px; color: #52525b; text-align: center;">
+                © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
+                <a href="${this.appUrl}" style="color: #6366f1; text-decoration: none;">typemasterai.com</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  }
+
   private generatePasswordResetEmailHtml(params: {
     resetUrl: string;
     username?: string;
