@@ -1,6 +1,7 @@
 import type { IStorage } from "./storage";
 import type { Request } from "express";
 import crypto from "crypto";
+import { emailService, type EmailSendResult } from "./email-service";
 
 interface LoginAttemptResult {
   allowed: boolean;
@@ -215,27 +216,47 @@ export class AuthSecurityService {
     return crypto.randomBytes(32).toString("hex");
   }
 
-  async sendVerificationEmail(userId: string, email: string): Promise<void> {
+  async sendVerificationEmail(userId: string, email: string, username?: string): Promise<EmailSendResult> {
     const token = await this.generateSecureToken();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
+    await this.storage.deleteEmailVerificationToken(userId).catch(() => {});
     await this.storage.createEmailVerificationToken(userId, token, expiresAt);
 
-    // TODO: Send email with verification link
-    // For now, just log it (in production, integrate with email service)
-    console.log(`[Email Verification] Token for ${email}: ${token}`);
-    console.log(`Verification link: ${process.env.BASE_URL || "http://localhost:5000"}/verify-email?token=${token}`);
+    const result = await emailService.sendEmailVerificationEmail(email, token, { username });
+
+    if (!result.success) {
+      console.error(`[AuthSecurityService] Failed to send verification email to ${email}:`, result.error);
+    } else {
+      console.log(`[AuthSecurityService] Verification email sent to ${email} (messageId: ${result.messageId})`);
+    }
+
+    return result;
   }
 
-  async sendPasswordResetEmail(userId: string, email: string, ipAddress: string): Promise<void> {
+  async sendPasswordResetEmail(userId: string, email: string, ipAddress: string, username?: string): Promise<EmailSendResult> {
     const token = await this.generateSecureToken();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
+    await this.storage.deletePasswordResetTokens(userId).catch(() => {});
     await this.storage.createPasswordResetToken(userId, token, expiresAt, ipAddress);
 
-    // TODO: Send email with password reset link
-    // For now, just log it (in production, integrate with email service)
-    console.log(`[Password Reset] Token for ${email}: ${token}`);
-    console.log(`Reset link: ${process.env.BASE_URL || "http://localhost:5000"}/reset-password?token=${token}`);
+    const result = await emailService.sendPasswordResetEmail(email, token, {
+      username,
+      ipAddress,
+      expiresInMinutes: 60,
+    });
+
+    if (!result.success) {
+      console.error(`[AuthSecurityService] Failed to send password reset email to ${email}:`, result.error);
+    } else {
+      console.log(`[AuthSecurityService] Password reset email sent to ${email} (messageId: ${result.messageId})`);
+    }
+
+    return result;
+  }
+
+  getEmailServiceStatus() {
+    return emailService.getServiceStatus();
   }
 }

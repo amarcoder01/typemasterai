@@ -478,7 +478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       });
 
-      authSecurityService.sendVerificationEmail(user.id, user.email).catch(error => {
+      authSecurityService.sendVerificationEmail(user.id, user.email, user.username).catch(error => {
         AuthLogger.logAuthEvent("VERIFICATION_EMAIL_FAILED", req, {
           level: "warn",
           userId: user.id,
@@ -1401,7 +1401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
 
       try {
-        await authSecurityService.sendPasswordResetEmail(user.id, user.email, ipAddress);
+        await authSecurityService.sendPasswordResetEmail(user.id, user.email, ipAddress, user.username);
         AuthLogger.logPasswordReset(req, normalizedEmail, "requested");
       } catch (emailError) {
         AuthLogger.logAuthEvent("PASSWORD_RESET_EMAIL_FAILED", req, {
@@ -1602,11 +1602,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Email is already verified" });
       }
 
-      // Delete existing verification tokens
-      await storage.deleteEmailVerificationToken(user.id);
-
-      // Send new verification email
-      await authSecurityService.sendVerificationEmail(user.id, user.email);
+      // Send new verification email (old tokens are deleted inside the service)
+      await authSecurityService.sendVerificationEmail(user.id, user.email, user.username);
 
       res.json({ message: "Verification email sent" });
     } catch (error: any) {
