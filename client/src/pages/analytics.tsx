@@ -1290,14 +1290,7 @@ EXAMPLE OUTPUT:
     
     setLoadingDailyPlan(true);
     try {
-      const response = await fetch("/api/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        signal: abortController.signal,
-        body: JSON.stringify({
-          conversationId: null,
-          message: `Create a personalized daily practice plan for a ${skillLevel.level.toLowerCase()} typist.
+      const promptMessage = `Create a personalized daily practice plan for a ${skillLevel.level.toLowerCase()} typist.
 
 User Profile:
 - Skill Level: ${skillLevel.level} (${skillLevel.description})
@@ -1315,7 +1308,16 @@ Exercise 1: [Title] | [Description] | [Duration]
 Exercise 2: [Title] | [Description] | [Duration]
 Exercise 3: [Title] | [Description] | [Duration]
 
-Tailor exercises to ${skillLevel.level.toLowerCase()} level - ${accuracyFocus ? "prioritize accuracy drills" : "include speed challenges"}. Each should have a clear title, actionable description, and appropriate duration.`,
+Tailor exercises to ${skillLevel.level.toLowerCase()} level - ${accuracyFocus ? "prioritize accuracy drills" : "include speed challenges"}. Each should have a clear title, actionable description, and appropriate duration.`;
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        signal: abortController.signal,
+        body: JSON.stringify({
+          conversationId: null,
+          messages: [{ role: "user", content: promptMessage }],
         }),
       });
 
@@ -1464,14 +1466,7 @@ Tailor exercises to ${skillLevel.level.toLowerCase()} level - ${accuracyFocus ? 
     
     setLoadingWeeklyPlan(true);
     try {
-      const response = await fetch("/api/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        signal: abortController.signal,
-        body: JSON.stringify({
-          conversationId: null,
-          message: `Create a personalized 4-week improvement roadmap for a ${skillLevel.level.toLowerCase()} typist.
+      const promptMessage = `Create a personalized 4-week improvement roadmap for a ${skillLevel.level.toLowerCase()} typist.
 
 User Profile:
 - Skill Level: ${skillLevel.level} (${skillLevel.description})
@@ -1493,7 +1488,16 @@ Week 1: [Title] | [Task 1, Task 2, Task 3] | [Target WPM]
 Week 2: [Title] | [Task 1, Task 2, Task 3] | [Target WPM]
 Week 3-4: [Title] | [Task 1, Task 2, Task 3] | [Target WPM]
 
-Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} level. Use the recommended targets.`,
+Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} level. Use the recommended targets.`;
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        signal: abortController.signal,
+        body: JSON.stringify({
+          conversationId: null,
+          messages: [{ role: "user", content: promptMessage }],
         }),
       });
 
