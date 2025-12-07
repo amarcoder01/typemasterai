@@ -80,14 +80,101 @@ interface TypingAnalytics {
   syntheticInputDetected: boolean;
 }
 
-const FINGER_MAP: Record<string, { finger: string; hand: string }> = {
-  // Left hand
+const CODE_FINGER_MAP: Record<string, { finger: string; hand: string }> = {
+  // Left hand - Number row
+  'Backquote': { finger: 'Left Pinky', hand: 'left' },
+  'Digit1': { finger: 'Left Pinky', hand: 'left' },
+  'Digit2': { finger: 'Left Ring', hand: 'left' },
+  'Digit3': { finger: 'Left Middle', hand: 'left' },
+  'Digit4': { finger: 'Left Index', hand: 'left' },
+  'Digit5': { finger: 'Left Index', hand: 'left' },
+  // Left hand - Top row
+  'KeyQ': { finger: 'Left Pinky', hand: 'left' },
+  'KeyW': { finger: 'Left Ring', hand: 'left' },
+  'KeyE': { finger: 'Left Middle', hand: 'left' },
+  'KeyR': { finger: 'Left Index', hand: 'left' },
+  'KeyT': { finger: 'Left Index', hand: 'left' },
+  // Left hand - Home row
+  'KeyA': { finger: 'Left Pinky', hand: 'left' },
+  'KeyS': { finger: 'Left Ring', hand: 'left' },
+  'KeyD': { finger: 'Left Middle', hand: 'left' },
+  'KeyF': { finger: 'Left Index', hand: 'left' },
+  'KeyG': { finger: 'Left Index', hand: 'left' },
+  // Left hand - Bottom row
+  'KeyZ': { finger: 'Left Pinky', hand: 'left' },
+  'KeyX': { finger: 'Left Ring', hand: 'left' },
+  'KeyC': { finger: 'Left Middle', hand: 'left' },
+  'KeyV': { finger: 'Left Index', hand: 'left' },
+  'KeyB': { finger: 'Left Index', hand: 'left' },
+  // Left hand - Control keys
+  'Tab': { finger: 'Left Pinky', hand: 'left' },
+  'CapsLock': { finger: 'Left Pinky', hand: 'left' },
+  'ShiftLeft': { finger: 'Left Pinky', hand: 'left' },
+  'ControlLeft': { finger: 'Left Pinky', hand: 'left' },
+  'AltLeft': { finger: 'Left Thumb', hand: 'left' },
+  'MetaLeft': { finger: 'Left Thumb', hand: 'left' },
+  'Escape': { finger: 'Left Pinky', hand: 'left' },
+  
+  // Right hand - Number row
+  'Digit6': { finger: 'Right Index', hand: 'right' },
+  'Digit7': { finger: 'Right Index', hand: 'right' },
+  'Digit8': { finger: 'Right Middle', hand: 'right' },
+  'Digit9': { finger: 'Right Ring', hand: 'right' },
+  'Digit0': { finger: 'Right Pinky', hand: 'right' },
+  'Minus': { finger: 'Right Pinky', hand: 'right' },
+  'Equal': { finger: 'Right Pinky', hand: 'right' },
+  'Backspace': { finger: 'Right Pinky', hand: 'right' },
+  // Right hand - Top row
+  'KeyY': { finger: 'Right Index', hand: 'right' },
+  'KeyU': { finger: 'Right Index', hand: 'right' },
+  'KeyI': { finger: 'Right Middle', hand: 'right' },
+  'KeyO': { finger: 'Right Ring', hand: 'right' },
+  'KeyP': { finger: 'Right Pinky', hand: 'right' },
+  'BracketLeft': { finger: 'Right Pinky', hand: 'right' },
+  'BracketRight': { finger: 'Right Pinky', hand: 'right' },
+  'Backslash': { finger: 'Right Pinky', hand: 'right' },
+  // Right hand - Home row
+  'KeyH': { finger: 'Right Index', hand: 'right' },
+  'KeyJ': { finger: 'Right Index', hand: 'right' },
+  'KeyK': { finger: 'Right Middle', hand: 'right' },
+  'KeyL': { finger: 'Right Ring', hand: 'right' },
+  'Semicolon': { finger: 'Right Pinky', hand: 'right' },
+  'Quote': { finger: 'Right Pinky', hand: 'right' },
+  'Enter': { finger: 'Right Pinky', hand: 'right' },
+  // Right hand - Bottom row
+  'KeyN': { finger: 'Right Index', hand: 'right' },
+  'KeyM': { finger: 'Right Index', hand: 'right' },
+  'Comma': { finger: 'Right Middle', hand: 'right' },
+  'Period': { finger: 'Right Ring', hand: 'right' },
+  'Slash': { finger: 'Right Pinky', hand: 'right' },
+  'ShiftRight': { finger: 'Right Pinky', hand: 'right' },
+  // Right hand - Control keys
+  'ControlRight': { finger: 'Right Pinky', hand: 'right' },
+  'AltRight': { finger: 'Right Thumb', hand: 'right' },
+  'MetaRight': { finger: 'Right Thumb', hand: 'right' },
+  'ArrowUp': { finger: 'Right Index', hand: 'right' },
+  'ArrowDown': { finger: 'Right Index', hand: 'right' },
+  'ArrowLeft': { finger: 'Right Index', hand: 'right' },
+  'ArrowRight': { finger: 'Right Index', hand: 'right' },
+  
+  // Space bar - Thumbs (counted as both hands for balance)
+  'Space': { finger: 'Thumbs', hand: 'both' },
+};
+
+const CHAR_FINGER_MAP: Record<string, { finger: string; hand: string }> = {
+  // Left hand characters (including shifted)
   '`': { finger: 'Left Pinky', hand: 'left' },
+  '~': { finger: 'Left Pinky', hand: 'left' },
   '1': { finger: 'Left Pinky', hand: 'left' },
+  '!': { finger: 'Left Pinky', hand: 'left' },
   '2': { finger: 'Left Ring', hand: 'left' },
+  '@': { finger: 'Left Ring', hand: 'left' },
   '3': { finger: 'Left Middle', hand: 'left' },
+  '#': { finger: 'Left Middle', hand: 'left' },
   '4': { finger: 'Left Index', hand: 'left' },
+  '$': { finger: 'Left Index', hand: 'left' },
   '5': { finger: 'Left Index', hand: 'left' },
+  '%': { finger: 'Left Index', hand: 'left' },
   'Q': { finger: 'Left Pinky', hand: 'left' },
   'W': { finger: 'Left Ring', hand: 'left' },
   'E': { finger: 'Left Middle', hand: 'left' },
@@ -104,35 +191,67 @@ const FINGER_MAP: Record<string, { finger: string; hand: string }> = {
   'V': { finger: 'Left Index', hand: 'left' },
   'B': { finger: 'Left Index', hand: 'left' },
   
-  // Right hand
+  // Right hand characters (including shifted)
   '6': { finger: 'Right Index', hand: 'right' },
+  '^': { finger: 'Right Index', hand: 'right' },
   '7': { finger: 'Right Index', hand: 'right' },
+  '&': { finger: 'Right Index', hand: 'right' },
   '8': { finger: 'Right Middle', hand: 'right' },
+  '*': { finger: 'Right Middle', hand: 'right' },
   '9': { finger: 'Right Ring', hand: 'right' },
+  '(': { finger: 'Right Ring', hand: 'right' },
   '0': { finger: 'Right Pinky', hand: 'right' },
+  ')': { finger: 'Right Pinky', hand: 'right' },
   '-': { finger: 'Right Pinky', hand: 'right' },
+  '_': { finger: 'Right Pinky', hand: 'right' },
   '=': { finger: 'Right Pinky', hand: 'right' },
+  '+': { finger: 'Right Pinky', hand: 'right' },
   'Y': { finger: 'Right Index', hand: 'right' },
   'U': { finger: 'Right Index', hand: 'right' },
   'I': { finger: 'Right Middle', hand: 'right' },
   'O': { finger: 'Right Ring', hand: 'right' },
   'P': { finger: 'Right Pinky', hand: 'right' },
   '[': { finger: 'Right Pinky', hand: 'right' },
+  '{': { finger: 'Right Pinky', hand: 'right' },
   ']': { finger: 'Right Pinky', hand: 'right' },
+  '}': { finger: 'Right Pinky', hand: 'right' },
   '\\': { finger: 'Right Pinky', hand: 'right' },
+  '|': { finger: 'Right Pinky', hand: 'right' },
   'H': { finger: 'Right Index', hand: 'right' },
   'J': { finger: 'Right Index', hand: 'right' },
   'K': { finger: 'Right Middle', hand: 'right' },
   'L': { finger: 'Right Ring', hand: 'right' },
   ';': { finger: 'Right Pinky', hand: 'right' },
+  ':': { finger: 'Right Pinky', hand: 'right' },
   '\'': { finger: 'Right Pinky', hand: 'right' },
+  '"': { finger: 'Right Pinky', hand: 'right' },
   'N': { finger: 'Right Index', hand: 'right' },
   'M': { finger: 'Right Index', hand: 'right' },
   ',': { finger: 'Right Middle', hand: 'right' },
+  '<': { finger: 'Right Middle', hand: 'right' },
   '.': { finger: 'Right Ring', hand: 'right' },
+  '>': { finger: 'Right Ring', hand: 'right' },
   '/': { finger: 'Right Pinky', hand: 'right' },
+  '?': { finger: 'Right Pinky', hand: 'right' },
+  
+  // Space bar
   ' ': { finger: 'Thumbs', hand: 'both' },
 };
+
+const getFingerInfo = (key: string, keyCode: string): { finger: string | null; hand: string | null } => {
+  if (CODE_FINGER_MAP[keyCode]) {
+    return CODE_FINGER_MAP[keyCode];
+  }
+  if (CHAR_FINGER_MAP[key.toUpperCase()]) {
+    return CHAR_FINGER_MAP[key.toUpperCase()];
+  }
+  if (CHAR_FINGER_MAP[key]) {
+    return CHAR_FINGER_MAP[key];
+  }
+  return { finger: null, hand: null };
+};
+
+const FINGER_MAP: Record<string, { finger: string; hand: string }> = CHAR_FINGER_MAP;
 
 export class KeystrokeTracker {
   private events: KeystrokeEvent[] = [];
@@ -159,7 +278,7 @@ export class KeystrokeTracker {
     const flightTime = this.lastReleaseTime ? pressTime - this.lastReleaseTime : null;
     const expectedKey = this.expectedText[this.currentPosition] || null;
     
-    const fingerInfo = FINGER_MAP[key.toUpperCase()] || { finger: null, hand: null };
+    const fingerInfo = getFingerInfo(key, keyCode);
 
     const event: KeystrokeEvent = {
       key,
