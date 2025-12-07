@@ -2203,42 +2203,90 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardDescription>Average Dwell Time</CardDescription>
-                    <CardTitle className="text-3xl" data-testid="stat-avg-dwell">
+                    <CardDescription className="flex items-center gap-1">
+                      Average Dwell Time
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[220px]">
+                            <p>How long you hold each key down. Shorter times (70-100ms) indicate faster finger release. Longer times may indicate hesitation.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </CardDescription>
+                    <CardTitle className={`text-3xl ${keystrokeData.analytics.avgDwellTime && keystrokeData.analytics.avgDwellTime < 100 ? 'text-green-400' : keystrokeData.analytics.avgDwellTime && keystrokeData.analytics.avgDwellTime > 150 ? 'text-orange-400' : ''}`} data-testid="stat-avg-dwell">
                       {keystrokeData.analytics.avgDwellTime?.toFixed(0) || 'N/A'} ms
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground">
-                      Time keys are held down
+                      {keystrokeData.analytics.avgDwellTime && keystrokeData.analytics.avgDwellTime < 100 
+                        ? "✓ Quick key release" 
+                        : keystrokeData.analytics.avgDwellTime && keystrokeData.analytics.avgDwellTime > 150 
+                        ? "⚠️ Keys held too long" 
+                        : "Time keys are held down"}
                     </p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardDescription>Average Flight Time</CardDescription>
-                    <CardTitle className="text-3xl" data-testid="stat-avg-flight">
+                    <CardDescription className="flex items-center gap-1">
+                      Average Flight Time
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[220px]">
+                            <p>Time between releasing one key and pressing the next. Lower times (80-120ms) indicate faster transitions and better muscle memory.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </CardDescription>
+                    <CardTitle className={`text-3xl ${keystrokeData.analytics.avgFlightTime && keystrokeData.analytics.avgFlightTime < 100 ? 'text-green-400' : keystrokeData.analytics.avgFlightTime && keystrokeData.analytics.avgFlightTime > 180 ? 'text-orange-400' : ''}`} data-testid="stat-avg-flight">
                       {keystrokeData.analytics.avgFlightTime?.toFixed(0) || 'N/A'} ms
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground">
-                      Time between keystrokes
+                      {keystrokeData.analytics.avgFlightTime && keystrokeData.analytics.avgFlightTime < 100 
+                        ? "✓ Fast transitions" 
+                        : keystrokeData.analytics.avgFlightTime && keystrokeData.analytics.avgFlightTime > 180 
+                        ? "⚠️ Slow key transitions" 
+                        : "Time between keystrokes"}
                     </p>
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader className="pb-2">
-                    <CardDescription>Consistency Score</CardDescription>
-                    <CardTitle className="text-3xl" data-testid="stat-consistency-score">
+                    <CardDescription className="flex items-center gap-1">
+                      Consistency Score
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[220px]">
+                            <p>How stable your typing rhythm is. Higher scores (80%+) indicate consistent timing between keystrokes, like a metronome. Lower scores suggest variable rhythm.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </CardDescription>
+                    <CardTitle className={`text-3xl ${keystrokeData.analytics.consistency && keystrokeData.analytics.consistency >= 80 ? 'text-green-400' : keystrokeData.analytics.consistency && keystrokeData.analytics.consistency < 60 ? 'text-orange-400' : ''}`} data-testid="stat-consistency-score">
                       {keystrokeData.analytics.consistency?.toFixed(1) || 'N/A'}%
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground">
-                      Typing rhythm stability
+                      {keystrokeData.analytics.consistency && keystrokeData.analytics.consistency >= 80 
+                        ? "✓ Excellent rhythm" 
+                        : keystrokeData.analytics.consistency && keystrokeData.analytics.consistency < 60 
+                        ? "⚠️ Rhythm needs work" 
+                        : "Typing rhythm stability"}
                     </p>
                   </CardContent>
                 </Card>
@@ -2400,21 +2448,50 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
               {keystrokeData.analytics.rollingAccuracy && keystrokeData.analytics.rollingAccuracy.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Accuracy Throughout Test</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      Accuracy Throughout Test
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            <p>Tracks your accuracy at different points during the test. Declining accuracy may indicate fatigue or rushing. Consistent accuracy shows good technique.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </CardTitle>
                     <CardDescription>How your accuracy changed as you typed</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={keystrokeData.analytics.rollingAccuracy.map((acc, idx) => ({
                         chunk: `${(idx + 1) * 20}%`,
-                        accuracy: acc
+                        accuracy: acc,
+                        position: idx + 1
                       }))}>
                         <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                         <XAxis dataKey="chunk" stroke="#888" />
                         <YAxis stroke="#888" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
                         <ChartTooltip 
                           contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}
-                          formatter={(value: number) => [`${value}%`, 'Accuracy']}
+                          content={({ active, payload }) => {
+                            if (!active || !payload || !payload.length) return null;
+                            const data = payload[0]?.payload as { chunk: string; accuracy: number; position: number };
+                            const isGood = data.accuracy >= 95;
+                            const isOkay = data.accuracy >= 90;
+                            return (
+                              <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-lg">
+                                <p className="text-sm font-bold text-white mb-1">Position: {data.chunk}</p>
+                                <p className={`text-sm ${isGood ? 'text-green-400' : isOkay ? 'text-yellow-400' : 'text-red-400'}`}>
+                                  Accuracy: {data.accuracy.toFixed(1)}%
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {isGood ? '✓ Excellent accuracy' : isOkay ? '⚠️ Could improve' : '⚠️ Focus on accuracy here'}
+                                </p>
+                              </div>
+                            );
+                          }}
                         />
                         <Bar dataKey="accuracy" fill="#a855f7" />
                       </BarChart>
@@ -2429,22 +2506,44 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                   {keystrokeData.analytics.topDigraphs && keystrokeData.analytics.topDigraphs.length > 0 && (
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-green-400">Fastest Digraphs</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-green-400">
+                          Fastest Digraphs
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-xs">
+                                <p>A digraph is a two-letter combination. These are your fastest key pairs - your fingers have strong muscle memory for these transitions.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </CardTitle>
                         <CardDescription>Your top 5 fastest two-key combinations</CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-2">
                           {keystrokeData.analytics.topDigraphs.map((d, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-2 rounded bg-green-500/10 border border-green-500/20">
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs text-muted-foreground">#{idx + 1}</span>
-                                <span className="font-mono text-lg">{d.digraph}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="bg-green-500/20">{d.avgTime}ms</Badge>
-                                <span className="text-xs text-muted-foreground">{d.count}x</span>
-                              </div>
-                            </div>
+                            <TooltipProvider key={idx}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center justify-between p-2 rounded bg-green-500/10 border border-green-500/20 hover:bg-green-500/20 transition-colors cursor-help">
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-xs text-muted-foreground">#{idx + 1}</span>
+                                      <span className="font-mono text-lg">{d.digraph}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="bg-green-500/20">{d.avgTime}ms</Badge>
+                                      <span className="text-xs text-muted-foreground">{d.count}x</span>
+                                    </div>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="left">
+                                  <p>You typed "{d.digraph}" {d.count} times with an average speed of {d.avgTime}ms</p>
+                                  <p className="text-xs text-green-400 mt-1">✓ Strong muscle memory</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           ))}
                         </div>
                       </CardContent>
@@ -2454,22 +2553,44 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                   {keystrokeData.analytics.bottomDigraphs && keystrokeData.analytics.bottomDigraphs.length > 0 && (
                     <Card>
                       <CardHeader>
-                        <CardTitle className="text-red-400">Slowest Digraphs</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-red-400">
+                          Slowest Digraphs
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="right" className="max-w-xs">
+                                <p>These key pairs take you longer to type. Practice these combinations specifically to build faster muscle memory.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </CardTitle>
                         <CardDescription>Two-key combinations that need practice</CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-2">
                           {keystrokeData.analytics.bottomDigraphs.map((d, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-2 rounded bg-red-500/10 border border-red-500/20">
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs text-muted-foreground">#{idx + 1}</span>
-                                <span className="font-mono text-lg">{d.digraph}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="bg-red-500/20">{d.avgTime}ms</Badge>
-                                <span className="text-xs text-muted-foreground">{d.count}x</span>
-                              </div>
-                            </div>
+                            <TooltipProvider key={idx}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center justify-between p-2 rounded bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-colors cursor-help">
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-xs text-muted-foreground">#{idx + 1}</span>
+                                      <span className="font-mono text-lg">{d.digraph}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className="bg-red-500/20">{d.avgTime}ms</Badge>
+                                      <span className="text-xs text-muted-foreground">{d.count}x</span>
+                                    </div>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="left">
+                                  <p>You typed "{d.digraph}" {d.count} times with an average speed of {d.avgTime}ms</p>
+                                  <p className="text-xs text-orange-400 mt-1">⚠️ Focus practice on this combination</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           ))}
                         </div>
                       </CardContent>
@@ -2482,7 +2603,19 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Finger Usage Distribution</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      Finger Usage Distribution
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            <p>Shows how many keystrokes each finger made. Balanced usage across fingers indicates good technique. Heavy index finger usage is common and normal.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </CardTitle>
                     <CardDescription>Keystrokes per finger</CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -2490,33 +2623,76 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                       <ResponsiveContainer width="100%" height={250}>
                         <BarChart data={Object.entries(keystrokeData.analytics.fingerUsage).map(([finger, count]) => ({
                           finger: finger.replace('Left ', 'L ').replace('Right ', 'R '),
+                          fullName: finger,
                           count: count
                         }))}>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                           <XAxis dataKey="finger" stroke="#888" angle={-45} textAnchor="end" height={80} />
                           <YAxis stroke="#888" />
-                          <ChartTooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
+                          <ChartTooltip 
+                            contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}
+                            content={({ active, payload }) => {
+                              if (!active || !payload || !payload.length) return null;
+                              const data = payload[0]?.payload as { finger: string; fullName: string; count: number };
+                              const total = Object.values(keystrokeData.analytics.fingerUsage || {}).reduce((a: number, b: number) => a + b, 0);
+                              const percentage = total > 0 ? ((data.count / total) * 100).toFixed(1) : '0';
+                              return (
+                                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-lg">
+                                  <p className="text-sm font-bold text-white mb-1">{data.fullName}</p>
+                                  <p className="text-sm text-cyan-400">{data.count} keystrokes</p>
+                                  <p className="text-xs text-muted-foreground">{percentage}% of total</p>
+                                </div>
+                              );
+                            }}
+                          />
                           <Bar dataKey="count" fill="#00ffff" />
                         </BarChart>
                       </ResponsiveContainer>
                     ) : (
-                      <p className="text-center py-12 text-muted-foreground">No finger usage data available</p>
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <Keyboard className="w-10 h-10 text-muted-foreground mb-3" />
+                        <p className="text-sm text-muted-foreground">No finger usage data available</p>
+                        <p className="text-xs text-muted-foreground mt-1">Complete a typing test to see finger usage patterns</p>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Hand Balance</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      Hand Balance
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            <p>Compares left vs right hand usage. A 45-55% split is ideal. Significant imbalance may indicate technique issues or content bias.</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </CardTitle>
                     <CardDescription>Left vs Right hand usage</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {keystrokeData.analytics.handBalance !== null && keystrokeData.analytics.handBalance !== undefined ? (
                       <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">Left Hand</span>
-                          <Badge variant="outline" className="text-lg">{keystrokeData.analytics.handBalance.toFixed(1)}%</Badge>
-                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center justify-between cursor-help">
+                                <span className="text-sm font-medium">Left Hand</span>
+                                <Badge variant="outline" className={`text-lg ${keystrokeData.analytics.handBalance > 55 ? 'border-blue-500 text-blue-400' : ''}`}>
+                                  {keystrokeData.analytics.handBalance.toFixed(1)}%
+                                </Badge>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Left hand performed {keystrokeData.analytics.handBalance.toFixed(1)}% of all keystrokes</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         <div className="w-full h-8 bg-secondary rounded-full overflow-hidden flex">
                           <div 
                             className="bg-blue-500 transition-all duration-500"
@@ -2527,19 +2703,38 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                             style={{ width: `${100 - keystrokeData.analytics.handBalance}%` }}
                           />
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">Right Hand</span>
-                          <Badge variant="outline" className="text-lg">{(100 - keystrokeData.analytics.handBalance).toFixed(1)}%</Badge>
-                        </div>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center justify-between cursor-help">
+                                <span className="text-sm font-medium">Right Hand</span>
+                                <Badge variant="outline" className={`text-lg ${(100 - keystrokeData.analytics.handBalance) > 55 ? 'border-purple-500 text-purple-400' : ''}`}>
+                                  {(100 - keystrokeData.analytics.handBalance).toFixed(1)}%
+                                </Badge>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Right hand performed {(100 - keystrokeData.analytics.handBalance).toFixed(1)}% of all keystrokes</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         <Separator />
-                        <p className="text-sm text-muted-foreground text-center">
-                          {Math.abs(keystrokeData.analytics.handBalance - 50) < 10 
+                        <p className={`text-sm text-center ${Math.abs(keystrokeData.analytics.handBalance - 50) < 10 ? 'text-green-400' : 'text-orange-400'}`}>
+                          {Math.abs(keystrokeData.analytics.handBalance - 50) < 5 
+                            ? "✓ Excellent hand balance" 
+                            : Math.abs(keystrokeData.analytics.handBalance - 50) < 10 
                             ? "🎯 Well balanced hand usage" 
-                            : "⚡ Consider practicing with your weaker hand"}
+                            : Math.abs(keystrokeData.analytics.handBalance - 50) < 20
+                            ? "⚠️ Slight imbalance - consider practicing with your weaker hand"
+                            : "⚠️ Significant imbalance - focus on weaker hand exercises"}
                         </p>
                       </div>
                     ) : (
-                      <p className="text-center py-12 text-muted-foreground">No hand balance data available</p>
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <Target className="w-10 h-10 text-muted-foreground mb-3" />
+                        <p className="text-sm text-muted-foreground">No hand balance data available</p>
+                        <p className="text-xs text-muted-foreground mt-1">Complete a typing test to see hand usage</p>
+                      </div>
                     )}
                   </CardContent>
                 </Card>
@@ -2548,7 +2743,19 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
               {/* Keyboard Heatmap */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Keyboard Heatmap</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    Keyboard Heatmap
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <p>Shows which keys you pressed most frequently. Brighter keys were used more often. Hover over any key to see exact count. This helps identify which keys get the most practice.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </CardTitle>
                   <CardDescription>Visual representation of key usage frequency</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -2672,7 +2879,19 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                 {keystrokeData.analytics.wpmByPosition && (
                   <Card>
                     <CardHeader>
-                      <CardTitle>WPM Throughout Test</CardTitle>
+                      <CardTitle className="flex items-center gap-2">
+                        WPM Throughout Test
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs">
+                              <p>Tracks your typing speed at different points in the test. A steady line shows consistent rhythm. Drops may indicate difficult words or fatigue.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </CardTitle>
                       <CardDescription>Speed consistency over text position</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -2681,14 +2900,36 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                           Array.isArray(keystrokeData.analytics.wpmByPosition)
                             ? keystrokeData.analytics.wpmByPosition.map((item: {position: number; wpm: number} | number, idx: number) => ({
                                 position: `${typeof item === 'object' ? item.position : idx * 10}%`,
-                                wpm: typeof item === 'object' ? item.wpm : item
+                                wpm: typeof item === 'object' ? item.wpm : item,
+                                rawPosition: typeof item === 'object' ? item.position : idx * 10
                               }))
                             : []
                         }>
                           <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
                           <XAxis dataKey="position" stroke="#888" />
                           <YAxis stroke="#888" />
-                          <ChartTooltip contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }} />
+                          <ChartTooltip 
+                            contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}
+                            content={({ active, payload }) => {
+                              if (!active || !payload || !payload.length) return null;
+                              const data = payload[0]?.payload as { position: string; wpm: number; rawPosition: number };
+                              const avgWpm = keystrokeData.analytics.burstWpm || keystrokeData.analytics.adjustedWpm || 0;
+                              const isAboveAvg = avgWpm > 0 && data.wpm >= avgWpm;
+                              return (
+                                <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 shadow-lg">
+                                  <p className="text-sm font-bold text-white mb-1">Position: {data.position}</p>
+                                  <p className={`text-sm ${isAboveAvg ? 'text-green-400' : 'text-cyan-400'}`}>
+                                    Speed: {data.wpm.toFixed(0)} WPM
+                                  </p>
+                                  {avgWpm > 0 && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {isAboveAvg ? '✓ Above your average' : '⚠️ Below your average'}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            }}
+                          />
                           <Line type="monotone" dataKey="wpm" stroke="#a855f7" strokeWidth={2} dot={{ r: 3 }} />
                         </LineChart>
                       </ResponsiveContainer>
@@ -2699,22 +2940,58 @@ Make goals progressive and appropriate for ${skillLevel.level.toLowerCase()} lev
                 {keystrokeData.analytics.slowestWords && Array.isArray(keystrokeData.analytics.slowestWords) && keystrokeData.analytics.slowestWords.length > 0 && (
                   <Card>
                     <CardHeader>
-                      <CardTitle>Slowest Words</CardTitle>
+                      <CardTitle className="flex items-center gap-2">
+                        Slowest Words
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="w-4 h-4 text-muted-foreground cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs">
+                              <p>Words that took the longest to type. These may contain difficult letter combinations or uncommon patterns. Practice these words to improve your speed.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </CardTitle>
                       <CardDescription>Words that slow you down</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <ScrollArea className="h-[250px]">
                         <div className="space-y-2">
-                          {keystrokeData.analytics.slowestWords.slice(0, 10).map((item: any, idx: number) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
-                              data-testid={`slow-word-${idx}`}
-                            >
-                              <span className="font-mono font-medium">{item.word}</span>
-                              <Badge variant="outline">{item.avgTime?.toFixed(0)} ms</Badge>
-                            </div>
-                          ))}
+                          {keystrokeData.analytics.slowestWords.slice(0, 10).map((item: any, idx: number) => {
+                            const avgTime = item.avgTime || 0;
+                            const isSlow = avgTime > 500;
+                            const isVerySlow = avgTime > 800;
+                            return (
+                              <TooltipProvider key={idx}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div
+                                      className={`flex items-center justify-between p-3 rounded-lg transition-colors cursor-help ${
+                                        isVerySlow ? 'bg-red-500/10 border border-red-500/20 hover:bg-red-500/20' :
+                                        isSlow ? 'bg-orange-500/10 border border-orange-500/20 hover:bg-orange-500/20' :
+                                        'bg-secondary/50 hover:bg-secondary/70'
+                                      }`}
+                                      data-testid={`slow-word-${idx}`}
+                                    >
+                                      <span className="font-mono font-medium">{item.word}</span>
+                                      <Badge variant="outline" className={isVerySlow ? 'bg-red-500/20' : isSlow ? 'bg-orange-500/20' : ''}>
+                                        {avgTime?.toFixed(0)} ms
+                                      </Badge>
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="left">
+                                    <p>Time to type: {avgTime?.toFixed(0)}ms</p>
+                                    <p className={`text-xs mt-1 ${isVerySlow ? 'text-red-400' : isSlow ? 'text-orange-400' : 'text-muted-foreground'}`}>
+                                      {isVerySlow ? '⚠️ Very slow - practice this word' : 
+                                       isSlow ? '⚠️ Slower than average' : 
+                                       'Normal speed'}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            );
+                          })}
                         </div>
                       </ScrollArea>
                     </CardContent>
