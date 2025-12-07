@@ -1,15 +1,4 @@
 import { useState } from "react";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  Tooltip as RechartsTooltip, 
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  CartesianGrid
-} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -335,12 +324,6 @@ export default function Profile() {
   const stats = statsData?.stats;
   const results = resultsData?.results || [];
 
-  const chartData = results.slice(0, 7).reverse().map((result: any, index: number) => ({
-    date: `Test ${index + 1}`,
-    wpm: result.wpm,
-    acc: result.accuracy,
-  }));
-
   return (
       <div className="max-w-5xl mx-auto space-y-8">
         <div className="flex items-start gap-6 p-6 rounded-2xl bg-card/70 backdrop-blur-md border border-border/50 shadow-xl">
@@ -592,54 +575,6 @@ export default function Profile() {
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {chartData.length > 0 && (
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="border-border/50 bg-card/60 backdrop-blur-md">
-              <CardHeader>
-                <CardTitle>WPM History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[250px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <XAxis dataKey="date" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
-                      <RechartsTooltip 
-                        contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }}
-                        itemStyle={{ color: 'hsl(var(--foreground))' }}
-                      />
-                      <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                      <Line type="monotone" dataKey="wpm" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4, fill: "hsl(var(--primary))" }} activeDot={{ r: 6 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/50 bg-card/60 backdrop-blur-md">
-              <CardHeader>
-                <CardTitle>Accuracy Trends</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[250px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData}>
-                      <XAxis dataKey="date" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
-                      <RechartsTooltip 
-                         cursor={{fill: 'hsl(var(--muted)/0.3)'}}
-                         contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }}
-                         itemStyle={{ color: 'hsl(var(--foreground))' }}
-                      />
-                      <Bar dataKey="acc" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         )}
 
         <Card className="border-border/50 bg-card/60 backdrop-blur-md">
