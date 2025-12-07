@@ -2337,18 +2337,20 @@ export class DatabaseStorage implements IStorage {
       testCount: Number(row.test_count) || 0,
     }));
 
-    // Get mistakes heatmap (errors per key)
+    // Get mistakes heatmap (errors per key) - join keystroke_events with test_results to filter by user
     const heatmapQuery = await db.execute(sql`
       SELECT 
-        expected_key as key,
-        COUNT(CASE WHEN is_correct = 0 THEN 1 END)::int as error_count,
+        ke.expected_key as key,
+        COUNT(CASE WHEN ke.is_correct = false THEN 1 END)::int as error_count,
         COUNT(*)::int as total_count,
-        (COUNT(CASE WHEN is_correct = 0 THEN 1 END)::float / NULLIF(COUNT(*), 0) * 100)::numeric(5,2) as error_rate
-      FROM keystroke_analytics
-      WHERE user_id = ${userId}
-        AND created_at >= ${cutoffDate}
-      GROUP BY expected_key
-      HAVING COUNT(CASE WHEN is_correct = 0 THEN 1 END) > 0
+        (COUNT(CASE WHEN ke.is_correct = false THEN 1 END)::float / NULLIF(COUNT(*), 0) * 100)::numeric(5,2) as error_rate
+      FROM keystroke_events ke
+      JOIN test_results tr ON ke.test_result_id = tr.id
+      WHERE tr.user_id = ${userId}
+        AND ke.created_at >= ${cutoffDate}
+        AND ke.expected_key IS NOT NULL
+      GROUP BY ke.expected_key
+      HAVING COUNT(CASE WHEN ke.is_correct = false THEN 1 END) > 0
       ORDER BY error_count DESC
       LIMIT 50
     `);
@@ -2380,17 +2382,19 @@ export class DatabaseStorage implements IStorage {
       maxWpm: Number(consistencyData?.max_wpm) || 0,
     };
 
-    // Get common mistakes (expected key vs typed key)
+    // Get common mistakes (expected key vs typed key) - join keystroke_events with test_results
     const mistakesQuery = await db.execute(sql`
       SELECT 
-        expected_key,
-        typed_key,
+        ke.expected_key,
+        ke.key as typed_key,
         COUNT(*)::int as count
-      FROM keystroke_analytics
-      WHERE user_id = ${userId}
-        AND is_correct = 0
-        AND created_at >= ${cutoffDate}
-      GROUP BY expected_key, typed_key
+      FROM keystroke_events ke
+      JOIN test_results tr ON ke.test_result_id = tr.id
+      WHERE tr.user_id = ${userId}
+        AND ke.is_correct = false
+        AND ke.created_at >= ${cutoffDate}
+        AND ke.expected_key IS NOT NULL
+      GROUP BY ke.expected_key, ke.key
       ORDER BY count DESC
       LIMIT 20
     `);
