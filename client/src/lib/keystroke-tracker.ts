@@ -237,9 +237,28 @@ export class KeystrokeTracker {
     }
 
     // Consistency score (inverse coefficient of variation, 0-100)
-    const consistency = avgFlightTime && stdDevFlightTime 
-      ? Math.max(0, Math.min(100, 100 - (stdDevFlightTime / avgFlightTime) * 100))
-      : null;
+    // Filter out long pauses (> 1000ms) for a more accurate consistency score
+    // Use dynamic threshold based on average speed - slower typists naturally have longer flight times
+    let consistency: number | null = null;
+    if (flightTimes.length >= 2) {
+      // Use a generous 1000ms threshold first, then fall back to unfiltered if needed
+      const outlierThreshold = 1000;
+      let timesToUse = flightTimes.filter(t => t > 0 && t < outlierThreshold);
+      
+      // Fallback: if too few times remain after filtering, use all positive flight times
+      if (timesToUse.length < 2) {
+        timesToUse = flightTimes.filter(t => t > 0);
+      }
+      
+      if (timesToUse.length >= 2) {
+        const calcAvg = timesToUse.reduce((a, b) => a + b, 0) / timesToUse.length;
+        const calcVariance = timesToUse.reduce((sum, t) => sum + Math.pow(t - calcAvg, 2), 0) / timesToUse.length;
+        const calcStdDev = Math.sqrt(calcVariance);
+        // Scale the coefficient of variation more gently - multiply by 50 instead of 100 for more realistic scores
+        const cv = (calcStdDev / calcAvg);
+        consistency = Math.max(0, Math.min(100, 100 - (cv * 50)));
+      }
+    }
 
     // Build keyboard heatmap
     const keyHeatmap: Record<string, number> = {};
@@ -400,7 +419,7 @@ export class KeystrokeTracker {
   
   // Calculate peak 5-second WPM (burst speed)
   private calculateBurstWpm(): number | null {
-    if (this.events.length < 20) return null;
+    if (this.events.length < 5) return null;
     
     const windowMs = 5000; // 5 seconds
     let maxBurstWpm = 0;
@@ -425,7 +444,7 @@ export class KeystrokeTracker {
   
   // Calculate accuracy across 5 chunks for trend analysis
   private calculateRollingAccuracy(): number[] | null {
-    if (this.events.length < 10) return null;
+    if (this.events.length < 5) return null;
     
     const numChunks = 5;
     const chunkSize = Math.ceil(this.events.length / numChunks);
@@ -475,11 +494,17 @@ export class KeystrokeTracker {
   
   // Typing rhythm score based on interkey timing variance
   private calculateTypingRhythm(flightTimes: number[]): number | null {
-    if (flightTimes.length < 10) return null;
+    if (flightTimes.length < 3) return null;
     
-    // Filter out outliers (> 500ms pauses are likely not typing rhythm)
-    const filteredTimes = flightTimes.filter(t => t > 0 && t < 500);
-    if (filteredTimes.length < 10) return null;
+    // Filter out extreme outliers (> 1000ms pauses are likely not typing rhythm)
+    // Use a generous threshold that works for slow typists too
+    let filteredTimes = flightTimes.filter(t => t > 0 && t < 1000);
+    
+    // Fallback: if too few times remain after filtering, use all positive flight times
+    if (filteredTimes.length < 3) {
+      filteredTimes = flightTimes.filter(t => t > 0);
+    }
+    if (filteredTimes.length < 3) return null;
     
     const mean = filteredTimes.reduce((a, b) => a + b, 0) / filteredTimes.length;
     const variance = filteredTimes.reduce((sum, t) => sum + Math.pow(t - mean, 2), 0) / filteredTimes.length;
@@ -497,7 +522,7 @@ export class KeystrokeTracker {
   
   // Find the best performing 20% window of the test
   private calculatePeakPerformance(): { startPos: number; endPos: number; wpm: number } | null {
-    if (this.events.length < 20) return null;
+    if (this.events.length < 5) return null;
     
     const windowSize = Math.ceil(this.events.length * 0.2);
     let bestWindow = { startPos: 0, endPos: 0, wpm: 0 };
@@ -530,7 +555,7 @@ export class KeystrokeTracker {
   
   // Calculate speed drop from first half to second half (fatigue indicator)
   private calculateFatigueIndicator(): number | null {
-    if (this.events.length < 20) return null;
+    if (this.events.length < 10) return null;
     
     const midpoint = Math.floor(this.events.length / 2);
     const firstHalf = this.events.slice(0, midpoint);
@@ -560,7 +585,7 @@ export class KeystrokeTracker {
   
   // Count consecutive error sequences (error bursts)
   private calculateErrorBurstCount(): number | null {
-    if (this.events.length < 10) return null;
+    if (this.events.length < 3) return null;
     
     let burstCount = 0;
     let inBurst = false;
