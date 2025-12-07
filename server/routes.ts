@@ -504,7 +504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     initiateOAuthFlow("google")
   );
 
-  app.get("/api/auth/google/callback",
+  app.get("/api/auth/callback/google",
     oauthRateLimitMiddleware(),
     handleOAuthCallbackFlow("google")
   );
@@ -514,7 +514,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     initiateOAuthFlow("github")
   );
 
-  app.get("/api/auth/github/callback",
+  app.get("/api/auth/callback/github",
     oauthRateLimitMiddleware(),
     handleOAuthCallbackFlow("github")
   );
@@ -524,7 +524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     initiateOAuthFlow("facebook")
   );
 
-  app.get("/api/auth/facebook/callback",
+  app.get("/api/auth/callback/facebook",
     oauthRateLimitMiddleware(),
     handleOAuthCallbackFlow("facebook")
   );

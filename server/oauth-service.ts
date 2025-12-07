@@ -447,7 +447,7 @@ export function initializeOAuthStrategies() {
         {
           clientID: process.env.GOOGLE_CLIENT_ID,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-          callbackURL: `${baseUrl}/api/auth/google/callback`,
+          callbackURL: `${baseUrl}/api/auth/callback/google`,
           scope: ["profile", "email"],
           passReqToCallback: true,
         },
@@ -468,7 +468,7 @@ export function initializeOAuthStrategies() {
         {
           clientID: process.env.GITHUB_CLIENT_ID,
           clientSecret: process.env.GITHUB_CLIENT_SECRET,
-          callbackURL: `${baseUrl}/api/auth/github/callback`,
+          callbackURL: `${baseUrl}/api/auth/callback/github`,
           scope: ["user:email"],
           passReqToCallback: true,
         },
@@ -489,7 +489,7 @@ export function initializeOAuthStrategies() {
         {
           clientID: process.env.FACEBOOK_APP_ID,
           clientSecret: process.env.FACEBOOK_APP_SECRET,
-          callbackURL: `${baseUrl}/api/auth/facebook/callback`,
+          callbackURL: `${baseUrl}/api/auth/callback/facebook`,
           profileFields: ["id", "emails", "name", "displayName", "photos"],
           passReqToCallback: true,
         },
