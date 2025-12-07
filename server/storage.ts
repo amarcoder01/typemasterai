@@ -2512,7 +2512,7 @@ export class DatabaseStorage implements IStorage {
       const previous = weeklyAggregates[weeklyAggregates.length - 2];
       weekOverWeek = {
         wpm: current.avgWpm - previous.avgWpm,
-        accuracy: current.avgAccuracy - previous.avgAccuracy,
+        accuracy: Math.round((current.avgAccuracy - previous.avgAccuracy) * 10) / 10,
       };
     }
 
@@ -2522,7 +2522,7 @@ export class DatabaseStorage implements IStorage {
       const previous = monthlyAggregates[monthlyAggregates.length - 2];
       monthOverMonth = {
         wpm: current.avgWpm - previous.avgWpm,
-        accuracy: current.avgAccuracy - previous.avgAccuracy,
+        accuracy: Math.round((current.avgAccuracy - previous.avgAccuracy) * 10) / 10,
       };
     }
 
