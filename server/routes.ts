@@ -3604,7 +3604,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...analytics,
           userId: req.user.id,
         };
+        // Debug log to see what's being saved
+        console.log('[Analytics Save] burstWpm:', analytics.burstWpm, 'adjustedWpm:', analytics.adjustedWpm, 'typingRhythm:', analytics.typingRhythm);
         const savedAnalytics = await storage.saveTypingAnalytics(analyticsData);
+        console.log('[Analytics Save] Saved ID:', savedAnalytics.id, 'burstWpm in DB:', savedAnalytics.burstWpm);
         return res.json({ 
           message: "Analytics saved successfully",
           analyticsId: savedAnalytics.id
