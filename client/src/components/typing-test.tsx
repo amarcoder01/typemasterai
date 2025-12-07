@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { generateText, calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award, Share2, Twitter, Facebook, MessageCircle, Copy, Check, Link2, Linkedin, Mail, Send, AlertCircle, Loader2, HelpCircle, Timer, BarChart3 } from "lucide-react";
+import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award, Share2, Twitter, Facebook, MessageCircle, Copy, Check, Link2, Linkedin, Mail, Send, AlertCircle, Loader2, HelpCircle, Timer, BarChart3, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
@@ -2009,7 +2009,7 @@ Can you beat my score? Try it here: `,
 
       {/* Controls - Removed from DOM in Zen Mode when typing for accessibility */}
       {!(zenMode && isActive) && (
-        <div className="flex justify-center transition-opacity duration-300">
+        <div className="flex justify-center gap-3 transition-opacity duration-300">
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -2023,6 +2023,37 @@ Can you beat my score? Try it here: `,
             </TooltipTrigger>
             <TooltipContent>
               <p>Get a new paragraph and restart the test</p>
+            </TooltipContent>
+          </Tooltip>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => {
+                  const newValue = !zenMode;
+                  setZenMode(newValue);
+                  localStorage.setItem('zenMode', String(newValue));
+                  toast({
+                    title: newValue ? "Zen Mode Enabled" : "Zen Mode Disabled",
+                    description: newValue 
+                      ? "Stats and controls will be hidden during typing" 
+                      : "Stats and controls will remain visible",
+                  });
+                }}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-3 rounded-lg transition-colors font-medium",
+                  zenMode 
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                    : "bg-secondary hover:bg-secondary/80 text-secondary-foreground"
+                )}
+                data-testid="button-zen-mode"
+              >
+                {zenMode ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+                Zen
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{zenMode ? "Disable Zen Mode - show stats while typing" : "Enable Zen Mode - hide stats while typing"}</p>
             </TooltipContent>
           </Tooltip>
         </div>
