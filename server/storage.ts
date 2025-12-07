@@ -1134,8 +1134,8 @@ export class DatabaseStorage implements IStorage {
       .select({
         totalTests: sql<number>`count(*)::int`,
         bestWpm: sql<number>`max(${testResults.wpm})::int`,
-        avgWpm: sql<number>`avg(${testResults.wpm})::int`,
-        avgAccuracy: sql<number>`avg(${testResults.accuracy})::float`,
+        avgWpm: sql<number>`ROUND(avg(${testResults.wpm}))::int`,
+        avgAccuracy: sql<number>`ROUND(avg(${testResults.accuracy})::numeric, 1)::float`,
       })
       .from(testResults)
       .where(eq(testResults.userId, userId));
@@ -2320,8 +2320,8 @@ export class DatabaseStorage implements IStorage {
     const wpmDataQuery = await db.execute(sql`
       SELECT 
         TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as date,
-        AVG(wpm)::int as wpm,
-        AVG(accuracy)::numeric(5,2) as accuracy,
+        ROUND(AVG(wpm))::int as wpm,
+        ROUND(AVG(accuracy)::numeric, 1) as accuracy,
         COUNT(*)::int as test_count
       FROM test_results
       WHERE user_id = ${userId}
@@ -2530,7 +2530,7 @@ export class DatabaseStorage implements IStorage {
       WITH first_last AS (
         SELECT 
           (SELECT wpm FROM test_results WHERE user_id = ${userId} ORDER BY created_at ASC LIMIT 1) as first_wpm,
-          (SELECT AVG(wpm)::int FROM test_results WHERE user_id = ${userId} AND created_at >= NOW() - INTERVAL '7 days') as current_wpm
+          (SELECT ROUND(AVG(wpm))::int FROM test_results WHERE user_id = ${userId} AND created_at >= NOW() - INTERVAL '7 days') as current_wpm
       )
       SELECT first_wpm, current_wpm FROM first_last
     `);
@@ -2979,8 +2979,8 @@ export class DatabaseStorage implements IStorage {
       .select({
         totalTests: sql<number>`count(*)::int`,
         bestWpm: sql<number>`COALESCE(max(${codeTypingTests.wpm}), 0)::int`,
-        avgWpm: sql<number>`COALESCE(avg(${codeTypingTests.wpm}), 0)::int`,
-        avgAccuracy: sql<number>`COALESCE(avg(${codeTypingTests.accuracy}), 0)::float`,
+        avgWpm: sql<number>`COALESCE(ROUND(avg(${codeTypingTests.wpm})), 0)::int`,
+        avgAccuracy: sql<number>`COALESCE(ROUND(avg(${codeTypingTests.accuracy})::numeric, 1), 0)::float`,
         totalSyntaxErrors: sql<number>`COALESCE(sum(${codeTypingTests.syntaxErrors}), 0)::int`,
       })
       .from(codeTypingTests)
