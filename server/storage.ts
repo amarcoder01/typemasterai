@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
+import crypto from "crypto";
 import {
   users,
   testResults,
@@ -931,7 +932,6 @@ export class DatabaseStorage implements IStorage {
 
   // Password Reset (with secure token hashing)
   private hashToken(token: string): string {
-    const crypto = require("crypto");
     return crypto.createHash("sha256").update(token).digest("hex");
   }
 
