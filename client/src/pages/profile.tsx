@@ -99,22 +99,6 @@ function BadgeCardSkeleton() {
   );
 }
 
-function TestHistorySkeleton() {
-  return (
-    <div className="space-y-3">
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="flex items-center gap-4 p-4 rounded-lg bg-card/50 border border-border/30">
-          <Skeleton className="w-12 h-12 rounded-lg" />
-          <div className="flex-1">
-            <Skeleton className="h-4 w-24 mb-2" />
-            <Skeleton className="h-3 w-48" />
-          </div>
-          <Skeleton className="h-8 w-16" />
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function ErrorState({ 
   message, 
@@ -251,18 +235,6 @@ export default function Profile() {
         credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to fetch stats");
-      return response.json();
-    },
-    enabled: !!user,
-  });
-
-  const { data: resultsData, error: resultsError, isLoading: resultsLoading, refetch: refetchResults, isFetching: resultsRefetching } = useQuery({
-    queryKey: ["test-results"],
-    queryFn: async () => {
-      const response = await fetch("/api/test-results?limit=10", {
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to fetch results");
       return response.json();
     },
     enabled: !!user,
@@ -486,7 +458,6 @@ export default function Profile() {
   }
 
   const stats = statsData?.stats;
-  const results = resultsData?.results || [];
 
   return (
       <div className="max-w-5xl mx-auto space-y-8">
@@ -821,37 +792,6 @@ export default function Profile() {
             </CardContent>
           </Card>
         )}
-
-        <Card className="border-border/50 bg-card/60 backdrop-blur-md">
-          <CardHeader>
-            <CardTitle>Recent Tests</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {results.length > 0 ? (
-              <div className="space-y-1">
-                {results.map((test: any) => (
-                  <div key={test.id} className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-lg transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="w-2 h-2 rounded-full bg-primary"></div>
-                      <span className="font-mono font-medium">{test.wpm} wpm</span>
-                    </div>
-                    <div className="flex items-center gap-8 text-sm text-muted-foreground">
-                      <span>{test.accuracy.toFixed(1)}% acc</span>
-                      <span>{test.mode}s</span>
-                      <span>{new Date(test.createdAt).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No tests completed yet.</p>
-                <p className="text-sm mt-2">Start typing to see your results here!</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         <Card className="border-border/50 bg-card/60 backdrop-blur-md">
           <CardHeader>
