@@ -4,7 +4,7 @@ import {
   Bar, 
   XAxis, 
   YAxis, 
-  Tooltip, 
+  Tooltip as RechartsTooltip, 
   ResponsiveContainer,
   LineChart,
   Line,
@@ -21,11 +21,40 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame, Star, Target, ChevronRight, Trophy, Sparkles, Check } from "lucide-react";
+import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame, Star, Target, ChevronRight, Trophy, Sparkles, Check, Zap, Share2, Moon, Sunrise, Rocket, Timer, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { BADGES, TOTAL_BADGES, type UserBadgeProgress, getTierColor, getTierBorder, type Badge as BadgeType } from "@shared/badges";
 import { BadgeCard } from "@/components/badge-card";
 import { BadgeShareCard } from "@/components/badge-share-card";
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Zap,
+  Target,
+  Flame,
+  TrendingUp,
+  Star,
+  Award,
+  Share2,
+  Moon,
+  Sunrise,
+  Rocket,
+  Sparkles,
+  Timer,
+};
+
+function BadgeIcon({ iconName, className }: { iconName: string; className?: string }) {
+  const IconComponent = iconMap[iconName] || Star;
+  return <IconComponent className={className} />;
+}
+
+const tierDescriptions: Record<string, string> = {
+  bronze: "Entry-level achievement",
+  silver: "Intermediate milestone",
+  gold: "Advanced accomplishment", 
+  platinum: "Expert-level mastery",
+  diamond: "Ultimate achievement",
+};
 
 interface NextAchievement {
   key: string;
@@ -390,54 +419,91 @@ export default function Profile() {
             </div>
             
             {unlockedCount > 0 && (
-              <div className="pt-3 border-t border-border/30">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-amber-500" />
-                    <span className="text-sm font-semibold">Badge Showcase</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs h-7 px-2"
-                    onClick={() => {
-                      setSelectedShowcaseBadges(showcaseBadges);
-                      setShowShowcaseModal(true);
-                    }}
-                    data-testid="button-edit-showcase"
-                  >
-                    <Edit className="w-3 h-3 mr-1" />
-                    Edit
-                  </Button>
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {showcaseBadges.length > 0 ? (
-                    showcaseBadges.map((badgeKey) => {
-                      const badge = BADGES.find(b => b.id === badgeKey);
-                      if (!badge) return null;
-                      return (
-                        <div
-                          key={badge.id}
-                          className={cn(
-                            "relative group flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all hover:scale-105",
-                            getTierBorder(badge.tier),
-                            `bg-gradient-to-br ${getTierColor(badge.tier)} bg-opacity-20`
-                          )}
-                          title={badge.description}
-                          data-testid={`showcase-badge-${badge.id}`}
+              <TooltipProvider delayDuration={200}>
+                <div className="pt-3 border-t border-border/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4 text-amber-500" />
+                      <span className="text-sm font-semibold">Badge Showcase</span>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p className="text-sm">Display your top achievements on your profile. Select up to 5 badges to showcase.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => {
+                            setSelectedShowcaseBadges(showcaseBadges);
+                            setShowShowcaseModal(true);
+                          }}
+                          data-testid="button-edit-showcase"
                         >
-                          <span className="text-lg">{badge.icon}</span>
-                          <span className="text-sm font-medium">{badge.name}</span>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">
-                      No badges showcased yet. Click Edit to select up to 5 badges to display!
-                    </p>
-                  )}
+                          <Edit className="w-3 h-3 mr-1" />
+                          Edit
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Customize your badge showcase</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {showcaseBadges.length > 0 ? (
+                      showcaseBadges.map((badgeKey) => {
+                        const badge = BADGES.find(b => b.id === badgeKey);
+                        if (!badge) return null;
+                        return (
+                          <Tooltip key={badge.id}>
+                            <TooltipTrigger asChild>
+                              <div
+                                className={cn(
+                                  "relative group flex items-center gap-2 px-3 py-2 rounded-lg border-2 transition-all hover:scale-105 cursor-pointer",
+                                  getTierBorder(badge.tier),
+                                  `bg-gradient-to-br ${getTierColor(badge.tier)} bg-opacity-20`
+                                )}
+                                data-testid={`showcase-badge-${badge.id}`}
+                              >
+                                <div className={cn(
+                                  "w-7 h-7 rounded-md flex items-center justify-center",
+                                  `bg-gradient-to-br ${getTierColor(badge.tier)}`
+                                )}>
+                                  <BadgeIcon iconName={badge.icon} className="w-4 h-4 text-white drop-shadow-sm" />
+                                </div>
+                                <span className="text-sm font-medium">{badge.name}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="max-w-xs">
+                              <div className="space-y-1">
+                                <p className="font-semibold">{badge.name}</p>
+                                <p className="text-xs text-muted-foreground">{badge.description}</p>
+                                <div className="flex items-center gap-2 pt-1">
+                                  <Badge variant="outline" className="text-[10px] capitalize" style={{ borderColor: badge.color, color: badge.color }}>
+                                    {badge.tier}
+                                  </Badge>
+                                  <span className="text-xs text-primary">+{badge.points} XP</span>
+                                </div>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })
+                    ) : (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground italic">
+                        <Sparkles className="w-4 h-4" />
+                        <p>No badges showcased yet. Click Edit to select up to 5 badges to display!</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </TooltipProvider>
             )}
           </div>
         </div>
@@ -540,7 +606,7 @@ export default function Profile() {
                     <LineChart data={chartData}>
                       <XAxis dataKey="date" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
-                      <Tooltip 
+                      <RechartsTooltip 
                         contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }}
                         itemStyle={{ color: 'hsl(var(--foreground))' }}
                       />
@@ -562,7 +628,7 @@ export default function Profile() {
                     <BarChart data={chartData}>
                       <XAxis dataKey="date" stroke="#666" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#666" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
-                      <Tooltip 
+                      <RechartsTooltip 
                          cursor={{fill: 'hsl(var(--muted)/0.3)'}}
                          contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }}
                          itemStyle={{ color: 'hsl(var(--foreground))' }}
@@ -780,8 +846,8 @@ export default function Profile() {
         </Card>
 
         <Dialog open={showShowcaseModal} onOpenChange={setShowShowcaseModal}>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" data-testid="showcase-modal">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col" data-testid="showcase-modal">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle className="flex items-center gap-2">
                 <Trophy className="w-5 h-5 text-amber-500" />
                 Select Badges to Showcase
@@ -791,121 +857,179 @@ export default function Profile() {
               </DialogDescription>
             </DialogHeader>
             
-            <div className="py-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="space-y-1">
-                  <span className="text-sm text-muted-foreground">
-                    {selectedShowcaseBadges.length} / 5 badges selected
-                  </span>
-                  {selectedShowcaseBadges.length > 0 && selectedShowcaseBadges.length < 3 && (
-                    <p className="text-xs text-amber-500" data-testid="showcase-min-warning">
-                      Select at least 3 badges to save your showcase
-                    </p>
+            <TooltipProvider delayDuration={300}>
+              <div className="flex-1 overflow-hidden flex flex-col py-4">
+                <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">
+                        {selectedShowcaseBadges.length} / 5 badges selected
+                      </span>
+                      {selectedShowcaseBadges.length === 5 && (
+                        <Badge variant="secondary" className="text-[10px]">Maximum reached</Badge>
+                      )}
+                    </div>
+                  </div>
+                  {selectedShowcaseBadges.length > 0 && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedShowcaseBadges([])}
+                          data-testid="button-clear-selection"
+                        >
+                          Clear All
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Remove all selected badges</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
-                {selectedShowcaseBadges.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedShowcaseBadges([])}
-                    data-testid="button-clear-selection"
-                  >
-                    Clear All
-                  </Button>
-                )}
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {badgeProgress
-                  .filter((item) => item.unlocked)
-                  .map((item) => {
-                    const isSelected = selectedShowcaseBadges.includes(item.badge.id);
-                    const canSelect = selectedShowcaseBadges.length < 5 || isSelected;
-                    
-                    return (
-                      <div
-                        key={item.badge.id}
-                        className={cn(
-                          "relative flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all",
-                          isSelected 
-                            ? `${getTierBorder(item.badge.tier)} bg-gradient-to-br ${getTierColor(item.badge.tier)} bg-opacity-10` 
-                            : "border-border hover:border-primary/50",
-                          !canSelect && "opacity-50 cursor-not-allowed"
-                        )}
-                        onClick={() => {
-                          if (!canSelect) return;
-                          if (isSelected) {
-                            setSelectedShowcaseBadges(prev => prev.filter(k => k !== item.badge.id));
-                          } else {
-                            setSelectedShowcaseBadges(prev => [...prev, item.badge.id]);
-                          }
-                        }}
-                        data-testid={`showcase-select-${item.badge.id}`}
-                      >
-                        <div className={cn(
-                          "w-12 h-12 rounded-lg flex items-center justify-center text-2xl",
-                          `bg-gradient-to-br ${getTierColor(item.badge.tier)}`
-                        )}>
-                          {item.badge.icon}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-sm truncate">{item.badge.name}</div>
-                          <div className="text-xs text-muted-foreground truncate">{item.badge.description}</div>
-                          <Badge 
-                            variant="outline" 
-                            className="text-[10px] px-1.5 py-0 mt-1 capitalize"
-                            style={{ borderColor: item.badge.color, color: item.badge.color }}
-                          >
-                            {item.badge.tier}
-                          </Badge>
-                        </div>
-                        <div className={cn(
-                          "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
-                          isSelected 
-                            ? "bg-primary border-primary" 
-                            : "border-muted-foreground/30"
-                        )}>
-                          {isSelected && <Check className="w-4 h-4 text-primary-foreground" />}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-              
-              {badgeProgress.filter(item => item.unlocked).length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>You haven't unlocked any badges yet!</p>
-                  <p className="text-sm mt-2">Complete typing tests to earn badges.</p>
+                
+                <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {badgeProgress
+                      .filter((item) => item.unlocked)
+                      .map((item) => {
+                        const isSelected = selectedShowcaseBadges.includes(item.badge.id);
+                        const canSelect = selectedShowcaseBadges.length < 5 || isSelected;
+                        
+                        return (
+                          <Tooltip key={item.badge.id}>
+                            <TooltipTrigger asChild>
+                              <div
+                                className={cn(
+                                  "relative flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md",
+                                  isSelected 
+                                    ? `${getTierBorder(item.badge.tier)} bg-gradient-to-br ${getTierColor(item.badge.tier)} bg-opacity-10 shadow-sm` 
+                                    : "border-border hover:border-primary/50 bg-background",
+                                  !canSelect && "opacity-50 cursor-not-allowed hover:shadow-none"
+                                )}
+                                onClick={() => {
+                                  if (!canSelect) return;
+                                  if (isSelected) {
+                                    setSelectedShowcaseBadges(prev => prev.filter(k => k !== item.badge.id));
+                                  } else {
+                                    setSelectedShowcaseBadges(prev => [...prev, item.badge.id]);
+                                  }
+                                }}
+                                data-testid={`showcase-select-${item.badge.id}`}
+                              >
+                                <div className={cn(
+                                  "w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm",
+                                  `bg-gradient-to-br ${getTierColor(item.badge.tier)}`
+                                )}>
+                                  <BadgeIcon iconName={item.badge.icon} className="w-6 h-6 text-white drop-shadow-md" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-semibold text-sm truncate">{item.badge.name}</div>
+                                  <div className="text-xs text-muted-foreground line-clamp-1">{item.badge.description}</div>
+                                  <div className="flex items-center gap-2 mt-1.5">
+                                    <Badge 
+                                      variant="outline" 
+                                      className="text-[10px] px-1.5 py-0 capitalize"
+                                      style={{ borderColor: item.badge.color, color: item.badge.color }}
+                                    >
+                                      {item.badge.tier}
+                                    </Badge>
+                                    <span className="text-[10px] text-primary font-medium">+{item.badge.points} XP</span>
+                                  </div>
+                                </div>
+                                <div className={cn(
+                                  "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0",
+                                  isSelected 
+                                    ? "bg-primary border-primary" 
+                                    : "border-muted-foreground/30 hover:border-primary/50"
+                                )}>
+                                  {isSelected && <Check className="w-4 h-4 text-primary-foreground" />}
+                                </div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[250px]">
+                              <div className="space-y-1.5">
+                                <p className="font-semibold">{item.badge.name}</p>
+                                <p className="text-xs text-muted-foreground">{item.badge.description}</p>
+                                <p className="text-[10px] text-muted-foreground">{tierDescriptions[item.badge.tier] || "Achievement"}</p>
+                                {item.unlockedAt && (
+                                  <p className="text-[10px] text-green-500">
+                                    Unlocked: {new Date(item.unlockedAt).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
+                  </div>
                 </div>
-              )}
-            </div>
-            
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={() => setShowShowcaseModal(false)}
-                data-testid="button-cancel-showcase"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => showcaseMutation.mutate(selectedShowcaseBadges)}
-                disabled={showcaseMutation.isPending || (selectedShowcaseBadges.length > 0 && selectedShowcaseBadges.length < 3)}
-                data-testid="button-save-showcase"
-              >
-                {showcaseMutation.isPending ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4 mr-2" />
-                    Save Showcase
-                  </>
+                
+                {badgeProgress.filter(item => item.unlocked).length === 0 && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                      <Sparkles className="w-8 h-8 opacity-50" />
+                    </div>
+                    <p className="font-medium">No badges unlocked yet!</p>
+                    <p className="text-sm mt-2 max-w-xs mx-auto">Complete typing tests and reach milestones to earn badges you can showcase.</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-4"
+                      onClick={() => {
+                        setShowShowcaseModal(false);
+                        setLocation("/");
+                      }}
+                    >
+                      Start Typing
+                    </Button>
+                  </div>
                 )}
-              </Button>
+              </div>
+            </TooltipProvider>
+            
+            <div className="flex justify-between items-center gap-3 pt-4 border-t flex-shrink-0">
+              <div className="text-xs text-muted-foreground">
+                {badgeProgress.filter(item => item.unlocked).length} badge{badgeProgress.filter(item => item.unlocked).length !== 1 ? 's' : ''} available
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowShowcaseModal(false)}
+                  data-testid="button-cancel-showcase"
+                >
+                  Cancel
+                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <Button
+                        onClick={() => showcaseMutation.mutate(selectedShowcaseBadges)}
+                        disabled={showcaseMutation.isPending}
+                        data-testid="button-save-showcase"
+                      >
+                        {showcaseMutation.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-4 h-4 mr-2" />
+                            Save Showcase
+                          </>
+                        )}
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {selectedShowcaseBadges.length > 0 && selectedShowcaseBadges.length < 3 && (
+                    <TooltipContent>
+                      <p>Select at least 3 badges to save</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
