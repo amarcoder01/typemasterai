@@ -573,6 +573,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       try {
         normalizedEmail = InputSanitizer.normalizeEmail(parsed.data.email);
+        req.body.email = normalizedEmail;
       } catch (sanitizeError) {
         if (sanitizeError instanceof AuthError) {
           AuthLogger.logLoginAttempt(req, parsed.data.email, false, undefined, sanitizeError.message);
