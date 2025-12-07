@@ -778,8 +778,10 @@ function AnalyticsContent() {
         errorBurstCount: number | null;
       }>;
       
-      // Use the latest record (first in array, sorted by createdAt DESC) for per-test metrics
-      const latest = analyticsArray[0];
+      // Find the first record with valid keystroke data (wpm > 0 and has avgFlightTime)
+      // This ensures we display complete analytics, not data from incomplete tests
+      const validRecord = analyticsArray.find(a => a.wpm > 0 && a.avgFlightTime !== null);
+      const latest = validRecord || analyticsArray[0];
       
       // Aggregate finger usage across all tests for comprehensive view
       const aggregatedFingerUsage: Record<string, number> = {};
