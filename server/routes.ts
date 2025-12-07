@@ -140,6 +140,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(passport.session());
   app.use(rememberMeMiddleware());
 
+  // Apply security headers to all API routes
+  app.use("/api", securityHeaders());
+
+  // Apply CSRF protection to all mutating API endpoints
+  app.use("/api", csrfProtection());
+
   initializeOAuthStrategies();
 
   const authLimiter = rateLimit({
@@ -400,6 +406,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Record successful registration login
       await authSecurityService.recordLoginAttempt(user.id, user.email, req, true);
 
+      // Regenerate session to prevent session fixation attacks
+      try {
+        await regenerateSession(req);
+      } catch (sessionErr) {
+        console.error("Session regeneration failed:", sessionErr);
+      }
+
       req.login(
         {
           id: user.id,
@@ -449,6 +462,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!user) {
         return res.status(401).json({ message: info?.message || "Invalid credentials" });
+      }
+
+      // Regenerate session to prevent session fixation attacks
+      try {
+        await regenerateSession(req);
+      } catch (sessionErr) {
+        console.error("Session regeneration failed:", sessionErr);
       }
 
       req.login(user, async (err) => {
