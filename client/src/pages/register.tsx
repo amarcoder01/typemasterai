@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Keyboard, AlertCircle, Github } from "lucide-react";
+import { Keyboard, AlertCircle, Github, HelpCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ProviderAvailability {
   google: boolean;
@@ -193,58 +194,100 @@ export default function Register() {
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="johndoe"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  data-testid="input-username"
-                />
-              </div>
+              <TooltipProvider>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="username">Username</Label>
+                    <Tooltip>
+                      <TooltipTrigger type="button" tabIndex={-1}>
+                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>3-30 characters. Letters, numbers, and underscores only. Must start with a letter.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="johndoe"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    required
+                    data-testid="input-username"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  data-testid="input-email"
-                />
-              </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="email">Email</Label>
+                    <Tooltip>
+                      <TooltipTrigger type="button" tabIndex={-1}>
+                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>We'll use this for account verification and password recovery</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    data-testid="input-email"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  data-testid="input-password"
-                />
-                <p className="text-xs text-muted-foreground">At least 8 characters</p>
-              </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="password">Password</Label>
+                    <Tooltip>
+                      <TooltipTrigger type="button" tabIndex={-1}>
+                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>Must include uppercase, lowercase, number, and special character</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    data-testid="input-password"
+                  />
+                  <p className="text-xs text-muted-foreground">At least 8 characters</p>
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="••••••••"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  data-testid="input-confirm-password"
-                />
-              </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <Tooltip>
+                      <TooltipTrigger type="button" tabIndex={-1}>
+                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right">
+                        <p>Re-enter your password to make sure it matches</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    data-testid="input-confirm-password"
+                  />
+                </div>
+              </TooltipProvider>
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
               <Button
