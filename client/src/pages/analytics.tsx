@@ -1071,14 +1071,7 @@ function AnalyticsContent() {
     
     setLoadingInsights(true);
     try {
-      const response = await fetch("/api/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        signal: abortController.signal,
-        body: JSON.stringify({
-          conversationId: null,
-          message: `You are an expert typing coach analyzing detailed keystroke analytics. Provide research-backed, actionable insights.
+      const promptMessage = `You are an expert typing coach analyzing detailed keystroke analytics. Provide research-backed, actionable insights.
 
 ## USER PROFILE
 - Skill Level: ${payload.userProfile.skillLevel} (${payload.userProfile.skillDescription})
@@ -1149,7 +1142,16 @@ RULES:
 
 EXAMPLE OUTPUT:
 [IMPROVEMENT|accuracy|high] Your "e" key has a 12.5% error rate, significantly above the 5% acceptable threshold. ACTION: Complete 3 sets of 20 words containing "e" at slow speed daily.
-[STRENGTH|speed|medium] Your 65 WPM average exceeds the industry average of 41 WPM by 58%. ACTION: Maintain this level with 10-minute daily practice sessions.`,
+[STRENGTH|speed|medium] Your 65 WPM average exceeds the industry average of 41 WPM by 58%. ACTION: Maintain this level with 10-minute daily practice sessions.`;
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        signal: abortController.signal,
+        body: JSON.stringify({
+          conversationId: null,
+          messages: [{ role: "user", content: promptMessage }],
         }),
       });
 
