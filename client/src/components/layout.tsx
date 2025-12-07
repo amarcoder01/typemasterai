@@ -73,15 +73,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground flex flex-col">
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
-        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground font-mono font-bold text-xl">
+        <div className="max-w-[1800px] mx-auto px-2 h-12 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center text-primary-foreground font-mono font-bold text-lg">
               T
             </div>
-            <h1 className="text-lg font-bold tracking-tight hidden sm:block">TypeMasterAI</h1>
+            <h1 className="text-sm font-bold tracking-tight hidden lg:block">TypeMasterAI</h1>
           </div>
 
-          <nav className="hidden xl:flex items-center gap-0.5">
+          <nav className="hidden md:flex items-center flex-1 justify-center">
             {allNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.href;
@@ -89,7 +89,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <Link key={item.href} href={item.href}>
                   <div
                     className={cn(
-                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all duration-200 text-xs font-medium cursor-pointer whitespace-nowrap",
+                      "flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200 text-[11px] font-medium cursor-pointer whitespace-nowrap",
                       isActive
                         ? "text-primary bg-primary/10"
                         : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -104,26 +104,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             {user && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link href="/profile">
                     <div 
-                      className="hidden md:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-all cursor-pointer"
+                      className="hidden lg:flex items-center gap-1 px-1.5 py-0.5 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-all cursor-pointer"
                       data-testid="xp-level-display"
                     >
-                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-bold text-[10px] shadow-lg shadow-amber-500/25">
+                      <div className="flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-bold text-[9px] shadow-lg shadow-amber-500/25">
                         {level}
                       </div>
-                      <div className="flex flex-col gap-0.5 min-w-[60px]">
+                      <div className="flex flex-col gap-0 min-w-[50px]">
                         <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-semibold text-amber-500/90 uppercase tracking-wider">Lv {level}</span>
-                          <span className="text-[9px] font-mono text-muted-foreground">{xpInCurrentLevel}/100</span>
+                          <span className="text-[8px] font-semibold text-amber-500/90 uppercase tracking-wider">Lv {level}</span>
+                          <span className="text-[8px] font-mono text-muted-foreground">{xpInCurrentLevel}/100</span>
                         </div>
                         <Progress 
                           value={xpProgress} 
-                          className="h-1 bg-amber-950/30 [&>div]:bg-gradient-to-r [&>div]:from-amber-500 [&>div]:to-orange-500"
+                          className="h-0.5 bg-amber-950/30 [&>div]:bg-gradient-to-r [&>div]:from-amber-500 [&>div]:to-orange-500"
                           data-testid="xp-progress-bar"
                         />
                       </div>
@@ -144,9 +144,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 rounded-full p-0">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                    <Button variant="ghost" className="h-7 w-7 rounded-full p-0">
+                      <Avatar className="h-7 w-7">
+                        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                           {user.username[0].toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
@@ -168,14 +168,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </DropdownMenu>
               </>
             ) : (
-              <div className="hidden sm:flex items-center gap-1">
+              <div className="hidden md:flex items-center gap-1">
                 <Link href="/login">
-                  <Button variant="ghost" size="sm" className="text-xs h-8" data-testid="button-nav-login">
+                  <Button variant="ghost" size="sm" className="text-[11px] h-7 px-2" data-testid="button-nav-login">
                     Sign In
                   </Button>
                 </Link>
                 <Link href="/register">
-                  <Button size="sm" className="text-xs h-8" data-testid="button-nav-register">
+                  <Button size="sm" className="text-[11px] h-7 px-2" data-testid="button-nav-register">
                     Sign Up
                   </Button>
                 </Link>
@@ -184,8 +184,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="sm" className="xl:hidden h-8 w-8 p-0" data-testid="button-mobile-menu">
-                  <Menu className="h-5 w-5" />
+                <Button variant="ghost" size="sm" className="md:hidden h-7 w-7 p-0" data-testid="button-mobile-menu">
+                  <Menu className="h-4 w-4" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-72 p-0">
@@ -285,7 +285,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="flex-1 pt-20 pb-12 container mx-auto px-4">
+      <main className="flex-1 pt-16 pb-12 container mx-auto px-4">
         {children}
       </main>
 
