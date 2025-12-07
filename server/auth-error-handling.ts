@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import crypto from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 
 export enum AuthErrorCode {

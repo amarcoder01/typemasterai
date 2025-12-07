@@ -1,7 +1,7 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import ws from "ws";
-import crypto from "crypto";
+import crypto from "node:crypto";
 import {
   users,
   testResults,

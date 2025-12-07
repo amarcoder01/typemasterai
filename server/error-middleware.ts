@@ -2,7 +2,7 @@ import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
 import { AppError, ErrorCode, wrapError, isOperationalError, SerializedError } from "./errors";
 import { log } from "./app";
-import crypto from "crypto";
+import crypto from "node:crypto";
 
 interface ErrorLogEntry {
   requestId: string;

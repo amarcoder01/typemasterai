@@ -1,6 +1,6 @@
 import type { IStorage } from "./storage";
 import type { Request } from "express";
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { emailService, type EmailSendResult } from "./email-service";
 
 interface LoginAttemptResult {

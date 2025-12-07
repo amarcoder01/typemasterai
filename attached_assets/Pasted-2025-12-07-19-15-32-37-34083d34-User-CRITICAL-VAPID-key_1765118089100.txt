@@ -1,0 +1,120 @@
+2025-12-07 19:15:32.37
+34083d34
+User
+🚨 CRITICAL: VAPID keys are not configured in production!
+2025-12-07 19:15:32.37
+34083d34
+User
+⚠️ WARNING: Push notifications disabled - VAPID keys not configured
+2025-12-07 19:15:32.37
+34083d34
+User
+Push notifications will not work. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.
+2025-12-07 19:15:32.37
+34083d34
+User
+Generate keys using: npx web-push generate-vapid-keys
+2025-12-07 19:39:52.29
+34083d34
+User
+Push notifications will not work. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.
+2025-12-07 19:39:52.29
+34083d34
+User
+⚠️ WARNING: Push notifications disabled - VAPID keys not configured
+2025-12-07 19:39:52.29
+34083d34
+User
+🚨 CRITICAL: VAPID keys are not configured in production!
+2025-12-07 19:39:52.29
+34083d34
+User
+Generate keys using: npx web-push generate-vapid-keys
+2025-12-07 19:39:55.92
+34083d34
+User
+at DatabaseStorage.hashToken (file:///home/runner/workspace/dist/index.js:1594:25)
+2025-12-07 19:39:55.92
+34083d34
+User
+at Route.dispatch (/home/runner/workspace/node_modules/express/lib/router/route.js:119:3)
+2025-12-07 19:39:55.92
+34083d34
+User
+at file:///home/runner/workspace/dist/index.js:15723:40
+2025-12-07 19:39:55.92
+34083d34
+User
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+2025-12-07 19:39:55.92
+34083d34
+User
+at next (/home/runner/workspace/node_modules/express/lib/router/index.js:280:10)
+2025-12-07 19:39:55.92
+34083d34
+User
+at next (/home/runner/workspace/node_modules/express/lib/router/route.js:149:13)
+2025-12-07 19:39:55.92
+34083d34
+User
+at /home/runner/workspace/node_modules/express/lib/router/index.js:286:9
+2025-12-07 19:39:55.92
+34083d34
+User
+at Function.process_params (/home/runner/workspace/node_modules/express/lib/router/index.js:346:12)
+2025-12-07 19:39:55.92
+34083d34
+User
+at trim_prefix (/home/runner/workspace/node_modules/express/lib/router/index.js:328:13)
+2025-12-07 19:39:55.92
+34083d34
+User
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+2025-12-07 19:39:55.92
+34083d34
+User
+at DatabaseStorage.getPasswordResetToken (file:///home/runner/workspace/dist/index.js:1607:32)
+2025-12-07 19:39:55.92
+34083d34
+User
+at file:///home/runner/workspace/dist/index.js:9:9
+2025-12-07 19:39:55.92
+34083d34
+User
+at Function.process_params (/home/runner/workspace/node_modules/express/lib/router/index.js:346:12)
+2025-12-07 19:39:55.92
+34083d34
+User
+at /home/runner/workspace/node_modules/express/lib/router/index.js:284:15
+2025-12-07 19:39:55.92
+34083d34
+User
+at Layer.handle [as handle_request] (/home/runner/workspace/node_modules/express/lib/router/layer.js:95:5)
+2025-12-07 19:39:55.92
+34083d34
+User
+Validate reset token error: Error: Dynamic require of "crypto" is not supported
+2025-12-07 19:39:55.92
+34083d34
+User
+at file:///home/runner/workspace/dist/index.js:13179:5
+2025-12-07 19:40:00.43
+a270119c
+User
+Generate keys using: npx web-push generate-vapid-keys
+2025-12-07 19:40:00.43
+a270119c
+User
+⚠️ WARNING: Push notifications disabled - VAPID keys not configured
+2025-12-07 19:40:00.43
+a270119c
+User
+🚨 CRITICAL: VAPID keys are not configured in production!
+2025-12-07 19:40:00.43
+a270119c
+User
+Push notifications will not work. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.
+2025-12-07 19:55:51.14
+8c5d74e5
+User
+[AUTH] {"timestamp":"2025-12-07T14:25:51.141Z","level":"warn","event":"LOGIN_FAILED","requestId":"e8d55c8ece28dac5","email":"81d9011a9fdfd9de","ipAddress":"169.197.85.171","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36","metadata":{"reason":"Invalid email or password. 4 attempts remaining."}}

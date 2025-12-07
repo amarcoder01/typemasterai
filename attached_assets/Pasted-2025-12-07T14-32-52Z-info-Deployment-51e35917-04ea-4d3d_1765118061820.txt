@@ -1,0 +1,54 @@
+2025-12-07T14:32:52Z info: Deployment: 51e35917-04ea-4d3d-ade5-5d065ada51c7
+2025-12-07T14:32:52Z info: Connecting to builder
+2025-12-07T14:32:52Z info: Builder connected
+2025-12-07T14:32:52Z info: Installing packages
+2025-12-07T14:32:53Z info: Starting Build
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index-prod.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js
+
+
+vite v7.1.12 building for production...
+
+transforming...
+
+✓ 3780 modules transformed.
+
+rendering chunks...
+
+[plugin vite:reporter] 
+(!) /home/runner/workspace/client/src/lib/keyboard-sounds.ts is dynamically imported by /home/runner/workspace/client/src/components/typing-test.tsx but also statically imported by /home/runner/workspace/client/src/pages/code-mode.tsx, /home/runner/workspace/client/src/pages/settings.tsx, dynamic import will not move module into another chunk.
+
+
+[meta-images] using internal app domain: https://speed-type-pro--amar84.replit.app
+
+[meta-images] updating meta image tags to: https://speed-type-pro--amar84.replit.app/opengraph.jpg
+
+computing gzip size...
+
+../dist/public/index.html                                                                      11.20 kB │ gzip:   3.11 kB
+
+../dist/public/assets/index-CYHfCrxk.js                                                     2,731.70 kB │ gzip: 740.71 kB
+
+✓ built in 14.94s
+
+
+  dist/index.js  722.7kb
+
+⚡ Done in 358ms
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.6.4
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.4
+npm notice To update run: npm install -g npm@11.6.4
+npm notice
+
+2025-12-07T14:33:11Z info: Pushing pid1 binary layer...
+2025-12-07T14:33:14Z info: Created pid1 binary layer
+2025-12-07T14:33:16Z info: Pushing hosting layer...
+2025-12-07T14:33:16Z info: Pushing Repl layer...
+2025-12-07T14:33:16Z info: Retrieved cached nix layer
+2025-12-07T14:33:16Z info: Created hosting layer
+2025-12-07T14:33:43Z info: Created Repl layer
+2025-12-07T14:33:46Z info: Pushed image manifest
+2025-12-07T14:33:47Z info: Pushed soci index manifest

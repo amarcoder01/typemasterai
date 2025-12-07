@@ -1,5 +1,5 @@
 import { storage } from "./storage";
-import crypto from "crypto";
+import crypto from "node:crypto";
 
 export type LeaderboardType = "global" | "code" | "stress" | "dictation" | "rating";
 export type TimeFrame = "all" | "daily" | "weekly" | "monthly";
