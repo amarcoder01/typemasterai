@@ -1,6 +1,7 @@
 import type { IStorage } from './storage';
 import type { NotificationScheduler } from './notification-scheduler';
 import type { TestResult, Achievement } from '@shared/schema';
+import { BADGES, type Badge } from '@shared/badges';
 
 interface AchievementCheck {
   key: string;
@@ -46,387 +47,126 @@ interface UserStats {
   best100WpmInFirst10Tests?: boolean;
 }
 
+/**
+ * Build AchievementCheck array from shared BADGES definitions
+ * This ensures frontend and backend use a single source of truth
+ */
+function buildAchievementChecks(): AchievementCheck[] {
+  return BADGES.map((badge: Badge): AchievementCheck => {
+    const { id, name, description, icon, category, tier, points, color, requirement, isSecret } = badge;
+    
+    let check: (stats: UserStats) => boolean;
+    let getProgress: ((stats: UserStats) => number) | undefined;
+    let target: number | undefined = requirement.value > 0 ? requirement.value : undefined;
+    
+    switch (requirement.type) {
+      case 'wpm':
+        check = (stats) => stats.bestWpm >= requirement.value;
+        getProgress = (stats) => Math.min(100, (stats.bestWpm / requirement.value) * 100);
+        break;
+        
+      case 'accuracy':
+        if (id === 'accuracy_flawless_100') {
+          check = (stats) => stats.lastTestResult?.accuracy === 100;
+          getProgress = (stats) => stats.lastTestResult ? Math.min(100, stats.lastTestResult.accuracy) : stats.avgAccuracy;
+        } else {
+          check = (stats) => stats.avgAccuracy >= requirement.value;
+          getProgress = (stats) => Math.min(100, (stats.avgAccuracy / requirement.value) * 100);
+        }
+        break;
+        
+      case 'testCount':
+        check = (stats) => stats.totalTests >= requirement.value;
+        getProgress = requirement.value === 1 
+          ? (stats) => stats.totalTests >= 1 ? 100 : 0
+          : (stats) => Math.min(100, (stats.totalTests / requirement.value) * 100);
+        break;
+        
+      case 'streak':
+        check = (stats) => stats.currentStreak >= requirement.value;
+        getProgress = (stats) => Math.min(100, (stats.currentStreak / requirement.value) * 100);
+        break;
+        
+      case 'shares':
+        check = (stats) => (stats.totalShares ?? 0) >= requirement.value;
+        getProgress = requirement.value === 1
+          ? (stats) => (stats.totalShares ?? 0) >= 1 ? 100 : 0
+          : (stats) => Math.min(100, ((stats.totalShares ?? 0) / requirement.value) * 100);
+        break;
+        
+      case 'special':
+        if (id === 'special_speed_accuracy') {
+          check = (stats) => stats.lastTestResult ? 
+            stats.lastTestResult.wpm >= 80 && stats.lastTestResult.accuracy >= 95 : false;
+          getProgress = (stats) => {
+            if (!stats.lastTestResult) return 0;
+            const speedProgress = Math.min(100, (stats.lastTestResult.wpm / 80) * 100);
+            const accuracyProgress = Math.min(100, (stats.lastTestResult.accuracy / 95) * 100);
+            return Math.min(speedProgress, accuracyProgress);
+          };
+        } else {
+          check = () => false;
+        }
+        break;
+        
+      case 'secret':
+        switch (id) {
+          case 'secret_night_owl':
+            check = (stats) => {
+              const hour = stats.testHour ?? -1;
+              return hour >= 0 && hour < 4;
+            };
+            break;
+          case 'secret_early_bird':
+            check = (stats) => {
+              const hour = stats.testHour ?? -1;
+              return hour >= 5 && hour < 7;
+            };
+            break;
+          case 'secret_speed_demon':
+            check = (stats) => stats.best100WpmInFirst10Tests === true;
+            break;
+          case 'secret_perfectionist':
+            target = 5;
+            check = (stats) => (stats.consecutivePerfectAccuracy ?? 0) >= 5;
+            getProgress = (stats) => Math.min(100, ((stats.consecutivePerfectAccuracy ?? 0) / 5) * 100);
+            break;
+          case 'secret_marathon_runner':
+            target = 10;
+            check = (stats) => (stats.testsCompletedToday ?? 0) >= 10;
+            getProgress = (stats) => Math.min(100, ((stats.testsCompletedToday ?? 0) / 10) * 100);
+            break;
+          default:
+            check = () => false;
+        }
+        break;
+        
+      default:
+        check = () => false;
+    }
+    
+    return {
+      key: id,
+      name,
+      description,
+      category,
+      tier,
+      points,
+      icon,
+      color,
+      check,
+      getProgress,
+      target,
+      isSecret,
+    };
+  });
+}
+
 export class AchievementService {
   private storage: IStorage;
   private notificationScheduler?: NotificationScheduler;
   
-  // Achievement definitions
-  private achievements: AchievementCheck[] = [
-    // Speed Achievements
-    {
-      key: 'speed_rookie_30',
-      name: 'Speed Rookie',
-      description: 'Reach 30 WPM',
-      category: 'speed',
-      tier: 'bronze',
-      points: 10,
-      icon: 'Zap',
-      color: 'amber',
-      target: 30,
-      check: (stats) => stats.bestWpm >= 30,
-      getProgress: (stats) => Math.min(100, (stats.bestWpm / 30) * 100),
-    },
-    {
-      key: 'speed_novice_50',
-      name: 'Speed Novice',
-      description: 'Reach 50 WPM',
-      category: 'speed',
-      tier: 'silver',
-      points: 25,
-      icon: 'Zap',
-      color: 'amber',
-      target: 50,
-      check: (stats) => stats.bestWpm >= 50,
-      getProgress: (stats) => Math.min(100, (stats.bestWpm / 50) * 100),
-    },
-    {
-      key: 'speed_expert_80',
-      name: 'Speed Expert',
-      description: 'Reach 80 WPM',
-      category: 'speed',
-      tier: 'gold',
-      points: 50,
-      icon: 'Zap',
-      color: 'amber',
-      target: 80,
-      check: (stats) => stats.bestWpm >= 80,
-      getProgress: (stats) => Math.min(100, (stats.bestWpm / 80) * 100),
-    },
-    {
-      key: 'speed_master_100',
-      name: 'Speed Master',
-      description: 'Reach 100 WPM',
-      category: 'speed',
-      tier: 'platinum',
-      points: 100,
-      icon: 'Zap',
-      color: 'amber',
-      target: 100,
-      check: (stats) => stats.bestWpm >= 100,
-      getProgress: (stats) => Math.min(100, (stats.bestWpm / 100) * 100),
-    },
-    {
-      key: 'speed_legend_120',
-      name: 'Speed Legend',
-      description: 'Reach 120 WPM',
-      category: 'speed',
-      tier: 'diamond',
-      points: 200,
-      icon: 'Zap',
-      color: 'amber',
-      target: 120,
-      check: (stats) => stats.bestWpm >= 120,
-      getProgress: (stats) => Math.min(100, (stats.bestWpm / 120) * 100),
-    },
-
-    // Accuracy Achievements
-    {
-      key: 'accuracy_precise_95',
-      name: 'Precision Seeker',
-      description: 'Achieve 95% accuracy',
-      category: 'accuracy',
-      tier: 'bronze',
-      points: 15,
-      icon: 'Target',
-      color: 'blue',
-      target: 95,
-      check: (stats) => stats.avgAccuracy >= 95,
-      getProgress: (stats) => Math.min(100, (stats.avgAccuracy / 95) * 100),
-    },
-    {
-      key: 'accuracy_perfect_98',
-      name: 'Near Perfect',
-      description: 'Achieve 98% accuracy',
-      category: 'accuracy',
-      tier: 'gold',
-      points: 75,
-      icon: 'Target',
-      color: 'blue',
-      target: 98,
-      check: (stats) => stats.avgAccuracy >= 98,
-      getProgress: (stats) => Math.min(100, (stats.avgAccuracy / 98) * 100),
-    },
-    {
-      key: 'accuracy_flawless_100',
-      name: 'Flawless Typist',
-      description: 'Achieve 100% accuracy in a single test',
-      category: 'accuracy',
-      tier: 'diamond',
-      points: 250,
-      icon: 'Target',
-      color: 'blue',
-      target: 100,
-      check: (stats) => stats.lastTestResult?.accuracy === 100,
-      getProgress: (stats) => stats.lastTestResult ? Math.min(100, stats.lastTestResult.accuracy) : stats.avgAccuracy,
-    },
-
-    // Streak Achievements
-    {
-      key: 'streak_committed_7',
-      name: 'Week Warrior',
-      description: 'Maintain a 7-day streak',
-      category: 'streak',
-      tier: 'bronze',
-      points: 20,
-      icon: 'Flame',
-      color: 'orange',
-      target: 7,
-      check: (stats) => stats.currentStreak >= 7,
-      getProgress: (stats) => Math.min(100, (stats.currentStreak / 7) * 100),
-    },
-    {
-      key: 'streak_dedicated_30',
-      name: 'Monthly Dedication',
-      description: 'Maintain a 30-day streak',
-      category: 'streak',
-      tier: 'silver',
-      points: 50,
-      icon: 'Flame',
-      color: 'orange',
-      target: 30,
-      check: (stats) => stats.currentStreak >= 30,
-      getProgress: (stats) => Math.min(100, (stats.currentStreak / 30) * 100),
-    },
-    {
-      key: 'streak_master_100',
-      name: 'Streak Master',
-      description: 'Maintain a 100-day streak',
-      category: 'streak',
-      tier: 'gold',
-      points: 150,
-      icon: 'Flame',
-      color: 'orange',
-      target: 100,
-      check: (stats) => stats.currentStreak >= 100,
-      getProgress: (stats) => Math.min(100, (stats.currentStreak / 100) * 100),
-    },
-    {
-      key: 'streak_legend_365',
-      name: 'Year-Long Dedication',
-      description: 'Maintain a 365-day streak',
-      category: 'streak',
-      tier: 'diamond',
-      points: 500,
-      icon: 'Flame',
-      color: 'orange',
-      target: 365,
-      check: (stats) => stats.currentStreak >= 365,
-      getProgress: (stats) => Math.min(100, (stats.currentStreak / 365) * 100),
-    },
-
-    // Consistency Achievements
-    {
-      key: 'consistency_beginner_10',
-      name: 'Getting Started',
-      description: 'Complete 10 tests',
-      category: 'consistency',
-      tier: 'bronze',
-      points: 10,
-      icon: 'TrendingUp',
-      color: 'green',
-      target: 10,
-      check: (stats) => stats.totalTests >= 10,
-      getProgress: (stats) => Math.min(100, (stats.totalTests / 10) * 100),
-    },
-    {
-      key: 'consistency_regular_50',
-      name: 'Regular Typist',
-      description: 'Complete 50 tests',
-      category: 'consistency',
-      tier: 'silver',
-      points: 25,
-      icon: 'TrendingUp',
-      color: 'green',
-      target: 50,
-      check: (stats) => stats.totalTests >= 50,
-      getProgress: (stats) => Math.min(100, (stats.totalTests / 50) * 100),
-    },
-    {
-      key: 'consistency_dedicated_100',
-      name: 'Dedicated Practitioner',
-      description: 'Complete 100 tests',
-      category: 'consistency',
-      tier: 'gold',
-      points: 50,
-      icon: 'TrendingUp',
-      color: 'green',
-      target: 100,
-      check: (stats) => stats.totalTests >= 100,
-      getProgress: (stats) => Math.min(100, (stats.totalTests / 100) * 100),
-    },
-    {
-      key: 'consistency_veteran_500',
-      name: 'Typing Veteran',
-      description: 'Complete 500 tests',
-      category: 'consistency',
-      tier: 'platinum',
-      points: 150,
-      icon: 'TrendingUp',
-      color: 'green',
-      target: 500,
-      check: (stats) => stats.totalTests >= 500,
-      getProgress: (stats) => Math.min(100, (stats.totalTests / 500) * 100),
-    },
-    {
-      key: 'consistency_master_1000',
-      name: 'Typing Master',
-      description: 'Complete 1000 tests',
-      category: 'consistency',
-      tier: 'diamond',
-      points: 300,
-      icon: 'TrendingUp',
-      color: 'green',
-      target: 1000,
-      check: (stats) => stats.totalTests >= 1000,
-      getProgress: (stats) => Math.min(100, (stats.totalTests / 1000) * 100),
-    },
-
-    // Special Achievements
-    {
-      key: 'special_first_test',
-      name: 'First Steps',
-      description: 'Complete your first typing test',
-      category: 'special',
-      tier: 'bronze',
-      points: 5,
-      icon: 'Star',
-      color: 'purple',
-      target: 1,
-      check: (stats) => stats.totalTests >= 1,
-      getProgress: (stats) => stats.totalTests >= 1 ? 100 : 0,
-    },
-    {
-      key: 'special_speed_accuracy',
-      name: 'Speed & Precision',
-      description: 'Achieve 80 WPM with 95% accuracy in one test',
-      category: 'special',
-      tier: 'platinum',
-      points: 200,
-      icon: 'Award',
-      color: 'purple',
-      check: (stats) => stats.lastTestResult ? 
-        stats.lastTestResult.wpm >= 80 && stats.lastTestResult.accuracy >= 95 : false,
-      getProgress: (stats) => {
-        if (!stats.lastTestResult) return 0;
-        const speedProgress = Math.min(100, (stats.lastTestResult.wpm / 80) * 100);
-        const accuracyProgress = Math.min(100, (stats.lastTestResult.accuracy / 95) * 100);
-        return Math.min(speedProgress, accuracyProgress);
-      },
-    },
-
-    // Social Sharing Achievements
-    {
-      key: 'social_first_share',
-      name: 'Social Butterfly',
-      description: 'Share your first typing result',
-      category: 'special',
-      tier: 'bronze',
-      points: 15,
-      icon: 'Share2',
-      color: 'cyan',
-      target: 1,
-      check: (stats) => (stats.totalShares ?? 0) >= 1,
-      getProgress: (stats) => (stats.totalShares ?? 0) >= 1 ? 100 : 0,
-    },
-    {
-      key: 'social_sharer_10',
-      name: 'Community Champion',
-      description: 'Share 10 typing results',
-      category: 'special',
-      tier: 'silver',
-      points: 50,
-      icon: 'Share2',
-      color: 'cyan',
-      target: 10,
-      check: (stats) => (stats.totalShares ?? 0) >= 10,
-      getProgress: (stats) => Math.min(100, ((stats.totalShares ?? 0) / 10) * 100),
-    },
-    {
-      key: 'social_influencer_25',
-      name: 'Typing Influencer',
-      description: 'Share 25 typing results',
-      category: 'special',
-      tier: 'gold',
-      points: 100,
-      icon: 'Share2',
-      color: 'cyan',
-      target: 25,
-      check: (stats) => (stats.totalShares ?? 0) >= 25,
-      getProgress: (stats) => Math.min(100, ((stats.totalShares ?? 0) / 25) * 100),
-    },
-
-    // Secret Achievements (hidden until unlocked)
-    {
-      key: 'secret_night_owl',
-      name: 'Night Owl',
-      description: 'Complete a test between midnight and 4 AM',
-      category: 'secret',
-      tier: 'gold',
-      points: 75,
-      icon: 'Moon',
-      color: 'indigo',
-      isSecret: true,
-      check: (stats) => {
-        const hour = stats.testHour ?? -1;
-        return hour >= 0 && hour < 4;
-      },
-    },
-    {
-      key: 'secret_early_bird',
-      name: 'Early Bird',
-      description: 'Complete a test between 5 AM and 7 AM',
-      category: 'secret',
-      tier: 'gold',
-      points: 75,
-      icon: 'Sunrise',
-      color: 'yellow',
-      isSecret: true,
-      check: (stats) => {
-        const hour = stats.testHour ?? -1;
-        return hour >= 5 && hour < 7;
-      },
-    },
-    {
-      key: 'secret_speed_demon',
-      name: 'Speed Demon',
-      description: 'Achieve 100+ WPM within your first 10 tests',
-      category: 'secret',
-      tier: 'platinum',
-      points: 150,
-      icon: 'Rocket',
-      color: 'red',
-      isSecret: true,
-      check: (stats) => stats.best100WpmInFirst10Tests === true,
-    },
-    {
-      key: 'secret_perfectionist',
-      name: 'Perfectionist',
-      description: 'Get 100% accuracy 5 times in a row',
-      category: 'secret',
-      tier: 'diamond',
-      points: 200,
-      icon: 'Sparkles',
-      color: 'pink',
-      isSecret: true,
-      target: 5,
-      check: (stats) => (stats.consecutivePerfectAccuracy ?? 0) >= 5,
-      getProgress: (stats) => Math.min(100, ((stats.consecutivePerfectAccuracy ?? 0) / 5) * 100),
-    },
-    {
-      key: 'secret_marathon_runner',
-      name: 'Marathon Runner',
-      description: 'Complete 10 tests in a single day',
-      category: 'secret',
-      tier: 'gold',
-      points: 100,
-      icon: 'Timer',
-      color: 'emerald',
-      isSecret: true,
-      target: 10,
-      check: (stats) => (stats.testsCompletedToday ?? 0) >= 10,
-      getProgress: (stats) => Math.min(100, ((stats.testsCompletedToday ?? 0) / 10) * 100),
-    },
-  ];
+  private achievements: AchievementCheck[] = buildAchievementChecks();
 
   constructor(storage: IStorage, notificationScheduler?: NotificationScheduler) {
     this.storage = storage;
