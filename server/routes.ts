@@ -41,6 +41,23 @@ import {
   checkRateLimit,
 } from "./oauth-service";
 import { securityHeaders, csrfProtection } from "./auth-security";
+import {
+  AuthError,
+  AuthErrorCode,
+  InputSanitizer,
+  PasswordValidator,
+  TokenSecurity,
+  DatabaseErrorHandler,
+  AuthLogger,
+  authErrors,
+  authErrorMiddleware,
+  payloadLimitMiddleware,
+  requestIdMiddleware,
+  addTimingJitter,
+  generateIdempotencyKey,
+  checkIdempotency,
+  storeIdempotencyResult,
+} from "./auth-error-handling";
 
 const PgSession = ConnectPgSimple(session);
 
@@ -361,57 +378,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/register", authLimiter, async (req, res, next) => {
+  app.post("/api/auth/register", authLimiter, payloadLimitMiddleware(10), async (req, res, next) => {
+    const startTime = Date.now();
+    let normalizedEmail = "";
+    let normalizedUsername = "";
+    
     try {
       const parsed = insertUserSchema.safeParse(req.body);
       
       if (!parsed.success) {
+        AuthLogger.logRegistration(req, req.body?.email || "unknown", false, undefined, "Validation failed");
         return res.status(400).json({
-          message: "Validation failed",
-          errors: fromError(parsed.error).toString(),
+          error: {
+            code: AuthErrorCode.VALIDATION_FAILED,
+            message: "Validation failed",
+            details: fromError(parsed.error).toString(),
+          },
         });
       }
 
-      const existingUserByEmail = await storage.getUserByEmail(parsed.data.email);
-      if (existingUserByEmail) {
-        return res.status(409).json({ message: "Email already exists" });
-      }
-
-      const existingUserByUsername = await storage.getUserByUsername(parsed.data.username);
-      if (existingUserByUsername) {
-        return res.status(409).json({ message: "Username already exists" });
+      try {
+        normalizedEmail = InputSanitizer.normalizeEmail(parsed.data.email);
+        normalizedUsername = InputSanitizer.normalizeUsername(parsed.data.username);
+      } catch (sanitizeError) {
+        if (sanitizeError instanceof AuthError) {
+          AuthLogger.logRegistration(req, parsed.data.email, false, undefined, sanitizeError.message);
+          return res.status(sanitizeError.statusCode).json(sanitizeError.toJSON());
+        }
+        throw sanitizeError;
       }
 
       if (!parsed.data.password) {
-        return res.status(400).json({ message: "Password is required" });
+        const error = new AuthError({
+          code: AuthErrorCode.PASSWORD_TOO_WEAK,
+          message: "Password is required",
+          statusCode: 400,
+          field: "password",
+        });
+        AuthLogger.logRegistration(req, normalizedEmail, false, undefined, "Password missing");
+        return res.status(400).json(error.toJSON());
       }
 
-      const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
+      try {
+        PasswordValidator.validate(parsed.data.password, normalizedEmail, normalizedUsername);
+      } catch (passwordError) {
+        if (passwordError instanceof AuthError) {
+          AuthLogger.logRegistration(req, normalizedEmail, false, undefined, passwordError.message);
+          return res.status(passwordError.statusCode).json(passwordError.toJSON());
+        }
+        throw passwordError;
+      }
 
-      const user = await storage.createUser({
-        ...parsed.data,
-        password: hashedPassword,
-      });
+      const idempotencyKey = generateIdempotencyKey(normalizedEmail, "register");
+      const idempotencyCheck = checkIdempotency(idempotencyKey);
+      if (idempotencyCheck.isDuplicate && idempotencyCheck.cachedResponse) {
+        AuthLogger.logAuthEvent("REGISTRATION_DUPLICATE_REQUEST", req, { email: normalizedEmail });
+        return res.status(201).json(idempotencyCheck.cachedResponse);
+      }
 
-      // Create default security settings for the user
+      const existingUserByEmail = await storage.getUserByEmail(normalizedEmail);
+      if (existingUserByEmail) {
+        AuthLogger.logRegistration(req, normalizedEmail, false, undefined, "Email already exists");
+        const error = authErrors.emailExists();
+        return res.status(error.statusCode).json(error.toJSON());
+      }
+
+      const existingUserByUsername = await storage.getUserByUsername(normalizedUsername);
+      if (existingUserByUsername) {
+        AuthLogger.logRegistration(req, normalizedEmail, false, undefined, "Username already exists");
+        const error = authErrors.usernameExists();
+        return res.status(error.statusCode).json(error.toJSON());
+      }
+
+      const hashedPassword = await bcrypt.hash(parsed.data.password, 12);
+
+      let user;
+      try {
+        user = await DatabaseErrorHandler.withRetry(async () => {
+          return await storage.createUser({
+            ...parsed.data,
+            email: normalizedEmail,
+            username: normalizedUsername,
+            password: hashedPassword,
+          });
+        });
+      } catch (dbError: any) {
+        const errorInfo = DatabaseErrorHandler.handle(dbError, "registration");
+        if (errorInfo.shouldLog) {
+          AuthLogger.logRegistration(req, normalizedEmail, false, undefined, `Database error: ${dbError.code}`);
+        }
+        return res.status(errorInfo.authError.statusCode).json(errorInfo.authError.toJSON());
+      }
+
       await storage.createSecuritySettings(user.id).catch(error => {
-        console.error("Failed to create security settings:", error);
+        AuthLogger.logAuthEvent("SECURITY_SETTINGS_CREATION_FAILED", req, {
+          level: "warn",
+          userId: user.id,
+          error,
+        });
       });
 
-      // Send email verification (async, don't block registration)
       authSecurityService.sendVerificationEmail(user.id, user.email).catch(error => {
-        console.error("Failed to send verification email:", error);
+        AuthLogger.logAuthEvent("VERIFICATION_EMAIL_FAILED", req, {
+          level: "warn",
+          userId: user.id,
+          email: user.email,
+          error,
+        });
       });
 
-      // Record successful registration login
       await authSecurityService.recordLoginAttempt(user.id, user.email, req, true);
 
-      // Regenerate session to prevent session fixation attacks
       try {
         await regenerateSession(req);
       } catch (sessionErr) {
-        console.error("Session regeneration failed:", sessionErr);
+        AuthLogger.logAuthEvent("SESSION_REGENERATION_FAILED", req, {
+          level: "warn",
+          userId: user.id,
+          error: sessionErr as Error,
+        });
       }
+
+      const responseData = {
+        message: "Registration successful. Please check your email to verify your account.",
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          avatarColor: user.avatarColor,
+          bio: user.bio,
+          country: user.country,
+          keyboardLayout: user.keyboardLayout,
+        },
+      };
+
+      storeIdempotencyResult(idempotencyKey, responseData);
 
       req.login(
         {
@@ -421,83 +523,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         (err) => {
           if (err) {
+            AuthLogger.logRegistration(req, normalizedEmail, false, user.id, "Login after registration failed");
             return next(err);
           }
-          res.status(201).json({
-            message: "Registration successful. Please check your email to verify your account.",
+          AuthLogger.logRegistration(req, normalizedEmail, true, user.id);
+          res.status(201).json(responseData);
+        }
+      );
+    } catch (error: any) {
+      const durationMs = Date.now() - startTime;
+      AuthLogger.logAuthEvent("REGISTRATION_ERROR", req, {
+        level: "error",
+        email: normalizedEmail || req.body?.email,
+        error,
+        durationMs,
+      });
+      
+      if (error instanceof AuthError) {
+        return res.status(error.statusCode).json(error.toJSON());
+      }
+      
+      res.status(500).json({
+        error: {
+          code: AuthErrorCode.INTERNAL_ERROR,
+          message: "An unexpected error occurred. Please try again.",
+        },
+      });
+    }
+  });
+
+  app.post("/api/auth/login", authLimiter, payloadLimitMiddleware(5), async (req, res, next) => {
+    const startTime = Date.now();
+    let normalizedEmail = "";
+    
+    try {
+      const parsed = loginSchema.safeParse(req.body);
+      const rememberMe = req.body.rememberMe === true;
+      
+      if (!parsed.success) {
+        AuthLogger.logLoginAttempt(req, req.body?.email || "unknown", false, undefined, "Validation failed");
+        return res.status(400).json({
+          error: {
+            code: AuthErrorCode.VALIDATION_FAILED,
+            message: "Validation failed",
+            details: fromError(parsed.error).toString(),
+          },
+        });
+      }
+
+      try {
+        normalizedEmail = InputSanitizer.normalizeEmail(parsed.data.email);
+      } catch (sanitizeError) {
+        if (sanitizeError instanceof AuthError) {
+          AuthLogger.logLoginAttempt(req, parsed.data.email, false, undefined, sanitizeError.message);
+          return res.status(sanitizeError.statusCode).json(sanitizeError.toJSON());
+        }
+        throw sanitizeError;
+      }
+
+      passport.authenticate("local", async (err: any, user: Express.User | false, info: any) => {
+        const durationMs = Date.now() - startTime;
+        
+        if (err) {
+          AuthLogger.logLoginAttempt(req, normalizedEmail, false, undefined, `Authentication error: ${err.message}`);
+          return next(err);
+        }
+        
+        if (!user) {
+          AuthLogger.logLoginAttempt(req, normalizedEmail, false, undefined, info?.message || "Invalid credentials");
+          
+          const errorResponse: any = {
+            error: {
+              code: AuthErrorCode.INVALID_CREDENTIALS,
+              message: info?.message || "Invalid email or password",
+            },
+          };
+          
+          if (info?.attemptsRemaining !== undefined) {
+            errorResponse.error.attemptsRemaining = info.attemptsRemaining;
+          }
+          if (info?.lockoutMinutes !== undefined) {
+            errorResponse.error.lockoutMinutes = info.lockoutMinutes;
+            errorResponse.error.code = AuthErrorCode.ACCOUNT_LOCKED;
+          }
+          
+          return res.status(401).json(errorResponse);
+        }
+
+        try {
+          await regenerateSession(req);
+        } catch (sessionErr) {
+          AuthLogger.logAuthEvent("SESSION_REGENERATION_FAILED", req, {
+            level: "warn",
+            userId: user.id,
+            error: sessionErr as Error,
+          });
+        }
+
+        req.login(user, async (loginErr) => {
+          if (loginErr) {
+            AuthLogger.logLoginAttempt(req, normalizedEmail, false, user.id, "Session login failed");
+            return next(loginErr);
+          }
+          
+          if (rememberMe) {
+            try {
+              await setupRememberMeOnLogin(req, res, user.id);
+            } catch (error) {
+              AuthLogger.logAuthEvent("REMEMBER_ME_SETUP_FAILED", req, {
+                level: "warn",
+                userId: user.id,
+                error: error as Error,
+              });
+            }
+          }
+          
+          AuthLogger.logLoginAttempt(req, normalizedEmail, true, user.id);
+          
+          res.json({
+            message: "Login successful",
             user: {
               id: user.id,
               username: user.username,
               email: user.email,
-              emailVerified: user.emailVerified,
               avatarColor: user.avatarColor,
               bio: user.bio,
               country: user.country,
               keyboardLayout: user.keyboardLayout,
             },
           });
-        }
-      );
+        });
+      })(req, res, next);
     } catch (error: any) {
-      console.error("Registration error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
-  app.post("/api/auth/login", authLimiter, (req, res, next) => {
-    const parsed = loginSchema.safeParse(req.body);
-    const rememberMe = req.body.rememberMe === true;
-    
-    if (!parsed.success) {
-      return res.status(400).json({
-        message: "Validation failed",
-        errors: fromError(parsed.error).toString(),
+      const durationMs = Date.now() - startTime;
+      AuthLogger.logAuthEvent("LOGIN_ERROR", req, {
+        level: "error",
+        email: normalizedEmail || req.body?.email,
+        error,
+        durationMs,
       });
-    }
-
-    passport.authenticate("local", async (err: any, user: Express.User | false, info: any) => {
-      if (err) {
-        return next(err);
+      
+      if (error instanceof AuthError) {
+        return res.status(error.statusCode).json(error.toJSON());
       }
       
-      if (!user) {
-        return res.status(401).json({ message: info?.message || "Invalid credentials" });
-      }
-
-      // Regenerate session to prevent session fixation attacks
-      try {
-        await regenerateSession(req);
-      } catch (sessionErr) {
-        console.error("Session regeneration failed:", sessionErr);
-      }
-
-      req.login(user, async (err) => {
-        if (err) {
-          return next(err);
-        }
-        
-        if (rememberMe) {
-          try {
-            await setupRememberMeOnLogin(req, res, user.id);
-          } catch (error) {
-            console.error("Error setting up remember-me token:", error);
-          }
-        }
-        
-        res.json({
-          message: "Login successful",
-          user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            avatarColor: user.avatarColor,
-            bio: user.bio,
-            country: user.country,
-            keyboardLayout: user.keyboardLayout,
-          },
-        });
+      res.status(500).json({
+        error: {
+          code: AuthErrorCode.INTERNAL_ERROR,
+          message: "An unexpected error occurred. Please try again.",
+        },
       });
-    })(req, res, next);
+    }
   });
 
   app.post("/api/auth/logout", async (req, res) => {
@@ -1178,31 +1354,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/forgot-password", authLimiter, async (req, res) => {
+  app.post("/api/auth/forgot-password", authLimiter, payloadLimitMiddleware(5), async (req, res) => {
+    const startTime = Date.now();
+    const successMessage = "If an account exists with that email, a reset link has been sent.";
+    
     try {
       const { email } = req.body;
 
-      if (!email) {
-        return res.status(400).json({ message: "Email is required" });
+      if (!email || typeof email !== "string") {
+        AuthLogger.logPasswordReset(req, "unknown", "failed", "Email missing");
+        return res.status(400).json({
+          error: {
+            code: AuthErrorCode.VALIDATION_FAILED,
+            message: "Email is required",
+            field: "email",
+          },
+        });
       }
 
-      const user = await storage.getUserByEmail(email.toLowerCase().trim());
+      let normalizedEmail: string;
+      try {
+        normalizedEmail = InputSanitizer.normalizeEmail(email);
+      } catch (sanitizeError) {
+        await addTimingJitter(100, 300);
+        AuthLogger.logPasswordReset(req, email, "failed", "Invalid email format");
+        return res.json({ message: successMessage });
+      }
+
+      const idempotencyKey = generateIdempotencyKey(normalizedEmail, "forgot-password");
+      const idempotencyCheck = checkIdempotency(idempotencyKey);
+      if (idempotencyCheck.isDuplicate) {
+        AuthLogger.logAuthEvent("FORGOT_PASSWORD_DUPLICATE_REQUEST", req, { email: normalizedEmail });
+        return res.json({ message: successMessage });
+      }
+
+      const user = await storage.getUserByEmail(normalizedEmail);
       
-      // Always return success to prevent email enumeration
       if (!user) {
-        return res.json({ message: "If an account exists with that email, a reset link has been sent." });
+        await addTimingJitter(150, 350);
+        AuthLogger.logPasswordReset(req, normalizedEmail, "requested", "User not found (hidden)");
+        storeIdempotencyResult(idempotencyKey, { message: successMessage });
+        return res.json({ message: successMessage });
       }
 
-      // Get IP address for logging
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
 
-      // Generate and send password reset email
-      await authSecurityService.sendPasswordResetEmail(user.id, user.email, ipAddress);
+      try {
+        await authSecurityService.sendPasswordResetEmail(user.id, user.email, ipAddress);
+        AuthLogger.logPasswordReset(req, normalizedEmail, "requested");
+      } catch (emailError) {
+        AuthLogger.logAuthEvent("PASSWORD_RESET_EMAIL_FAILED", req, {
+          level: "error",
+          userId: user.id,
+          email: normalizedEmail,
+          error: emailError as Error,
+        });
+      }
 
-      res.json({ message: "If an account exists with that email, a reset link has been sent." });
+      storeIdempotencyResult(idempotencyKey, { message: successMessage });
+      res.json({ message: successMessage });
     } catch (error: any) {
-      console.error("Forgot password error:", error);
-      res.status(500).json({ message: "Failed to process request" });
+      const durationMs = Date.now() - startTime;
+      AuthLogger.logAuthEvent("FORGOT_PASSWORD_ERROR", req, {
+        level: "error",
+        email: req.body?.email,
+        error,
+        durationMs,
+      });
+      
+      await addTimingJitter(100, 300);
+      res.json({ message: successMessage });
     }
   });
 
@@ -1235,56 +1456,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/reset-password", authLimiter, async (req, res) => {
+  app.post("/api/auth/reset-password", authLimiter, payloadLimitMiddleware(5), async (req, res) => {
+    const startTime = Date.now();
+    
     try {
       const { token, password } = req.body;
 
-      if (!token || !password) {
-        return res.status(400).json({ message: "Token and password are required" });
+      if (!token || typeof token !== "string") {
+        AuthLogger.logPasswordReset(req, "unknown", "failed", "Token missing");
+        return res.status(400).json({
+          error: {
+            code: AuthErrorCode.TOKEN_INVALID,
+            message: "Reset token is required",
+            field: "token",
+          },
+        });
       }
 
-      // Validate password
-      if (password.length < 8) {
-        return res.status(400).json({ message: "Password must be at least 8 characters" });
-      }
-      if (!/[A-Z]/.test(password)) {
-        return res.status(400).json({ message: "Password must contain at least one uppercase letter" });
-      }
-      if (!/[a-z]/.test(password)) {
-        return res.status(400).json({ message: "Password must contain at least one lowercase letter" });
-      }
-      if (!/\d/.test(password)) {
-        return res.status(400).json({ message: "Password must contain at least one number" });
+      if (!password || typeof password !== "string") {
+        AuthLogger.logPasswordReset(req, "unknown", "failed", "Password missing");
+        return res.status(400).json({
+          error: {
+            code: AuthErrorCode.PASSWORD_TOO_WEAK,
+            message: "Password is required",
+            field: "password",
+          },
+        });
       }
 
-      const resetToken = await storage.getPasswordResetToken(token);
-
-      if (!resetToken) {
-        return res.status(400).json({ message: "Invalid or expired reset link" });
+      let sanitizedToken: string;
+      try {
+        sanitizedToken = InputSanitizer.sanitizeToken(token);
+      } catch (tokenError) {
+        if (tokenError instanceof AuthError) {
+          AuthLogger.logPasswordReset(req, "unknown", "failed", "Invalid token format");
+          return res.status(tokenError.statusCode).json(tokenError.toJSON());
+        }
+        throw tokenError;
       }
 
-      if (resetToken.usedAt) {
-        return res.status(400).json({ message: "This reset link has already been used" });
+      try {
+        PasswordValidator.validate(password);
+      } catch (passwordError) {
+        if (passwordError instanceof AuthError) {
+          AuthLogger.logPasswordReset(req, "unknown", "failed", passwordError.message);
+          return res.status(passwordError.statusCode).json(passwordError.toJSON());
+        }
+        throw passwordError;
       }
 
-      if (new Date() > resetToken.expiresAt) {
-        return res.status(400).json({ message: "This reset link has expired" });
+      const resetToken = await storage.getPasswordResetToken(sanitizedToken);
+
+      try {
+        TokenSecurity.validateTokenState(resetToken);
+      } catch (tokenStateError) {
+        if (tokenStateError instanceof AuthError) {
+          AuthLogger.logPasswordReset(req, "unknown", "failed", tokenStateError.message);
+          return res.status(tokenStateError.statusCode).json(tokenStateError.toJSON());
+        }
+        throw tokenStateError;
       }
 
-      // Hash new password and update
-      const hashedPassword = await bcrypt.hash(password, 10);
-      await storage.updateUserPassword(resetToken.userId, hashedPassword);
+      const user = await storage.getUserById(resetToken!.userId);
+      const userEmail = user?.email || "unknown";
 
-      // Mark token as used
-      await storage.markPasswordResetTokenUsed(token);
+      const hashedPassword = await bcrypt.hash(password, 12);
+      
+      try {
+        await DatabaseErrorHandler.withRetry(async () => {
+          await storage.updateUserPassword(resetToken!.userId, hashedPassword);
+          await storage.markPasswordResetTokenUsed(sanitizedToken);
+          await storage.deletePasswordResetTokens(resetToken!.userId);
+        });
+      } catch (dbError: any) {
+        const errorInfo = DatabaseErrorHandler.handle(dbError, "reset-password");
+        AuthLogger.logPasswordReset(req, userEmail, "failed", `Database error: ${dbError.code}`);
+        return res.status(errorInfo.authError.statusCode).json(errorInfo.authError.toJSON());
+      }
 
-      // Delete all reset tokens for this user
-      await storage.deletePasswordResetTokens(resetToken.userId);
-
+      AuthLogger.logPasswordReset(req, userEmail, "completed");
       res.json({ message: "Password reset successfully" });
     } catch (error: any) {
-      console.error("Reset password error:", error);
-      res.status(500).json({ message: "Failed to reset password" });
+      const durationMs = Date.now() - startTime;
+      AuthLogger.logAuthEvent("RESET_PASSWORD_ERROR", req, {
+        level: "error",
+        error,
+        durationMs,
+      });
+      
+      if (error instanceof AuthError) {
+        return res.status(error.statusCode).json(error.toJSON());
+      }
+      
+      res.status(500).json({
+        error: {
+          code: AuthErrorCode.INTERNAL_ERROR,
+          message: "Failed to reset password. Please try again.",
+        },
+      });
     }
   });
 
