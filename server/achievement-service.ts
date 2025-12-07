@@ -435,15 +435,19 @@ export class AchievementService {
 
   /**
    * Initialize achievement system by seeding achievements in database
+   * @throws Error if critical initialization fails
    */
   async initializeAchievements(): Promise<void> {
-    try {
-      console.log('[Achievements] Initializing achievement system...');
-      
-      for (const achievement of this.achievements) {
-        const existing = await this.storage.getAchievementByKey(achievement.key);
+    console.log('[Achievements] Initializing achievement system...');
+    let created = 0;
+    let existing = 0;
+    const errors: Array<{ key: string; error: unknown }> = [];
+    
+    for (const achievement of this.achievements) {
+      try {
+        const existingAchievement = await this.storage.getAchievementByKey(achievement.key);
         
-        if (!existing) {
+        if (!existingAchievement) {
           await this.storage.createAchievement({
             key: achievement.key,
             name: achievement.name,
@@ -457,12 +461,23 @@ export class AchievementService {
             isSecret: achievement.isSecret ?? false,
             isActive: true,
           });
+          created++;
+        } else {
+          existing++;
         }
+      } catch (error) {
+        errors.push({ key: achievement.key, error });
+        console.error(`[Achievements] Failed to initialize achievement ${achievement.key}:`, error);
       }
-      
-      console.log('[Achievements] Achievement system initialized');
-    } catch (error) {
-      console.error('[Achievements] Initialization error:', error);
+    }
+    
+    console.log(`[Achievements] Achievement system initialized: ${created} created, ${existing} existing, ${errors.length} errors`);
+    
+    if (errors.length > 0) {
+      console.error(`[Achievements] Failed achievements: ${errors.map(e => e.key).join(', ')}`);
+      if (errors.length === this.achievements.length) {
+        throw new Error('Achievement system initialization completely failed - no achievements could be created');
+      }
     }
   }
 
@@ -472,13 +487,17 @@ export class AchievementService {
    */
   async checkAchievements(userId: string, testResult: TestResult): Promise<AchievementCheck[]> {
     const newlyUnlocked: AchievementCheck[] = [];
+    const errors: Array<{ achievement: string; error: unknown }> = [];
     
     try {
       // Get user stats
       const stats = await this.storage.getUserStats(userId);
       const badgeData = await this.storage.getUserBadgeData(userId);
       
-      if (!stats) return newlyUnlocked;
+      if (!stats) {
+        console.warn(`[Achievements] No stats found for user ${userId}, skipping achievement check`);
+        return newlyUnlocked;
+      }
 
       // Calculate extended stats for secret achievements
       const extendedStats = await this.calculateExtendedStats(userId, testResult);
@@ -506,13 +525,24 @@ export class AchievementService {
         }
 
         // Check if user qualifies for this achievement
-        if (achievement.check(userStats)) {
-          await this.unlockAchievement(userId, achievement, testResult.id);
-          newlyUnlocked.push(achievement);
+        try {
+          if (achievement.check(userStats)) {
+            await this.unlockAchievement(userId, achievement, testResult.id);
+            newlyUnlocked.push(achievement);
+          }
+        } catch (unlockError) {
+          errors.push({ achievement: achievement.key, error: unlockError });
+          console.error(`[Achievements] Failed to unlock ${achievement.key} for user ${userId}:`, unlockError);
         }
       }
+
+      // Log summary of any errors that occurred during unlock attempts
+      if (errors.length > 0) {
+        console.error(`[Achievements] ${errors.length} unlock error(s) for user ${userId}:`, 
+          errors.map(e => e.achievement).join(', '));
+      }
     } catch (error) {
-      console.error('[Achievements] Check error:', error);
+      console.error(`[Achievements] Critical error checking achievements for user ${userId}, testResult ${testResult.id}:`, error);
     }
     
     return newlyUnlocked;
@@ -590,7 +620,7 @@ export class AchievementService {
         best100WpmInFirst10Tests,
       };
     } catch (error) {
-      console.error('[Achievements] Extended stats error:', error);
+      console.error(`[Achievements] Failed to calculate extended stats for user ${userId}, testResult ${testResult.id}:`, error);
       return {
         testHour: -1,
         consecutivePerfectAccuracy: 0,
@@ -604,6 +634,8 @@ export class AchievementService {
    * Check for social sharing achievements
    */
   async checkSocialAchievements(userId: string, totalShares: number): Promise<void> {
+    const errors: Array<{ achievement: string; error: unknown }> = [];
+    
     try {
       const userStats: UserStats = {
         totalTests: 0,
@@ -627,36 +659,46 @@ export class AchievementService {
           continue;
         }
 
-        if (achievement.check(userStats)) {
-          await this.unlockAchievement(userId, achievement, 0);
+        try {
+          if (achievement.check(userStats)) {
+            await this.unlockAchievement(userId, achievement, 0);
+          }
+        } catch (unlockError) {
+          errors.push({ achievement: achievement.key, error: unlockError });
+          console.error(`[Achievements] Failed to unlock social achievement ${achievement.key} for user ${userId}:`, unlockError);
         }
       }
+
+      if (errors.length > 0) {
+        console.error(`[Achievements] ${errors.length} social unlock error(s) for user ${userId}:`, 
+          errors.map(e => e.achievement).join(', '));
+      }
     } catch (error) {
-      console.error('[Achievements] Social check error:', error);
+      console.error(`[Achievements] Critical error checking social achievements for user ${userId}:`, error);
     }
   }
 
   /**
    * Unlock an achievement for a user
+   * @throws Error if the unlock fails - caller should handle this
    */
   private async unlockAchievement(
     userId: string,
     achievement: AchievementCheck,
     testResultId: number
   ): Promise<void> {
+    // Get achievement from database
+    const dbAchievement = await this.storage.getAchievementByKey(achievement.key);
+    if (!dbAchievement) {
+      throw new Error(`Achievement ${achievement.key} not found in database - ensure initializeAchievements() was called`);
+    }
+
+    // Unlock the achievement
+    await this.storage.unlockAchievement(userId, dbAchievement.id, testResultId);
+    console.log(`[Achievements] Unlocked ${achievement.name} for user ${userId}`);
+
+    // Update gamification profile
     try {
-      // Get achievement from database
-      const dbAchievement = await this.storage.getAchievementByKey(achievement.key);
-      if (!dbAchievement) {
-        console.error(`[Achievements] Achievement ${achievement.key} not found in database`);
-        return;
-      }
-
-      // Unlock the achievement
-      await this.storage.unlockAchievement(userId, dbAchievement.id, testResultId);
-      console.log(`[Achievements] Unlocked ${achievement.name} for user ${userId}`);
-
-      // Update gamification profile
       let gamification = await this.storage.getUserGamification(userId);
       if (!gamification) {
         gamification = await this.storage.createUserGamification({
@@ -683,8 +725,13 @@ export class AchievementService {
         level: newLevel,
         totalAchievements: newAchievementCount,
       });
+    } catch (gamificationError) {
+      // Gamification update failure is non-critical - achievement was still unlocked
+      console.error(`[Achievements] Failed to update gamification for user ${userId} after unlocking ${achievement.key}:`, gamificationError);
+    }
 
-      // Send notification
+    // Send notification (non-critical)
+    try {
       if (this.notificationScheduler) {
         await this.notificationScheduler.notifyAchievementUnlock(userId, {
           name: achievement.name,
@@ -694,8 +741,8 @@ export class AchievementService {
           icon: achievement.icon,
         });
       }
-    } catch (error) {
-      console.error('[Achievements] Unlock error:', error);
+    } catch (notificationError) {
+      console.error(`[Achievements] Failed to send notification for ${achievement.key} to user ${userId}:`, notificationError);
     }
   }
 
