@@ -83,9 +83,13 @@ export default function FeedbackWidget({
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<FeedbackCategory[]>({
     queryKey: ["feedback-categories"],
     queryFn: async () => {
-      const res = await fetch("/api/feedback/categories", { credentials: "include" });
+      const res = await fetch("/api/feedback/categories", { 
+        credentials: "include",
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error("Failed to fetch categories");
-      return res.json();
+      const data = await res.json();
+      return data.categories || [];
     },
     staleTime: 5 * 60 * 1000,
   });

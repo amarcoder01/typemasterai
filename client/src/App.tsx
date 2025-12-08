@@ -50,6 +50,7 @@ import MonkeytypeAlternative from "@/pages/monkeytype-alternative";
 import TyperacerAlternative from "@/pages/typeracer-alternative";
 import TenFastFingersAlternative from "@/pages/10fastfingers-alternative";
 import TypingComAlternative from "@/pages/typingcom-alternative";
+import AdminFeedbackDashboard from "@/pages/admin/feedback";
 
 function Router() {
   return (
@@ -94,6 +95,7 @@ function Router() {
             <Route path="/cookie-policy" component={CookiePolicy} />
             <Route path="/about" component={About} />
             <Route path="/contact" component={Contact} />
+            <Route path="/admin/feedback" component={AdminFeedbackDashboard} />
             <Route component={NotFound} />
           </Switch>
         </Layout>
