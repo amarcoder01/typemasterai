@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Keyboard, BarChart2, User, Settings, Trophy, LogOut, Sparkles, Github, Twitter, Mail, Globe, Zap, Shield, BookOpen, Users, Award, TrendingUp, Code, Book, Headphones, Star, Menu, X } from "lucide-react";
+import { Keyboard, BarChart2, User, Settings, Trophy, LogOut, Sparkles, Github, Twitter, Mail, Globe, Zap, Shield, BookOpen, Users, Award, TrendingUp, Code, Book, Headphones, Star, Menu, X, MessageSquarePlus } from "lucide-react";
+import FeedbackWidget from "@/components/FeedbackWidget";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
@@ -311,7 +312,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Master your typing speed with AI-powered tests, real-time analytics, and personalized training. Join thousands of users improving their productivity.
               </p>
-              <div className="flex gap-3">
+              <div className="flex gap-3 flex-wrap">
+                <FeedbackWidget 
+                  triggerVariant="secondary"
+                  triggerSize="sm"
+                  triggerClassName="h-9 text-xs"
+                />
                 <a
                   href="https://twitter.com/typemasterai"
                   target="_blank"
