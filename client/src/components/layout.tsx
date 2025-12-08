@@ -407,6 +407,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </h3>
               <ul className="space-y-3">
                 <li>
+                  <Link href="/learn" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-learn">
+                    Learn Guide
+                  </Link>
+                </li>
+                <li>
                   <Link href="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-blog">
                     About Us
                   </Link>
