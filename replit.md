@@ -6,6 +6,13 @@ TypeMasterAI is a high-performance, full-stack typing test web application desig
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Contact & Communication
+Domain-based email system for all communications:
+- support@typemasterai.com - User support, privacy, legal, accessibility, and all two-way communications
+- business@typemasterai.com - Business inquiries, partnerships, and official business correspondence
+- no-reply@typemasterai.com - Automated system notifications (password resets, registrations, transactional emails)
+- Admin email for feedback management: amar01pawar80@gmail.com
+
 ## System Architecture
 
 ### UI/UX Decisions
