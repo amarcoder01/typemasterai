@@ -11,6 +11,7 @@ import { ErrorProvider } from "@/lib/error-context";
 import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { AchievementCelebrationProvider } from "@/components/achievement-celebration";
+import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import Layout from "@/components/layout";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -52,6 +53,8 @@ import TenFastFingersAlternative from "@/pages/10fastfingers-alternative";
 import TypingComAlternative from "@/pages/typingcom-alternative";
 import AdminFeedbackDashboard from "@/pages/admin/feedback";
 import Learn from "@/pages/learn";
+import AITransparency from "@/pages/ai-transparency";
+import AccessibilityStatement from "@/pages/accessibility";
 
 function Router() {
   return (
@@ -97,6 +100,8 @@ function Router() {
             <Route path="/about" component={About} />
             <Route path="/contact" component={Contact} />
             <Route path="/learn" component={Learn} />
+            <Route path="/ai-transparency" component={AITransparency} />
+            <Route path="/accessibility" component={AccessibilityStatement} />
             <Route path="/admin/feedback" component={AdminFeedbackDashboard} />
             <Route component={NotFound} />
           </Switch>
@@ -128,6 +133,7 @@ function App() {
                       }}
                     />
                     <Router />
+                    <CookieConsentBanner />
                   </TooltipProvider>
                 </AchievementCelebrationProvider>
               </AuthProvider>

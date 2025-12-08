@@ -308,7 +308,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="border-t border-border/40 bg-gradient-to-b from-card/30 to-card/50 backdrop-blur-sm">
+      <footer 
+        className="border-t border-border/40 bg-gradient-to-b from-card/30 to-card/50 backdrop-blur-sm"
+        role="contentinfo"
+        aria-label="Site footer"
+      >
         <div className="container mx-auto px-4 py-5">
           {/* Main Footer Content */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-4">
@@ -420,7 +424,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             {/* Legal */}
             <div>
-              <h3 className="font-semibold text-xs mb-2">Legal</h3>
+              <h3 className="font-semibold text-xs mb-2">Legal & Compliance</h3>
               <ul className="space-y-1.5 text-[11px] text-muted-foreground">
                 <li>
                   <Link href="/privacy-policy" className="hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-privacy">
@@ -436,6 +440,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <li>
                   <Link href="/cookie-policy" className="hover:text-primary transition-colors" data-testid="link-footer-cookies">
                     Cookie Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/ai-transparency" className="hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-ai-transparency">
+                    <Sparkles className="w-3 h-3" />
+                    AI Transparency
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/accessibility" className="hover:text-primary transition-colors" data-testid="link-footer-accessibility">
+                    Accessibility
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/privacy-policy#california-residents" className="hover:text-primary transition-colors text-amber-500/80" data-testid="link-footer-do-not-sell">
+                    Do Not Sell My Info
                   </Link>
                 </li>
               </ul>

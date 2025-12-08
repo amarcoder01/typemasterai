@@ -71,15 +71,34 @@ export default function PrivacyPolicy() {
         <section>
           <h2 className="text-2xl font-bold text-foreground mb-4">3. AI and OpenAI Integration</h2>
           <p className="text-muted-foreground mb-4">
-            TypeMasterAI uses OpenAI's GPT-4 technology to power:
+            TypeMasterAI uses OpenAI's GPT-4 and GPT-4o technology to power:
           </p>
           <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-            <li>AI chat assistant for typing tips and guidance</li>
-            <li>Automatic paragraph generation for typing tests</li>
-            <li>Custom content creation based on your preferences</li>
+            <li>AI chat assistant for typing tips and guidance (GPT-4o with web search capabilities)</li>
+            <li>Automatic paragraph generation for typing tests (GPT-4o-mini)</li>
+            <li>Code snippet generation for programming practice (GPT-4o-mini)</li>
+            <li>AI Ghost Racers in multiplayer mode (GPT-4o-mini for username generation)</li>
+          </ul>
+          
+          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">3.1 Data Sent to OpenAI</h3>
+          <p className="text-muted-foreground mb-4">
+            When you use AI features, the following data may be sent to OpenAI:
+          </p>
+          <ul className="list-disc pl-6 text-muted-foreground space-y-2">
+            <li>Your chat messages and conversation context</li>
+            <li>Selected language and content preferences</li>
+            <li>Programming language selection for code mode</li>
           </ul>
           <p className="text-muted-foreground mt-4">
-            When you interact with AI features, your prompts and generated content are processed by OpenAI's API. OpenAI's data usage is governed by their <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privacy Policy</a> and <a href="https://openai.com/policies/api-data-usage-policies" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">API Data Usage Policies</a>.
+            <strong className="text-foreground">Important:</strong> We do not send your personal account information, typing test results, or analytics data to OpenAI unless you explicitly include it in your messages.
+          </p>
+
+          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">3.2 OpenAI Data Retention</h3>
+          <p className="text-muted-foreground mb-4">
+            OpenAI retains API data for up to 30 days for abuse monitoring, then deletes it. OpenAI does <strong className="text-foreground">not</strong> use API data to train their models without explicit consent.
+          </p>
+          <p className="text-muted-foreground">
+            OpenAI's data usage is governed by their <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privacy Policy</a> and <a href="https://openai.com/policies/api-data-usage-policies" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">API Data Usage Policies</a>. For complete details on our AI practices, see our <Link href="/ai-transparency" className="text-primary hover:underline">AI Transparency Notice</Link>.
           </p>
         </section>
 
@@ -208,7 +227,7 @@ export default function PrivacyPolicy() {
           </p>
         </section>
 
-        <section>
+        <section id="california-residents">
           <h2 className="text-2xl font-bold text-foreground mb-4">11. California Residents (CCPA/CPRA)</h2>
           <p className="text-muted-foreground mb-4">
             If you are a California resident, the California Consumer Privacy Act (CCPA) and California Privacy Rights Act (CPRA) provide you with additional rights:
