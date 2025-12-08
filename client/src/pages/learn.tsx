@@ -455,6 +455,56 @@ export default function LearnPage() {
                           Try Dictation
                         </Link>
                       </Button>
+
+                      {/* Dictation Session History - Detailed */}
+                      <div className="mt-6 bg-gradient-to-r from-cyan-500/5 to-blue-500/5 rounded-lg p-6 border border-cyan-500/20">
+                        <h4 className="font-semibold mb-3 flex items-center gap-2 text-lg">
+                          <Clock className="w-5 h-5 text-cyan-500" />
+                          Session History & Progress Tracking
+                        </h4>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Every dictation session is automatically saved with full details including accuracy, speed, sentences practiced, and difficulty level. Access your complete history anytime to track improvement over time.
+                        </p>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div>
+                            <h5 className="font-semibold text-sm mb-2">What's Tracked:</h5>
+                            <ul className="text-sm space-y-1 text-muted-foreground">
+                              <li>• Date and time of each session</li>
+                              <li>• Mode (Quick, Focus, Challenge)</li>
+                              <li>• Number of sentences completed</li>
+                              <li>• Average WPM and accuracy</li>
+                              <li>• Difficulty level attempted</li>
+                              <li>• Theme used during practice</li>
+                              <li>• Bookmarked difficult sentences</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <h5 className="font-semibold text-sm mb-2">How to Access:</h5>
+                            <ol className="text-sm space-y-2 text-muted-foreground">
+                              <li className="flex gap-2">
+                                <span className="font-semibold text-cyan-500">1.</span>
+                                <span>Complete a dictation session</span>
+                              </li>
+                              <li className="flex gap-2">
+                                <span className="font-semibold text-cyan-500">2.</span>
+                                <span>Click "View History" in dictation mode</span>
+                              </li>
+                              <li className="flex gap-2">
+                                <span className="font-semibold text-cyan-500">3.</span>
+                                <span>Or navigate to Analytics → Session History</span>
+                              </li>
+                              <li className="flex gap-2">
+                                <span className="font-semibold text-cyan-500">4.</span>
+                                <span>Filter by date range or mode</span>
+                              </li>
+                              <li className="flex gap-2">
+                                <span className="font-semibold text-cyan-500">5.</span>
+                                <span>Drill down into any session for details</span>
+                              </li>
+                            </ol>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>
@@ -1020,115 +1070,428 @@ export default function LearnPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* AI Assistant Feature - Expanded */}
+              {/* AI Chat Assistant - Comprehensive Guide */}
               <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-lg p-6 border border-blue-500/20 mb-6">
-                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2">
                   <MessageSquare className="w-6 h-6 text-blue-500" />
-                  AI Chat Assistant - Your Personal Typing Coach
+                  AI Chat Assistant - Your 24/7 Personal Typing Coach
                 </h3>
-                <p className="text-muted-foreground mb-4">
-                  Our advanced AI assistant analyzes your typing patterns and provides real-time, personalized coaching to accelerate your improvement.
+                <p className="text-muted-foreground mb-6">
+                  Meet your intelligent typing coach! Our AI assistant analyzes your performance data, identifies improvement opportunities, and provides personalized coaching through natural conversation. It's like having a professional typing instructor available anytime.
                 </p>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="font-semibold mb-2 text-sm flex items-center gap-2">
-                      <Brain className="w-4 h-4 text-cyan-500" />
-                      What It Does:
-                    </h4>
-                    <ul className="text-sm space-y-1 text-muted-foreground">
-                      <li>• Analyzes your test results and identifies weak areas</li>
-                      <li>• Provides targeted practice exercises for problem keys</li>
-                      <li>• Offers technique improvement suggestions</li>
-                      <li>• Motivational feedback based on your progress</li>
-                      <li>• Answers typing-related questions instantly</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-2 text-sm flex items-center gap-2">
-                      <Lightbulb className="w-4 h-4 text-yellow-500" />
-                      How to Use:
-                    </h4>
-                    <ul className="text-sm space-y-1 text-muted-foreground">
-                      <li>• Access from the Chat page in navigation</li>
-                      <li>• Ask about specific keys or typing issues</li>
-                      <li>• Request custom practice recommendations</li>
-                      <li>• Get explanations for your analytics data</li>
-                      <li>• Receive daily practice tips and motivation</li>
-                    </ul>
+
+                {/* How to Access */}
+                <div className="mb-6">
+                  <h4 className="font-semibold mb-3 text-lg flex items-center gap-2">
+                    <Rocket className="w-5 h-5 text-cyan-500" />
+                    How to Access the AI Assistant
+                  </h4>
+                  <div className="bg-background/50 rounded-lg p-4 border border-border">
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div>
+                        <p className="font-semibold text-sm mb-2 flex items-center gap-2">
+                          <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">1</span>
+                          From Navigation
+                        </p>
+                        <p className="text-xs text-muted-foreground">Click "Chat" in the main navigation menu at the top of any page</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm mb-2 flex items-center gap-2">
+                          <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">2</span>
+                          From Analytics
+                        </p>
+                        <p className="text-xs text-muted-foreground">Click "Ask AI" button in your Analytics page for context-aware coaching</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm mb-2 flex items-center gap-2">
+                          <span className="bg-cyan-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">3</span>
+                          From Results
+                        </p>
+                        <p className="text-xs text-muted-foreground">After any test, click "Get AI Insights" for immediate analysis</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <Button asChild size="sm" className="mt-4" data-testid="button-ai-chat">
-                  <Link href="/chat">
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    Start Chat with AI Assistant
-                  </Link>
-                </Button>
+
+                {/* What It Does */}
+                <div className="grid md:grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <h4 className="font-semibold mb-3 text-sm flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-purple-500" />
+                      AI Capabilities & Features:
+                    </h4>
+                    <ul className="text-sm space-y-2 text-muted-foreground">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span><strong>Performance Analysis:</strong> Reviews your test history and identifies patterns in errors, slow keys, and accuracy issues</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span><strong>Personalized Coaching:</strong> Provides specific exercises targeting your weak areas</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span><strong>Technique Tips:</strong> Suggests hand positioning, posture, and finger placement improvements</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span><strong>Progress Tracking:</strong> Explains your analytics data in plain language</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span><strong>Motivation & Support:</strong> Celebrates achievements and keeps you encouraged</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span><strong>Q&A:</strong> Answers any typing-related questions instantly</span>
+                      </li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-3 text-sm flex items-center gap-2">
+                      <Lightbulb className="w-4 h-4 text-yellow-500" />
+                      Sample Prompts to Try:
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="bg-blue-500/10 rounded p-2 border border-blue-500/20">
+                        <p className="text-xs text-muted-foreground italic">"Why do I keep missing the 'p' key?"</p>
+                      </div>
+                      <div className="bg-blue-500/10 rounded p-2 border border-blue-500/20">
+                        <p className="text-xs text-muted-foreground italic">"Give me exercises to improve my left pinky finger"</p>
+                      </div>
+                      <div className="bg-blue-500/10 rounded p-2 border border-blue-500/20">
+                        <p className="text-xs text-muted-foreground italic">"How can I increase my WPM from 65 to 80?"</p>
+                      </div>
+                      <div className="bg-blue-500/10 rounded p-2 border border-blue-500/20">
+                        <p className="text-xs text-muted-foreground italic">"Explain my accuracy trend this week"</p>
+                      </div>
+                      <div className="bg-blue-500/10 rounded p-2 border border-blue-500/20">
+                        <p className="text-xs text-muted-foreground italic">"Create a 7-day practice plan for me"</p>
+                      </div>
+                      <div className="bg-blue-500/10 rounded p-2 border border-blue-500/20">
+                        <p className="text-xs text-muted-foreground italic">"What typing mode should I practice today?"</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Conversation Workflow */}
+                <div className="mb-6">
+                  <h4 className="font-semibold mb-3 text-lg flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-blue-500" />
+                    Typical Conversation Workflow
+                  </h4>
+                  <div className="bg-background/50 rounded-lg p-4 border border-border">
+                    <div className="space-y-3 text-sm">
+                      <div className="flex gap-3">
+                        <div className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0">1</div>
+                        <div>
+                          <p className="font-semibold mb-1">Start Conversation</p>
+                          <p className="text-muted-foreground text-xs">Open chat and type your question or concern (e.g., "I want to improve my accuracy")</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0">2</div>
+                        <div>
+                          <p className="font-semibold mb-1">AI Analyzes Your Data</p>
+                          <p className="text-muted-foreground text-xs">The assistant reviews your recent tests, identifies patterns, and prepares personalized advice</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0">3</div>
+                        <div>
+                          <p className="font-semibold mb-1">Get Recommendations</p>
+                          <p className="text-muted-foreground text-xs">Receive specific suggestions, practice exercises, or explanations tailored to your needs</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0">4</div>
+                        <div>
+                          <p className="font-semibold mb-1">Take Action</p>
+                          <p className="text-muted-foreground text-xs">Click suggested practice modes, view analytics details, or try recommended exercises directly from chat</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0">5</div>
+                        <div>
+                          <p className="font-semibold mb-1">Follow Up</p>
+                          <p className="text-muted-foreground text-xs">Ask clarifying questions, request more exercises, or get motivational support</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Integration with Analytics */}
+                <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 mb-4">
+                  <h4 className="font-semibold mb-2 text-sm flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-purple-500" />
+                    Analytics Integration
+                  </h4>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    The AI assistant has full access to your analytics dashboard, allowing it to provide context-aware coaching based on your actual performance data.
+                  </p>
+                  <div className="grid md:grid-cols-2 gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-3 h-3 text-green-500" />
+                      <span className="text-muted-foreground">Keystroke heatmap analysis</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Fingerprint className="w-3 h-3 text-green-500" />
+                      <span className="text-muted-foreground">Finger usage patterns</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <PieChart className="w-3 h-3 text-green-500" />
+                      <span className="text-muted-foreground">Hand balance metrics</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <LineChart className="w-3 h-3 text-green-500" />
+                      <span className="text-muted-foreground">WPM & accuracy trends</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <Button asChild className="flex-1" data-testid="button-ai-chat">
+                    <Link href="/chat">
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Start Chat with AI Assistant
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="flex-1" data-testid="button-view-analytics-ai">
+                    <Link href="/analytics">
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      View Analytics & Ask AI
+                    </Link>
+                  </Button>
+                </div>
               </div>
 
-              {/* Certificates & Sharing - Expanded */}
+              {/* Certificates & Sharing - Comprehensive Guide */}
               <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 rounded-lg p-6 border border-green-500/20 mb-6">
-                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <h3 className="text-2xl font-semibold mb-4 flex items-center gap-2">
                   <Award className="w-6 h-6 text-green-500" />
-                  Achievements Certificates & Social Sharing
+                  Achievement Certificates & Social Sharing
                 </h3>
-                <p className="text-muted-foreground mb-4">
-                  Celebrate your typing milestones with professional certificates and share your achievements with the world.
+                <p className="text-muted-foreground mb-6">
+                  Celebrate your typing milestones with professional certificates and share your achievements with the world. Every major accomplishment deserves recognition!
                 </p>
-                <div className="grid md:grid-cols-2 gap-4">
+
+                {/* How to Get Certificates */}
+                <div className="mb-6">
+                  <h4 className="font-semibold mb-3 text-lg flex items-center gap-2">
+                    <Download className="w-5 h-5 text-green-500" />
+                    How to Download Certificates
+                  </h4>
+                  <div className="bg-background/50 rounded-lg p-4 border border-border mb-4">
+                    <ol className="space-y-3 text-sm text-muted-foreground">
+                      <li className="flex gap-3">
+                        <span className="font-semibold text-green-500 flex-shrink-0">Step 1:</span>
+                        <span>Complete a test or unlock an achievement (e.g., reach 100 WPM, achieve 100% accuracy, complete Stress Test)</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="font-semibold text-green-500 flex-shrink-0">Step 2:</span>
+                        <span>On the results page, click the "Download Certificate" button (appears for qualifying achievements)</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="font-semibold text-green-500 flex-shrink-0">Step 3:</span>
+                        <span>Customize your certificate: Add your name, choose color theme, select format (PDF or PNG)</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="font-semibold text-green-500 flex-shrink-0">Step 4:</span>
+                        <span>Preview the certificate to ensure all details are correct</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="font-semibold text-green-500 flex-shrink-0">Step 5:</span>
+                        <span>Click "Generate & Download" to save your certificate to your device</span>
+                      </li>
+                    </ol>
+                  </div>
+                </div>
+
+                {/* Certificate Types */}
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
                   <div>
-                    <h4 className="font-semibold mb-2 text-sm flex items-center gap-2">
-                      <Download className="w-4 h-4 text-green-500" />
-                      Downloadable Certificates:
+                    <h4 className="font-semibold mb-3 text-sm flex items-center gap-2">
+                      <Star className="w-4 h-4 text-amber-500" />
+                      Certificate Types Available:
                     </h4>
-                    <ul className="text-sm space-y-1 text-muted-foreground">
-                      <li>• Professional PDF certificates for achievements</li>
-                      <li>• Code Mode completion certificates</li>
-                      <li>• WPM milestone certificates (50, 80, 100+ WPM)</li>
-                      <li>• Stress Test completion certificates</li>
-                      <li>• Perfect accuracy (100%) certificates</li>
-                      <li>• Customized with your name and stats</li>
+                    <ul className="text-sm space-y-2 text-muted-foreground">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span><strong>Speed Milestones:</strong> 50, 80, 100, 120+ WPM achievements</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span><strong>Perfect Accuracy:</strong> 100% accuracy on any test</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span><strong>Code Master:</strong> Complete all difficulty levels in Code Mode</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span><strong>Stress Test Survivor:</strong> Complete Nightmare or Impossible levels</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span><strong>Badge Collections:</strong> Earn all badges in a category</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5" />
+                        <span><strong>Streak Champion:</strong> Maintain 30, 60, or 100-day streaks</span>
+                      </li>
                     </ul>
                   </div>
                   <div>
-                    <h4 className="font-semibold mb-2 text-sm flex items-center gap-2">
-                      <Share2 className="w-4 h-4 text-cyan-500" />
-                      Social Sharing Options:
+                    <h4 className="font-semibold mb-3 text-sm flex items-center gap-2">
+                      <Settings className="w-4 h-4 text-purple-500" />
+                      Customization Options:
                     </h4>
-                    <ul className="text-sm space-y-1 text-muted-foreground">
-                      <li>• Beautiful visual result cards</li>
-                      <li>• Share to Twitter, Facebook, LinkedIn, WhatsApp</li>
-                      <li>• Copy direct link to your result page</li>
-                      <li>• Anonymous sharing option available</li>
-                      <li>• Badge showcase for unlocked achievements</li>
-                      <li>• Auto-generated achievement announcements</li>
+                    <ul className="text-sm space-y-2 text-muted-foreground">
+                      <li>• Add your full name or username</li>
+                      <li>• Choose from 5 color themes</li>
+                      <li>• Select certificate size (A4, Letter, Square)</li>
+                      <li>• Include or hide detailed statistics</li>
+                      <li>• Add personalized message (premium)</li>
+                      <li>• Digital signature with verification code</li>
                     </ul>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-4 italic">
-                  💡 Tip: After completing a test, click the share icon to generate your result card or download certificate!
-                </p>
+
+                {/* Social Sharing Guide */}
+                <div className="border-t border-border pt-6">
+                  <h4 className="font-semibold mb-3 text-lg flex items-center gap-2">
+                    <Share2 className="w-5 h-5 text-cyan-500" />
+                    Social Sharing - Step by Step
+                  </h4>
+                  <div className="bg-background/50 rounded-lg p-4 border border-border mb-4">
+                    <ol className="space-y-3 text-sm text-muted-foreground">
+                      <li className="flex gap-3">
+                        <span className="font-semibold text-cyan-500 flex-shrink-0">Step 1:</span>
+                        <span>Complete any typing test or unlock an achievement</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="font-semibold text-cyan-500 flex-shrink-0">Step 2:</span>
+                        <span>On results page, click the "Share" button (top-right corner)</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="font-semibold text-cyan-500 flex-shrink-0">Step 3:</span>
+                        <span>Choose share format: Result Card (image) or Direct Link</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="font-semibold text-cyan-500 flex-shrink-0">Step 4:</span>
+                        <span>Select platform: Twitter, Facebook, LinkedIn, WhatsApp, or Copy Link</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="font-semibold text-cyan-500 flex-shrink-0">Step 5:</span>
+                        <span>Optional: Toggle "Share Anonymously" to hide your username</span>
+                      </li>
+                    </ol>
+                  </div>
+                  <div className="grid md:grid-cols-3 gap-3">
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded p-3">
+                      <p className="font-semibold text-sm mb-1">Result Cards</p>
+                      <p className="text-xs text-muted-foreground">Beautiful visual cards with your stats, automatically generated for sharing</p>
+                    </div>
+                    <div className="bg-purple-500/10 border border-purple-500/20 rounded p-3">
+                      <p className="font-semibold text-sm mb-1">Badge Showcase</p>
+                      <p className="text-xs text-muted-foreground">Share unlocked badges with visual trophy display</p>
+                    </div>
+                    <div className="bg-green-500/10 border border-green-500/20 rounded p-3">
+                      <p className="font-semibold text-sm mb-1">Direct Links</p>
+                      <p className="text-xs text-muted-foreground">Shareable URLs to your result pages with live data</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                  <p className="text-sm flex items-start gap-2">
+                    <Lightbulb className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-muted-foreground">
+                      <strong className="text-foreground">Pro Tip:</strong> Access all your certificates anytime from Profile → My Certificates. You can regenerate, re-download, or share any past achievement certificate!
+                    </span>
+                  </p>
+                </div>
               </div>
 
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Card className="bg-amber-500/10 border-amber-500/20">
-                  <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-amber-500" />
-                      Adaptive Difficulty
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      Content difficulty adapts to your skill level automatically
-                    </p>
-                    <ul className="text-xs space-y-1 text-muted-foreground">
-                      <li>• AI-generated content matches your WPM</li>
-                      <li>• Difficulty levels: Easy, Medium, Hard</li>
-                      <li>• Automatically adjusts based on performance</li>
-                      <li>• Gradual progression system</li>
-                    </ul>
-                  </CardContent>
-                </Card>
+                {/* Adaptive Difficulty - Detailed Expansion */}
+                <div className="col-span-full bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-lg p-6 border border-amber-500/20">
+                  <h4 className="font-semibold mb-3 text-lg flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-amber-500" />
+                    Intelligent Adaptive Difficulty System
+                  </h4>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    TypeMasterAI automatically adjusts content difficulty based on your performance, ensuring optimal challenge and continuous improvement. The system learns from your typing patterns to provide personalized practice content.
+                  </p>
+                  
+                  <div className="grid md:grid-cols-3 gap-4 mb-4">
+                    <div className="bg-background/50 rounded-lg p-4 border border-border">
+                      <h5 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                        <Brain className="w-4 h-4 text-purple-500" />
+                        How It Works
+                      </h5>
+                      <ul className="text-xs space-y-1 text-muted-foreground">
+                        <li>• Analyzes your recent 10-20 tests</li>
+                        <li>• Calculates average WPM & accuracy</li>
+                        <li>• Identifies problem keys and patterns</li>
+                        <li>• Adjusts word complexity in real-time</li>
+                        <li>• Increases difficulty as you improve</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="bg-background/50 rounded-lg p-4 border border-border">
+                      <h5 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                        <Gauge className="w-4 h-4 text-blue-500" />
+                        Difficulty Levels
+                      </h5>
+                      <ul className="text-xs space-y-1 text-muted-foreground">
+                        <li>• <strong>Beginner:</strong> Common 500 words (20-40 WPM)</li>
+                        <li>• <strong>Easy:</strong> Top 1,000 words (40-60 WPM)</li>
+                        <li>• <strong>Medium:</strong> Top 5,000 words (60-80 WPM)</li>
+                        <li>• <strong>Hard:</strong> Top 10,000 words (80-100 WPM)</li>
+                        <li>• <strong>Expert:</strong> Advanced vocabulary (100+ WPM)</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="bg-background/50 rounded-lg p-4 border border-border">
+                      <h5 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                        <Settings className="w-4 h-4 text-cyan-500" />
+                        Manual Control
+                      </h5>
+                      <ul className="text-xs space-y-1 text-muted-foreground">
+                        <li>• Override auto-difficulty in Settings</li>
+                        <li>• Lock to specific difficulty level</li>
+                        <li>• Practice problem keys only</li>
+                        <li>• Custom word lists (premium)</li>
+                        <li>• Reset progression anytime</li>
+                      </ul>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-background/50 rounded-lg p-4 border border-border">
+                    <h5 className="font-semibold text-sm mb-2">Adaptive Triggers:</h5>
+                    <div className="grid md:grid-cols-2 gap-3 text-xs text-muted-foreground">
+                      <div>
+                        <p className="font-semibold text-foreground mb-1">⬆️ Difficulty Increases When:</p>
+                        <ul className="space-y-1">
+                          <li>• Consistent 95%+ accuracy for 5 tests</li>
+                          <li>• WPM 10+ above current level average</li>
+                          <li>• Zero mistakes on problem keys</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-foreground mb-1">⬇️ Difficulty Decreases When:</p>
+                        <ul className="space-y-1">
+                          <li>• Accuracy drops below 85% for 3 tests</li>
+                          <li>• WPM significantly below level requirement</li>
+                          <li>• High error rate on new word types</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 <Card className="bg-indigo-500/10 border-indigo-500/20">
                   <CardHeader>
