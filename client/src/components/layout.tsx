@@ -309,61 +309,61 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       <footer className="border-t border-border/40 bg-gradient-to-b from-card/30 to-card/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-5">
           {/* Main Footer Content */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-4">
             {/* Brand Section */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 bg-gradient-to-br from-primary to-purple-500 rounded-lg flex items-center justify-center text-primary-foreground font-mono font-bold">
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <div className="w-6 h-6 bg-gradient-to-br from-primary to-purple-500 rounded-lg flex items-center justify-center text-primary-foreground font-mono font-bold text-sm">
                   T
                 </div>
-                <h2 className="text-base font-bold">TypeMasterAI</h2>
+                <h2 className="text-sm font-bold">TypeMasterAI</h2>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Master your typing speed with AI-powered tests, real-time analytics, and personalized training.
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Master your typing speed with AI-powered tests and analytics.
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 <FeedbackWidget 
                   triggerVariant="secondary"
                   triggerSize="sm"
-                  triggerClassName="h-7 text-xs"
+                  triggerClassName="h-6 text-[10px] px-2"
                 />
                 <a
                   href="https://twitter.com/typemasterai"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-7 h-7 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  className="w-6 h-6 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
                   data-testid="link-twitter"
                   aria-label="Twitter"
                 >
-                  <Twitter className="w-3.5 h-3.5" />
+                  <Twitter className="w-3 h-3" />
                 </a>
                 <a
                   href="https://github.com/typemasterai"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-7 h-7 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  className="w-6 h-6 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
                   data-testid="link-github"
                   aria-label="GitHub"
                 >
-                  <Github className="w-3.5 h-3.5" />
+                  <Github className="w-3 h-3" />
                 </a>
                 <a
                   href="mailto:hello@typemasterai.com"
-                  className="w-7 h-7 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  className="w-6 h-6 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
                   data-testid="link-email"
                   aria-label="Email"
                 >
-                  <Mail className="w-3.5 h-3.5" />
+                  <Mail className="w-3 h-3" />
                 </a>
               </div>
             </div>
 
             {/* Product */}
             <div>
-              <h3 className="font-semibold text-sm mb-3">Product</h3>
-              <ul className="space-y-2 text-xs text-muted-foreground">
+              <h3 className="font-semibold text-xs mb-2">Product</h3>
+              <ul className="space-y-1.5 text-[11px] text-muted-foreground">
                 <li>
                   <Link href="/" className="hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-features">
                     <Keyboard className="w-3 h-3" />
@@ -393,8 +393,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             {/* Resources */}
             <div>
-              <h3 className="font-semibold text-sm mb-3">Resources</h3>
-              <ul className="space-y-2 text-xs text-muted-foreground">
+              <h3 className="font-semibold text-xs mb-2">Resources</h3>
+              <ul className="space-y-1.5 text-[11px] text-muted-foreground">
                 <li>
                   <Link href="/learn" className="hover:text-primary transition-colors" data-testid="link-footer-learn">
                     Learn to Type
@@ -420,8 +420,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             {/* Legal */}
             <div>
-              <h3 className="font-semibold text-sm mb-3">Legal</h3>
-              <ul className="space-y-2 text-xs text-muted-foreground">
+              <h3 className="font-semibold text-xs mb-2">Legal</h3>
+              <ul className="space-y-1.5 text-[11px] text-muted-foreground">
                 <li>
                   <Link href="/privacy-policy" className="hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-privacy">
                     <Shield className="w-3 h-3" />
@@ -443,14 +443,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Bottom Bar */}
-          <div className="pt-6 border-t border-border/40">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-3">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="px-2 py-1 rounded bg-accent/50 font-mono text-[10px]">v1.0.0</span>
+          <div className="pt-4 border-t border-border/40">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-2">
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <span className="px-1.5 py-0.5 rounded bg-accent/50 font-mono">v1.0.0</span>
                 <span className="hidden sm:inline">•</span>
                 <span className="hidden sm:inline">Made with ❤️ for typing enthusiasts</span>
               </div>
-              <p className="text-xs text-muted-foreground text-center">
+              <p className="text-[10px] text-muted-foreground text-center">
                 © {new Date().getFullYear()} <span className="font-semibold text-foreground">TypeMasterAI</span>. All rights reserved.
               </p>
             </div>
