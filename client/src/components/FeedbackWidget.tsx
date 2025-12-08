@@ -80,12 +80,6 @@ export default function FeedbackWidget({
   const [open, setOpen] = useState(false);
   const { user } = useAuth();
 
-  // Only show feedback widget to admin user (case-insensitive check)
-  const adminEmail = "amar01pawar80@gmail.com";
-  if (!user || user.email?.toLowerCase() !== adminEmail.toLowerCase()) {
-    return null;
-  }
-
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<FeedbackCategory[]>({
     queryKey: ["feedback-categories"],
     queryFn: async () => {
