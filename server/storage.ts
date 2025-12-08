@@ -148,6 +148,31 @@ import {
   type InsertRaceReplay,
   type AntiCheatChallenge,
   type InsertAntiCheatChallenge,
+  feedbackCategories,
+  feedback,
+  feedbackAttachments,
+  feedbackResponses,
+  feedbackStatusHistory,
+  feedbackAnalytics,
+  feedbackUpvotes,
+  feedbackRateLimits,
+  feedbackAdmins,
+  type FeedbackCategory,
+  type InsertFeedbackCategory,
+  type Feedback,
+  type InsertFeedback,
+  type FeedbackAttachment,
+  type InsertFeedbackAttachment,
+  type FeedbackResponse,
+  type InsertFeedbackResponse,
+  type FeedbackStatusHistory,
+  type InsertFeedbackStatusHistory,
+  type FeedbackAnalytics,
+  type InsertFeedbackAnalytics,
+  type FeedbackUpvote,
+  type InsertFeedbackUpvote,
+  type FeedbackAdmin,
+  type InsertFeedbackAdmin,
 } from "@shared/schema";
 import { eq, desc, sql, and, notInArray, or } from "drizzle-orm";
 
@@ -648,6 +673,92 @@ export interface IStorage {
   createAntiCheatChallenge(challenge: InsertAntiCheatChallenge): Promise<AntiCheatChallenge>;
   getUserCertification(userId: string): Promise<AntiCheatChallenge | undefined>;
   updateChallengePassed(challengeId: number, passed: boolean, wpm: number, certifiedWpm: number): Promise<void>;
+
+  // ============================================================================
+  // ENTERPRISE FEEDBACK SYSTEM
+  // ============================================================================
+
+  // Feedback Categories
+  getFeedbackCategories(): Promise<FeedbackCategory[]>;
+  getFeedbackCategoryById(id: number): Promise<FeedbackCategory | undefined>;
+  getFeedbackCategoryBySlug(slug: string): Promise<FeedbackCategory | undefined>;
+
+  // Feedback CRUD
+  createFeedback(feedbackData: InsertFeedback): Promise<Feedback>;
+  getFeedbackById(id: number): Promise<Feedback | undefined>;
+  getFeedbackPaginated(options: {
+    limit: number;
+    offset: number;
+    status?: string;
+    priority?: string;
+    categoryId?: number;
+    sentimentLabel?: string;
+    isSpam?: boolean;
+    isArchived?: boolean;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<{ feedback: Feedback[]; total: number }>;
+  updateFeedback(id: number, updates: Partial<Feedback>): Promise<Feedback>;
+  updateFeedbackAiAnalysis(id: number, analysis: {
+    sentimentScore: number;
+    sentimentLabel: string;
+    aiCategoryId?: number;
+    aiSummary?: string;
+    aiPriorityScore?: number;
+    aiTags?: string[];
+  }): Promise<Feedback>;
+  markFeedbackResolved(id: number, resolvedByUserId: string, resolutionNotes?: string): Promise<Feedback>;
+  archiveFeedback(id: number): Promise<void>;
+  markFeedbackAsSpam(id: number): Promise<void>;
+
+  // Feedback Attachments
+  createFeedbackAttachment(attachment: InsertFeedbackAttachment): Promise<FeedbackAttachment>;
+  getFeedbackAttachments(feedbackId: number): Promise<FeedbackAttachment[]>;
+  deleteFeedbackAttachment(id: number): Promise<void>;
+
+  // Feedback Responses
+  createFeedbackResponse(response: InsertFeedbackResponse): Promise<FeedbackResponse>;
+  getFeedbackResponses(feedbackId: number): Promise<FeedbackResponse[]>;
+  updateFeedbackResponse(id: number, updates: Partial<FeedbackResponse>): Promise<FeedbackResponse>;
+
+  // Status History (Audit Trail)
+  recordFeedbackStatusHistory(history: InsertFeedbackStatusHistory): Promise<FeedbackStatusHistory>;
+  getFeedbackStatusHistory(feedbackId: number): Promise<FeedbackStatusHistory[]>;
+
+  // Upvotes
+  toggleFeedbackUpvote(feedbackId: number, userId: string): Promise<{ upvoted: boolean; newCount: number }>;
+  getUserFeedbackUpvotes(userId: string): Promise<FeedbackUpvote[]>;
+
+  // Rate Limiting
+  checkFeedbackRateLimit(identifier: string, identifierType: 'ip' | 'user'): Promise<{
+    allowed: boolean;
+    remaining: number;
+    resetAt: Date | null;
+    blockedUntil: Date | null;
+  }>;
+  recordFeedbackSubmission(identifier: string, identifierType: 'ip' | 'user'): Promise<void>;
+  blockFeedbackSubmitter(identifier: string, identifierType: 'ip' | 'user', reason: string, durationMinutes: number): Promise<void>;
+
+  // Admin Management
+  getFeedbackAdmin(userId: string): Promise<FeedbackAdmin | undefined>;
+  createFeedbackAdmin(admin: InsertFeedbackAdmin): Promise<FeedbackAdmin>;
+  updateFeedbackAdmin(userId: string, updates: Partial<FeedbackAdmin>): Promise<FeedbackAdmin>;
+  deleteFeedbackAdmin(userId: string): Promise<void>;
+  getAllFeedbackAdmins(): Promise<FeedbackAdmin[]>;
+
+  // Analytics
+  getFeedbackAnalyticsSummary(): Promise<{
+    totalFeedback: number;
+    newFeedback: number;
+    resolvedFeedback: number;
+    avgResolutionTimeHours: number | null;
+    sentimentBreakdown: { negative: number; neutral: number; positive: number };
+    priorityBreakdown: Record<string, number>;
+    categoryBreakdown: Record<string, number>;
+    statusBreakdown: Record<string, number>;
+  }>;
+  saveFeedbackAnalytics(analytics: InsertFeedbackAnalytics): Promise<FeedbackAnalytics>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4774,6 +4885,627 @@ export class DatabaseStorage implements IStorage {
         completedAt: new Date(),
       })
       .where(eq(antiCheatChallenges.id, challengeId));
+  }
+
+  // ============================================================================
+  // ENTERPRISE FEEDBACK SYSTEM IMPLEMENTATION
+  // ============================================================================
+
+  // Feedback Categories
+  async getFeedbackCategories(): Promise<FeedbackCategory[]> {
+    return await db
+      .select()
+      .from(feedbackCategories)
+      .where(eq(feedbackCategories.isActive, true))
+      .orderBy(feedbackCategories.sortOrder, feedbackCategories.name);
+  }
+
+  async getFeedbackCategoryById(id: number): Promise<FeedbackCategory | undefined> {
+    const result = await db
+      .select()
+      .from(feedbackCategories)
+      .where(eq(feedbackCategories.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getFeedbackCategoryBySlug(slug: string): Promise<FeedbackCategory | undefined> {
+    const result = await db
+      .select()
+      .from(feedbackCategories)
+      .where(eq(feedbackCategories.slug, slug))
+      .limit(1);
+    return result[0];
+  }
+
+  // Feedback CRUD
+  async createFeedback(feedbackData: InsertFeedback): Promise<Feedback> {
+    const inserted = await db
+      .insert(feedback)
+      .values(feedbackData)
+      .returning();
+    return inserted[0];
+  }
+
+  async getFeedbackById(id: number): Promise<Feedback | undefined> {
+    const result = await db
+      .select()
+      .from(feedback)
+      .where(eq(feedback.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getFeedbackPaginated(options: {
+    limit: number;
+    offset: number;
+    status?: string;
+    priority?: string;
+    categoryId?: number;
+    sentimentLabel?: string;
+    isSpam?: boolean;
+    isArchived?: boolean;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }): Promise<{ feedback: Feedback[]; total: number }> {
+    const conditions = [];
+
+    if (options.status) {
+      conditions.push(eq(feedback.status, options.status));
+    }
+    if (options.priority) {
+      conditions.push(eq(feedback.priority, options.priority));
+    }
+    if (options.categoryId !== undefined) {
+      conditions.push(eq(feedback.categoryId, options.categoryId));
+    }
+    if (options.sentimentLabel) {
+      conditions.push(eq(feedback.sentimentLabel, options.sentimentLabel));
+    }
+    if (options.isSpam !== undefined) {
+      conditions.push(eq(feedback.isSpam, options.isSpam));
+    }
+    if (options.isArchived !== undefined) {
+      conditions.push(eq(feedback.isArchived, options.isArchived));
+    }
+    if (options.search) {
+      const searchTerm = `%${options.search}%`;
+      conditions.push(
+        or(
+          sql`${feedback.subject} ILIKE ${searchTerm}`,
+          sql`${feedback.message} ILIKE ${searchTerm}`
+        )
+      );
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Get total count
+    const countResult = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(feedback)
+      .where(whereClause);
+    const total = countResult[0]?.count || 0;
+
+    // Determine sort order
+    const sortColumn = options.sortBy === 'priority' ? feedback.priority :
+                       options.sortBy === 'status' ? feedback.status :
+                       options.sortBy === 'sentimentScore' ? feedback.sentimentScore :
+                       options.sortBy === 'upvotes' ? feedback.upvotes :
+                       feedback.createdAt;
+    const order = options.sortOrder === 'asc' ? sql`ASC` : sql`DESC`;
+
+    // Get paginated results
+    const results = await db
+      .select()
+      .from(feedback)
+      .where(whereClause)
+      .orderBy(options.sortOrder === 'asc' ? sortColumn : desc(sortColumn))
+      .limit(options.limit)
+      .offset(options.offset);
+
+    return { feedback: results, total };
+  }
+
+  async updateFeedback(id: number, updates: Partial<Feedback>): Promise<Feedback> {
+    const result = await db
+      .update(feedback)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(feedback.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async updateFeedbackAiAnalysis(id: number, analysis: {
+    sentimentScore: number;
+    sentimentLabel: string;
+    aiCategoryId?: number;
+    aiSummary?: string;
+    aiPriorityScore?: number;
+    aiTags?: string[];
+  }): Promise<Feedback> {
+    const result = await db
+      .update(feedback)
+      .set({
+        sentimentScore: analysis.sentimentScore,
+        sentimentLabel: analysis.sentimentLabel,
+        aiCategoryId: analysis.aiCategoryId,
+        aiSummary: analysis.aiSummary,
+        aiPriorityScore: analysis.aiPriorityScore,
+        aiTags: analysis.aiTags,
+        aiProcessedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(feedback.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async markFeedbackResolved(id: number, resolvedByUserId: string, resolutionNotes?: string): Promise<Feedback> {
+    const result = await db
+      .update(feedback)
+      .set({
+        status: 'resolved',
+        resolvedAt: new Date(),
+        resolvedByUserId,
+        resolutionNotes,
+        updatedAt: new Date(),
+      })
+      .where(eq(feedback.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async archiveFeedback(id: number): Promise<void> {
+    await db
+      .update(feedback)
+      .set({ isArchived: true, updatedAt: new Date() })
+      .where(eq(feedback.id, id));
+  }
+
+  async markFeedbackAsSpam(id: number): Promise<void> {
+    await db
+      .update(feedback)
+      .set({ isSpam: true, updatedAt: new Date() })
+      .where(eq(feedback.id, id));
+  }
+
+  // Feedback Attachments
+  async createFeedbackAttachment(attachment: InsertFeedbackAttachment): Promise<FeedbackAttachment> {
+    const inserted = await db
+      .insert(feedbackAttachments)
+      .values(attachment)
+      .returning();
+    return inserted[0];
+  }
+
+  async getFeedbackAttachments(feedbackId: number): Promise<FeedbackAttachment[]> {
+    return await db
+      .select()
+      .from(feedbackAttachments)
+      .where(eq(feedbackAttachments.feedbackId, feedbackId))
+      .orderBy(feedbackAttachments.createdAt);
+  }
+
+  async deleteFeedbackAttachment(id: number): Promise<void> {
+    await db.delete(feedbackAttachments).where(eq(feedbackAttachments.id, id));
+  }
+
+  // Feedback Responses
+  async createFeedbackResponse(response: InsertFeedbackResponse): Promise<FeedbackResponse> {
+    const inserted = await db
+      .insert(feedbackResponses)
+      .values(response)
+      .returning();
+    return inserted[0];
+  }
+
+  async getFeedbackResponses(feedbackId: number): Promise<FeedbackResponse[]> {
+    return await db
+      .select()
+      .from(feedbackResponses)
+      .where(eq(feedbackResponses.feedbackId, feedbackId))
+      .orderBy(feedbackResponses.createdAt);
+  }
+
+  async updateFeedbackResponse(id: number, updates: Partial<FeedbackResponse>): Promise<FeedbackResponse> {
+    const result = await db
+      .update(feedbackResponses)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(feedbackResponses.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Status History (Audit Trail)
+  async recordFeedbackStatusHistory(history: InsertFeedbackStatusHistory): Promise<FeedbackStatusHistory> {
+    const inserted = await db
+      .insert(feedbackStatusHistory)
+      .values(history)
+      .returning();
+    return inserted[0];
+  }
+
+  async getFeedbackStatusHistory(feedbackId: number): Promise<FeedbackStatusHistory[]> {
+    return await db
+      .select()
+      .from(feedbackStatusHistory)
+      .where(eq(feedbackStatusHistory.feedbackId, feedbackId))
+      .orderBy(desc(feedbackStatusHistory.createdAt));
+  }
+
+  // Upvotes
+  async toggleFeedbackUpvote(feedbackId: number, userId: string): Promise<{ upvoted: boolean; newCount: number }> {
+    return await db.transaction(async (tx) => {
+      // Check if user already upvoted
+      const existing = await tx
+        .select()
+        .from(feedbackUpvotes)
+        .where(
+          and(
+            eq(feedbackUpvotes.feedbackId, feedbackId),
+            eq(feedbackUpvotes.userId, userId)
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        // Remove upvote
+        await tx
+          .delete(feedbackUpvotes)
+          .where(eq(feedbackUpvotes.id, existing[0].id));
+        
+        // Decrement count
+        const updated = await tx
+          .update(feedback)
+          .set({ upvotes: sql`${feedback.upvotes} - 1` })
+          .where(eq(feedback.id, feedbackId))
+          .returning();
+        
+        return { upvoted: false, newCount: updated[0]?.upvotes || 0 };
+      } else {
+        // Add upvote
+        await tx
+          .insert(feedbackUpvotes)
+          .values({ feedbackId, userId });
+        
+        // Increment count
+        const updated = await tx
+          .update(feedback)
+          .set({ upvotes: sql`${feedback.upvotes} + 1` })
+          .where(eq(feedback.id, feedbackId))
+          .returning();
+        
+        return { upvoted: true, newCount: updated[0]?.upvotes || 1 };
+      }
+    });
+  }
+
+  async getUserFeedbackUpvotes(userId: string): Promise<FeedbackUpvote[]> {
+    return await db
+      .select()
+      .from(feedbackUpvotes)
+      .where(eq(feedbackUpvotes.userId, userId));
+  }
+
+  // Rate Limiting
+  async checkFeedbackRateLimit(identifier: string, identifierType: 'ip' | 'user'): Promise<{
+    allowed: boolean;
+    remaining: number;
+    resetAt: Date | null;
+    blockedUntil: Date | null;
+  }> {
+    const WINDOW_MINUTES = 60; // 1 hour window
+    const MAX_SUBMISSIONS = identifierType === 'user' ? 10 : 5; // Higher limit for logged-in users
+    const windowStart = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000);
+
+    const existing = await db
+      .select()
+      .from(feedbackRateLimits)
+      .where(
+        and(
+          eq(feedbackRateLimits.identifier, identifier),
+          eq(feedbackRateLimits.identifierType, identifierType)
+        )
+      )
+      .limit(1);
+
+    if (existing.length === 0) {
+      return {
+        allowed: true,
+        remaining: MAX_SUBMISSIONS,
+        resetAt: null,
+        blockedUntil: null,
+      };
+    }
+
+    const record = existing[0];
+
+    // Check if blocked
+    if (record.isBlocked && record.blockedUntil && record.blockedUntil > new Date()) {
+      return {
+        allowed: false,
+        remaining: 0,
+        resetAt: null,
+        blockedUntil: record.blockedUntil,
+      };
+    }
+
+    // Check if window has reset
+    if (record.windowStart < windowStart) {
+      return {
+        allowed: true,
+        remaining: MAX_SUBMISSIONS,
+        resetAt: null,
+        blockedUntil: null,
+      };
+    }
+
+    const remaining = Math.max(0, MAX_SUBMISSIONS - record.submissionCount);
+    const resetAt = new Date(record.windowStart.getTime() + WINDOW_MINUTES * 60 * 1000);
+
+    return {
+      allowed: remaining > 0,
+      remaining,
+      resetAt,
+      blockedUntil: null,
+    };
+  }
+
+  async recordFeedbackSubmission(identifier: string, identifierType: 'ip' | 'user'): Promise<void> {
+    const WINDOW_MINUTES = 60;
+    const windowStart = new Date(Date.now() - WINDOW_MINUTES * 60 * 1000);
+    const now = new Date();
+
+    const existing = await db
+      .select()
+      .from(feedbackRateLimits)
+      .where(
+        and(
+          eq(feedbackRateLimits.identifier, identifier),
+          eq(feedbackRateLimits.identifierType, identifierType)
+        )
+      )
+      .limit(1);
+
+    if (existing.length === 0) {
+      // Create new rate limit record
+      await db.insert(feedbackRateLimits).values({
+        identifier,
+        identifierType,
+        submissionCount: 1,
+        windowStart: now,
+        lastSubmission: now,
+      });
+    } else {
+      const record = existing[0];
+      
+      if (record.windowStart < windowStart) {
+        // Reset window
+        await db
+          .update(feedbackRateLimits)
+          .set({
+            submissionCount: 1,
+            windowStart: now,
+            lastSubmission: now,
+            isBlocked: false,
+            blockedUntil: null,
+            blockedReason: null,
+          })
+          .where(eq(feedbackRateLimits.id, record.id));
+      } else {
+        // Increment count
+        await db
+          .update(feedbackRateLimits)
+          .set({
+            submissionCount: sql`${feedbackRateLimits.submissionCount} + 1`,
+            lastSubmission: now,
+          })
+          .where(eq(feedbackRateLimits.id, record.id));
+      }
+    }
+  }
+
+  async blockFeedbackSubmitter(identifier: string, identifierType: 'ip' | 'user', reason: string, durationMinutes: number): Promise<void> {
+    const blockedUntil = new Date(Date.now() + durationMinutes * 60 * 1000);
+
+    const existing = await db
+      .select()
+      .from(feedbackRateLimits)
+      .where(
+        and(
+          eq(feedbackRateLimits.identifier, identifier),
+          eq(feedbackRateLimits.identifierType, identifierType)
+        )
+      )
+      .limit(1);
+
+    if (existing.length === 0) {
+      await db.insert(feedbackRateLimits).values({
+        identifier,
+        identifierType,
+        submissionCount: 0,
+        windowStart: new Date(),
+        isBlocked: true,
+        blockedUntil,
+        blockedReason: reason,
+      });
+    } else {
+      await db
+        .update(feedbackRateLimits)
+        .set({
+          isBlocked: true,
+          blockedUntil,
+          blockedReason: reason,
+        })
+        .where(eq(feedbackRateLimits.id, existing[0].id));
+    }
+  }
+
+  // Admin Management
+  async getFeedbackAdmin(userId: string): Promise<FeedbackAdmin | undefined> {
+    const result = await db
+      .select()
+      .from(feedbackAdmins)
+      .where(eq(feedbackAdmins.userId, userId))
+      .limit(1);
+    return result[0];
+  }
+
+  async createFeedbackAdmin(admin: InsertFeedbackAdmin): Promise<FeedbackAdmin> {
+    const inserted = await db
+      .insert(feedbackAdmins)
+      .values(admin)
+      .returning();
+    return inserted[0];
+  }
+
+  async updateFeedbackAdmin(userId: string, updates: Partial<FeedbackAdmin>): Promise<FeedbackAdmin> {
+    const result = await db
+      .update(feedbackAdmins)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(feedbackAdmins.userId, userId))
+      .returning();
+    return result[0];
+  }
+
+  async deleteFeedbackAdmin(userId: string): Promise<void> {
+    await db.delete(feedbackAdmins).where(eq(feedbackAdmins.userId, userId));
+  }
+
+  async getAllFeedbackAdmins(): Promise<FeedbackAdmin[]> {
+    return await db.select().from(feedbackAdmins).orderBy(feedbackAdmins.createdAt);
+  }
+
+  // Analytics
+  async getFeedbackAnalyticsSummary(): Promise<{
+    totalFeedback: number;
+    newFeedback: number;
+    resolvedFeedback: number;
+    avgResolutionTimeHours: number | null;
+    sentimentBreakdown: { negative: number; neutral: number; positive: number };
+    priorityBreakdown: Record<string, number>;
+    categoryBreakdown: Record<string, number>;
+    statusBreakdown: Record<string, number>;
+  }> {
+    // Total feedback count
+    const totalResult = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(feedback)
+      .where(eq(feedback.isSpam, false));
+    const totalFeedback = totalResult[0]?.count || 0;
+
+    // New feedback count
+    const newResult = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(feedback)
+      .where(and(eq(feedback.status, 'new'), eq(feedback.isSpam, false)));
+    const newFeedback = newResult[0]?.count || 0;
+
+    // Resolved feedback count
+    const resolvedResult = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(feedback)
+      .where(and(eq(feedback.status, 'resolved'), eq(feedback.isSpam, false)));
+    const resolvedFeedback = resolvedResult[0]?.count || 0;
+
+    // Average resolution time
+    const avgTimeResult = await db
+      .select({
+        avgHours: sql<number>`AVG(EXTRACT(EPOCH FROM (${feedback.resolvedAt} - ${feedback.createdAt})) / 3600)::float`,
+      })
+      .from(feedback)
+      .where(
+        and(
+          eq(feedback.isSpam, false),
+          sql`${feedback.resolvedAt} IS NOT NULL`
+        )
+      );
+    const avgResolutionTimeHours = avgTimeResult[0]?.avgHours || null;
+
+    // Sentiment breakdown
+    const sentimentBreakdownResult = await db
+      .select({
+        label: feedback.sentimentLabel,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(feedback)
+      .where(and(eq(feedback.isSpam, false), sql`${feedback.sentimentLabel} IS NOT NULL`))
+      .groupBy(feedback.sentimentLabel);
+
+    const sentimentBreakdown = { negative: 0, neutral: 0, positive: 0 };
+    for (const row of sentimentBreakdownResult) {
+      if (row.label === 'negative') sentimentBreakdown.negative = row.count;
+      else if (row.label === 'neutral') sentimentBreakdown.neutral = row.count;
+      else if (row.label === 'positive') sentimentBreakdown.positive = row.count;
+    }
+
+    // Priority breakdown
+    const priorityBreakdownResult = await db
+      .select({
+        priority: feedback.priority,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(feedback)
+      .where(eq(feedback.isSpam, false))
+      .groupBy(feedback.priority);
+
+    const priorityBreakdown: Record<string, number> = {};
+    for (const row of priorityBreakdownResult) {
+      priorityBreakdown[row.priority] = row.count;
+    }
+
+    // Category breakdown
+    const categoryBreakdownResult = await db
+      .select({
+        categoryId: feedback.categoryId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(feedback)
+      .where(and(eq(feedback.isSpam, false), sql`${feedback.categoryId} IS NOT NULL`))
+      .groupBy(feedback.categoryId);
+
+    const categoryBreakdown: Record<string, number> = {};
+    for (const row of categoryBreakdownResult) {
+      if (row.categoryId !== null) {
+        categoryBreakdown[row.categoryId.toString()] = row.count;
+      }
+    }
+
+    // Status breakdown
+    const statusBreakdownResult = await db
+      .select({
+        status: feedback.status,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(feedback)
+      .where(eq(feedback.isSpam, false))
+      .groupBy(feedback.status);
+
+    const statusBreakdown: Record<string, number> = {};
+    for (const row of statusBreakdownResult) {
+      statusBreakdown[row.status] = row.count;
+    }
+
+    return {
+      totalFeedback,
+      newFeedback,
+      resolvedFeedback,
+      avgResolutionTimeHours,
+      sentimentBreakdown,
+      priorityBreakdown,
+      categoryBreakdown,
+      statusBreakdown,
+    };
+  }
+
+  async saveFeedbackAnalytics(analytics: InsertFeedbackAnalytics): Promise<FeedbackAnalytics> {
+    const inserted = await db
+      .insert(feedbackAnalytics)
+      .values(analytics)
+      .returning();
+    return inserted[0];
   }
 }
 
