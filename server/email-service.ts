@@ -425,14 +425,35 @@ export class EmailService {
       };
     }
 
-    const msg = {
+    const msg: any = {
       from: `${this.fromName} <${this.fromEmail}>`,
       to: [sanitizedTo],
       subject: options.subject,
       html: options.html,
       text: options.text || this.htmlToText(options.html),
-      ...(options.replyTo && { 'h:Reply-To': options.replyTo }),
     };
+
+    if (options.replyTo) {
+      msg['h:Reply-To'] = options.replyTo;
+    }
+
+    if (options.category && options.category.length > 0) {
+      msg['o:tag'] = options.category;
+    }
+
+    if (options.customArgs) {
+      Object.entries(options.customArgs).forEach(([key, value]) => {
+        msg[`v:${key}`] = value;
+      });
+    }
+
+    if (options.sendAt) {
+      msg['o:deliverytime'] = new Date(options.sendAt * 1000).toUTCString();
+    }
+
+    if (options.batchId) {
+      msg['v:batch_id'] = options.batchId;
+    }
 
     console.log(`[EmailService] Attempting to send email:`, {
       to: sanitizedTo,

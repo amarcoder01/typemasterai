@@ -44,6 +44,7 @@ The frontend uses React 18 with TypeScript and Vite, styled with Shadcn UI (New 
 
 ### Third-Party Services
 - **Database Hosting**: Neon Serverless PostgreSQL.
+- **Email Service**: Mailgun (sandbox domain: sandbox3f76c67c33064dd69234ec4b94f9895c.mailgun.org) - handles transactional emails with full metadata tracking (tags, custom variables, scheduled delivery).
 - **AI Services**:
   - OpenAI GPT-4o (main chat model)
   - OpenAI gpt-4o-search-preview (native web search)
@@ -54,5 +55,5 @@ The frontend uses React 18 with TypeScript and Vite, styled with Shadcn UI (New 
 ### Key NPM Packages
 - **UI & Styling**: `@radix-ui/*`, `tailwindcss`, `lucide-react`, `canvas-confetti`, `recharts`, `prismjs`.
 - **Data & Forms**: `@tanstack/react-query`, `react-hook-form`, `zod`, `drizzle-zod`.
-- **Backend**: `express`, `express-session`, `passport`, `bcryptjs`, `drizzle-orm`, `@neondatabase/serverless`, `ws`, `openai`, `web-push`, `@azure/ai-projects`, `@azure/identity`.
+- **Backend**: `express`, `express-session`, `passport`, `bcryptjs`, `drizzle-orm`, `@neondatabase/serverless`, `ws`, `openai`, `web-push`, `@azure/ai-projects`, `@azure/identity`, `mailgun.js`, `form-data`.
 - **Development Tools**: `vite`, `typescript`, `esbuild`, `drizzle-kit`.
