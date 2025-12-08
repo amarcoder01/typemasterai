@@ -11,13 +11,10 @@ const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:notifications@typemasterai.com';
 
-// Validate VAPID keys in production
-if (process.env.NODE_ENV === 'production') {
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
-    console.error('🚨 CRITICAL: VAPID keys are not configured in production!');
-    console.error('Push notifications will not work. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.');
-    console.error('Generate keys using: npx web-push generate-vapid-keys');
-  }
+// Log VAPID status (non-blocking - app runs fine without push notifications)
+if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+  console.log('[NotificationService] VAPID keys not configured - push notifications will be disabled');
+  console.log('[NotificationService] To enable push notifications, set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY');
 }
 
 // Initialize web-push with VAPID keys
@@ -29,8 +26,6 @@ if (VAPID_KEYS_AVAILABLE) {
     VAPID_PRIVATE_KEY
   );
   console.log('✓ Push notification service initialized with VAPID keys');
-} else {
-  console.warn('⚠️ WARNING: Push notifications disabled - VAPID keys not configured');
 }
 
 export interface NotificationPayload {

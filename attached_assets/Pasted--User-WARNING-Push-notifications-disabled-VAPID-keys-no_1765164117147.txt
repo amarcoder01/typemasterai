@@ -1,0 +1,120 @@
+
+User
+⚠️ WARNING: Push notifications disabled - VAPID keys not configured
+
+2025-12-07 14:04:20.52
+e4e3cdf9
+User
+Push notifications will not work. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.
+2025-12-07 14:04:20.52
+e4e3cdf9
+User
+Generate keys using: npx web-push generate-vapid-keys
+2025-12-07 14:41:24.53
+e4e3cdf9
+User
+Generate keys using: npx web-push generate-vapid-keys
+2025-12-07 14:41:24.53
+e4e3cdf9
+User
+⚠️ WARNING: Push notifications disabled - VAPID keys not configured
+2025-12-07 14:41:24.53
+e4e3cdf9
+User
+🚨 CRITICAL: VAPID keys are not configured in production!
+2025-12-07 14:41:24.53
+e4e3cdf9
+User
+Push notifications will not work. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.
+2025-12-07 15:18:11.91
+e8b35ed5
+User
+🚨 CRITICAL: VAPID keys are not configured in production!
+2025-12-07 15:18:11.91
+e8b35ed5
+User
+Generate keys using: npx web-push generate-vapid-keys
+2025-12-07 15:18:11.91
+e8b35ed5
+User
+⚠️ WARNING: Push notifications disabled - VAPID keys not configured
+2025-12-07 15:18:11.91
+e8b35ed5
+User
+Push notifications will not work. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.
+2025-12-07 15:25:45.80
+e6058466
+User
+⚠️ WARNING: Push notifications disabled - VAPID keys not configured
+2025-12-07 15:25:45.80
+e6058466
+User
+🚨 CRITICAL: VAPID keys are not configured in production!
+2025-12-07 15:25:45.80
+e6058466
+User
+Generate keys using: npx web-push generate-vapid-keys
+2025-12-07 15:25:45.80
+e6058466
+User
+Push notifications will not work. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.
+2025-12-07 15:47:10.68
+36f52747
+User
+⚠️ WARNING: Push notifications disabled - VAPID keys not configured
+2025-12-07 15:47:10.68
+36f52747
+User
+Generate keys using: npx web-push generate-vapid-keys
+2025-12-07 15:47:10.68
+36f52747
+User
+Push notifications will not work. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.
+2025-12-07 15:47:10.68
+36f52747
+User
+🚨 CRITICAL: VAPID keys are not configured in production!
+2025-12-07 18:04:00.18
+36f52747
+User
+🚨 CRITICAL: VAPID keys are not configured in production!
+2025-12-07 18:04:00.18
+36f52747
+User
+Push notifications will not work. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.
+2025-12-07 18:04:00.18
+36f52747
+User
+⚠️ WARNING: Push notifications disabled - VAPID keys not configured
+2025-12-07 18:04:00.18
+36f52747
+User
+Generate keys using: npx web-push generate-vapid-keys
+2025-12-07 18:27:44.76
+36f52747
+User
+⚠️ WARNING: Push notifications disabled - VAPID keys not configured
+2025-12-07 18:27:44.76
+36f52747
+User
+Push notifications will not work. Please set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY environment variables.
+2025-12-07 18:27:44.76
+36f52747
+User
+🚨 CRITICAL: VAPID keys are not configured in production!
+2025-12-07 18:27:44.76
+36f52747
+User
+Generate keys using: npx web-push generate-vapid-keys
+2025-12-07 19:01:07.38
+b0f90ad6
+User
+⚠️ WARNING: Push notifications disabled - VAPID keys not configured
+2025-12-07 19:01:07.38
+b0f90ad6
+User
+🚨 CRITICAL: VAPID keys are not configured in production!
+2025-12-07 19:01:07.38
+b0f90ad6
+User
+Generate keys using: npx web-push generate-vapid-keys
