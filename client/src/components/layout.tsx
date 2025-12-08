@@ -168,6 +168,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    {user.email?.toLowerCase() === "amar01pawar80@gmail.com" && (
+                      <>
+                        <Link href="/admin/feedback">
+                          <DropdownMenuItem data-testid="button-admin-feedback">
+                            <Shield className="w-4 h-4 mr-2" />
+                            Admin Feedback
+                          </DropdownMenuItem>
+                        </Link>
+                        <DropdownMenuSeparator />
+                      </>
+                    )}
                     <DropdownMenuItem onClick={handleLogout} data-testid="button-logout">
                       <LogOut className="w-4 h-4 mr-2" />
                       Logout
