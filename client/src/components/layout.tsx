@@ -309,100 +309,100 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       <footer className="border-t border-border/40 bg-card/30 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-12">
+        <div className="container mx-auto px-4 py-6">
           {/* Main Footer Content */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
             {/* Brand Section */}
-            <div className="space-y-4">
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-gradient-to-br from-primary to-purple-500 rounded-lg flex items-center justify-center text-primary-foreground font-mono font-bold text-xl">
+                <div className="w-8 h-8 bg-gradient-to-br from-primary to-purple-500 rounded-lg flex items-center justify-center text-primary-foreground font-mono font-bold text-lg">
                   T
                 </div>
-                <h2 className="text-xl font-bold">TypeMasterAI</h2>
+                <h2 className="text-lg font-bold">TypeMasterAI</h2>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Master your typing speed with AI-powered tests, real-time analytics, and personalized training. Join thousands of users improving their productivity.
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Master your typing speed with AI-powered tests, real-time analytics, and personalized training.
               </p>
-              <div className="flex gap-3 flex-wrap">
+              <div className="flex gap-2 flex-wrap">
                 <FeedbackWidget 
                   triggerVariant="secondary"
                   triggerSize="sm"
-                  triggerClassName="h-9 text-xs"
+                  triggerClassName="h-7 text-xs px-2"
                 />
                 <a
                   href="https://twitter.com/typemasterai"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  className="w-7 h-7 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
                   data-testid="link-twitter"
                   aria-label="Twitter"
                 >
-                  <Twitter className="w-4 h-4" />
+                  <Twitter className="w-3.5 h-3.5" />
                 </a>
                 <a
                   href="https://github.com/typemasterai"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  className="w-7 h-7 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
                   data-testid="link-github"
                   aria-label="GitHub"
                 >
-                  <Github className="w-4 h-4" />
+                  <Github className="w-3.5 h-3.5" />
                 </a>
                 <a
                   href="mailto:hello@typemasterai.com"
-                  className="w-9 h-9 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  className="w-7 h-7 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
                   data-testid="link-email"
                   aria-label="Email"
                 >
-                  <Mail className="w-4 h-4" />
+                  <Mail className="w-3.5 h-3.5" />
                 </a>
                 <a
                   href="https://typemasterai.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  className="w-7 h-7 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
                   data-testid="link-website"
                   aria-label="Website"
                 >
-                  <Globe className="w-4 h-4" />
+                  <Globe className="w-3.5 h-3.5" />
                 </a>
               </div>
             </div>
 
             {/* Product Links */}
             <div>
-              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Zap className="w-4 h-4 text-primary" />
+              <h3 className="font-semibold text-sm text-foreground mb-2 flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-primary" />
                 Product
               </h3>
-              <ul className="space-y-3">
+              <ul className="space-y-1.5">
                 <li>
-                  <Link href="/" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-features">
+                  <Link href="/" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-features">
                     <Keyboard className="w-3 h-3" />
                     Typing Tests
                   </Link>
                 </li>
                 <li>
-                  <Link href="/leaderboard" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-leaderboard">
+                  <Link href="/leaderboard" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-leaderboard">
                     <Trophy className="w-3 h-3" />
                     Leaderboard
                   </Link>
                 </li>
                 <li>
-                  <Link href="/chat" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-ai-chat">
+                  <Link href="/chat" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-ai-chat">
                     <Sparkles className="w-3 h-3" />
                     AI Assistant
                   </Link>
                 </li>
                 <li>
-                  <Link href="/profile" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-analytics">
+                  <Link href="/profile" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-analytics">
                     <TrendingUp className="w-3 h-3" />
                     Analytics
                   </Link>
                 </li>
                 <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-certificates">
+                  <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-certificates">
                     <Award className="w-3 h-3" />
                     Certificates
                   </a>
@@ -412,38 +412,38 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             {/* Resources */}
             <div>
-              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-primary" />
+              <h3 className="font-semibold text-sm text-foreground mb-2 flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-primary" />
                 Resources
               </h3>
-              <ul className="space-y-3">
+              <ul className="space-y-1.5">
                 <li>
-                  <Link href="/learn" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-learn">
+                  <Link href="/learn" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-learn">
                     Learn Guide
                   </Link>
                 </li>
                 <li>
-                  <Link href="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-blog">
+                  <Link href="/about" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-blog">
                     About Us
                   </Link>
                 </li>
                 <li>
-                  <Link href="/contact" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-guides">
+                  <Link href="/contact" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-guides">
                     Contact Us
                   </Link>
                 </li>
                 <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-tips">
+                  <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-tips">
                     Improvement Tips
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-api">
+                  <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-api">
                     API Documentation
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-help">
+                  <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-help">
                     Help Center
                   </a>
                 </li>
@@ -452,34 +452,34 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             {/* Company & Legal */}
             <div>
-              <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" />
+              <h3 className="font-semibold text-sm text-foreground mb-2 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-primary" />
                 Legal
               </h3>
-              <ul className="space-y-3">
+              <ul className="space-y-1.5">
                 <li>
-                  <Link href="/privacy-policy" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-2" data-testid="link-footer-privacy">
+                  <Link href="/privacy-policy" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-privacy">
                     <Shield className="w-3 h-3" />
                     Privacy Policy
                   </Link>
                 </li>
                 <li>
-                  <Link href="/terms-of-service" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-terms">
+                  <Link href="/terms-of-service" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-terms">
                     Terms of Service
                   </Link>
                 </li>
                 <li>
-                  <Link href="/cookie-policy" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-cookies">
+                  <Link href="/cookie-policy" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-cookies">
                     Cookie Policy
                   </Link>
                 </li>
                 <li>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-careers">
+                  <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-careers">
                     Careers
                   </a>
                 </li>
                 <li>
-                  <a href="mailto:hello@typemasterai.com" className="text-sm text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-contact">
+                  <a href="mailto:hello@typemasterai.com" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-contact">
                     Contact
                   </a>
                 </li>
@@ -488,34 +488,34 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Stats Bar */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6 border-y border-border/40 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 py-3 border-y border-border/40 mb-3">
             <div className="text-center" data-testid="stat-languages">
-              <div className="text-2xl font-bold text-primary font-mono" data-testid="stat-languages-value">23+</div>
-              <div className="text-xs text-muted-foreground mt-1">Languages</div>
+              <div className="text-xl font-bold text-primary font-mono" data-testid="stat-languages-value">23+</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Languages</div>
             </div>
             <div className="text-center" data-testid="stat-users">
-              <div className="text-2xl font-bold text-primary font-mono" data-testid="stat-users-value">10k+</div>
-              <div className="text-xs text-muted-foreground mt-1">Active Users</div>
+              <div className="text-xl font-bold text-primary font-mono" data-testid="stat-users-value">10k+</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Active Users</div>
             </div>
             <div className="text-center" data-testid="stat-tests">
-              <div className="text-2xl font-bold text-primary font-mono" data-testid="stat-tests-value">1M+</div>
-              <div className="text-xs text-muted-foreground mt-1">Tests Completed</div>
+              <div className="text-xl font-bold text-primary font-mono" data-testid="stat-tests-value">1M+</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Tests Completed</div>
             </div>
             <div className="text-center" data-testid="stat-ai">
-              <div className="text-2xl font-bold text-primary font-mono" data-testid="stat-ai-value">AI</div>
-              <div className="text-xs text-muted-foreground mt-1">Powered</div>
+              <div className="text-xl font-bold text-primary font-mono" data-testid="stat-ai-value">AI</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Powered</div>
             </div>
           </div>
 
           {/* Bottom Bar */}
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-6">
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="px-2 py-1 rounded bg-accent/50 font-mono">v1.0.0</span>
+          <div className="flex flex-col md:flex-row justify-between items-center gap-2 pt-3">
+            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              <span className="px-1.5 py-0.5 rounded bg-accent/50 font-mono">v1.0.0</span>
               <span className="hidden sm:inline">•</span>
               <span className="hidden sm:inline">Made with ❤️ for typing enthusiasts</span>
             </div>
-            <p className="text-xs text-muted-foreground text-center">
-              © {new Date().getFullYear()} <span className="font-semibold text-foreground">TypeMasterAI</span>. All rights reserved. Master Your Typing with AI.
+            <p className="text-[10px] text-muted-foreground text-center">
+              © {new Date().getFullYear()} <span className="font-semibold text-foreground">TypeMasterAI</span>. All rights reserved.
             </p>
           </div>
         </div>
