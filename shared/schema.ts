@@ -1493,3 +1493,282 @@ export type InsertUserChallenge = z.infer<typeof insertUserChallengeSchema>;
 export type UserChallenge = typeof userChallenges.$inferSelect;
 export type InsertUserGamification = z.infer<typeof insertUserGamificationSchema>;
 export type UserGamification = typeof userGamification.$inferSelect;
+
+// ==========================================
+// ENTERPRISE FEEDBACK SYSTEM
+// ==========================================
+
+// Feedback Categories
+export const feedbackCategories = pgTable("feedback_categories", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull().unique(),
+  slug: varchar("slug", { length: 50 }).notNull().unique(),
+  description: text("description"),
+  icon: varchar("icon", { length: 50 }), // lucide icon name
+  color: varchar("color", { length: 20 }).default("blue"),
+  isActive: boolean("is_active").default(true).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Main Feedback Table
+export const feedback = pgTable("feedback", {
+  id: serial("id").primaryKey(),
+  
+  // Submitter Info (nullable for anonymous)
+  userId: varchar("user_id").references(() => users.id, { onDelete: "set null" }),
+  isAnonymous: boolean("is_anonymous").default(false).notNull(),
+  contactEmail: varchar("contact_email", { length: 255 }), // for follow-up on anonymous feedback
+  
+  // Feedback Content
+  categoryId: integer("category_id").references(() => feedbackCategories.id, { onDelete: "set null" }),
+  subject: varchar("subject", { length: 200 }).notNull(),
+  message: text("message").notNull(),
+  
+  // Priority & Status
+  priority: varchar("priority", { length: 20 }).default("medium").notNull(), // low, medium, high, critical
+  status: varchar("status", { length: 30 }).default("new").notNull(), // new, under_review, in_progress, resolved, closed, wont_fix
+  
+  // AI Analysis
+  sentimentScore: real("sentiment_score"), // -1 to 1 (negative to positive)
+  sentimentLabel: varchar("sentiment_label", { length: 20 }), // negative, neutral, positive
+  aiCategoryId: integer("ai_category_id").references(() => feedbackCategories.id, { onDelete: "set null" }),
+  aiSummary: text("ai_summary"),
+  aiPriorityScore: real("ai_priority_score"), // 0 to 1 for auto-escalation
+  aiTags: jsonb("ai_tags").$type<string[]>(),
+  aiProcessedAt: timestamp("ai_processed_at"),
+  
+  // Source & Context
+  source: varchar("source", { length: 30 }).default("in_app").notNull(), // in_app, email, widget, api
+  pageUrl: text("page_url"),
+  browserInfo: jsonb("browser_info"),
+  
+  // Anti-spam
+  ipAddress: varchar("ip_address", { length: 45 }),
+  deviceFingerprint: varchar("device_fingerprint", { length: 64 }),
+  
+  // Resolution
+  resolvedAt: timestamp("resolved_at"),
+  resolvedByUserId: varchar("resolved_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  resolutionNotes: text("resolution_notes"),
+  userNotified: boolean("user_notified").default(false).notNull(),
+  
+  // Metadata
+  isSpam: boolean("is_spam").default(false).notNull(),
+  isArchived: boolean("is_archived").default(false).notNull(),
+  upvotes: integer("upvotes").default(0).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("feedback_user_id_idx").on(table.userId),
+  categoryIdIdx: index("feedback_category_id_idx").on(table.categoryId),
+  statusIdx: index("feedback_status_idx").on(table.status),
+  priorityIdx: index("feedback_priority_idx").on(table.priority),
+  sentimentIdx: index("feedback_sentiment_idx").on(table.sentimentLabel),
+  createdAtIdx: index("feedback_created_at_idx").on(table.createdAt),
+  statusPriorityIdx: index("feedback_status_priority_idx").on(table.status, table.priority),
+}));
+
+// Feedback Attachments (screenshots, files)
+export const feedbackAttachments = pgTable("feedback_attachments", {
+  id: serial("id").primaryKey(),
+  feedbackId: integer("feedback_id").notNull().references(() => feedback.id, { onDelete: "cascade" }),
+  
+  // File Info
+  filename: varchar("filename", { length: 255 }).notNull(),
+  originalFilename: varchar("original_filename", { length: 255 }).notNull(),
+  mimeType: varchar("mime_type", { length: 100 }).notNull(),
+  fileSize: integer("file_size").notNull(),
+  storagePath: text("storage_path").notNull(),
+  
+  // Security
+  uploadedByUserId: varchar("uploaded_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  virusScanStatus: varchar("virus_scan_status", { length: 20 }).default("pending"), // pending, clean, infected
+  virusScanAt: timestamp("virus_scan_at"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  feedbackIdIdx: index("feedback_attachments_feedback_id_idx").on(table.feedbackId),
+}));
+
+// Admin Responses to Feedback
+export const feedbackResponses = pgTable("feedback_responses", {
+  id: serial("id").primaryKey(),
+  feedbackId: integer("feedback_id").notNull().references(() => feedback.id, { onDelete: "cascade" }),
+  
+  // Response Content
+  adminUserId: varchar("admin_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  message: text("message").notNull(),
+  isInternalNote: boolean("is_internal_note").default(false).notNull(), // if true, not visible to user
+  
+  // Template Used (optional)
+  templateName: varchar("template_name", { length: 100 }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  feedbackIdIdx: index("feedback_responses_feedback_id_idx").on(table.feedbackId),
+  adminUserIdIdx: index("feedback_responses_admin_user_id_idx").on(table.adminUserId),
+}));
+
+// Status History / Audit Trail
+export const feedbackStatusHistory = pgTable("feedback_status_history", {
+  id: serial("id").primaryKey(),
+  feedbackId: integer("feedback_id").notNull().references(() => feedback.id, { onDelete: "cascade" }),
+  
+  // Change Details
+  previousStatus: varchar("previous_status", { length: 30 }),
+  newStatus: varchar("new_status", { length: 30 }).notNull(),
+  previousPriority: varchar("previous_priority", { length: 20 }),
+  newPriority: varchar("new_priority", { length: 20 }),
+  
+  // Actor
+  changedByUserId: varchar("changed_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  changeReason: text("change_reason"),
+  isAutomated: boolean("is_automated").default(false).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  feedbackIdIdx: index("feedback_status_history_feedback_id_idx").on(table.feedbackId),
+  createdAtIdx: index("feedback_status_history_created_at_idx").on(table.createdAt),
+}));
+
+// Feedback Analytics (aggregated stats)
+export const feedbackAnalytics = pgTable("feedback_analytics", {
+  id: serial("id").primaryKey(),
+  
+  // Time Period
+  periodType: varchar("period_type", { length: 20 }).notNull(), // daily, weekly, monthly
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  // Volume Metrics
+  totalFeedback: integer("total_feedback").default(0).notNull(),
+  newFeedback: integer("new_feedback").default(0).notNull(),
+  resolvedFeedback: integer("resolved_feedback").default(0).notNull(),
+  
+  // Breakdown by Category
+  categoryBreakdown: jsonb("category_breakdown").$type<Record<string, number>>(),
+  
+  // Breakdown by Priority
+  priorityBreakdown: jsonb("priority_breakdown").$type<Record<string, number>>(),
+  
+  // Breakdown by Status
+  statusBreakdown: jsonb("status_breakdown").$type<Record<string, number>>(),
+  
+  // Sentiment Analysis
+  sentimentBreakdown: jsonb("sentiment_breakdown").$type<{ negative: number; neutral: number; positive: number }>(),
+  averageSentimentScore: real("average_sentiment_score"),
+  
+  // Resolution Metrics
+  averageResolutionTimeHours: real("average_resolution_time_hours"),
+  firstResponseTimeHours: real("first_response_time_hours"),
+  
+  // Source Breakdown
+  sourceBreakdown: jsonb("source_breakdown").$type<Record<string, number>>(),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  periodTypeIdx: index("feedback_analytics_period_type_idx").on(table.periodType),
+  periodStartIdx: index("feedback_analytics_period_start_idx").on(table.periodStart),
+  periodTypeStartIdx: index("feedback_analytics_period_type_start_idx").on(table.periodType, table.periodStart),
+}));
+
+// Feedback Upvotes (for feature requests)
+export const feedbackUpvotes = pgTable("feedback_upvotes", {
+  id: serial("id").primaryKey(),
+  feedbackId: integer("feedback_id").notNull().references(() => feedback.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  feedbackUserIdx: index("feedback_upvotes_feedback_user_idx").on(table.feedbackId, table.userId),
+}));
+
+// Feedback Rate Limiting
+export const feedbackRateLimits = pgTable("feedback_rate_limits", {
+  id: serial("id").primaryKey(),
+  identifier: varchar("identifier", { length: 100 }).notNull(), // IP or user ID
+  identifierType: varchar("identifier_type", { length: 20 }).notNull(), // ip, user
+  submissionCount: integer("submission_count").default(0).notNull(),
+  windowStart: timestamp("window_start").notNull(),
+  lastSubmission: timestamp("last_submission"),
+  isBlocked: boolean("is_blocked").default(false).notNull(),
+  blockedUntil: timestamp("blocked_until"),
+  blockedReason: varchar("blocked_reason", { length: 200 }),
+});
+
+// Admin users for feedback management (role-based)
+export const feedbackAdmins = pgTable("feedback_admins", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  role: varchar("role", { length: 20 }).default("moderator").notNull(), // viewer, moderator, admin, super_admin
+  canRespond: boolean("can_respond").default(true).notNull(),
+  canChangeStatus: boolean("can_change_status").default(true).notNull(),
+  canChangePriority: boolean("can_change_priority").default(true).notNull(),
+  canDelete: boolean("can_delete").default(false).notNull(),
+  canManageAdmins: boolean("can_manage_admins").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  userIdIdx: index("feedback_admins_user_id_idx").on(table.userId),
+}));
+
+// Insert Schemas
+export const insertFeedbackCategorySchema = createInsertSchema(feedbackCategories).omit({ id: true, createdAt: true });
+export const insertFeedbackSchema = createInsertSchema(feedback).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFeedbackAttachmentSchema = createInsertSchema(feedbackAttachments).omit({ id: true, createdAt: true });
+export const insertFeedbackResponseSchema = createInsertSchema(feedbackResponses).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFeedbackStatusHistorySchema = createInsertSchema(feedbackStatusHistory).omit({ id: true, createdAt: true });
+export const insertFeedbackAnalyticsSchema = createInsertSchema(feedbackAnalytics).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertFeedbackUpvoteSchema = createInsertSchema(feedbackUpvotes).omit({ id: true, createdAt: true });
+export const insertFeedbackAdminSchema = createInsertSchema(feedbackAdmins).omit({ id: true, createdAt: true, updatedAt: true });
+
+// Types
+export type InsertFeedbackCategory = z.infer<typeof insertFeedbackCategorySchema>;
+export type FeedbackCategory = typeof feedbackCategories.$inferSelect;
+export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
+export type Feedback = typeof feedback.$inferSelect;
+export type InsertFeedbackAttachment = z.infer<typeof insertFeedbackAttachmentSchema>;
+export type FeedbackAttachment = typeof feedbackAttachments.$inferSelect;
+export type InsertFeedbackResponse = z.infer<typeof insertFeedbackResponseSchema>;
+export type FeedbackResponse = typeof feedbackResponses.$inferSelect;
+export type InsertFeedbackStatusHistory = z.infer<typeof insertFeedbackStatusHistorySchema>;
+export type FeedbackStatusHistory = typeof feedbackStatusHistory.$inferSelect;
+export type InsertFeedbackAnalytics = z.infer<typeof insertFeedbackAnalyticsSchema>;
+export type FeedbackAnalytics = typeof feedbackAnalytics.$inferSelect;
+export type InsertFeedbackUpvote = z.infer<typeof insertFeedbackUpvoteSchema>;
+export type FeedbackUpvote = typeof feedbackUpvotes.$inferSelect;
+export type InsertFeedbackAdmin = z.infer<typeof insertFeedbackAdminSchema>;
+export type FeedbackAdmin = typeof feedbackAdmins.$inferSelect;
+
+// Validation Schemas for API
+export const submitFeedbackSchema = z.object({
+  categoryId: z.number().int().positive().optional(),
+  subject: z.string().min(5, "Subject must be at least 5 characters").max(200, "Subject must be less than 200 characters"),
+  message: z.string().min(20, "Message must be at least 20 characters").max(5000, "Message must be less than 5000 characters"),
+  priority: z.enum(["low", "medium", "high", "critical"]).default("medium"),
+  isAnonymous: z.boolean().default(false),
+  contactEmail: z.string().email().optional().nullable(),
+  pageUrl: z.string().url().optional().nullable(),
+  honeypot: z.string().optional(), // anti-spam field (should be empty)
+});
+
+export const updateFeedbackStatusSchema = z.object({
+  status: z.enum(["new", "under_review", "in_progress", "resolved", "closed", "wont_fix"]),
+  priority: z.enum(["low", "medium", "high", "critical"]).optional(),
+  changeReason: z.string().max(500).optional(),
+  resolutionNotes: z.string().max(2000).optional(),
+  notifyUser: z.boolean().default(false),
+});
+
+export const feedbackResponseSchema = z.object({
+  message: z.string().min(10, "Response must be at least 10 characters").max(5000, "Response must be less than 5000 characters"),
+  isInternalNote: z.boolean().default(false),
+  templateName: z.string().max(100).optional(),
+});
+
+export type SubmitFeedbackInput = z.infer<typeof submitFeedbackSchema>;
+export type UpdateFeedbackStatusInput = z.infer<typeof updateFeedbackStatusSchema>;
+export type FeedbackResponseInput = z.infer<typeof feedbackResponseSchema>;
