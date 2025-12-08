@@ -907,7 +907,6 @@ export class EmailService {
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                       <tr>
                         <td style="width: 56px; height: 56px; background-color: #6366f1; border-radius: 50%; text-align: center; vertical-align: middle;">
-                          <span style="font-size: 28px; line-height: 56px; color: #ffffff;">🔑</span>
                         </td>
                       </tr>
                     </table>
@@ -989,18 +988,9 @@ export class EmailService {
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
                 <tr>
                   <td style="background-color: #f0fdf4; border-radius: 12px; padding: 16px; border: 1px solid #bbf7d0;">
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                      <tr>
-                        <td style="width: 24px; vertical-align: top; padding-right: 12px;">
-                          <span style="font-size: 18px;">🔒</span>
-                        </td>
-                        <td>
-                          <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #166534;">
-                            <strong>Didn't request this?</strong> You can safely ignore this email. Your password will remain unchanged and no action is needed.
-                          </p>
-                        </td>
-                      </tr>
-                    </table>
+                    <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #166534;">
+                      <strong>Didn't request this?</strong> You can safely ignore this email. Your password will remain unchanged and no action is needed.
+                    </p>
                   </td>
                 </tr>
               </table>
