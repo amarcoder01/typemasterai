@@ -6,6 +6,7 @@ import { streamChatCompletionWithSearch, shouldPerformWebSearch, generateConvers
 import { generateTypingParagraph } from "./ai-paragraph-generator";
 import { generateCodeSnippet } from "./ai-code-generator";
 import { analyzeFile } from "./file-analyzer";
+import { processFeedbackInBackground } from "./feedback-processor";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
@@ -4225,6 +4226,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         changeReason: 'Initial submission',
         isAutomated: false,
       });
+
+      processFeedbackInBackground(
+        newFeedback.id,
+        {
+          id: newFeedback.id,
+          subject: sanitizedSubject,
+          message: sanitizedMessage,
+          priority: feedbackData.priority || 'medium',
+          categoryId: feedbackData.categoryId || null,
+        },
+        storage
+      );
 
       res.status(201).json({ 
         message: "Thank you for your feedback!",
