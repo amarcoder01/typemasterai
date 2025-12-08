@@ -1,0 +1,125 @@
+2025-12-08 11:33:57.70
+fa9dece0
+User
+}
+2025-12-08 11:33:57.70
+fa9dece0
+User
+[Client Error Report] {
+2025-12-08 11:33:57.70
+fa9dece0
+User
+message: "Cannot read properties of undefined (reading 'totalPages')",
+2025-12-08 11:33:57.70
+fa9dece0
+User
+url: 'https://typemasterai.com/admin/feedback',
+2025-12-08 11:33:57.70
+fa9dece0
+User
+timestamp: '2025-12-08T06:03:58.146Z',
+2025-12-08 11:33:57.70
+fa9dece0
+User
+userId: '1ee5acaa-01d5-44c5-b2c1-b2a881fe8e7a'
+2025-12-08 11:33:57.70
+fa9dece0
+User
+code: 'REACT_ERROR',
+2025-12-08 11:33:57.75
+fa9dece0
+User
+6:03:57 AM [express] POST /api/error-report 200 in 141ms :: {"success":true}
+2025-12-08 11:34:17.91
+fa9dece0
+User
+6:04:17 AM [express] GET /api/feedback/categories 200 in 182ms :: {"categories":[{"id":1,"name":"Bug…
+2025-12-08 11:34:18.18
+fa9dece0
+User
+6:04:18 AM [express] HEAD /api/health 200 in 447ms :: {"status":"ok","timestamp":"2025-12-08T06:04:1…
+2025-12-08 11:34:18.18
+fa9dece0
+User
+6:04:18 AM [express] GET /api/auth/me 304 in 445ms :: {"user":{"id":"1ee5acaa-01d5-44c5-b2c1-b2a881f…
+2025-12-08 11:34:18.29
+fa9dece0
+User
+6:04:18 AM [express] GET /api/admin/feedback 304 in 551ms :: {"feedback":[{"id":1,"userId":"de323bdb…
+2025-12-08 11:34:18.31
+fa9dece0
+User
+6:04:18 AM [express] GET /api/admin/feedback 304 in 578ms :: {"feedback":[{"id":1,"userId":"de323bdb…
+2025-12-08 11:34:18.41
+fa9dece0
+User
+6:04:18 AM [express] GET /api/admin/feedback/analytics 304 in 675ms :: {"analytics":{"totalFeedback"…
+2025-12-08 11:34:18.73
+fa9dece0
+User
+6:04:18 AM [express] GET /api/gamification 304 in 191ms :: {"gamification":{"totalPoints":0,"level":…
+2025-12-08 11:34:18.77
+fa9dece0
+User
+[Client Error Report] {
+2025-12-08 11:34:18.77
+fa9dece0
+User
+}
+2025-12-08 11:34:18.77
+fa9dece0
+User
+code: 'REACT_ERROR',
+2025-12-08 11:34:18.77
+fa9dece0
+User
+url: 'https://typemasterai.com/admin/feedback',
+2025-12-08 11:34:18.77
+fa9dece0
+User
+message: "Cannot read properties of undefined (reading 'totalPages')",
+2025-12-08 11:34:18.77
+fa9dece0
+User
+userId: '1ee5acaa-01d5-44c5-b2c1-b2a881fe8e7a'
+2025-12-08 11:34:18.77
+fa9dece0
+User
+timestamp: '2025-12-08T06:04:19.220Z',
+2025-12-08 11:34:18.82
+fa9dece0
+User
+6:04:18 AM [express] POST /api/error-report 200 in 145ms :: {"success":true}
+2025-12-08 11:34:21.85
+fa9dece0
+User
+6:04:21 AM [express] HEAD /api/health 200 in 138ms :: {"status":"ok","timestamp":"2025-12-08T06:04:2…
+2025-12-08 11:34:21.90
+fa9dece0
+User
+6:04:21 AM [express] GET /api/feedback/categories 200 in 184ms :: {"categories":[{"id":1,"name":"Bug…
+2025-12-08 11:34:21.90
+fa9dece0
+User
+6:04:21 AM [express] GET /api/typing/modes 304 in 183ms :: {"modes":["quotes","technical","programmi…
+2025-12-08 11:34:21.90
+fa9dece0
+User
+6:04:21 AM [express] GET /api/typing/languages 304 in 186ms :: {"languages":["bn","te","de","nl","ta…
+2025-12-08 11:34:21.94
+fa9dece0
+User
+6:04:21 AM [express] GET /api/typing/paragraph 200 in 225ms :: {"paragraph":{"id":172,"language":"en…
+
+2025-12-08 11:34:21.99
+fa9dece0
+User
+6:04:21 AM [express] GET /api/auth/me 304 in 272ms :: {"user":{"id":"1ee5acaa-01d5-44c5-b2c1-b2a881f…
+2025-12-08 11:34:22.51
+fa9dece0
+User
+6:04:22 AM [express] GET /api/typing/paragraphs/batch 200 in 223ms :: {"paragraphs":[{"id":138,"lang…
+2025-12-08 11:34:22.53
+fa9dece0
+User
+6:04:22 AM [express] GET /api/gamification 304 in 185ms :: {"gamification":{"totalPoints":0,"level":…

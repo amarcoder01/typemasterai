@@ -4289,8 +4289,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/feedback", isFeedbackAdmin, async (req, res) => {
     try {
+      const page = Math.max(parseInt(req.query.page as string) || 1, 1);
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
-      const offset = parseInt(req.query.offset as string) || 0;
+      const offset = (page - 1) * limit;
       const status = req.query.status as string | undefined;
       const priority = req.query.priority as string | undefined;
       const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
@@ -4315,7 +4316,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sortOrder,
       });
 
-      res.json(result);
+      const totalPages = Math.ceil(result.total / limit);
+
+      res.json({
+        feedback: result.feedback,
+        pagination: {
+          page,
+          limit,
+          total: result.total,
+          totalPages,
+        },
+      });
     } catch (error: any) {
       console.error("Get feedback list error:", error);
       res.status(500).json({ message: "Failed to fetch feedback" });
