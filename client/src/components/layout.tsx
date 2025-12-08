@@ -322,7 +322,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <span className="hidden sm:inline">© {new Date().getFullYear()}</span>
             </div>
 
-            {/* Center: Essential Links */}
+            {/* Right: Essential Links */}
             <div className="flex flex-wrap items-center gap-2.5">
               <FeedbackWidget 
                 triggerVariant="ghost"
@@ -334,38 +334,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <Link href="/privacy-policy" className="hover:text-primary transition-colors" data-testid="link-footer-privacy">Privacy</Link>
               <Link href="/terms-of-service" className="hover:text-primary transition-colors" data-testid="link-footer-terms">Terms</Link>
               <Link href="/contact" className="hover:text-primary transition-colors" data-testid="link-footer-contact">Contact</Link>
-            </div>
-
-            {/* Right: Social Icons */}
-            <div className="flex items-center gap-1.5">
-              <a
-                href="https://twitter.com/typemasterai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-6 h-6 rounded-full hover:bg-accent transition-colors flex items-center justify-center"
-                data-testid="link-twitter"
-                aria-label="Twitter"
-              >
-                <Twitter className="w-3 h-3" />
-              </a>
-              <a
-                href="https://github.com/typemasterai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-6 h-6 rounded-full hover:bg-accent transition-colors flex items-center justify-center"
-                data-testid="link-github"
-                aria-label="GitHub"
-              >
-                <Github className="w-3 h-3" />
-              </a>
-              <a
-                href="mailto:hello@typemasterai.com"
-                className="w-6 h-6 rounded-full hover:bg-accent transition-colors flex items-center justify-center"
-                data-testid="link-email"
-                aria-label="Email"
-              >
-                <Mail className="w-3 h-3" />
-              </a>
             </div>
           </div>
         </div>
