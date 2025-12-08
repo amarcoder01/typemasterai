@@ -531,6 +531,7 @@ export class EmailService {
       ipAddress?: string;
       userAgent?: string;
       expiresInMinutes?: number;
+      timezone?: string;
     }
   ): Promise<EmailSendResult> {
     const resetUrl = `${this.appUrl}/reset-password?token=${encodeURIComponent(token)}`;
@@ -542,6 +543,7 @@ export class EmailService {
       expiresInMinutes: expiresIn,
       ipAddress: options?.ipAddress,
       requestTime: new Date().toISOString(),
+      timezone: options?.timezone,
     });
 
     return this.send({
@@ -587,12 +589,14 @@ export class EmailService {
     options?: {
       username?: string;
       ipAddress?: string;
+      timezone?: string;
     }
   ): Promise<EmailSendResult> {
     const html = this.generatePasswordChangedEmailHtml({
       username: options?.username,
       ipAddress: options?.ipAddress,
       changedAt: new Date().toISOString(),
+      timezone: options?.timezone,
     });
 
     return this.send({
@@ -611,6 +615,7 @@ export class EmailService {
     username?: string;
     ipAddress?: string;
     changedAt: string;
+    timezone?: string;
   }): string {
     const greeting = params.username ? `Hi ${params.username},` : "Hi there,";
     const formattedDate = new Date(params.changedAt).toLocaleString("en-US", { 
@@ -620,7 +625,8 @@ export class EmailService {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      timeZoneName: "short"
+      timeZoneName: "short",
+      timeZone: params.timezone || "UTC",
     });
     
     return `
@@ -825,6 +831,7 @@ export class EmailService {
     expiresInMinutes: number;
     ipAddress?: string;
     requestTime: string;
+    timezone?: string;
   }): string {
     const greeting = params.username ? `Hi ${params.username},` : "Hi there,";
     const formattedTime = new Date(params.requestTime).toLocaleString("en-US", { 
@@ -834,7 +841,8 @@ export class EmailService {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      timeZoneName: "short"
+      timeZoneName: "short",
+      timeZone: params.timezone || "UTC",
     });
     
     return `

@@ -1415,7 +1415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       try {
         console.log(`[ForgotPassword] Sending reset email to ${normalizedEmail} for user ${user.id}`);
-        const emailResult = await authSecurityService.sendPasswordResetEmail(user.id, user.email, ipAddress, user.username);
+        const emailResult = await authSecurityService.sendPasswordResetEmail(user.id, user.email, ipAddress, user.username, user.timezone || undefined);
         if (emailResult.success) {
           console.log(`[ForgotPassword] Email sent successfully to ${normalizedEmail}, messageId: ${emailResult.messageId}`);
         } else {
@@ -1596,6 +1596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await emailService.sendPasswordChangedEmail(userEmail, {
             username,
             ipAddress,
+            timezone: user.timezone || undefined,
           });
           AuthLogger.logAuthEvent("PASSWORD_CHANGED_EMAIL_SENT", req, { userId: user.id });
         } catch (emailError) {

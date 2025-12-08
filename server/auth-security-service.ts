@@ -234,7 +234,7 @@ export class AuthSecurityService {
     return result;
   }
 
-  async sendPasswordResetEmail(userId: string, email: string, ipAddress: string, username?: string): Promise<EmailSendResult> {
+  async sendPasswordResetEmail(userId: string, email: string, ipAddress: string, username?: string, timezone?: string): Promise<EmailSendResult> {
     const token = await this.generateSecureToken();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
@@ -245,6 +245,7 @@ export class AuthSecurityService {
       username,
       ipAddress,
       expiresInMinutes: 60,
+      timezone,
     });
 
     if (!result.success) {
