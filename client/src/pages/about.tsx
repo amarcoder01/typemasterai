@@ -25,12 +25,12 @@ export default function About() {
   const stats = platformStats?.stats || { totalUsers: 0, totalTests: 0, totalLanguages: 23 };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto" data-testid="page-about">
       <div className="mb-12 text-center">
         <div className="w-16 h-16 bg-gradient-to-br from-primary to-purple-500 rounded-2xl flex items-center justify-center text-primary-foreground font-mono font-bold text-3xl mx-auto mb-6">
           T
         </div>
-        <h1 className="text-5xl font-bold mb-4">About TypeMasterAI</h1>
+        <h1 className="text-5xl font-bold mb-4" data-testid="heading-about">About TypeMasterAI</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Empowering millions of users worldwide to master their typing skills through AI-powered technology and intelligent practice.
         </p>

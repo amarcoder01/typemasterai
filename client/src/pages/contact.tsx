@@ -3,12 +3,12 @@ import { Button } from "@/components/ui/button";
 
 export default function Contact() {
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto" data-testid="page-contact">
       <div className="mb-12 text-center">
         <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
           <MessageSquare className="w-8 h-8 text-primary" />
         </div>
-        <h1 className="text-5xl font-bold mb-4">Get in Touch</h1>
+        <h1 className="text-5xl font-bold mb-4" data-testid="heading-contact">Get in Touch</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Have questions, feedback, or suggestions? We'd love to hear from you!
         </p>
@@ -29,6 +29,7 @@ export default function Contact() {
             <a
               href="mailto:hello@typemasterai.com"
               className="text-primary hover:underline flex items-center gap-2"
+              data-testid="link-email-general"
             >
               hello@typemasterai.com
               <Send className="w-4 h-4" />
@@ -48,6 +49,7 @@ export default function Contact() {
             <a
               href="mailto:support@typemasterai.com"
               className="text-primary hover:underline flex items-center gap-2"
+              data-testid="link-email-support"
             >
               support@typemasterai.com
               <Send className="w-4 h-4" />
@@ -67,6 +69,7 @@ export default function Contact() {
             <a
               href="mailto:legal@typemasterai.com"
               className="text-primary hover:underline flex items-center gap-2"
+              data-testid="link-email-legal"
             >
               legal@typemasterai.com
               <Send className="w-4 h-4" />
@@ -86,6 +89,7 @@ export default function Contact() {
             <a
               href="mailto:business@typemasterai.com"
               className="text-primary hover:underline flex items-center gap-2"
+              data-testid="link-email-business"
             >
               business@typemasterai.com
               <Send className="w-4 h-4" />
@@ -105,6 +109,7 @@ export default function Contact() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 p-3 bg-background/50 rounded-lg hover:bg-background transition-colors"
+                data-testid="link-social-twitter"
               >
                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                   <Twitter className="w-5 h-5 text-primary" />
@@ -120,6 +125,7 @@ export default function Contact() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 p-3 bg-background/50 rounded-lg hover:bg-background transition-colors"
+                data-testid="link-social-github"
               >
                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                   <Github className="w-5 h-5 text-primary" />
@@ -135,6 +141,7 @@ export default function Contact() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 p-3 bg-background/50 rounded-lg hover:bg-background transition-colors"
+                data-testid="link-social-website"
               >
                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                   <Globe className="w-5 h-5 text-primary" />
@@ -170,8 +177,8 @@ export default function Contact() {
                 <span>User experience feedback</span>
               </li>
             </ul>
-            <a href="mailto:feedback@typemasterai.com">
-              <Button className="w-full">
+            <a href="mailto:feedback@typemasterai.com" data-testid="link-email-feedback">
+              <Button className="w-full" data-testid="button-send-feedback">
                 <Mail className="w-4 h-4 mr-2" />
                 Send Feedback
               </Button>

@@ -3,14 +3,14 @@ import { Shield, Mail } from "lucide-react";
 
 export default function PrivacyPolicy() {
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto" data-testid="page-privacy-policy">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
             <Shield className="w-6 h-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-4xl font-bold">Privacy Policy</h1>
+            <h1 className="text-4xl font-bold" data-testid="heading-privacy-policy">Privacy Policy</h1>
             <p className="text-muted-foreground text-sm mt-1">Last Updated: December 8, 2025</p>
           </div>
         </div>
