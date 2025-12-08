@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Keyboard, AlertCircle, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react";
+import { Keyboard, AlertCircle, CheckCircle2, XCircle, Eye, EyeOff, Shield } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 
 export default function ResetPassword() {
   const [, setLocation] = useLocation();
@@ -41,12 +42,38 @@ export default function ResetPassword() {
     }
   };
 
+  const passwordRequirements = useMemo(() => [
+    { check: password.length >= 8, text: "At least 8 characters" },
+    { check: /[A-Z]/.test(password), text: "One uppercase letter" },
+    { check: /[a-z]/.test(password), text: "One lowercase letter" },
+    { check: /[0-9]/.test(password), text: "One number" },
+    { check: /[^A-Za-z0-9]/.test(password), text: "One special character (!@#$%^&*)" },
+  ], [password]);
+
+  const passwordStrength = useMemo(() => {
+    if (!password) return { score: 0, label: "", color: "" };
+    
+    let score = 0;
+    if (password.length >= 8) score += 20;
+    if (password.length >= 12) score += 10;
+    if (/[A-Z]/.test(password)) score += 20;
+    if (/[a-z]/.test(password)) score += 15;
+    if (/[0-9]/.test(password)) score += 15;
+    if (/[^A-Za-z0-9]/.test(password)) score += 20;
+    
+    if (score < 40) return { score, label: "Weak", color: "bg-red-500" };
+    if (score < 60) return { score, label: "Fair", color: "bg-orange-500" };
+    if (score < 80) return { score, label: "Good", color: "bg-yellow-500" };
+    return { score: Math.min(score, 100), label: "Strong", color: "bg-green-500" };
+  }, [password]);
+
   const validatePassword = () => {
     const errors: string[] = [];
     if (password.length < 8) errors.push("At least 8 characters");
     if (!/[A-Z]/.test(password)) errors.push("One uppercase letter");
     if (!/[a-z]/.test(password)) errors.push("One lowercase letter");
     if (!/[0-9]/.test(password)) errors.push("One number");
+    if (!/[^A-Za-z0-9]/.test(password)) errors.push("One special character");
     return errors;
   };
 
@@ -200,9 +227,12 @@ export default function ResetPassword() {
         <Card>
           <form onSubmit={handleSubmit}>
             <CardHeader>
-              <CardTitle>New Password</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
+                New Password
+              </CardTitle>
               <CardDescription>
-                Your password must be at least 8 characters and include uppercase, lowercase, and a number.
+                Create a strong password with at least 8 characters, including uppercase, lowercase, number, and special character.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -235,19 +265,35 @@ export default function ResetPassword() {
                   </button>
                 </div>
                 {password && (
-                  <ul className="text-xs space-y-1 mt-2">
-                    {[
-                      { check: password.length >= 8, text: "At least 8 characters" },
-                      { check: /[A-Z]/.test(password), text: "One uppercase letter" },
-                      { check: /[a-z]/.test(password), text: "One lowercase letter" },
-                      { check: /[0-9]/.test(password), text: "One number" },
-                    ].map(({ check, text }) => (
-                      <li key={text} className={`flex items-center gap-1 ${check ? "text-green-600" : "text-muted-foreground"}`}>
-                        {check ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                        {text}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="mt-3 space-y-3">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Password strength</span>
+                        <span className={`font-medium ${
+                          passwordStrength.label === "Weak" ? "text-red-500" :
+                          passwordStrength.label === "Fair" ? "text-orange-500" :
+                          passwordStrength.label === "Good" ? "text-yellow-600" :
+                          "text-green-500"
+                        }`}>
+                          {passwordStrength.label}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-300 ${passwordStrength.color}`}
+                          style={{ width: `${passwordStrength.score}%` }}
+                        />
+                      </div>
+                    </div>
+                    <ul className="text-xs space-y-1">
+                      {passwordRequirements.map(({ check, text }) => (
+                        <li key={text} className={`flex items-center gap-1.5 ${check ? "text-green-600" : "text-muted-foreground"}`}>
+                          {check ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                          {text}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </div>
 

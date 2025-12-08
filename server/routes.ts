@@ -1579,12 +1579,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
       
       try {
-        await DatabaseErrorHandler.withRetry(async () => {
-          await storage.updateUserPassword(resetToken!.userId, hashedPassword);
-          await storage.markPasswordResetTokenUsed(resetToken!.tokenHash);
-          await storage.deletePasswordResetTokens(resetToken!.userId);
-          await storage.revokeAllUserSessions(resetToken!.userId);
+        const result = await DatabaseErrorHandler.withRetry(async () => {
+          return await storage.atomicPasswordReset(
+            resetToken!.tokenHash,
+            resetToken!.userId,
+            hashedPassword
+          );
         });
+
+        if (!result.success) {
+          if (result.alreadyUsed) {
+            AuthLogger.logPasswordReset(req, userEmail, "failed", "Token already used (replay attempt)");
+            return res.status(400).json({
+              error: {
+                code: AuthErrorCode.TOKEN_INVALID,
+                message: "This reset link has already been used. Please request a new one.",
+              },
+            });
+          }
+          AuthLogger.logPasswordReset(req, userEmail, "failed", "Token not found during atomic reset");
+          return res.status(400).json({
+            error: {
+              code: AuthErrorCode.TOKEN_INVALID,
+              message: "Invalid reset link. Please request a new one.",
+            },
+          });
+        }
       } catch (dbError: any) {
         const errorInfo = DatabaseErrorHandler.handle(dbError, "reset-password");
         AuthLogger.logPasswordReset(req, userEmail, "failed", `Database error: ${dbError.code}`);
@@ -1608,6 +1628,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             error: emailError as Error,
           });
         }
+      }
+
+      try {
+        await storage.cleanupUsedPasswordResetTokens(resetToken!.userId);
+      } catch (cleanupError) {
+        AuthLogger.logAuthEvent("TOKEN_CLEANUP_FAILED", req, {
+          level: "warn",
+          userId: resetToken!.userId,
+          error: cleanupError as Error,
+        });
       }
 
       AuthLogger.logPasswordReset(req, userEmail, "completed");

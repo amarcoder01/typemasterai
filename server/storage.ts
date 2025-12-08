@@ -205,6 +205,8 @@ export interface IStorage {
   markPasswordResetTokenUsed(tokenHash: string): Promise<void>;
   incrementTokenFailedAttempts(tokenHash: string): Promise<{ failedAttempts: number; locked: boolean }>;
   deletePasswordResetTokens(userId: string): Promise<void>;
+  atomicPasswordReset(tokenHash: string, userId: string, hashedPassword: string): Promise<{ success: boolean; alreadyUsed: boolean }>;
+  cleanupUsedPasswordResetTokens(userId: string): Promise<void>;
   getRecentPasswordResetRequests(userId: string, minutes: number): Promise<number>;
   
   // User Sessions
@@ -994,6 +996,57 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(passwordResetTokens)
       .where(eq(passwordResetTokens.userId, userId));
+  }
+
+  async atomicPasswordReset(
+    tokenHash: string, 
+    userId: string, 
+    hashedPassword: string
+  ): Promise<{ success: boolean; alreadyUsed: boolean }> {
+    return await db.transaction(async (tx) => {
+      const token = await tx
+        .select()
+        .from(passwordResetTokens)
+        .where(eq(passwordResetTokens.tokenHash, tokenHash))
+        .for("update")
+        .limit(1);
+
+      if (!token || token.length === 0) {
+        return { success: false, alreadyUsed: false };
+      }
+
+      if (token[0].used) {
+        return { success: false, alreadyUsed: true };
+      }
+
+      await tx
+        .update(passwordResetTokens)
+        .set({ used: true, usedAt: new Date() })
+        .where(eq(passwordResetTokens.tokenHash, tokenHash));
+
+      await tx
+        .update(users)
+        .set({ password: hashedPassword })
+        .where(eq(users.id, userId));
+
+      await tx
+        .update(userSessions)
+        .set({ isActive: false })
+        .where(eq(userSessions.userId, userId));
+
+      return { success: true, alreadyUsed: false };
+    });
+  }
+
+  async cleanupUsedPasswordResetTokens(userId: string): Promise<void> {
+    await db
+      .delete(passwordResetTokens)
+      .where(
+        and(
+          eq(passwordResetTokens.userId, userId),
+          eq(passwordResetTokens.used, true)
+        )
+      );
   }
 
   async getRecentPasswordResetRequests(userId: string, minutes: number): Promise<number> {
