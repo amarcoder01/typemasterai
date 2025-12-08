@@ -1,4 +1,4 @@
-import { Mail, MessageSquare, Github, Twitter, Globe, Send } from "lucide-react";
+import { Mail, MessageSquare, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Contact() {
@@ -98,62 +98,6 @@ export default function Contact() {
         </div>
 
         <div className="space-y-6">
-          <div className="bg-gradient-to-br from-primary/10 to-purple-500/10 p-8 rounded-xl border border-primary/20">
-            <h3 className="font-semibold text-xl mb-4">Connect With Us</h3>
-            <p className="text-muted-foreground mb-6">
-              Follow us on social media for updates, tips, and community engagement
-            </p>
-            <div className="space-y-3">
-              <a
-                href="https://twitter.com/typemasterai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-background/50 rounded-lg hover:bg-background transition-colors"
-                data-testid="link-social-twitter"
-              >
-                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                  <Twitter className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <div className="font-semibold">Twitter</div>
-                  <div className="text-sm text-muted-foreground">@typemasterai</div>
-                </div>
-              </a>
-
-              <a
-                href="https://github.com/typemasterai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-background/50 rounded-lg hover:bg-background transition-colors"
-                data-testid="link-social-github"
-              >
-                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                  <Github className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <div className="font-semibold">GitHub</div>
-                  <div className="text-sm text-muted-foreground">@typemasterai</div>
-                </div>
-              </a>
-
-              <a
-                href="https://typemasterai.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-background/50 rounded-lg hover:bg-background transition-colors"
-                data-testid="link-social-website"
-              >
-                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                  <Globe className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <div className="font-semibold">Website</div>
-                  <div className="text-sm text-muted-foreground">typemasterai.com</div>
-                </div>
-              </a>
-            </div>
-          </div>
-
           <div className="bg-card/30 p-8 rounded-xl border border-border">
             <h3 className="font-semibold text-xl mb-4">Feedback & Suggestions</h3>
             <p className="text-muted-foreground mb-4">

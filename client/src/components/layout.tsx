@@ -327,41 +327,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <p className="text-[11px] text-muted-foreground leading-relaxed">
                 Master your typing speed with AI-powered tests and analytics.
               </p>
-              <div className="flex gap-1.5">
-                <FeedbackWidget 
-                  triggerVariant="secondary"
-                  triggerSize="sm"
-                  triggerClassName="h-6 text-[10px] px-2"
-                />
-                <a
-                  href="https://twitter.com/typemasterai"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-6 h-6 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
-                  data-testid="link-twitter"
-                  aria-label="Twitter"
-                >
-                  <Twitter className="w-3 h-3" />
-                </a>
-                <a
-                  href="https://github.com/typemasterai"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-6 h-6 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
-                  data-testid="link-github"
-                  aria-label="GitHub"
-                >
-                  <Github className="w-3 h-3" />
-                </a>
-                <a
-                  href="mailto:hello@typemasterai.com"
-                  className="w-6 h-6 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
-                  data-testid="link-email"
-                  aria-label="Email"
-                >
-                  <Mail className="w-3 h-3" />
-                </a>
-              </div>
+              <FeedbackWidget 
+                triggerVariant="secondary"
+                triggerSize="sm"
+                triggerClassName="h-6 text-[10px] px-2"
+              />
             </div>
 
             {/* Product */}
