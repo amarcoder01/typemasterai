@@ -1305,6 +1305,250 @@ export class EmailService {
 </html>`;
   }
 
+  async sendFeedbackResolutionEmail(
+    email: string,
+    options: {
+      feedbackId: number;
+      subject: string;
+      resolutionNotes?: string;
+      username?: string;
+      status: string;
+    }
+  ): Promise<EmailSendResult> {
+    const feedbackUrl = `${this.appUrl}/feedback/${options.feedbackId}`;
+    const statusLabel = options.status === 'resolved' ? 'Resolved' : 'Closed';
+    const statusColor = options.status === 'resolved' ? '#22c55e' : '#3b82f6';
+    
+    const html = this.generateFeedbackResolutionEmailHtml({
+      feedbackUrl,
+      feedbackId: options.feedbackId,
+      subject: options.subject,
+      resolutionNotes: options.resolutionNotes,
+      username: options.username,
+      statusLabel,
+      statusColor,
+    });
+
+    return this.send({
+      to: email,
+      subject: `Your Feedback Has Been ${statusLabel} - TypeMasterAI`,
+      html,
+      category: ["feedback_resolution", "transactional"],
+      customArgs: {
+        email_type: "feedback_resolution",
+        feedback_id: options.feedbackId.toString(),
+        user_email: email,
+      },
+    });
+  }
+
+  private generateFeedbackResolutionEmailHtml(params: {
+    feedbackUrl: string;
+    feedbackId: number;
+    subject: string;
+    resolutionNotes?: string;
+    username?: string;
+    statusLabel: string;
+    statusColor: string;
+  }): string {
+    const greeting = params.username ? `Hi ${params.username},` : "Hi there,";
+    
+    return `
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="referrer" content="no-referrer">
+  <title>Feedback ${params.statusLabel} - TypeMasterAI</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f5;">
+    <tr>
+      <td align="center" style="padding: 40px 20px;">
+        
+        <!-- Main Container -->
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);">
+          
+          <!-- Header with Logo -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 32px 40px; text-align: center;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="background-color: #ffffff; width: 48px; height: 48px; border-radius: 12px; text-align: center; vertical-align: middle;">
+                          <span style="font-size: 24px; line-height: 48px;">⌨️</span>
+                        </td>
+                        <td style="padding-left: 12px;">
+                          <span style="font-size: 24px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">TypeMasterAI</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Status Banner -->
+          <tr>
+            <td style="background-color: #dcfce7; padding: 24px 40px; text-align: center; border-bottom: 1px solid #bbf7d0;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width: 56px; height: 56px; background-color: ${params.statusColor}; border-radius: 50%; text-align: center; vertical-align: middle;">
+                          <span style="font-size: 28px; line-height: 56px; color: #ffffff;">✓</span>
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin: 16px 0 0; font-size: 20px; font-weight: 600; color: #166534;">Feedback ${params.statusLabel}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Main Content -->
+          <tr>
+            <td style="padding: 40px;">
+              <p style="margin: 0 0 16px; font-size: 16px; line-height: 1.6; color: #18181b;">
+                ${greeting}
+              </p>
+              <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #3f3f46;">
+                Thank you for sharing your feedback with us! We're writing to let you know that your feedback has been ${params.statusLabel.toLowerCase()}.
+              </p>
+              
+              <!-- Feedback Details Card -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+                <tr>
+                  <td style="background-color: #f4f4f5; border-radius: 12px; padding: 20px; border-left: 4px solid #6366f1;">
+                    <p style="margin: 0 0 8px; font-size: 13px; font-weight: 500; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;">
+                      Your Feedback
+                    </p>
+                    <p style="margin: 0 0 4px; font-size: 16px; font-weight: 600; color: #18181b;">
+                      ${params.subject}
+                    </p>
+                    <p style="margin: 0; font-size: 13px; color: #71717a;">
+                      Feedback ID: #${params.feedbackId}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              ${params.resolutionNotes ? `
+              <!-- Resolution Notes -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+                <tr>
+                  <td style="background-color: #f0fdf4; border-radius: 12px; padding: 20px; border-left: 4px solid #22c55e;">
+                    <p style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: #166534;">
+                      Resolution Details
+                    </p>
+                    <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #166534;">
+                      ${params.resolutionNotes}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+              
+              <!-- CTA Button -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 24px;">
+                <tr>
+                  <td align="center" style="padding: 8px 0;">
+                    <!--[if mso]>
+                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${params.feedbackUrl}" style="height:52px;v-text-anchor:middle;width:200px;" arcsize="12%" stroke="f" fillcolor="#6366f1">
+                      <w:anchorlock/>
+                      <center style="color:#ffffff;font-family:sans-serif;font-size:16px;font-weight:600;">View Full Details</center>
+                    </v:roundrect>
+                    <![endif]-->
+                    <!--[if !mso]><!-->
+                    <a href="${params.feedbackUrl}" style="display: inline-block; padding: 16px 32px; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; border-radius: 12px; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);">
+                      View Full Details
+                    </a>
+                    <!--<![endif]-->
+                  </td>
+                </tr>
+              </table>
+              
+              <!-- Thank You Note -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="background-color: #fef3c7; border-radius: 12px; padding: 20px; border-left: 4px solid #f59e0b;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width: 24px; vertical-align: top;">
+                          <span style="font-size: 16px;">💙</span>
+                        </td>
+                        <td style="padding-left: 12px;">
+                          <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #92400e;">
+                            Your feedback helps us improve TypeMasterAI for everyone. We truly appreciate you taking the time to share your thoughts with us!
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f9fafb; padding: 24px 40px; border-top: 1px solid #e4e4e7;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center">
+                    <p style="margin: 0 0 8px; font-size: 14px; color: #71717a;">
+                      Have more feedback? <a href="${this.appUrl}/feedback" style="color: #6366f1; text-decoration: none; font-weight: 500;">Share it with us</a>
+                    </p>
+                    <p style="margin: 0; font-size: 12px; color: #a1a1aa;">
+                      © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
+                      <a href="${this.appUrl}" style="color: #a1a1aa; text-decoration: none;">typemasterai.com</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          
+        </table>
+        
+        <!-- Footer Note -->
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; width: 100%;">
+          <tr>
+            <td style="padding: 24px 20px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
+                This is an automated notification email. Please do not reply to this email.<br>
+                If you have questions, visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
+              </p>
+            </td>
+          </tr>
+        </table>
+        
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+  }
+
   isConfigured(): boolean {
     return this.initialized && !!this.fromEmail;
   }

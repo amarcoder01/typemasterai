@@ -4407,9 +4407,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (parsed.data.resolutionNotes) {
           updates.resolutionNotes = DOMPurify.sanitize(parsed.data.resolutionNotes);
         }
-        if (parsed.data.notifyUser) {
-          updates.userNotified = true;
-        }
       }
 
       const updatedFeedback = await storage.updateFeedback(feedbackId, updates);
@@ -4424,6 +4421,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         changeReason: parsed.data.changeReason || null,
         isAutomated: false,
       });
+
+      if (parsed.data.notifyUser && !feedback.userNotified && (parsed.data.status === 'resolved' || parsed.data.status === 'closed')) {
+        (async () => {
+          try {
+            const { emailService } = require("./email-service");
+            
+            let recipientEmail: string | null = null;
+            let username: string | undefined;
+
+            if (feedback.userId) {
+              const user = await storage.getUser(feedback.userId);
+              if (user) {
+                recipientEmail = user.email;
+                username = user.username;
+              }
+            } else if (feedback.contactEmail) {
+              recipientEmail = feedback.contactEmail;
+            }
+
+            if (recipientEmail) {
+              const emailResult = await emailService.sendFeedbackResolutionEmail(recipientEmail, {
+                feedbackId: feedback.id,
+                subject: feedback.subject,
+                resolutionNotes: updates.resolutionNotes || undefined,
+                username,
+                status: parsed.data.status,
+              });
+              
+              if (emailResult.success) {
+                await storage.updateFeedback(feedbackId, { userNotified: true });
+                console.log(`[Feedback] Resolution email sent to ${recipientEmail} for feedback #${feedback.id}`);
+              } else {
+                console.error(`[Feedback] Failed to send resolution email for feedback #${feedback.id}:`, emailResult.error);
+              }
+            } else {
+              console.warn(`[Feedback] Cannot send resolution email for feedback #${feedback.id}: no email available`);
+            }
+          } catch (emailError) {
+            console.error(`[Feedback] Failed to send resolution email for feedback #${feedback.id}:`, emailError);
+          }
+        })();
+      }
 
       res.json({ 
         message: "Feedback status updated successfully",
