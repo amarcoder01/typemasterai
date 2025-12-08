@@ -150,14 +150,106 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">9. International Users</h2>
-          <p className="text-muted-foreground">
-            TypeMasterAI is operated from the United States. If you access our service from outside the US, your information may be transferred to, stored, and processed in the United States. By using our service, you consent to this transfer.
+          <h2 className="text-2xl font-bold text-foreground mb-4">9. Data Retention</h2>
+          <p className="text-muted-foreground mb-4">
+            We retain your personal data only for as long as necessary to fulfill the purposes outlined in this policy:
+          </p>
+          <ul className="list-disc pl-6 text-muted-foreground space-y-2">
+            <li><strong className="text-foreground">Account Data:</strong> Retained while your account is active and for 30 days after deletion request</li>
+            <li><strong className="text-foreground">Typing Test History:</strong> Retained for 2 years from test completion, or until account deletion</li>
+            <li><strong className="text-foreground">Analytics Data:</strong> Aggregated and anonymized after 90 days</li>
+            <li><strong className="text-foreground">AI Conversation Logs:</strong> Automatically purged after 30 days</li>
+            <li><strong className="text-foreground">Session Logs:</strong> Deleted after 7 days</li>
+            <li><strong className="text-foreground">Backup Data:</strong> Retained for up to 90 days for disaster recovery</li>
+          </ul>
+          <p className="text-muted-foreground mt-4">
+            After the retention period, data is securely deleted or anonymized in accordance with industry best practices.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">10. Changes to This Policy</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4">10. European Union Users (GDPR)</h2>
+          <p className="text-muted-foreground mb-4">
+            If you are located in the European Economic Area (EEA), United Kingdom, or Switzerland, you have additional rights under the General Data Protection Regulation (GDPR):
+          </p>
+          
+          <h3 className="text-xl font-semibold text-foreground mb-3">10.1 Legal Basis for Processing</h3>
+          <p className="text-muted-foreground mb-4">
+            We process your personal data based on:
+          </p>
+          <ul className="list-disc pl-6 text-muted-foreground space-y-2">
+            <li><strong className="text-foreground">Contract Performance:</strong> To provide typing tests, analytics, and account services you've requested</li>
+            <li><strong className="text-foreground">Legitimate Interests:</strong> To improve our platform, prevent fraud, and ensure security</li>
+            <li><strong className="text-foreground">Consent:</strong> For optional features like marketing communications and analytics cookies</li>
+            <li><strong className="text-foreground">Legal Obligations:</strong> To comply with applicable laws and regulations</li>
+          </ul>
+
+          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">10.2 Your GDPR Rights</h3>
+          <p className="text-muted-foreground mb-4">
+            Under GDPR, you have the right to:
+          </p>
+          <ul className="list-disc pl-6 text-muted-foreground space-y-2">
+            <li><strong className="text-foreground">Access:</strong> Request a copy of your personal data in a portable format</li>
+            <li><strong className="text-foreground">Rectification:</strong> Correct inaccurate or incomplete personal data</li>
+            <li><strong className="text-foreground">Erasure:</strong> Request deletion of your personal data ("Right to be Forgotten")</li>
+            <li><strong className="text-foreground">Restrict Processing:</strong> Limit how we use your data in certain circumstances</li>
+            <li><strong className="text-foreground">Data Portability:</strong> Receive your data in a structured, machine-readable format</li>
+            <li><strong className="text-foreground">Object:</strong> Opt out of processing based on legitimate interests</li>
+            <li><strong className="text-foreground">Withdraw Consent:</strong> Withdraw previously given consent at any time</li>
+            <li><strong className="text-foreground">Lodge Complaint:</strong> File a complaint with your local data protection authority</li>
+          </ul>
+          <p className="text-muted-foreground mt-4">
+            To exercise these rights, contact us at <a href="mailto:gdpr@typemasterai.com" className="text-primary hover:underline">gdpr@typemasterai.com</a>. We will respond within 30 days.
+          </p>
+
+          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">10.3 International Data Transfers</h3>
+          <p className="text-muted-foreground">
+            Your data may be transferred to the United States. We ensure appropriate safeguards through Standard Contractual Clauses (SCCs) and other legally recognized transfer mechanisms to protect your data during international transfers.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-bold text-foreground mb-4">11. California Residents (CCPA/CPRA)</h2>
+          <p className="text-muted-foreground mb-4">
+            If you are a California resident, the California Consumer Privacy Act (CCPA) and California Privacy Rights Act (CPRA) provide you with additional rights:
+          </p>
+
+          <h3 className="text-xl font-semibold text-foreground mb-3">11.1 Your California Privacy Rights</h3>
+          <ul className="list-disc pl-6 text-muted-foreground space-y-2">
+            <li><strong className="text-foreground">Right to Know:</strong> Request disclosure of personal information we collect, use, disclose, and sell</li>
+            <li><strong className="text-foreground">Right to Delete:</strong> Request deletion of your personal information</li>
+            <li><strong className="text-foreground">Right to Correct:</strong> Request correction of inaccurate personal information</li>
+            <li><strong className="text-foreground">Right to Opt-Out:</strong> Opt out of the sale or sharing of personal information</li>
+            <li><strong className="text-foreground">Right to Limit:</strong> Limit use of sensitive personal information</li>
+            <li><strong className="text-foreground">Non-Discrimination:</strong> Receive equal service and pricing regardless of exercising privacy rights</li>
+          </ul>
+
+          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">11.2 Categories of Personal Information</h3>
+          <p className="text-muted-foreground mb-4">
+            In the past 12 months, we have collected the following categories of personal information:
+          </p>
+          <ul className="list-disc pl-6 text-muted-foreground space-y-2">
+            <li>Identifiers (username, email address, IP address)</li>
+            <li>Internet activity (typing test results, browsing history on our platform)</li>
+            <li>Geolocation data (approximate location from IP address)</li>
+            <li>Inferences (typing skill level, improvement patterns)</li>
+          </ul>
+
+          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">11.3 Do Not Sell or Share</h3>
+          <p className="text-muted-foreground">
+            <strong className="text-foreground">TypeMasterAI does not sell your personal information.</strong> We do not share your personal information for cross-context behavioral advertising. To exercise any California privacy rights, contact us at <a href="mailto:privacy@typemasterai.com" className="text-primary hover:underline">privacy@typemasterai.com</a> or call 1-800-TYPEMASTER. We will verify your identity and respond within 45 days.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-bold text-foreground mb-4">12. International Users</h2>
+          <p className="text-muted-foreground">
+            TypeMasterAI is operated from the United States. If you access our service from outside the US, your information may be transferred to, stored, and processed in the United States. By using our service, you consent to this transfer. We implement appropriate safeguards to protect your data during international transfers, including Standard Contractual Clauses for EU data.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-bold text-foreground mb-4">13. Changes to This Policy</h2>
           <p className="text-muted-foreground">
             We may update this Privacy Policy periodically. We will notify you of significant changes by email or through a prominent notice on our platform. Your continued use of TypeMasterAI after changes indicates acceptance of the updated policy.
           </p>

@@ -162,14 +162,35 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">10. Account Termination</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4">10. Indemnification</h2>
+          <p className="text-muted-foreground mb-4">
+            You agree to indemnify, defend, and hold harmless TypeMasterAI, its affiliates, officers, directors, employees, agents, licensors, and suppliers from and against any claims, liabilities, damages, judgments, awards, losses, costs, expenses, or fees (including reasonable attorneys' fees) arising out of or relating to:
+          </p>
+          <ul className="list-disc pl-6 text-muted-foreground space-y-2">
+            <li>Your violation of these Terms of Service</li>
+            <li>Your use of the Service in a manner that infringes intellectual property rights or violates laws</li>
+            <li>Any content you submit, post, or transmit through the Service</li>
+            <li>Your violation of any rights of another user or third party</li>
+            <li>Any fraudulent or manipulative activity on your account</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-bold text-foreground mb-4">11. Force Majeure</h2>
+          <p className="text-muted-foreground">
+            TypeMasterAI shall not be liable for any failure or delay in performing its obligations under these Terms if such failure or delay results from circumstances beyond its reasonable control, including but not limited to: acts of God, natural disasters, pandemics, war, terrorism, riots, government actions, power failures, internet outages, third-party service provider failures, or cyberattacks. In such events, our obligations shall be suspended for the duration of the force majeure event.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-2xl font-bold text-foreground mb-4">12. Account Termination</h2>
           
-          <h3 className="text-xl font-semibold text-foreground mb-3">10.1 Termination by You</h3>
+          <h3 className="text-xl font-semibold text-foreground mb-3">12.1 Termination by You</h3>
           <p className="text-muted-foreground">
             You may delete your account at any time through your account settings. Upon deletion, your personal data will be removed in accordance with our Privacy Policy.
           </p>
 
-          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">10.2 Termination by Us</h3>
+          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">12.2 Termination by Us</h3>
           <p className="text-muted-foreground mb-4">
             We may suspend or terminate your account if:
           </p>
@@ -182,7 +203,7 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">11. Service Availability</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4">13. Service Availability</h2>
           <p className="text-muted-foreground">
             TypeMasterAI is currently free to use. We reserve the right to:
           </p>
@@ -195,21 +216,21 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">12. Changes to Terms</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4">14. Changes to Terms</h2>
           <p className="text-muted-foreground">
             We may update these Terms of Service at any time. Significant changes will be communicated via email or a prominent notice on the platform. Your continued use of TypeMasterAI after changes constitutes acceptance of the new terms.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">13. Governing Law</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4">15. Governing Law</h2>
           <p className="text-muted-foreground">
             These Terms shall be governed by and construed in accordance with the laws of the United States, without regard to its conflict of law provisions. Any disputes arising from these Terms or your use of the Service shall be resolved in the courts located in the United States.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">14. Severability</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4">16. Severability</h2>
           <p className="text-muted-foreground">
             If any provision of these Terms is found to be invalid or unenforceable, the remaining provisions shall continue in full force and effect.
           </p>

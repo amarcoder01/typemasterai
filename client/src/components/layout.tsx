@@ -411,9 +411,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-primary transition-colors" data-testid="link-footer-help">
+                  <Link href="/contact" className="hover:text-primary transition-colors" data-testid="link-footer-help">
                     Help Center
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
