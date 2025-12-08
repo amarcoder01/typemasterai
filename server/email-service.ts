@@ -1,4 +1,5 @@
-import sgMail from "@sendgrid/mail";
+import formData from "form-data";
+import Mailgun from "mailgun.js";
 
 export enum EmailErrorCode {
   INVALID_API_KEY = "EMAIL_INVALID_API_KEY",
@@ -197,6 +198,8 @@ export class EmailService {
   private readonly rateLimiter: EmailRateLimiter;
   private readonly circuitBreaker: CircuitBreaker;
   private readonly retryConfig: RetryConfig;
+  private mg: any;
+  private readonly domain: string;
 
   constructor(options?: {
     rateLimitWindowMs?: number;
@@ -208,20 +211,27 @@ export class EmailService {
     retryMaxDelayMs?: number;
     retryBackoffMultiplier?: number;
   }) {
-    const apiKey = process.env.SENDGRID_API_KEY;
-    this.fromEmail = process.env.SENDGRID_FROM_EMAIL || "";
-    this.fromName = process.env.SENDGRID_FROM_NAME || "TypeMasterAI";
+    const apiKey = process.env.MAILGUN_API_KEY;
+    this.fromEmail = process.env.MAILGUN_FROM_EMAIL || "no-reply@typemasterai.com";
+    this.fromName = process.env.MAILGUN_FROM_NAME || "TypeMasterAI";
+    this.domain = process.env.MAILGUN_DOMAIN || "sandbox3f76c67c33064dd69234ec4b94f9895c.mailgun.org";
     this.appUrl = process.env.APP_URL || "https://typemasterai.com";
 
     if (apiKey) {
-      sgMail.setApiKey(apiKey);
+      const mailgun = new Mailgun(formData);
+      this.mg = mailgun.client({
+        username: 'api',
+        key: apiKey,
+        url: 'https://api.mailgun.net'
+      });
       this.initialized = true;
-      console.log("[EmailService] Initialized with SendGrid API");
-      console.log(`[EmailService] From Email: ${this.fromEmail || "(NOT SET)"}`);
+      console.log("[EmailService] Initialized with Mailgun API");
+      console.log(`[EmailService] From Email: ${this.fromEmail}`);
       console.log(`[EmailService] From Name: ${this.fromName}`);
+      console.log(`[EmailService] Domain: ${this.domain}`);
       console.log(`[EmailService] API Key length: ${apiKey.length}`);
     } else {
-      console.warn("[EmailService] No SendGrid API key found - emails will be logged only");
+      console.warn("[EmailService] No Mailgun API key found - emails will be logged only");
     }
 
     this.rateLimiter = new EmailRateLimiter(
@@ -262,14 +272,14 @@ export class EmailService {
     return Math.min(delay + jitter, this.retryConfig.maxDelayMs);
   }
 
-  private mapSendGridError(error: any): EmailError {
-    const statusCode = error.code || error.response?.statusCode || 500;
-    const body = error.response?.body || {};
+  private mapMailgunError(error: any): EmailError {
+    const statusCode = error.status || error.response?.status || 500;
+    const errorMessage = error.message || error.response?.data?.message || "Unknown error";
 
     if (statusCode === 401) {
       return {
         code: EmailErrorCode.INVALID_API_KEY,
-        message: "Invalid SendGrid API key",
+        message: "Invalid Mailgun API key",
         statusCode,
         retryable: false,
       };
@@ -278,17 +288,17 @@ export class EmailService {
     if (statusCode === 403) {
       return {
         code: EmailErrorCode.CONFIGURATION_ERROR,
-        message: "SendGrid API access forbidden - check sender authentication",
+        message: "Mailgun API access forbidden - check sender authentication",
         statusCode,
         retryable: false,
-        details: { body },
+        details: { error: errorMessage },
       };
     }
 
     if (statusCode === 429) {
       return {
         code: EmailErrorCode.RATE_LIMITED,
-        message: "SendGrid rate limit exceeded",
+        message: "Mailgun rate limit exceeded",
         statusCode,
         retryable: true,
       };
@@ -297,33 +307,28 @@ export class EmailService {
     if (statusCode >= 500) {
       return {
         code: EmailErrorCode.SERVICE_UNAVAILABLE,
-        message: "SendGrid service temporarily unavailable",
+        message: "Mailgun service temporarily unavailable",
         statusCode,
         retryable: true,
       };
     }
 
-    if (body.errors && Array.isArray(body.errors)) {
-      const errorMessages = body.errors.map((e: any) => e.message).join("; ");
-      const firstError = body.errors[0];
+    if (errorMessage.includes("to parameter") || errorMessage.includes("invalid recipient")) {
+      return {
+        code: EmailErrorCode.INVALID_TO_EMAIL,
+        message: `Invalid recipient: ${errorMessage}`,
+        statusCode,
+        retryable: false,
+      };
+    }
 
-      if (firstError?.field === "to") {
-        return {
-          code: EmailErrorCode.INVALID_TO_EMAIL,
-          message: `Invalid recipient: ${errorMessages}`,
-          statusCode,
-          retryable: false,
-        };
-      }
-
-      if (firstError?.field === "from") {
-        return {
-          code: EmailErrorCode.INVALID_FROM_EMAIL,
-          message: `Invalid sender: ${errorMessages}`,
-          statusCode,
-          retryable: false,
-        };
-      }
+    if (errorMessage.includes("from parameter") || errorMessage.includes("invalid sender")) {
+      return {
+        code: EmailErrorCode.INVALID_FROM_EMAIL,
+        message: `Invalid sender: ${errorMessage}`,
+        statusCode,
+        retryable: false,
+      };
     }
 
     if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED" || error.code === "ETIMEDOUT") {
@@ -337,10 +342,10 @@ export class EmailService {
 
     return {
       code: EmailErrorCode.SEND_FAILED,
-      message: error.message || "Failed to send email",
+      message: errorMessage || "Failed to send email",
       statusCode,
       retryable: statusCode >= 500,
-      details: { body, originalError: error.message },
+      details: { originalError: errorMessage },
     };
   }
 
@@ -362,7 +367,7 @@ export class EmailService {
     }
 
     if (!this.fromEmail || !this.validateEmail(this.fromEmail)) {
-      console.error("[EmailService] Invalid or missing SENDGRID_FROM_EMAIL");
+      console.error("[EmailService] Invalid or missing MAILGUN_FROM_EMAIL");
       return {
         success: false,
         timestamp: new Date(),
@@ -421,19 +426,12 @@ export class EmailService {
     }
 
     const msg = {
-      to: sanitizedTo,
-      from: {
-        email: this.fromEmail,
-        name: this.fromName,
-      },
+      from: `${this.fromName} <${this.fromEmail}>`,
+      to: [sanitizedTo],
       subject: options.subject,
       html: options.html,
       text: options.text || this.htmlToText(options.html),
-      replyTo: options.replyTo,
-      categories: options.category,
-      customArgs: options.customArgs,
-      sendAt: options.sendAt,
-      batchId: options.batchId,
+      ...(options.replyTo && { 'h:Reply-To': options.replyTo }),
     };
 
     console.log(`[EmailService] Attempting to send email:`, {
@@ -441,6 +439,7 @@ export class EmailService {
       from: this.fromEmail,
       fromName: this.fromName,
       subject: options.subject,
+      domain: this.domain,
       initialized: this.initialized,
     });
 
@@ -451,12 +450,12 @@ export class EmailService {
       attempts = attempt;
 
       try {
-        const [response] = await sgMail.send(msg);
+        const response = await this.mg.messages.create(this.domain, msg);
         
         this.circuitBreaker.recordSuccess();
         this.rateLimiter.recordSend(sanitizedTo);
 
-        const messageId = response.headers["x-message-id"] || `sg-${Date.now()}`;
+        const messageId = response.id || `mg-${Date.now()}`;
         
         console.log(`[EmailService] Email sent successfully to ${sanitizedTo} (attempt ${attempt}, messageId: ${messageId})`);
 
@@ -467,7 +466,7 @@ export class EmailService {
           attempts,
         };
       } catch (error: any) {
-        lastError = this.mapSendGridError(error);
+        lastError = this.mapMailgunError(error);
         
         console.error(`[EmailService] Send attempt ${attempt} failed:`, {
           code: lastError.code,
@@ -476,8 +475,8 @@ export class EmailService {
           retryable: lastError.retryable,
         });
         
-        if (error.response?.body) {
-          console.error(`[EmailService] SendGrid error body:`, JSON.stringify(error.response.body, null, 2));
+        if (error.response?.data) {
+          console.error(`[EmailService] Mailgun error data:`, JSON.stringify(error.response.data, null, 2));
         }
 
         this.circuitBreaker.recordFailure();
