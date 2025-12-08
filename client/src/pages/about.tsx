@@ -1,28 +1,12 @@
 import { Users, Zap, Globe, Award, Heart, Target, Sparkles, TrendingUp } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-
-function formatNumber(num: number): string {
-  if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(1)}M+`;
-  }
-  if (num >= 1000) {
-    return `${(num / 1000).toFixed(0)}K+`;
-  }
-  return `${num}+`;
-}
+import { PLATFORM_STATS, formatNumber } from "@shared/platform-stats";
 
 export default function About() {
-  const { data: platformStats } = useQuery({
-    queryKey: ["platform-stats"],
-    queryFn: async () => {
-      const response = await fetch("/api/platform-stats");
-      if (!response.ok) throw new Error("Failed to fetch platform stats");
-      return response.json();
-    },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-  });
-
-  const stats = platformStats?.stats || { totalUsers: 0, totalTests: 0, totalLanguages: 23 };
+  const stats = {
+    totalUsers: PLATFORM_STATS.TOTAL_USERS,
+    totalTests: PLATFORM_STATS.TOTAL_TESTS,
+    totalLanguages: PLATFORM_STATS.TOTAL_LANGUAGES,
+  };
 
   return (
     <div className="max-w-4xl mx-auto" data-testid="page-about">
@@ -138,13 +122,13 @@ export default function About() {
           </div>
           <div className="text-center p-6 bg-card/30 rounded-xl border border-border">
             <div className="text-4xl font-bold text-primary font-mono mb-2" data-testid="stat-users">
-              {stats.totalUsers > 0 ? formatNumber(stats.totalUsers) : "Growing"}
+              {formatNumber(stats.totalUsers)}
             </div>
-            <div className="text-sm text-muted-foreground">Registered Users</div>
+            <div className="text-sm text-muted-foreground">Active Users</div>
           </div>
           <div className="text-center p-6 bg-card/30 rounded-xl border border-border">
             <div className="text-4xl font-bold text-primary font-mono mb-2" data-testid="stat-tests">
-              {stats.totalTests > 0 ? formatNumber(stats.totalTests) : "Growing"}
+              {formatNumber(stats.totalTests)}
             </div>
             <div className="text-sm text-muted-foreground">Tests Completed</div>
           </div>

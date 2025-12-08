@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Keyboard, Sparkles } from "lucide-react";
+import { PLATFORM_STATS, formatNumber } from "@shared/platform-stats";
 
 interface Particle {
   id: number;
@@ -276,8 +277,8 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6, duration: 0.6 }}
           >
-            <StatCard value="10M+" label="Tests Taken" delay={0.7} />
-            <StatCard value="50K+" label="Active Users" delay={0.8} />
+            <StatCard value={formatNumber(PLATFORM_STATS.TOTAL_TESTS)} label="Tests Completed" delay={0.7} />
+            <StatCard value={formatNumber(PLATFORM_STATS.TOTAL_USERS)} label="Active Users" delay={0.8} />
           </motion.div>
 
           <motion.div
