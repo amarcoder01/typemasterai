@@ -1360,7 +1360,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const successMessage = "If an account exists with that email, a reset link has been sent.";
     
     try {
-      const { email } = req.body;
+      const { email, timezone } = req.body;
 
       if (!email || typeof email !== "string") {
         AuthLogger.logPasswordReset(req, "unknown", "failed", "Email missing");
@@ -1414,8 +1414,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ipAddress = req.ip || req.socket.remoteAddress || "unknown";
 
       try {
-        console.log(`[ForgotPassword] Sending reset email to ${normalizedEmail} for user ${user.id}`);
-        const emailResult = await authSecurityService.sendPasswordResetEmail(user.id, user.email, ipAddress, user.username, user.timezone || undefined);
+        const clientTimezone = typeof timezone === 'string' && timezone.length > 0 ? timezone : undefined;
+        console.log(`[ForgotPassword] Sending reset email to ${normalizedEmail} for user ${user.id}, timezone: ${clientTimezone || 'UTC'}`);
+        const emailResult = await authSecurityService.sendPasswordResetEmail(user.id, user.email, ipAddress, user.username, clientTimezone);
         if (emailResult.success) {
           console.log(`[ForgotPassword] Email sent successfully to ${normalizedEmail}, messageId: ${emailResult.messageId}`);
         } else {
@@ -1488,7 +1489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const startTime = Date.now();
     
     try {
-      const { token, password } = req.body;
+      const { token, password, timezone } = req.body;
 
       if (!token || typeof token !== "string") {
         AuthLogger.logPasswordReset(req, "unknown", "failed", "Token missing");
@@ -1592,11 +1593,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (user) {
         try {
+          const clientTimezone = typeof timezone === 'string' && timezone.length > 0 ? timezone : undefined;
           const { emailService } = require("./email-service");
           await emailService.sendPasswordChangedEmail(userEmail, {
             username,
             ipAddress,
-            timezone: user.timezone || undefined,
+            timezone: clientTimezone,
           });
           AuthLogger.logAuthEvent("PASSWORD_CHANGED_EMAIL_SENT", req, { userId: user.id });
         } catch (emailError) {

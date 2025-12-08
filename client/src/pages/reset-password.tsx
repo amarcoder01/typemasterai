@@ -68,10 +68,11 @@ export default function ResetPassword() {
     setIsLoading(true);
 
     try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const response = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token, password, timezone }),
       });
 
       const data = await response.json();
