@@ -898,22 +898,11 @@ export class EmailService {
             </td>
           </tr>
           
-          <!-- Key Icon Banner -->
+          <!-- Header Banner -->
           <tr>
-            <td style="background-color: #eef2ff; padding: 24px 40px; text-align: center; border-bottom: 1px solid #c7d2fe;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                <tr>
-                  <td align="center">
-                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                      <tr>
-                        <td style="width: 56px; height: 56px; background-color: #6366f1; border-radius: 50%; text-align: center; vertical-align: middle;">
-                        </td>
-                      </tr>
-                    </table>
-                    <p style="margin: 16px 0 0; font-size: 20px; font-weight: 600; color: #4338ca;">Password Reset Request</p>
-                  </td>
-                </tr>
-              </table>
+            <td style="background-color: #eef2ff; padding: 28px 40px; text-align: center; border-bottom: 1px solid #c7d2fe;">
+              <p style="margin: 0; font-size: 22px; font-weight: 600; color: #4338ca;">Password Reset Request</p>
+              <p style="margin: 8px 0 0; font-size: 14px; color: #6366f1;">Secure your account with a new password</p>
             </td>
           </tr>
           
