@@ -107,6 +107,6 @@ integrations = ["javascript_openai_ai_integrations:1.0.0"]
 
 [userenv.shared]
 APP_URL = "https://typemasterai.com"
-MAILGUN_DOMAIN = "sandbox3f76c67c33064dd69234ec4b94f9895c.mailgun.org"
+MAILGUN_DOMAIN = "mg.typemasterai.com"
 MAILGUN_FROM_EMAIL = "no-reply@typemasterai.com"
 MAILGUN_FROM_NAME = "TypeMasterAI"

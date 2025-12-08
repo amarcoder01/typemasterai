@@ -44,7 +44,7 @@ The frontend uses React 18 with TypeScript and Vite, styled with Shadcn UI (New 
 
 ### Third-Party Services
 - **Database Hosting**: Neon Serverless PostgreSQL.
-- **Email Service**: Mailgun (sandbox domain: sandbox3f76c67c33064dd69234ec4b94f9895c.mailgun.org) - handles transactional emails with full metadata tracking (tags, custom variables, scheduled delivery).
+- **Email Service**: Mailgun (domain: mg.typemasterai.com) - handles transactional emails with full metadata tracking (tags, custom variables, scheduled delivery).
 - **AI Services**:
   - OpenAI GPT-4o (main chat model)
   - OpenAI gpt-4o-search-preview (native web search)
