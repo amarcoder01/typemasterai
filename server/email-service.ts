@@ -431,6 +431,12 @@ export class EmailService {
       subject: options.subject,
       html: options.html,
       text: options.text || this.htmlToText(options.html),
+      'o:tracking': 'yes',
+      'o:tracking-clicks': 'htmlonly',
+      'o:tracking-opens': 'yes',
+      'h:X-Mailer': 'TypeMasterAI Email Service',
+      'h:List-Unsubscribe': `<mailto:support@typemasterai.com?subject=Unsubscribe>`,
+      'h:List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     };
 
     if (options.replyTo) {
