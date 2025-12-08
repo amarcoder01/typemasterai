@@ -10,7 +10,7 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
-import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, insertCodeTypingTestSchema, insertSharedCodeResultSchema, insertBookTypingTestSchema, insertDictationTestSchema, type User } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, insertCodeTypingTestSchema, insertSharedCodeResultSchema, insertBookTypingTestSchema, insertDictationTestSchema, submitFeedbackSchema, updateFeedbackStatusSchema, feedbackResponseSchema, type User } from "@shared/schema";
 import { fromError } from "zod-validation-error";
 import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "@neondatabase/serverless";
@@ -4104,6 +4104,429 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Complete recommendation error:", error);
       res.status(500).json({ message: "Failed to complete recommendation" });
+    }
+  });
+
+  // ============================================================================
+  // ENTERPRISE FEEDBACK SYSTEM ROUTES
+  // ============================================================================
+
+  const feedbackLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    message: { message: "Too many feedback submissions, please try again later" },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+
+  async function isFeedbackAdmin(req: any, res: any, next: any) {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const admin = await storage.getFeedbackAdmin(req.user.id);
+    if (!admin) {
+      return res.status(403).json({ message: "Access denied. Admin privileges required." });
+    }
+    
+    req.feedbackAdmin = admin;
+    next();
+  }
+
+  app.get("/api/feedback/categories", async (_req, res) => {
+    try {
+      const categories = await storage.getFeedbackCategories();
+      res.json({ categories });
+    } catch (error: any) {
+      console.error("Get feedback categories error:", error);
+      res.status(500).json({ message: "Failed to fetch feedback categories" });
+    }
+  });
+
+  app.post("/api/feedback", feedbackLimiter, async (req, res) => {
+    try {
+      const parsed = submitFeedbackSchema.safeParse(req.body);
+      
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: fromError(parsed.error).toString(),
+        });
+      }
+
+      const { honeypot, ...feedbackData } = parsed.data;
+      
+      if (honeypot && honeypot.length > 0) {
+        console.log("[Feedback] Honeypot triggered, marking as spam");
+        return res.status(201).json({ 
+          message: "Thank you for your feedback!",
+          feedbackId: 0,
+        });
+      }
+
+      const ipAddress = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || 
+                       req.socket.remoteAddress || 
+                       'unknown';
+      
+      const identifier = req.user ? req.user.id : ipAddress;
+      const identifierType = req.user ? 'user' : 'ip';
+      
+      const rateCheck = await storage.checkFeedbackRateLimit(identifier, identifierType);
+      if (!rateCheck.allowed) {
+        if (rateCheck.blockedUntil) {
+          return res.status(429).json({ 
+            message: "You have been temporarily blocked from submitting feedback.",
+            blockedUntil: rateCheck.blockedUntil,
+          });
+        }
+        return res.status(429).json({ 
+          message: "Too many feedback submissions. Please try again later.",
+          remaining: rateCheck.remaining,
+          resetAt: rateCheck.resetAt,
+        });
+      }
+
+      const sanitizedSubject = DOMPurify.sanitize(feedbackData.subject.trim());
+      const sanitizedMessage = DOMPurify.sanitize(feedbackData.message.trim());
+
+      const feedbackToCreate = {
+        userId: req.user && !feedbackData.isAnonymous ? req.user.id : null,
+        isAnonymous: feedbackData.isAnonymous,
+        contactEmail: feedbackData.contactEmail || null,
+        categoryId: feedbackData.categoryId || null,
+        subject: sanitizedSubject,
+        message: sanitizedMessage,
+        priority: feedbackData.priority || 'medium',
+        status: 'new' as const,
+        source: 'in_app' as const,
+        pageUrl: feedbackData.pageUrl || null,
+        browserInfo: {
+          userAgent: req.headers['user-agent'],
+          referer: req.headers['referer'],
+        },
+        ipAddress,
+        isSpam: false,
+        isArchived: false,
+        upvotes: 0,
+        userNotified: false,
+      };
+
+      const newFeedback = await storage.createFeedback(feedbackToCreate);
+      
+      await storage.recordFeedbackSubmission(identifier, identifierType);
+      
+      await storage.recordFeedbackStatusHistory({
+        feedbackId: newFeedback.id,
+        previousStatus: null,
+        newStatus: 'new',
+        previousPriority: null,
+        newPriority: feedbackData.priority || 'medium',
+        changedByUserId: req.user ? req.user.id : null,
+        changeReason: 'Initial submission',
+        isAutomated: false,
+      });
+
+      res.status(201).json({ 
+        message: "Thank you for your feedback!",
+        feedbackId: newFeedback.id,
+      });
+    } catch (error: any) {
+      console.error("Submit feedback error:", error);
+      res.status(500).json({ message: "Failed to submit feedback" });
+    }
+  });
+
+  app.get("/api/feedback/:id/upvote", isAuthenticated, async (req, res) => {
+    try {
+      const feedbackId = parseInt(req.params.id);
+      if (isNaN(feedbackId)) {
+        return res.status(400).json({ message: "Invalid feedback ID" });
+      }
+
+      const userUpvotes = await storage.getUserFeedbackUpvotes(req.user!.id);
+      const hasUpvoted = userUpvotes.some(u => u.feedbackId === feedbackId);
+      
+      res.json({ upvoted: hasUpvoted });
+    } catch (error: any) {
+      console.error("Get upvote status error:", error);
+      res.status(500).json({ message: "Failed to get upvote status" });
+    }
+  });
+
+  app.post("/api/feedback/:id/upvote", isAuthenticated, async (req, res) => {
+    try {
+      const feedbackId = parseInt(req.params.id);
+      if (isNaN(feedbackId)) {
+        return res.status(400).json({ message: "Invalid feedback ID" });
+      }
+
+      const feedback = await storage.getFeedbackById(feedbackId);
+      if (!feedback) {
+        return res.status(404).json({ message: "Feedback not found" });
+      }
+
+      const result = await storage.toggleFeedbackUpvote(feedbackId, req.user!.id);
+      
+      res.json(result);
+    } catch (error: any) {
+      console.error("Toggle upvote error:", error);
+      res.status(500).json({ message: "Failed to toggle upvote" });
+    }
+  });
+
+  app.get("/api/admin/feedback", isFeedbackAdmin, async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const offset = parseInt(req.query.offset as string) || 0;
+      const status = req.query.status as string | undefined;
+      const priority = req.query.priority as string | undefined;
+      const categoryId = req.query.categoryId ? parseInt(req.query.categoryId as string) : undefined;
+      const sentimentLabel = req.query.sentimentLabel as string | undefined;
+      const isSpam = req.query.isSpam === 'true' ? true : req.query.isSpam === 'false' ? false : undefined;
+      const isArchived = req.query.isArchived === 'true' ? true : req.query.isArchived === 'false' ? false : undefined;
+      const search = req.query.search as string | undefined;
+      const sortBy = req.query.sortBy as string | undefined;
+      const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || 'desc';
+
+      const result = await storage.getFeedbackPaginated({
+        limit,
+        offset,
+        status,
+        priority,
+        categoryId,
+        sentimentLabel,
+        isSpam,
+        isArchived,
+        search,
+        sortBy,
+        sortOrder,
+      });
+
+      res.json(result);
+    } catch (error: any) {
+      console.error("Get feedback list error:", error);
+      res.status(500).json({ message: "Failed to fetch feedback" });
+    }
+  });
+
+  app.get("/api/admin/feedback/analytics", isFeedbackAdmin, async (req, res) => {
+    try {
+      const analytics = await storage.getFeedbackAnalyticsSummary();
+      res.json({ analytics });
+    } catch (error: any) {
+      console.error("Get feedback analytics error:", error);
+      res.status(500).json({ message: "Failed to fetch feedback analytics" });
+    }
+  });
+
+  app.get("/api/admin/feedback/:id", isFeedbackAdmin, async (req, res) => {
+    try {
+      const feedbackId = parseInt(req.params.id);
+      if (isNaN(feedbackId)) {
+        return res.status(400).json({ message: "Invalid feedback ID" });
+      }
+
+      const feedback = await storage.getFeedbackById(feedbackId);
+      if (!feedback) {
+        return res.status(404).json({ message: "Feedback not found" });
+      }
+
+      const [responses, statusHistory, attachments, category] = await Promise.all([
+        storage.getFeedbackResponses(feedbackId),
+        storage.getFeedbackStatusHistory(feedbackId),
+        storage.getFeedbackAttachments(feedbackId),
+        feedback.categoryId ? storage.getFeedbackCategoryById(feedback.categoryId) : Promise.resolve(null),
+      ]);
+
+      res.json({
+        feedback,
+        responses,
+        statusHistory,
+        attachments,
+        category,
+      });
+    } catch (error: any) {
+      console.error("Get feedback detail error:", error);
+      res.status(500).json({ message: "Failed to fetch feedback detail" });
+    }
+  });
+
+  app.patch("/api/admin/feedback/:id/status", isFeedbackAdmin, async (req, res) => {
+    try {
+      const feedbackId = parseInt(req.params.id);
+      if (isNaN(feedbackId)) {
+        return res.status(400).json({ message: "Invalid feedback ID" });
+      }
+
+      const parsed = updateFeedbackStatusSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: fromError(parsed.error).toString(),
+        });
+      }
+
+      const feedback = await storage.getFeedbackById(feedbackId);
+      if (!feedback) {
+        return res.status(404).json({ message: "Feedback not found" });
+      }
+
+      const admin = (req as any).feedbackAdmin;
+      if (!admin.canChangeStatus) {
+        return res.status(403).json({ message: "You don't have permission to change status" });
+      }
+      if (parsed.data.priority && !admin.canChangePriority) {
+        return res.status(403).json({ message: "You don't have permission to change priority" });
+      }
+
+      const updates: any = {
+        status: parsed.data.status,
+        updatedAt: new Date(),
+      };
+
+      if (parsed.data.priority) {
+        updates.priority = parsed.data.priority;
+      }
+
+      if (parsed.data.status === 'resolved' || parsed.data.status === 'closed') {
+        updates.resolvedAt = new Date();
+        updates.resolvedByUserId = req.user!.id;
+        if (parsed.data.resolutionNotes) {
+          updates.resolutionNotes = DOMPurify.sanitize(parsed.data.resolutionNotes);
+        }
+        if (parsed.data.notifyUser) {
+          updates.userNotified = true;
+        }
+      }
+
+      const updatedFeedback = await storage.updateFeedback(feedbackId, updates);
+
+      await storage.recordFeedbackStatusHistory({
+        feedbackId,
+        previousStatus: feedback.status,
+        newStatus: parsed.data.status,
+        previousPriority: feedback.priority,
+        newPriority: parsed.data.priority || feedback.priority,
+        changedByUserId: req.user!.id,
+        changeReason: parsed.data.changeReason || null,
+        isAutomated: false,
+      });
+
+      res.json({ 
+        message: "Feedback status updated successfully",
+        feedback: updatedFeedback,
+      });
+    } catch (error: any) {
+      console.error("Update feedback status error:", error);
+      res.status(500).json({ message: "Failed to update feedback status" });
+    }
+  });
+
+  app.post("/api/admin/feedback/:id/responses", isFeedbackAdmin, async (req, res) => {
+    try {
+      const feedbackId = parseInt(req.params.id);
+      if (isNaN(feedbackId)) {
+        return res.status(400).json({ message: "Invalid feedback ID" });
+      }
+
+      const parsed = feedbackResponseSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: fromError(parsed.error).toString(),
+        });
+      }
+
+      const feedback = await storage.getFeedbackById(feedbackId);
+      if (!feedback) {
+        return res.status(404).json({ message: "Feedback not found" });
+      }
+
+      const admin = (req as any).feedbackAdmin;
+      if (!admin.canRespond) {
+        return res.status(403).json({ message: "You don't have permission to respond to feedback" });
+      }
+
+      const sanitizedMessage = DOMPurify.sanitize(parsed.data.message.trim());
+
+      const response = await storage.createFeedbackResponse({
+        feedbackId,
+        adminUserId: req.user!.id,
+        message: sanitizedMessage,
+        isInternalNote: parsed.data.isInternalNote || false,
+        templateName: parsed.data.templateName || null,
+      });
+
+      if (feedback.status === 'new') {
+        await storage.updateFeedback(feedbackId, { 
+          status: 'under_review',
+          updatedAt: new Date(),
+        });
+        await storage.recordFeedbackStatusHistory({
+          feedbackId,
+          previousStatus: 'new',
+          newStatus: 'under_review',
+          previousPriority: feedback.priority,
+          newPriority: feedback.priority,
+          changedByUserId: req.user!.id,
+          changeReason: 'First admin response',
+          isAutomated: true,
+        });
+      }
+
+      res.status(201).json({ 
+        message: "Response added successfully",
+        response,
+      });
+    } catch (error: any) {
+      console.error("Add feedback response error:", error);
+      res.status(500).json({ message: "Failed to add response" });
+    }
+  });
+
+  app.post("/api/admin/feedback/:id/archive", isFeedbackAdmin, async (req, res) => {
+    try {
+      const feedbackId = parseInt(req.params.id);
+      if (isNaN(feedbackId)) {
+        return res.status(400).json({ message: "Invalid feedback ID" });
+      }
+
+      const feedback = await storage.getFeedbackById(feedbackId);
+      if (!feedback) {
+        return res.status(404).json({ message: "Feedback not found" });
+      }
+
+      await storage.archiveFeedback(feedbackId);
+
+      res.json({ message: "Feedback archived successfully" });
+    } catch (error: any) {
+      console.error("Archive feedback error:", error);
+      res.status(500).json({ message: "Failed to archive feedback" });
+    }
+  });
+
+  app.post("/api/admin/feedback/:id/spam", isFeedbackAdmin, async (req, res) => {
+    try {
+      const feedbackId = parseInt(req.params.id);
+      if (isNaN(feedbackId)) {
+        return res.status(400).json({ message: "Invalid feedback ID" });
+      }
+
+      const feedback = await storage.getFeedbackById(feedbackId);
+      if (!feedback) {
+        return res.status(404).json({ message: "Feedback not found" });
+      }
+
+      await storage.markFeedbackAsSpam(feedbackId);
+
+      if (feedback.ipAddress) {
+        await storage.blockFeedbackSubmitter(feedback.ipAddress, 'ip', 'Marked as spam by admin', 60 * 24);
+      }
+
+      res.json({ message: "Feedback marked as spam" });
+    } catch (error: any) {
+      console.error("Mark spam error:", error);
+      res.status(500).json({ message: "Failed to mark as spam" });
     }
   });
 
