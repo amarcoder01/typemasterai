@@ -309,214 +309,74 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       <footer className="border-t border-border/40 bg-card/30 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-6">
-          {/* Main Footer Content */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
-            {/* Brand Section */}
-            <div className="space-y-2">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+            {/* Left: Brand & Social */}
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-gradient-to-br from-primary to-purple-500 rounded-lg flex items-center justify-center text-primary-foreground font-mono font-bold text-lg">
+                <div className="w-6 h-6 bg-gradient-to-br from-primary to-purple-500 rounded flex items-center justify-center text-primary-foreground font-mono font-bold text-sm">
                   T
                 </div>
-                <h2 className="text-lg font-bold">TypeMasterAI</h2>
+                <span className="font-bold text-sm">TypeMasterAI</span>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Master your typing speed with AI-powered tests, real-time analytics, and personalized training.
-              </p>
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
                 <FeedbackWidget 
-                  triggerVariant="secondary"
+                  triggerVariant="ghost"
                   triggerSize="sm"
-                  triggerClassName="h-7 text-xs px-2"
+                  triggerClassName="h-6 text-[10px] px-2"
                 />
                 <a
                   href="https://twitter.com/typemasterai"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-7 h-7 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  className="w-6 h-6 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
                   data-testid="link-twitter"
                   aria-label="Twitter"
                 >
-                  <Twitter className="w-3.5 h-3.5" />
+                  <Twitter className="w-3 h-3" />
                 </a>
                 <a
                   href="https://github.com/typemasterai"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-7 h-7 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  className="w-6 h-6 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
                   data-testid="link-github"
                   aria-label="GitHub"
                 >
-                  <Github className="w-3.5 h-3.5" />
+                  <Github className="w-3 h-3" />
                 </a>
                 <a
                   href="mailto:hello@typemasterai.com"
-                  className="w-7 h-7 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
+                  className="w-6 h-6 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
                   data-testid="link-email"
                   aria-label="Email"
                 >
-                  <Mail className="w-3.5 h-3.5" />
-                </a>
-                <a
-                  href="https://typemasterai.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-7 h-7 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
-                  data-testid="link-website"
-                  aria-label="Website"
-                >
-                  <Globe className="w-3.5 h-3.5" />
+                  <Mail className="w-3 h-3" />
                 </a>
               </div>
             </div>
 
-            {/* Product Links */}
-            <div>
-              <h3 className="font-semibold text-sm text-foreground mb-2 flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-primary" />
-                Product
-              </h3>
-              <ul className="space-y-1.5">
-                <li>
-                  <Link href="/" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-features">
-                    <Keyboard className="w-3 h-3" />
-                    Typing Tests
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/leaderboard" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-leaderboard">
-                    <Trophy className="w-3 h-3" />
-                    Leaderboard
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/chat" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-ai-chat">
-                    <Sparkles className="w-3 h-3" />
-                    AI Assistant
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/profile" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-analytics">
-                    <TrendingUp className="w-3 h-3" />
-                    Analytics
-                  </Link>
-                </li>
-                <li>
-                  <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-certificates">
-                    <Award className="w-3 h-3" />
-                    Certificates
-                  </a>
-                </li>
-              </ul>
+            {/* Center: Links */}
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+              <Link href="/" className="hover:text-primary transition-colors" data-testid="link-footer-features">Tests</Link>
+              <span>•</span>
+              <Link href="/leaderboard" className="hover:text-primary transition-colors" data-testid="link-footer-leaderboard">Leaderboard</Link>
+              <span>•</span>
+              <Link href="/chat" className="hover:text-primary transition-colors" data-testid="link-footer-ai-chat">AI Chat</Link>
+              <span>•</span>
+              <Link href="/profile" className="hover:text-primary transition-colors" data-testid="link-footer-analytics">Analytics</Link>
+              <span>•</span>
+              <Link href="/privacy-policy" className="hover:text-primary transition-colors" data-testid="link-footer-privacy">Privacy</Link>
+              <span>•</span>
+              <Link href="/terms-of-service" className="hover:text-primary transition-colors" data-testid="link-footer-terms">Terms</Link>
+              <span>•</span>
+              <Link href="/contact" className="hover:text-primary transition-colors" data-testid="link-footer-contact">Contact</Link>
             </div>
 
-            {/* Resources */}
-            <div>
-              <h3 className="font-semibold text-sm text-foreground mb-2 flex items-center gap-1.5">
-                <BookOpen className="w-3.5 h-3.5 text-primary" />
-                Resources
-              </h3>
-              <ul className="space-y-1.5">
-                <li>
-                  <Link href="/learn" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-learn">
-                    Learn Guide
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/about" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-blog">
-                    About Us
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/contact" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-guides">
-                    Contact Us
-                  </Link>
-                </li>
-                <li>
-                  <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-tips">
-                    Improvement Tips
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-api">
-                    API Documentation
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-help">
-                    Help Center
-                  </a>
-                </li>
-              </ul>
+            {/* Right: Copyright */}
+            <div className="text-[10px] text-muted-foreground whitespace-nowrap">
+              © {new Date().getFullYear()} TypeMasterAI
             </div>
-
-            {/* Company & Legal */}
-            <div>
-              <h3 className="font-semibold text-sm text-foreground mb-2 flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-primary" />
-                Legal
-              </h3>
-              <ul className="space-y-1.5">
-                <li>
-                  <Link href="/privacy-policy" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-privacy">
-                    <Shield className="w-3 h-3" />
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/terms-of-service" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-terms">
-                    Terms of Service
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/cookie-policy" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-cookies">
-                    Cookie Policy
-                  </Link>
-                </li>
-                <li>
-                  <a href="#" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-careers">
-                    Careers
-                  </a>
-                </li>
-                <li>
-                  <a href="mailto:hello@typemasterai.com" className="text-xs text-muted-foreground hover:text-primary transition-colors" data-testid="link-footer-contact">
-                    Contact
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Stats Bar */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 py-3 border-y border-border/40 mb-3">
-            <div className="text-center" data-testid="stat-languages">
-              <div className="text-xl font-bold text-primary font-mono" data-testid="stat-languages-value">23+</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Languages</div>
-            </div>
-            <div className="text-center" data-testid="stat-users">
-              <div className="text-xl font-bold text-primary font-mono" data-testid="stat-users-value">10k+</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Active Users</div>
-            </div>
-            <div className="text-center" data-testid="stat-tests">
-              <div className="text-xl font-bold text-primary font-mono" data-testid="stat-tests-value">1M+</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Tests Completed</div>
-            </div>
-            <div className="text-center" data-testid="stat-ai">
-              <div className="text-xl font-bold text-primary font-mono" data-testid="stat-ai-value">AI</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Powered</div>
-            </div>
-          </div>
-
-          {/* Bottom Bar */}
-          <div className="flex flex-col md:flex-row justify-between items-center gap-2 pt-3">
-            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-              <span className="px-1.5 py-0.5 rounded bg-accent/50 font-mono">v1.0.0</span>
-              <span className="hidden sm:inline">•</span>
-              <span className="hidden sm:inline">Made with ❤️ for typing enthusiasts</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground text-center">
-              © {new Date().getFullYear()} <span className="font-semibold text-foreground">TypeMasterAI</span>. All rights reserved.
-            </p>
           </div>
         </div>
       </footer>
