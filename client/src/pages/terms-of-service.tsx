@@ -243,8 +243,8 @@ export default function TermsOfService() {
           </p>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Mail className="w-4 h-4 text-primary" />
-            <a href="mailto:legal@typemasterai.com" className="text-primary hover:underline">
-              legal@typemasterai.com
+            <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">
+              support@typemasterai.com
             </a>
           </div>
           <p className="text-muted-foreground mt-4 text-sm">

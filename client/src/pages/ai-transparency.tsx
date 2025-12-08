@@ -210,8 +210,8 @@ export default function AITransparency() {
           </p>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Mail className="w-4 h-4 text-primary" />
-            <a href="mailto:ai-transparency@typemasterai.com" className="text-primary hover:underline">
-              ai-transparency@typemasterai.com
+            <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">
+              support@typemasterai.com
             </a>
           </div>
         </section>

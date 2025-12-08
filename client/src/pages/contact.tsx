@@ -27,11 +27,11 @@ export default function Contact() {
               For general questions and information about TypeMasterAI
             </p>
             <a
-              href="mailto:hello@typemasterai.com"
+              href="mailto:support@typemasterai.com"
               className="text-primary hover:underline flex items-center gap-2"
               data-testid="link-email-general"
             >
-              hello@typemasterai.com
+              support@typemasterai.com
               <Send className="w-4 h-4" />
             </a>
           </div>
@@ -67,11 +67,11 @@ export default function Contact() {
               Questions about privacy, data protection, or legal matters
             </p>
             <a
-              href="mailto:legal@typemasterai.com"
+              href="mailto:support@typemasterai.com"
               className="text-primary hover:underline flex items-center gap-2"
               data-testid="link-email-legal"
             >
-              legal@typemasterai.com
+              support@typemasterai.com
               <Send className="w-4 h-4" />
             </a>
           </div>
@@ -177,7 +177,7 @@ export default function Contact() {
                 <span>User experience feedback</span>
               </li>
             </ul>
-            <a href="mailto:feedback@typemasterai.com" data-testid="link-email-feedback">
+            <a href="mailto:support@typemasterai.com" data-testid="link-email-feedback">
               <Button className="w-full" data-testid="button-send-feedback">
                 <Mail className="w-4 h-4 mr-2" />
                 Send Feedback

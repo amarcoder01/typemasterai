@@ -146,8 +146,8 @@ export default function AccessibilityStatement() {
           <div className="bg-card/30 p-4 rounded-lg border border-border">
             <div className="flex items-center gap-2 text-muted-foreground mb-2">
               <Mail className="w-4 h-4 text-primary" />
-              <a href="mailto:accessibility@typemasterai.com" className="text-primary hover:underline">
-                accessibility@typemasterai.com
+              <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">
+                support@typemasterai.com
               </a>
             </div>
             <p className="text-sm text-muted-foreground">

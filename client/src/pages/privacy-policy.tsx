@@ -157,7 +157,7 @@ export default function PrivacyPolicy() {
             <li><strong className="text-foreground">Opt-out:</strong> Unsubscribe from promotional emails</li>
           </ul>
           <p className="text-muted-foreground mt-4">
-            To exercise these rights, contact us at <a href="mailto:privacy@typemasterai.com" className="text-primary hover:underline">privacy@typemasterai.com</a>
+            To exercise these rights, contact us at <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">support@typemasterai.com</a>
           </p>
         </section>
 
@@ -218,7 +218,7 @@ export default function PrivacyPolicy() {
             <li><strong className="text-foreground">Lodge Complaint:</strong> File a complaint with your local data protection authority</li>
           </ul>
           <p className="text-muted-foreground mt-4">
-            To exercise these rights, contact us at <a href="mailto:gdpr@typemasterai.com" className="text-primary hover:underline">gdpr@typemasterai.com</a>. We will respond within 30 days.
+            To exercise these rights, contact us at <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">support@typemasterai.com</a>. We will respond within 30 days.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">10.3 International Data Transfers</h3>
@@ -256,7 +256,7 @@ export default function PrivacyPolicy() {
 
           <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">11.3 Do Not Sell or Share</h3>
           <p className="text-muted-foreground">
-            <strong className="text-foreground">TypeMasterAI does not sell your personal information.</strong> We do not share your personal information for cross-context behavioral advertising. To exercise any California privacy rights, contact us at <a href="mailto:privacy@typemasterai.com" className="text-primary hover:underline">privacy@typemasterai.com</a> or call 1-800-TYPEMASTER. We will verify your identity and respond within 45 days.
+            <strong className="text-foreground">TypeMasterAI does not sell your personal information.</strong> We do not share your personal information for cross-context behavioral advertising. To exercise any California privacy rights, contact us at <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">support@typemasterai.com</a> or call 1-800-TYPEMASTER. We will verify your identity and respond within 45 days.
           </p>
         </section>
 
@@ -281,8 +281,8 @@ export default function PrivacyPolicy() {
           </p>
           <div className="flex items-center gap-2 text-muted-foreground">
             <Mail className="w-4 h-4 text-primary" />
-            <a href="mailto:privacy@typemasterai.com" className="text-primary hover:underline">
-              privacy@typemasterai.com
+            <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">
+              support@typemasterai.com
             </a>
           </div>
           <p className="text-muted-foreground mt-4 text-sm">
