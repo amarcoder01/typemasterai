@@ -308,61 +308,63 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="border-t border-border/20">
-        <div className="container mx-auto px-4 py-1.5 max-h-8">
-          <div className="flex items-center justify-between gap-2 text-[9px] text-muted-foreground">
+      <footer className="border-t border-border/30 bg-card/20">
+        <div className="container mx-auto px-4 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-[10px] text-muted-foreground">
             {/* Left: Brand */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-4 bg-gradient-to-br from-primary to-purple-500 rounded flex items-center justify-center text-primary-foreground font-mono font-bold text-[10px]">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5">
+                <div className="w-5 h-5 bg-gradient-to-br from-primary to-purple-500 rounded flex items-center justify-center text-primary-foreground font-mono font-bold text-xs">
                   T
                 </div>
-                <span className="font-semibold text-[10px] text-foreground">TypeMasterAI</span>
+                <span className="font-semibold text-xs text-foreground">TypeMasterAI</span>
               </div>
               <span className="hidden sm:inline">© {new Date().getFullYear()}</span>
             </div>
 
             {/* Center: Essential Links */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2.5">
               <FeedbackWidget 
                 triggerVariant="ghost"
                 triggerSize="sm"
-                triggerClassName="h-5 text-[9px] px-1.5 py-0"
+                triggerClassName="h-6 text-[10px] px-2"
               />
-              <Link href="/privacy-policy" className="hover:text-primary transition-colors hidden sm:inline" data-testid="link-footer-privacy">Privacy</Link>
-              <Link href="/terms-of-service" className="hover:text-primary transition-colors hidden sm:inline" data-testid="link-footer-terms">Terms</Link>
+              <Link href="/" className="hover:text-primary transition-colors hidden md:inline" data-testid="link-footer-features">Tests</Link>
+              <Link href="/leaderboard" className="hover:text-primary transition-colors hidden md:inline" data-testid="link-footer-leaderboard">Leaderboard</Link>
+              <Link href="/privacy-policy" className="hover:text-primary transition-colors" data-testid="link-footer-privacy">Privacy</Link>
+              <Link href="/terms-of-service" className="hover:text-primary transition-colors" data-testid="link-footer-terms">Terms</Link>
               <Link href="/contact" className="hover:text-primary transition-colors" data-testid="link-footer-contact">Contact</Link>
             </div>
 
             {/* Right: Social Icons */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <a
                 href="https://twitter.com/typemasterai"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-5 h-5 rounded hover:bg-accent transition-colors flex items-center justify-center"
+                className="w-6 h-6 rounded-full hover:bg-accent transition-colors flex items-center justify-center"
                 data-testid="link-twitter"
                 aria-label="Twitter"
               >
-                <Twitter className="w-2.5 h-2.5" />
+                <Twitter className="w-3 h-3" />
               </a>
               <a
                 href="https://github.com/typemasterai"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-5 h-5 rounded hover:bg-accent transition-colors flex items-center justify-center"
+                className="w-6 h-6 rounded-full hover:bg-accent transition-colors flex items-center justify-center"
                 data-testid="link-github"
                 aria-label="GitHub"
               >
-                <Github className="w-2.5 h-2.5" />
+                <Github className="w-3 h-3" />
               </a>
               <a
                 href="mailto:hello@typemasterai.com"
-                className="w-5 h-5 rounded hover:bg-accent transition-colors flex items-center justify-center"
+                className="w-6 h-6 rounded-full hover:bg-accent transition-colors flex items-center justify-center"
                 data-testid="link-email"
                 aria-label="Email"
               >
-                <Mail className="w-2.5 h-2.5" />
+                <Mail className="w-3 h-3" />
               </a>
             </div>
           </div>
