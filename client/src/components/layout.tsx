@@ -308,74 +308,62 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="border-t border-border/40 bg-card/30 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-            {/* Left: Brand & Social */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 bg-gradient-to-br from-primary to-purple-500 rounded flex items-center justify-center text-primary-foreground font-mono font-bold text-sm">
+      <footer className="border-t border-border/20">
+        <div className="container mx-auto px-4 py-1.5 max-h-8">
+          <div className="flex items-center justify-between gap-2 text-[9px] text-muted-foreground">
+            {/* Left: Brand */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <div className="w-4 h-4 bg-gradient-to-br from-primary to-purple-500 rounded flex items-center justify-center text-primary-foreground font-mono font-bold text-[10px]">
                   T
                 </div>
-                <span className="font-bold text-sm">TypeMasterAI</span>
+                <span className="font-semibold text-[10px] text-foreground">TypeMasterAI</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <FeedbackWidget 
-                  triggerVariant="ghost"
-                  triggerSize="sm"
-                  triggerClassName="h-6 text-[10px] px-2"
-                />
-                <a
-                  href="https://twitter.com/typemasterai"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-6 h-6 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
-                  data-testid="link-twitter"
-                  aria-label="Twitter"
-                >
-                  <Twitter className="w-3 h-3" />
-                </a>
-                <a
-                  href="https://github.com/typemasterai"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-6 h-6 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
-                  data-testid="link-github"
-                  aria-label="GitHub"
-                >
-                  <Github className="w-3 h-3" />
-                </a>
-                <a
-                  href="mailto:hello@typemasterai.com"
-                  className="w-6 h-6 rounded-full bg-accent hover:bg-primary hover:text-primary-foreground transition-colors flex items-center justify-center"
-                  data-testid="link-email"
-                  aria-label="Email"
-                >
-                  <Mail className="w-3 h-3" />
-                </a>
-              </div>
+              <span className="hidden sm:inline">© {new Date().getFullYear()}</span>
             </div>
 
-            {/* Center: Links */}
-            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-              <Link href="/" className="hover:text-primary transition-colors" data-testid="link-footer-features">Tests</Link>
-              <span>•</span>
-              <Link href="/leaderboard" className="hover:text-primary transition-colors" data-testid="link-footer-leaderboard">Leaderboard</Link>
-              <span>•</span>
-              <Link href="/chat" className="hover:text-primary transition-colors" data-testid="link-footer-ai-chat">AI Chat</Link>
-              <span>•</span>
-              <Link href="/profile" className="hover:text-primary transition-colors" data-testid="link-footer-analytics">Analytics</Link>
-              <span>•</span>
-              <Link href="/privacy-policy" className="hover:text-primary transition-colors" data-testid="link-footer-privacy">Privacy</Link>
-              <span>•</span>
-              <Link href="/terms-of-service" className="hover:text-primary transition-colors" data-testid="link-footer-terms">Terms</Link>
-              <span>•</span>
+            {/* Center: Essential Links */}
+            <div className="flex items-center gap-2">
+              <FeedbackWidget 
+                triggerVariant="ghost"
+                triggerSize="sm"
+                triggerClassName="h-5 text-[9px] px-1.5 py-0"
+              />
+              <Link href="/privacy-policy" className="hover:text-primary transition-colors hidden sm:inline" data-testid="link-footer-privacy">Privacy</Link>
+              <Link href="/terms-of-service" className="hover:text-primary transition-colors hidden sm:inline" data-testid="link-footer-terms">Terms</Link>
               <Link href="/contact" className="hover:text-primary transition-colors" data-testid="link-footer-contact">Contact</Link>
             </div>
 
-            {/* Right: Copyright */}
-            <div className="text-[10px] text-muted-foreground whitespace-nowrap">
-              © {new Date().getFullYear()} TypeMasterAI
+            {/* Right: Social Icons */}
+            <div className="flex items-center gap-1">
+              <a
+                href="https://twitter.com/typemasterai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-5 h-5 rounded hover:bg-accent transition-colors flex items-center justify-center"
+                data-testid="link-twitter"
+                aria-label="Twitter"
+              >
+                <Twitter className="w-2.5 h-2.5" />
+              </a>
+              <a
+                href="https://github.com/typemasterai"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-5 h-5 rounded hover:bg-accent transition-colors flex items-center justify-center"
+                data-testid="link-github"
+                aria-label="GitHub"
+              >
+                <Github className="w-2.5 h-2.5" />
+              </a>
+              <a
+                href="mailto:hello@typemasterai.com"
+                className="w-5 h-5 rounded hover:bg-accent transition-colors flex items-center justify-center"
+                data-testid="link-email"
+                aria-label="Email"
+              >
+                <Mail className="w-2.5 h-2.5" />
+              </a>
             </div>
           </div>
         </div>
