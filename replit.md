@@ -20,6 +20,13 @@ The frontend uses React 18 with TypeScript and Vite, styled with Shadcn UI (New 
 - **Private Room System**: Comprehensive production hardening with Host Failover, Reconnection Support (5-minute window), Double-Action Prevention for countdowns, Countdown Cancellation, Rate Limiting per command, Typed Error Codes, Timer Cleanup, and `isBot` propagation.
 - **Production Limitation (Single-Instance)**: The current multiplayer racing architecture stores all room state, matchmaking queues, and race timers in a single Node.js process memory. This means the application must run on a single server instance. For horizontal scaling across multiple servers, a distributed coordination layer (Redis pub/sub or PostgreSQL advisory locks) would be required for race rooms and matchmaking. This limitation is acceptable for initial launch but should be addressed for high-traffic scaling.
 - **Leaderboard System**: Enterprise-grade features including a Leaderboard Caching Service, Cursor-Based Pagination, Time-Based Leaderboards (Daily, Weekly, Monthly), "Around Me" Rankings, HTTP Caching Headers, Verified Score Badges, and Multi-Type Support (Global, Stress Test, Code Typing, Dictation, Rating).
+- **Legal & Compliance Infrastructure**: Industry-standard footer with comprehensive legal pages:
+  - **AI Transparency Notice** (`/ai-transparency`): EU AI Act compliance disclosures, OpenAI integration details, data processing transparency, AI limitations disclosure
+  - **Accessibility Statement** (`/accessibility`): WCAG 2.1 Level AA compliance documentation, accessibility features, known limitations
+  - **Cookie Consent Banner**: GDPR-compliant cookie consent with Accept/Reject/Customize options, 6-month consent refresh
+  - **CCPA Compliance**: "Do Not Sell My Info" footer link with anchor navigation to Privacy Policy CCPA section
+  - **Enhanced Privacy Policy**: Detailed OpenAI data processing disclosure (Section 3), data retention policies, user rights
+  - **Footer ARIA Landmarks**: Proper accessibility attributes (role="contentinfo", aria-label) per WCAG requirements
 
 ### System Design Choices
 - **Data Layer**: PostgreSQL database managed with Drizzle ORM, with a schema including users, test results, content, races, analytics, notifications, achievements, and gamification.
