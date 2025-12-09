@@ -1951,19 +1951,22 @@ Can you beat my score? Try it here: `,
              <p className="text-xs text-muted-foreground">Your total typing speed including errors. Compare Raw with WPM to see how much mistakes affect your final score.</p>
            </TooltipContent>
          </Tooltip>
-         <Tooltip>
-           <TooltipTrigger asChild>
-             <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Accuracy</span>
-               <span className="text-xl md:text-3xl font-mono font-bold" data-testid="text-accuracy">{accuracy}%</span>
-             </div>
-           </TooltipTrigger>
-           <TooltipContent className="max-w-[240px]">
-             <p className="font-medium mb-1">Typing Accuracy</p>
-             <p className="text-xs text-muted-foreground mb-1">Percentage of characters typed correctly. Higher accuracy = fewer mistakes.</p>
-             <p className="text-xs text-muted-foreground"><span className="text-yellow-400">Tip:</span> Aim for 95%+ accuracy before focusing on speed!</p>
-           </TooltipContent>
-         </Tooltip>
+         {/* Hide Accuracy in Freestyle mode - no reference text to compare */}
+         {!freestyleMode && (
+           <Tooltip>
+             <TooltipTrigger asChild>
+               <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-border cursor-help">
+                 <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Accuracy</span>
+                 <span className="text-xl md:text-3xl font-mono font-bold" data-testid="text-accuracy">{accuracy}%</span>
+               </div>
+             </TooltipTrigger>
+             <TooltipContent className="max-w-[240px]">
+               <p className="font-medium mb-1">Typing Accuracy</p>
+               <p className="text-xs text-muted-foreground mb-1">Percentage of characters typed correctly. Higher accuracy = fewer mistakes.</p>
+               <p className="text-xs text-muted-foreground"><span className="text-yellow-400">Tip:</span> Aim for 95%+ accuracy before focusing on speed!</p>
+             </TooltipContent>
+           </Tooltip>
+         )}
          <Tooltip>
            <TooltipTrigger asChild>
              <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-border cursor-help">
@@ -2064,6 +2067,7 @@ Can you beat my score? Try it here: `,
                 if (isActive && startTime) {
                   const elapsedMs = Date.now() - startTime;
                   const elapsedMinutes = elapsedMs / 60000;
+                  const elapsedSeconds = elapsedMs / 1000;
                   
                   // Prevent division by zero and handle very short typing sessions
                   if (elapsedMinutes > 0.0167) { // At least 1 second
@@ -2074,6 +2078,21 @@ Can you beat my score? Try it here: `,
                     const cappedWpm = Math.min(Math.max(charBasedWpm, 0), 300);
                     setWpm(cappedWpm);
                     setRawWpm(cappedWpm);
+                    
+                    // Track WPM history for consistency calculation (sample every ~1 second)
+                    if (elapsedSeconds > 1 && Math.floor(elapsedSeconds) !== Math.floor((elapsedSeconds - 0.1))) {
+                      wpmHistoryRef.current.push(cappedWpm);
+                      
+                      // Calculate consistency (lower standard deviation = higher consistency)
+                      if (wpmHistoryRef.current.length >= 3) {
+                        const avg = wpmHistoryRef.current.reduce((a, b) => a + b, 0) / wpmHistoryRef.current.length;
+                        const variance = wpmHistoryRef.current.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / wpmHistoryRef.current.length;
+                        const stdDev = Math.sqrt(variance);
+                        // Convert to 0-100% scale (lower deviation = higher consistency)
+                        const consistencyScore = avg > 0 ? Math.max(0, Math.min(100, Math.round(100 - (stdDev / avg * 100)))) : 100;
+                        setConsistency(consistencyScore);
+                      }
+                    }
                   }
                 }
               }}
