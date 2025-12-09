@@ -75,12 +75,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground flex flex-col">
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
         <div className="max-w-[1800px] mx-auto px-2 h-12 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 shrink-0">
-            <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center text-primary-foreground font-mono font-bold text-lg">
-              T
+          <Link href="/">
+            <div className="flex items-center gap-2 shrink-0 cursor-pointer group">
+              <img 
+                src="/logo.png" 
+                alt="TypeMasterAI Logo" 
+                className="h-8 w-auto object-contain transition-transform group-hover:scale-105"
+              />
             </div>
-            <h1 className="text-sm font-bold tracking-tight hidden lg:block">TypeMasterAI</h1>
-          </div>
+          </Link>
 
           <nav className="hidden md:flex items-center flex-1 justify-center">
             {allNavItems.map((item) => {
