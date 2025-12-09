@@ -1,34 +1,26 @@
 import { Link } from "wouter";
-import { Cookie, Mail } from "lucide-react";
 
 export default function CookiePolicy() {
   return (
     <div className="max-w-4xl mx-auto" data-testid="page-cookie-policy">
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-            <Cookie className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-4xl font-bold" data-testid="heading-cookie-policy">Cookie Policy</h1>
-            <p className="text-muted-foreground text-sm mt-1">Last Updated: December 8, 2025</p>
-          </div>
-        </div>
-        <p className="text-muted-foreground">
+        <h1 className="text-4xl font-bold mb-2" data-testid="heading-cookie-policy">Cookie Policy</h1>
+        <p className="text-muted-foreground text-sm mb-4">Last Updated: December 9, 2025</p>
+        <p className="text-muted-foreground text-lg">
           This Cookie Policy explains how TypeMasterAI uses cookies and similar technologies to recognize you when you visit our platform.
         </p>
       </div>
 
-      <div className="space-y-8 prose prose-invert max-w-none">
+      <div className="space-y-10 prose prose-invert max-w-none">
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">1. What Are Cookies?</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">1. What Are Cookies?</h2>
           <p className="text-muted-foreground">
             Cookies are small text files that are placed on your device (computer, smartphone, or tablet) when you visit a website. They help websites remember your preferences and improve your browsing experience.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">2. Types of Cookies We Use</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">2. Types of Cookies We Use</h2>
           
           <h3 className="text-xl font-semibold text-foreground mb-3">2.1 Strictly Necessary Cookies</h3>
           <p className="text-muted-foreground mb-4">
@@ -100,7 +92,7 @@ export default function CookiePolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">3. Third-Party Cookies</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">3. Third-Party Cookies</h2>
           
           <h3 className="text-xl font-semibold text-foreground mb-3">3.1 Third-Party AI Services</h3>
           <p className="text-muted-foreground">
@@ -114,7 +106,7 @@ export default function CookiePolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">4. Why We Use Cookies</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">4. Why We Use Cookies</h2>
           <p className="text-muted-foreground mb-4">
             We use cookies to:
           </p>
@@ -129,7 +121,7 @@ export default function CookiePolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">5. Managing Cookies</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">5. Managing Cookies</h2>
           
           <h3 className="text-xl font-semibold text-foreground mb-3">5.1 Browser Settings</h3>
           <p className="text-muted-foreground mb-4">
@@ -160,7 +152,7 @@ export default function CookiePolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">6. Cookie Retention</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">6. Cookie Retention</h2>
           <p className="text-muted-foreground mb-4">
             Cookie retention periods vary by type:
           </p>
@@ -173,21 +165,21 @@ export default function CookiePolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">7. Do Not Track</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">7. Do Not Track</h2>
           <p className="text-muted-foreground">
             Some browsers have a "Do Not Track" (DNT) feature. Currently, there is no industry consensus on how to respond to DNT signals. TypeMasterAI does not currently respond to DNT browser settings.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">8. Updates to This Policy</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">8. Updates to This Policy</h2>
           <p className="text-muted-foreground">
             We may update this Cookie Policy from time to time. Any changes will be posted on this page with an updated "Last Updated" date. We encourage you to review this policy periodically.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">9. Related Policies</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">9. Related Policies</h2>
           <p className="text-muted-foreground mb-4">
             For more information about how we handle your data:
           </p>
@@ -203,16 +195,26 @@ export default function CookiePolicy() {
           </ul>
         </section>
 
-        <section className="bg-card/50 p-6 rounded-lg border border-border">
-          <h2 className="text-2xl font-bold text-foreground mb-4">Questions About Cookies?</h2>
-          <p className="text-muted-foreground mb-4">
+        <section className="bg-card/30 p-8 rounded-xl border border-border">
+          <h2 className="text-2xl font-bold text-foreground mb-6">Questions About Cookies?</h2>
+          <p className="text-muted-foreground mb-6">
             If you have questions about our use of cookies, please contact us:
           </p>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Mail className="w-4 h-4 text-primary" />
-            <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">
-              support@typemasterai.com
-            </a>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-1">Email</p>
+              <a href="mailto:support@typemasterai.com" className="text-primary hover:underline text-lg">
+                support@typemasterai.com
+              </a>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-1">Mailing Address</p>
+              <p className="text-muted-foreground">
+                TypeMasterAI<br />
+                Solapur, Maharashtra 413224<br />
+                India
+              </p>
+            </div>
           </div>
         </section>
       </div>
