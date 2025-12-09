@@ -78,9 +78,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <Link href="/">
             <div className="flex items-center gap-2 shrink-0 cursor-pointer group">
               <img 
-                src="/logo.svg" 
+                src="/logo.png" 
                 alt="TypeMasterAI Logo" 
-                className="h-9 w-auto object-contain transition-transform group-hover:scale-105"
+                className="h-8 w-auto object-contain transition-transform group-hover:scale-105"
               />
             </div>
           </Link>

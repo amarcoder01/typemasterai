@@ -208,14 +208,14 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
             transition={{ delay: 0.2, duration: 0.6 }}
           >
             <motion.div 
-              className="relative h-24"
+              className="relative h-20"
               whileHover={{ scale: 1.05 }}
               transition={{ type: "spring", stiffness: 400 }}
             >
               <img 
-                src="/logo.svg" 
+                src="/logo.png" 
                 alt="TypeMasterAI Logo" 
-                className="h-24 w-auto object-contain drop-shadow-[0_0_20px_rgba(0,255,255,0.3)]"
+                className="h-20 w-auto object-contain drop-shadow-[0_0_20px_rgba(0,255,255,0.3)]"
               />
             </motion.div>
             <div>
@@ -283,15 +283,15 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         >
           <div className="lg:hidden flex flex-col items-center gap-4 mb-8">
             <motion.div 
-              className="relative h-20"
+              className="relative h-16"
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
             >
               <img 
-                src="/logo.svg" 
+                src="/logo.png" 
                 alt="TypeMasterAI Logo" 
-                className="h-20 w-auto object-contain drop-shadow-[0_0_20px_rgba(0,255,255,0.3)]"
+                className="h-16 w-auto object-contain drop-shadow-[0_0_20px_rgba(0,255,255,0.3)]"
               />
             </motion.div>
             <div className="text-center">
