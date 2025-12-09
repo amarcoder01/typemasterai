@@ -939,9 +939,12 @@ Can you beat my score? Try it here: `,
     const typedText = freestyleMode ? freestyleText : userInput;
     const chars = typedText.length;
     
-    // Use consistent word count metric across all UI: chars / 5
-    // This matches WPM calculation (where 1 word = 5 characters)
-    const wordCount = Math.floor(chars / 5);
+    // Calculate word count based on mode
+    // Freestyle: actual word count (space-separated, matching UI display)
+    // Standard: chars / 5 estimate (matching WPM calculation)
+    const wordCount = freestyleMode
+      ? typedText.trim().split(/\s+/).filter(w => w.length > 0).length
+      : Math.floor(chars / 5);
     
     // Edge case: no characters typed
     if (chars === 0) {
@@ -1951,7 +1954,7 @@ Can you beat my score? Try it here: `,
          <Tooltip>
            <TooltipTrigger asChild>
              <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Acc</span>
+               <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Accuracy</span>
                <span className="text-xl md:text-3xl font-mono font-bold" data-testid="text-accuracy">{accuracy}%</span>
              </div>
            </TooltipTrigger>
@@ -1964,7 +1967,7 @@ Can you beat my score? Try it here: `,
          <Tooltip>
            <TooltipTrigger asChild>
              <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-border cursor-help">
-               <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Cons</span>
+               <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Consistency</span>
                <span className={cn("text-xl md:text-3xl font-mono font-bold", 
                  consistency >= 80 ? "text-green-500" : consistency >= 60 ? "text-yellow-500" : "text-orange-500"
                )} data-testid="text-consistency">{consistency}%</span>
