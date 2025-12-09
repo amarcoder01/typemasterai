@@ -11,13 +11,31 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame, Star, Target, ChevronRight, Trophy, Sparkles, Check, Zap, Share2, Moon, Sunrise, Rocket, Timer, HelpCircle } from "lucide-react";
+import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame, Star, Target, ChevronRight, Trophy, Sparkles, Check, Zap, Share2, Moon, Sunrise, Rocket, Timer, HelpCircle, MessageSquare } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { BADGES, TOTAL_BADGES, type UserBadgeProgress, getTierColor, getTierBorder, type Badge as BadgeType } from "@shared/badges";
 import { BadgeCard } from "@/components/badge-card";
 import { BadgeShareCard } from "@/components/badge-share-card";
 import FeedbackWidget from "@/components/FeedbackWidget";
+
+// Helper to normalize badge icon rendering
+function getBadgeIcon(icon: string): React.ReactNode {
+  const iconMap: Record<string, React.ReactNode> = {
+    "🔥": <Flame className="w-8 h-8 sm:w-10 sm:h-10" />,
+    "⭐": <Star className="w-8 h-8 sm:w-10 sm:h-10" />,
+    "🎯": <Target className="w-8 h-8 sm:w-10 sm:h-10" />,
+    "🏆": <Trophy className="w-8 h-8 sm:w-10 sm:h-10" />,
+    "⚡": <Zap className="w-8 h-8 sm:w-10 sm:h-10" />,
+    "💬": <MessageSquare className="w-8 h-8 sm:w-10 sm:h-10" />,
+    "🌙": <Moon className="w-8 h-8 sm:w-10 sm:h-10" />,
+    "🌅": <Sunrise className="w-8 h-8 sm:w-10 sm:h-10" />,
+    "🚀": <Rocket className="w-8 h-8 sm:w-10 sm:h-10" />,
+    "⏱️": <Timer className="w-8 h-8 sm:w-10 sm:h-10" />,
+  };
+  
+  return iconMap[icon] || <span className="text-3xl sm:text-4xl leading-none">{icon}</span>;
+}
 
 function ProfileHeaderSkeleton() {
   return (
@@ -716,31 +734,32 @@ export default function Profile() {
 
         {nextAchievement && (
           <Card 
-            className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-card/80 to-purple-500/5 backdrop-blur-md shadow-lg shadow-primary/10 hover:border-primary/50 transition-all duration-300"
+            className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-card/80 to-purple-500/5 backdrop-blur-md shadow-lg shadow-primary/10 hover:border-primary/50 transition-all duration-300 overflow-hidden"
             data-testid="next-badge-widget"
           >
             <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
-                <div className="relative shrink-0 mx-auto sm:mx-0">
+              <div className="flex flex-col gap-4 sm:gap-6 md:grid md:grid-cols-[auto,minmax(0,1fr),auto] md:items-center">
+                {/* Icon Column - Fixed Width */}
+                <div className="relative shrink-0 mx-auto md:mx-0">
                   <div 
-                    className={cn(
-                      "w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shadow-lg overflow-hidden",
-                      "bg-gradient-to-br from-muted/80 to-muted border-2 border-border/50"
-                    )}
+                    className="aspect-square w-16 sm:w-20 overflow-hidden rounded-2xl bg-gradient-to-br from-muted/80 to-muted border-2 border-border/50 flex items-center justify-center shadow-lg"
                     style={{ 
                       boxShadow: `0 8px 32px ${nextAchievement.color}20`,
                     }}
                   >
-                    <span className="select-none leading-none">{nextAchievement.icon}</span>
+                    <div className="flex items-center justify-center text-primary">
+                      {getBadgeIcon(nextAchievement.icon)}
+                    </div>
                   </div>
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-primary flex items-center justify-center shadow-lg">
                     <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-foreground" />
                   </div>
                 </div>
                 
-                <div className="flex-1 min-w-0 w-full sm:w-auto text-center sm:text-left overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-primary whitespace-nowrap">
+                {/* Text Column - Flexible with Overflow Protection */}
+                <div className="min-w-0 flex flex-col gap-2 text-center md:text-left overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-primary">
                       Next Badge to Unlock
                     </span>
                     <Badge 
@@ -763,15 +782,15 @@ export default function Profile() {
                     </Badge>
                   </div>
                   
-                  <h3 className="text-lg sm:text-xl font-bold break-words" data-testid="next-badge-name">
+                  <h3 className="text-lg sm:text-xl font-semibold text-balance break-words" data-testid="next-badge-name">
                     {nextAchievement.name}
                   </h3>
-                  <p className="text-sm text-muted-foreground mt-1 break-words" data-testid="next-badge-description">
+                  <p className="text-sm text-muted-foreground text-pretty break-words" data-testid="next-badge-description">
                     {nextAchievement.description}
                   </p>
                   
-                  <div className="mt-3 sm:mt-4 space-y-2">
-                    <div className="flex items-center justify-between text-sm">
+                  <div className="mt-1 sm:mt-2 space-y-2">
+                    <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
                       <span className="text-muted-foreground">Progress</span>
                       <span className="font-mono font-semibold text-primary" data-testid="next-badge-progress-text">
                         {nextAchievement.currentValue} / {nextAchievement.targetValue}
@@ -780,16 +799,17 @@ export default function Profile() {
                     </div>
                     <Progress 
                       value={nextAchievement.progress} 
-                      className="h-2.5 sm:h-3 bg-secondary [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-purple-500"
+                      className="h-2.5 sm:h-3 rounded-full bg-secondary [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-purple-500"
                       data-testid="next-badge-progress"
                     />
                   </div>
                 </div>
                 
+                {/* CTA Button Column */}
                 <Button 
                   variant="ghost" 
                   size="icon"
-                  className="shrink-0 hidden sm:flex"
+                  className="shrink-0 hidden md:flex md:justify-self-end"
                   onClick={() => setLocation("/")}
                   data-testid="next-badge-start-typing"
                 >
