@@ -2844,13 +2844,17 @@ Can you beat my score? Try it here: `,
                   Create a beautiful visual card to share on social media
                 </p>
               </div>
-              {isFinished && (
+              {isFinished && lastResultSnapshot && (
                 <ShareCard
-                  wpm={wpm}
-                  accuracy={accuracy}
-                  mode={mode}
+                  wpm={lastResultSnapshot.wpm}
+                  accuracy={lastResultSnapshot.accuracy}
+                  mode={lastResultSnapshot.mode}
                   language={language}
                   username={user?.username}
+                  freestyle={lastResultSnapshot.freestyle}
+                  consistency={lastResultSnapshot.consistency}
+                  words={lastResultSnapshot.words}
+                  characters={lastResultSnapshot.characters}
                   onShareTracked={trackShare}
                 />
               )}

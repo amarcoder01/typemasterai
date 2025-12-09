@@ -9,17 +9,30 @@ interface ShareCardProps {
   mode: number;
   language: string;
   username?: string;
+  freestyle?: boolean;
+  consistency?: number;
+  words?: number;
+  characters?: number;
   onClose?: () => void;
   onShareTracked?: (platform: string) => void;
 }
 
-export function ShareCard({ wpm, accuracy, mode, language, username, onClose, onShareTracked }: ShareCardProps) {
+export function ShareCard({ wpm, accuracy, mode, language, username, freestyle = false, consistency = 100, words = 0, characters = 0, onClose, onShareTracked }: ShareCardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
   const getPerformanceRating = () => {
+    // For Freestyle, use WPM and consistency instead of accuracy
+    if (freestyle) {
+      if (wpm >= 100 && consistency >= 85) return { emoji: "🏆", title: "Freestyle Master", badge: "Diamond", color: "#b9f2ff", bgGradient: ["#0f172a", "#1e3a5f", "#0f172a"] };
+      if (wpm >= 80 && consistency >= 75) return { emoji: "⚡", title: "Speed Demon", badge: "Platinum", color: "#e5e4e2", bgGradient: ["#0f172a", "#2d3748", "#0f172a"] };
+      if (wpm >= 60 && consistency >= 65) return { emoji: "🔥", title: "Fast & Steady", badge: "Gold", color: "#ffd700", bgGradient: ["#0f172a", "#3d2914", "#0f172a"] };
+      if (wpm >= 40) return { emoji: "💪", title: "Solid Performer", badge: "Silver", color: "#c0c0c0", bgGradient: ["#0f172a", "#374151", "#0f172a"] };
+      return { emoji: "🎯", title: "Rising Star", badge: "Bronze", color: "#cd7f32", bgGradient: ["#0f172a", "#3d2a1a", "#0f172a"] };
+    }
+    // Standard mode ratings
     if (wpm >= 100 && accuracy >= 98) return { emoji: "🏆", title: "Legendary Typist", badge: "Diamond", color: "#b9f2ff", bgGradient: ["#0f172a", "#1e3a5f", "#0f172a"] };
     if (wpm >= 80 && accuracy >= 95) return { emoji: "⚡", title: "Speed Demon", badge: "Platinum", color: "#e5e4e2", bgGradient: ["#0f172a", "#2d3748", "#0f172a"] };
     if (wpm >= 60 && accuracy >= 90) return { emoji: "🔥", title: "Fast & Accurate", badge: "Gold", color: "#ffd700", bgGradient: ["#0f172a", "#3d2914", "#0f172a"] };
@@ -29,7 +42,7 @@ export function ShareCard({ wpm, accuracy, mode, language, username, onClose, on
 
   useEffect(() => {
     generateCard();
-  }, [wpm, accuracy, mode, language, username]);
+  }, [wpm, accuracy, mode, language, username, freestyle, consistency, words, characters]);
 
   const generateCard = () => {
     const canvas = canvasRef.current;
@@ -89,27 +102,53 @@ export function ShareCard({ wpm, accuracy, mode, language, username, onClose, on
     ctx.lineWidth = 1;
     ctx.strokeRect(40, statsY - 25, canvas.width - 80, 60);
 
-    ctx.font = "bold 20px 'JetBrains Mono', monospace";
-    ctx.fillStyle = "#22c55e";
-    ctx.textAlign = "center";
-    ctx.fillText(`${accuracy}%`, 140, statsY + 8);
-    ctx.fillStyle = "#64748b";
-    ctx.font = "12px 'DM Sans', sans-serif";
-    ctx.fillText("Accuracy", 140, statsY + 25);
+    if (freestyle) {
+      // Freestyle mode: show Consistency, Words, Characters
+      ctx.font = "bold 20px 'JetBrains Mono', monospace";
+      ctx.fillStyle = "#22c55e";
+      ctx.textAlign = "center";
+      ctx.fillText(`${consistency}%`, 140, statsY + 8);
+      ctx.fillStyle = "#64748b";
+      ctx.font = "12px 'DM Sans', sans-serif";
+      ctx.fillText("Consistency", 140, statsY + 25);
 
-    ctx.font = "bold 20px 'JetBrains Mono', monospace";
-    ctx.fillStyle = "#a855f7";
-    ctx.fillText(modeDisplay, canvas.width / 2, statsY + 8);
-    ctx.fillStyle = "#64748b";
-    ctx.font = "12px 'DM Sans', sans-serif";
-    ctx.fillText("Duration", canvas.width / 2, statsY + 25);
+      ctx.font = "bold 20px 'JetBrains Mono', monospace";
+      ctx.fillStyle = "#a855f7";
+      ctx.fillText(`${words}`, canvas.width / 2, statsY + 8);
+      ctx.fillStyle = "#64748b";
+      ctx.font = "12px 'DM Sans', sans-serif";
+      ctx.fillText("Words", canvas.width / 2, statsY + 25);
 
-    ctx.font = "bold 20px 'JetBrains Mono', monospace";
-    ctx.fillStyle = "#f59e0b";
-    ctx.fillText(language.toUpperCase(), canvas.width - 140, statsY + 8);
-    ctx.fillStyle = "#64748b";
-    ctx.font = "12px 'DM Sans', sans-serif";
-    ctx.fillText("Language", canvas.width - 140, statsY + 25);
+      ctx.font = "bold 20px 'JetBrains Mono', monospace";
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillText(`${characters}`, canvas.width - 140, statsY + 8);
+      ctx.fillStyle = "#64748b";
+      ctx.font = "12px 'DM Sans', sans-serif";
+      ctx.fillText("Characters", canvas.width - 140, statsY + 25);
+    } else {
+      // Standard mode: show Accuracy, Duration, Language
+      ctx.font = "bold 20px 'JetBrains Mono', monospace";
+      ctx.fillStyle = "#22c55e";
+      ctx.textAlign = "center";
+      ctx.fillText(`${accuracy}%`, 140, statsY + 8);
+      ctx.fillStyle = "#64748b";
+      ctx.font = "12px 'DM Sans', sans-serif";
+      ctx.fillText("Accuracy", 140, statsY + 25);
+
+      ctx.font = "bold 20px 'JetBrains Mono', monospace";
+      ctx.fillStyle = "#a855f7";
+      ctx.fillText(modeDisplay, canvas.width / 2, statsY + 8);
+      ctx.fillStyle = "#64748b";
+      ctx.font = "12px 'DM Sans', sans-serif";
+      ctx.fillText("Duration", canvas.width / 2, statsY + 25);
+
+      ctx.font = "bold 20px 'JetBrains Mono', monospace";
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillText(language.toUpperCase(), canvas.width - 140, statsY + 8);
+      ctx.fillStyle = "#64748b";
+      ctx.font = "12px 'DM Sans', sans-serif";
+      ctx.fillText("Language", canvas.width - 140, statsY + 25);
+    }
 
     if (username) {
       ctx.fillStyle = "#94a3b8";
@@ -163,9 +202,12 @@ export function ShareCard({ wpm, accuracy, mode, language, username, onClose, on
       const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
 
       if ('share' in navigator && navigator.canShare?.({ files: [file] })) {
+        const shareText = freestyle
+          ? `${rating.emoji} I scored ${wpm} WPM with ${consistency}% consistency in Freestyle mode on TypeMasterAI!\n\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} session\n✍️ ${words} words, ${characters} characters\n\nCan you beat my score?\n\n🔗 typemasterai.com`
+          : `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!\n\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nCan you beat my score?\n\n🔗 typemasterai.com`;
         await navigator.share({
           title: `TypeMasterAI - ${wpm} WPM`,
-          text: `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!\n\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nCan you beat my score?\n\n🔗 typemasterai.com`,
+          text: shareText,
           files: [file],
         });
         onShareTracked?.('visual_card_native');
@@ -222,7 +264,20 @@ export function ShareCard({ wpm, accuracy, mode, language, username, onClose, on
   const copyShareText = () => {
     const rating = getPerformanceRating();
     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-    const text = `${rating.emoji} I just scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!
+    const text = freestyle 
+      ? `${rating.emoji} I just scored ${wpm} WPM in Freestyle mode on TypeMasterAI!
+
+⌨️ ${wpm} WPM | 📈 ${consistency}% Consistency
+✍️ ${words} words | ${characters} characters
+🏅 ${rating.title} - ${rating.badge} Badge
+⏱️ ${modeDisplay} freestyle session
+
+Think you can beat my score? Try it now! 🎯
+
+🔗 https://typemasterai.com
+
+#TypingTest #TypeMasterAI #FreestyleTyping #WPM`
+      : `${rating.emoji} I just scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!
 
 ⌨️ ${wpm} WPM | ✨ ${accuracy}% Accuracy
 🏅 ${rating.title} - ${rating.badge} Badge
@@ -247,7 +302,9 @@ Think you can beat my score? Try it now! 🎯
   const getShareText = () => {
     const rating = getPerformanceRating();
     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-    return `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! ${rating.badge} Badge - ${modeDisplay} test. Can you beat me?`;
+    return freestyle
+      ? `${rating.emoji} I scored ${wpm} WPM with ${consistency}% consistency in Freestyle mode on TypeMasterAI! ${rating.badge} Badge - ${modeDisplay} session. Can you beat me?`
+      : `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! ${rating.badge} Badge - ${modeDisplay} test. Can you beat me?`;
   };
 
   const shareToTwitter = () => {
