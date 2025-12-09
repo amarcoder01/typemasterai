@@ -308,6 +308,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
+      {/* Floating Feedback Button */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <FeedbackWidget 
+          triggerVariant="default"
+          triggerSize="default"
+          triggerClassName="shadow-2xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all duration-300"
+        />
+      </div>
+
       <footer 
         className="border-t border-border/40 bg-gradient-to-b from-card/30 to-card/50 backdrop-blur-sm"
         role="contentinfo"
@@ -327,11 +336,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <p className="text-[11px] text-muted-foreground leading-relaxed">
                 Master your typing speed with AI-powered tests and analytics.
               </p>
-              <FeedbackWidget 
-                triggerVariant="secondary"
-                triggerSize="sm"
-                triggerClassName="h-6 text-[10px] px-2"
-              />
             </div>
 
             {/* Product */}
