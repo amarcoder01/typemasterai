@@ -80,7 +80,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <img 
                 src="/logo.png" 
                 alt="TypeMasterAI Logo" 
-                className="h-8 w-auto object-contain transition-transform group-hover:scale-105"
+                className="h-9 w-auto object-contain transition-transform group-hover:scale-105"
               />
             </div>
           </Link>
