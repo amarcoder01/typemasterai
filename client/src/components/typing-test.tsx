@@ -1875,8 +1875,11 @@ Can you beat my score? Try it here: `,
         </div>
       </div>
 
-      {/* Stats Overview (Live) - 6 metrics like Monkeytype */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3 transition-opacity duration-300">
+      {/* Stats Overview (Live) - 6 metrics like Monkeytype (or 8 for Freestyle) */}
+      <div className={cn(
+        "grid gap-2 md:gap-3 transition-opacity duration-300",
+        freestyleMode ? "grid-cols-4 md:grid-cols-8" : "grid-cols-3 md:grid-cols-6"
+      )}>
          <Tooltip>
            <TooltipTrigger asChild>
              <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-border cursor-help">
@@ -1960,6 +1963,40 @@ Can you beat my score? Try it here: `,
              </div>
            </TooltipContent>
          </Tooltip>
+         
+         {/* Freestyle Mode Extra Stats */}
+         {freestyleMode && (
+           <>
+             <Tooltip>
+               <TooltipTrigger asChild>
+                 <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-purple-500/20 cursor-help">
+                   <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Words</span>
+                   <span className="text-xl md:text-3xl font-mono font-bold text-purple-400" data-testid="text-freestyle-words">
+                     {freestyleText.trim().split(/\s+/).filter(w => w.length > 0).length}
+                   </span>
+                 </div>
+               </TooltipTrigger>
+               <TooltipContent>
+                 <p className="font-medium mb-1">Words Typed</p>
+                 <p className="text-xs text-muted-foreground">Total words you've typed in Freestyle mode (space-separated count)</p>
+               </TooltipContent>
+             </Tooltip>
+             <Tooltip>
+               <TooltipTrigger asChild>
+                 <div className="flex flex-col items-center p-2 md:p-3 rounded-lg md:rounded-xl bg-card border border-pink-500/20 cursor-help">
+                   <span className="text-muted-foreground text-[9px] md:text-[10px] uppercase tracking-wider mb-0.5 md:mb-1">Chars</span>
+                   <span className="text-xl md:text-3xl font-mono font-bold text-pink-400" data-testid="text-freestyle-chars">
+                     {freestyleText.length}
+                   </span>
+                 </div>
+               </TooltipTrigger>
+               <TooltipContent>
+                 <p className="font-medium mb-1">Characters Typed</p>
+                 <p className="text-xs text-muted-foreground">Total characters including spaces (used for WPM: chars ÷ 5)</p>
+               </TooltipContent>
+             </Tooltip>
+           </>
+         )}
       </div>
 
       {/* Typing Area */}
@@ -1968,39 +2005,6 @@ Can you beat my score? Try it here: `,
         {/* Freestyle Mode Interface */}
         {freestyleMode && (
           <div className="w-full h-full min-h-[200px] md:min-h-[300px] flex flex-col relative">
-            {/* Live Stats Bar for Freestyle */}
-            {(isActive || freestyleText.length > 0) && !isFinished && (
-              <div className="absolute top-2 right-2 md:top-4 md:right-4 flex items-center gap-2 md:gap-3 px-3 py-1.5 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full border border-purple-500/20 z-10">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1 text-xs md:text-sm cursor-help">
-                      <span className="text-muted-foreground">Words:</span>
-                      <span className="font-mono font-semibold text-purple-400" data-testid="free-type-word-count">
-                        {freestyleText.trim().split(/\s+/).filter(w => w.length > 0).length}
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Total words typed (space-separated)</p>
-                  </TooltipContent>
-                </Tooltip>
-                <div className="w-px h-4 bg-border" />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1 text-xs md:text-sm cursor-help">
-                      <span className="text-muted-foreground">Chars:</span>
-                      <span className="font-mono font-semibold text-pink-400" data-testid="free-type-char-count">
-                        {freestyleText.length}
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Total characters typed (including spaces)</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            )}
-            
             <textarea
               value={freestyleText}
               onChange={(e) => {

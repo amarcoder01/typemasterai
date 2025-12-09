@@ -282,11 +282,13 @@ export const testResults = pgTable("test_results", {
   mode: integer("mode").notNull(),
   characters: integer("characters").notNull(),
   errors: integer("errors").notNull(),
+  freestyle: boolean("freestyle").default(false).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   userIdIdx: index("user_id_idx").on(table.userId),
   wpmIdx: index("wpm_idx").on(table.wpm),
   createdAtIdx: index("created_at_idx").on(table.createdAt),
+  freestyleIdx: index("freestyle_idx").on(table.freestyle),
 }));
 
 export const insertTestResultSchema = createInsertSchema(testResults, {
@@ -295,6 +297,7 @@ export const insertTestResultSchema = createInsertSchema(testResults, {
   mode: z.number().int().positive(),
   characters: z.number().int().min(0),
   errors: z.number().int().min(0),
+  freestyle: z.boolean().optional(),
 }).omit({ id: true, createdAt: true });
 
 export type InsertTestResult = z.infer<typeof insertTestResultSchema>;
@@ -312,6 +315,7 @@ export const sharedResults = pgTable("shared_results", {
   duration: integer("duration"),
   characters: integer("characters"),
   metadata: jsonb("metadata"),
+  freestyle: boolean("freestyle").default(false).notNull(),
   isAnonymous: boolean("is_anonymous").default(false).notNull(),
   viewCount: integer("view_count").default(0).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -327,6 +331,7 @@ export const insertSharedResultSchema = createInsertSchema(sharedResults, {
   wpm: z.number().int().min(0).max(500),
   accuracy: z.number().min(0).max(100),
   errors: z.number().int().min(0),
+  freestyle: z.boolean().optional(),
   isAnonymous: z.boolean().optional(),
 }).omit({ id: true, createdAt: true, viewCount: true });
 
