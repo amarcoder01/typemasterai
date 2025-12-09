@@ -1762,10 +1762,8 @@ Can you beat my score? Try it here: `,
           )}
         </div>
       </div>
-        )}
 
-      {/* Stats Overview (Live) - 6 metrics like Monkeytype - Removed from DOM in Zen Mode when typing */}
-      {!(zenMode && isActive) && (
+      {/* Stats Overview (Live) - 6 metrics like Monkeytype */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3 transition-opacity duration-300">
          <Tooltip>
            <TooltipTrigger asChild>
@@ -1851,7 +1849,6 @@ Can you beat my score? Try it here: `,
            </TooltipContent>
          </Tooltip>
       </div>
-      )}
 
       {/* Typing Area */}
       <div className="relative min-h-[200px] md:min-h-[300px] max-h-[300px] md:max-h-[400px] overflow-hidden group">
@@ -2007,9 +2004,8 @@ Can you beat my score? Try it here: `,
         )}
       </div>
 
-      {/* Controls - Removed from DOM in Zen Mode when typing for accessibility */}
-      {!(zenMode && isActive) && (
-        <div className="flex justify-center gap-2 md:gap-3 transition-opacity duration-300">
+      {/* Controls */}
+      <div className="flex justify-center gap-2 md:gap-3 transition-opacity duration-300">
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -2059,8 +2055,7 @@ Can you beat my score? Try it here: `,
             </TooltipContent>
           </Tooltip>
 */}
-        </div>
-      )}
+      </div>
 
       {/* Result Modal / Section */}
       <AnimatePresence>
