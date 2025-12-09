@@ -2444,19 +2444,25 @@ Can you beat my score? Try it here: `,
               
               <h2 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 md:mb-8 text-center">Test Complete!</h2>
               
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
+              <div className={cn(
+                "grid gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8",
+                freestyleMode ? "grid-cols-1" : "grid-cols-2"
+              )}>
                 <div className="flex flex-col items-center p-3 sm:p-4 bg-background/50 rounded-lg sm:rounded-xl">
                   <div className="text-muted-foreground text-xs sm:text-sm mb-1 flex items-center gap-1.5 sm:gap-2">
                     <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> WPM
                   </div>
                   <div className="text-3xl sm:text-4xl md:text-5xl font-mono font-bold text-primary">{wpm}</div>
                 </div>
-                <div className="flex flex-col items-center p-3 sm:p-4 bg-background/50 rounded-lg sm:rounded-xl">
-                  <div className="text-muted-foreground text-xs sm:text-sm mb-1 flex items-center gap-1.5 sm:gap-2">
-                    <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Accuracy
+                {/* Hide Accuracy in Freestyle mode */}
+                {!freestyleMode && (
+                  <div className="flex flex-col items-center p-3 sm:p-4 bg-background/50 rounded-lg sm:rounded-xl">
+                    <div className="text-muted-foreground text-xs sm:text-sm mb-1 flex items-center gap-1.5 sm:gap-2">
+                      <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Accuracy
+                    </div>
+                    <div className="text-3xl sm:text-4xl md:text-5xl font-mono font-bold">{accuracy}%</div>
                   </div>
-                  <div className="text-3xl sm:text-4xl md:text-5xl font-mono font-bold">{accuracy}%</div>
-                </div>
+                )}
               </div>
 
               <div className="space-y-2 sm:space-y-3 md:space-y-4">
