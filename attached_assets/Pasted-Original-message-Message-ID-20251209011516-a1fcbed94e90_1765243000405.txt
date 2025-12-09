@@ -1,0 +1,539 @@
+Original message
+Message ID	<20251209011516.a1fcbed94e90395d@mg.typemasterai.com>
+Created on:	9 December 2025 at 06:45 (Delivered after 0 seconds)
+From:	TypeMasterAI <no-reply@typemasterai.com> Using TypeMasterAI Email Service
+To:	amar@vidality.com
+Subject:	Reset Your Password - TypeMasterAI
+SPF:	PASS with IP 159.135.228.13 Learn more
+DKIM:	'PASS' with domain mg.typemasterai.com Learn more
+DMARC:	'FAIL' Learn more
+
+
+Download original	Copy to clipboard	
+Delivered-To: amar@vidality.com
+Received: by 2002:a05:6674:f0c:b0:690:2fcf:5daa with SMTP id qs12csp9169487pxc;
+        Mon, 8 Dec 2025 17:15:17 -0800 (PST)
+X-Google-Smtp-Source: AGHT+IGo2kaA1iaLRgZ41aQl23hPFFpxt3b1D1jotjhChviynixKZHIPNngp9gWuWcp8k/z9r2tM
+X-Received: by 2002:a05:620a:701a:b0:8b1:9a11:3d0 with SMTP id af79cd13be357-8b6a23519b2mr1370102985a.36.1765242916754;
+        Mon, 08 Dec 2025 17:15:16 -0800 (PST)
+ARC-Seal: i=1; a=rsa-sha256; t=1765242916; cv=none;
+        d=google.com; s=arc-20240605;
+        b=hg8u469d/a4+Ozts1U952cauC/5/640xatL2sJexjcgrOZAi6t2cctrlRBSCgpnkKk
+         +rJ60FXvkEIJFupcU5GTUcL2aaWJizqt3N1TiDynpX9AhHDDCzDL1aauuJ4ztaouQPdq
+         wRJtAf9YA76PQ3fYa35pKhrgn2K+2kOytX1d5aiDwQ4yqWKtrT9DZp2j+/9OsOs+i9/6
+         IeMAtYy98SFLaJNoyqTgyxVAQvVb9HfHs/T0hEB/5tUgQBC9XTbtm+bMT5ObWsHqOrkP
+         SbE+2D8voe8NwAgpz+jpuEnWeL5JQzqO9Yi095mYM+ZAEtvWfu/GIrLMm7Ro39EINxXz
+         TBtg==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20240605;
+        h=message-id:list-unsubscribe-post:list-unsubscribe:to:from:subject
+         :mime-version:date:sender:dkim-signature;
+        bh=yulM9gPg2bhMdPKfVSaGDjZn1/wXSx+XqzrkCJuDJnw=;
+        fh=8iWT8qoFecBzF+dBRJQMyXb9Xt/6G1mgu2n1wIVthFo=;
+        b=JSzkqyLvh3ULGTge3I796lU5G9uQ2X6r1y6kzY8gLuqbaIWEg93TX5tO5L9k7qc4eD
+         0su4gNhZQltrVb0kdUvGkgWFepKkfz76icIXDVRv/0i49oY/awmohrrLRq7CzlKj2XZo
+         T5r6SXqnN5q27s5iVM0FLjrni3dEV0ZKQy2pJ7UzzH/WAm/gyAHpPaWtGajgsGztCJok
+         /zJuXC9N1I5GGN4YHb7wseokGpjtLJ4P/f8QZMPpSEyjr088tw5o/ZYrrhf2LObMdlrl
+         RcHZPo0pkrJ/WVI4hZa+JErw8/8jkxCQbjBCV3IAdPgK0PGBNovCiK5QNao0YxLmqtvf
+         4pDw==;
+        dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@mg.typemasterai.com header.s=pdk1 header.b=hfgJkHkj;
+       spf=pass (google.com: domain of bounce+064be1.480cef1-amar=vidality.com@mg.typemasterai.com designates 159.135.228.13 as permitted sender) smtp.mailfrom="bounce+064be1.480cef1-amar=vidality.com@mg.typemasterai.com"
+Return-Path: <bounce+064be1.480cef1-amar=vidality.com@mg.typemasterai.com>
+Received: from m228-13.mailgun.net (m228-13.mailgun.net. [159.135.228.13])
+        by mx.google.com with UTF8SMTPS id af79cd13be357-8b62529cd53si1241269585a.184.2025.12.08.17.15.16
+        for <amar@vidality.com>
+        (version=TLS1_2 cipher=ECDHE-ECDSA-AES128-GCM-SHA256 bits=128/128);
+        Mon, 08 Dec 2025 17:15:16 -0800 (PST)
+Received-SPF: pass (google.com: domain of bounce+064be1.480cef1-amar=vidality.com@mg.typemasterai.com designates 159.135.228.13 as permitted sender) client-ip=159.135.228.13;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@mg.typemasterai.com header.s=pdk1 header.b=hfgJkHkj;
+       spf=pass (google.com: domain of bounce+064be1.480cef1-amar=vidality.com@mg.typemasterai.com designates 159.135.228.13 as permitted sender) smtp.mailfrom="bounce+064be1.480cef1-amar=vidality.com@mg.typemasterai.com"
+DKIM-Signature: a=rsa-sha256; v=1; c=relaxed/relaxed; d=mg.typemasterai.com; q=dns/txt; s=pdk1; t=1765242916; x=1765250116; h=Message-Id: List-Unsubscribe-Post: List-Unsubscribe: To: To: From: From: Subject: Subject: Content-Type: Mime-Version: Date: Sender: Sender; bh=yulM9gPg2bhMdPKfVSaGDjZn1/wXSx+XqzrkCJuDJnw=; b=hfgJkHkjHgoPVpTIvG504PbI5ShNMnzK26zWD1UmVfk3sR0YBARitPO2izODYJoleHJgiFJyzUYMordCYtx9juP0hyogUBC66LjbOmgQ1cwv6hC/UlZ3h8AiT538+mIaFRrt5bHwmcoIK0xTefGNkaSrwe5R4jtrrzNMBAb8H6Lgn5d66mQ5fSiaH0fUE6p1IpL6agzMaqB1SvuZ7DvUMkbqLRerztT/Z+yq3GZhF1L4JqxAWeO1eaS+UA3QPGKWu5JHbkLHlOzeRecXQaD3b6+BwSd6emcPX7JwC86Q4h+Aw4CVf5mxNQRhy2s1HjvRW9GqAngLF+win9MF4SAFHw==
+X-Mailgun-Sid: WyI5Zjg5OCIsImFtYXJAdmlkYWxpdHkuY29tIiwiNDgwY2VmMSJd
+Received: by 323cb176c461fe9539e4cc5ea5cf25f516213d87a0d2b9db0061ac673c6e5e21 with HTTP id 69377824527c7e0065891f0e; Tue, 09 Dec 2025 01:15:16 GMT
+X-Mailgun-Sending-Ip: 159.135.228.13
+Sender: no-reply=typemasterai.com@mg.typemasterai.com
+Date: Tue, 09 Dec 2025 01:15:16 +0000
+Mime-Version: 1.0
+Content-Type: multipart/alternative; boundary="24a09b3632b5ad1aead0406f6de597fdab97077ee42e0a660cb1369ee5af"
+Subject: Reset Your Password - TypeMasterAI
+From: TypeMasterAI <no-reply@typemasterai.com>
+To: amar@vidality.com
+X-Mailgun-Tag: password_reset
+X-Mailgun-Tag: transactional
+X-Mailgun-Track: false
+X-Mailgun-Track-Clicks: false
+X-Mailgun-Track-Opens: false
+X-Mailer: TypeMasterAI Email Service
+List-Unsubscribe: <mailto:support@typemasterai.com?subject=Unsubscribe>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+X-Mailgun-Variables: {"email_type": "password_reset", "user_email": "amar@vidality.com"}
+Message-Id: <20251209011516.a1fcbed94e90395d@mg.typemasterai.com>
+
+--24a09b3632b5ad1aead0406f6de597fdab97077ee42e0a660cb1369ee5af
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="utf-8"
+
+Reset Your Password
+ =20
+ =20
+   =20
+     =20
+        96
+     =20
+   =20
+ =20
+ =20
+ =20
+
+ =20
+   =20
+     =20
+       =20
+       =20
+       =20
+         =20
+         =20
+         =20
+           =20
+             =20
+               =20
+                 =20
+                   =20
+                     =20
+                       =20
+                          =E2=8C=A8=EF=B8=8F
+                       =20
+                       =20
+                          TypeMasterAI
+                       =20
+                     =20
+                   =20
+                 =20
+               =20
+             =20
+           =20
+         =20
+         =20
+         =20
+         =20
+           =20
+              Password Reset Request
+
+              Secure your account with a new password
+
+           =20
+         =20
+         =20
+         =20
+         =20
+           =20
+             =20
+                Hi amar,
+             =20
+
+             =20
+                We received a request to reset your password for your TypeM=
+asterAI account. Click the button below to create a new password:
+             =20
+
+             =20
+             =20
+             =20
+               =20
+                 =20
+                   =20
+                     =20
+                      =20
+                     =20
+                      Reset My Password
+                     =20
+                      =20
+                     =20
+                   =20
+                 =20
+               =20
+             =20
+             =20
+             =20
+             =20
+               =20
+                 =20
+                   =20
+                      =E2=8F=B1 This link expires in 60 minutes for your se=
+curity.
+                   =20
+
+                 =20
+               =20
+             =20
+             =20
+             =20
+             =20
+               =20
+                 =20
+                    Request Details
+
+                   =20
+                     =20
+                       =20
+                          Date & Time:
+                       =20
+                       =20
+                          Tuesday, December 9, 2025 at 06:45 AM GMT+5:30
+                       =20
+                     =20
+                     =20
+                     =20
+                       =20
+                          IP Address:
+                       =20
+                       =20
+                          10.82.8.17
+                       =20
+                     =20
+                     =20
+                   =20
+                 =20
+               =20
+             =20
+             =20
+             =20
+             =20
+               =20
+                 =20
+                   =20
+                      Didn't request this? You can safely ignore this email=
+. Your password will remain unchanged and no action is needed.
+                   =20
+
+                 =20
+               =20
+             =20
+             =20
+             =20
+             =20
+               =20
+                 =20
+                   =20
+                      If the button doesn't work, copy and paste this link =
+into your browser:
+                   =20
+
+                   =20
+                      https://typemasterai.com/reset-password?token=3D19bda=
+3437e35dc870098f8ab9a38105de35973586e17dd275b077b176057041a (https://typema=
+sterai.com/reset-password?token=3D19bda3437e35dc870098f8ab9a38105de35973586=
+e17dd275b077b176057041a)
+                   =20
+
+                 =20
+               =20
+             =20
+           =20
+         =20
+         =20
+         =20
+         =20
+           =20
+             =20
+               =20
+                 =20
+                   =20
+                      Need help? Contact Support (https://typemasterai.com/=
+contact)
+                   =20
+
+                   =20
+                      =C2=A9 2025 TypeMasterAI. All rights reserved.
+
+                      typemasterai.com (https://typemasterai.com)
+                   =20
+
+                 =20
+               =20
+             =20
+           =20
+         =20
+         =20
+       =20
+       =20
+       =20
+       =20
+         =20
+           =20
+             =20
+                This is an automated security notification. Please do not r=
+eply to this email.
+
+                If you have any questions, visit our Help Center (https://t=
+ypemasterai.com/help).
+--24a09b3632b5ad1aead0406f6de597fdab97077ee42e0a660cb1369ee5af
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/html; charset="utf-8"
+
+
+<!DOCTYPE html>
+<html lang=3D"en" xmlns=3D"http://www.w3.org/1999/xhtml" xmlns:v=3D"urn:sch=
+emas-microsoft-com:vml" xmlns:o=3D"urn:schemas-microsoft-com:office:office"=
+>
+<head>
+  <meta charset=3D"UTF-8">
+  <meta name=3D"viewport" content=3D"width=3Ddevice-width, initial-scale=3D=
+1.0">
+  <meta http-equiv=3D"X-UA-Compatible" content=3D"IE=3Dedge">
+  <meta name=3D"x-apple-disable-message-reformatting">
+  <meta name=3D"referrer" content=3D"no-referrer">
+  <title>Reset Your Password</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=3DInter:wght@400;=
+500;600;700&display=3Dswap');
+  </style>
+</head>
+<body style=3D"margin: 0; padding: 0; background-color: #f4f4f5; font-famil=
+y: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helveti=
+ca Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-=
+font-smoothing: grayscale;">
+  <table role=3D"presentation" width=3D"100%" cellspacing=3D"0" cellpadding=
+=3D"0" border=3D"0" style=3D"background-color: #f4f4f5;">
+    <tr>
+      <td align=3D"center" style=3D"padding: 40px 20px;">
+       =20
+        <!-- Main Container -->
+        <table role=3D"presentation" width=3D"600" cellspacing=3D"0" cellpa=
+dding=3D"0" border=3D"0" style=3D"max-width: 600px; width: 100%; background=
+-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6=
+px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);">
+         =20
+          <!-- Header with Logo -->
+          <tr>
+            <td style=3D"background: linear-gradient(135deg, #6366f1 0%, #8=
+b5cf6 100%); padding: 32px 40px; text-align: center;">
+              <table role=3D"presentation" width=3D"100%" cellspacing=3D"0"=
+ cellpadding=3D"0" border=3D"0">
+                <tr>
+                  <td align=3D"center">
+                    <table role=3D"presentation" cellspacing=3D"0" cellpadd=
+ing=3D"0" border=3D"0">
+                      <tr>
+                        <td style=3D"background-color: #ffffff; width: 48px=
+; height: 48px; border-radius: 12px; text-align: center; vertical-align: mi=
+ddle;">
+                          <span style=3D"font-size: 24px; line-height: 48px=
+;">=E2=8C=A8=EF=B8=8F</span>
+                        </td>
+                        <td style=3D"padding-left: 12px;">
+                          <span style=3D"font-size: 24px; font-weight: 700;=
+ color: #ffffff; letter-spacing: -0.5px;">TypeMasterAI</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+         =20
+          <!-- Header Banner -->
+          <tr>
+            <td style=3D"background-color: #eef2ff; padding: 28px 40px; tex=
+t-align: center; border-bottom: 1px solid #c7d2fe;">
+              <p style=3D"margin: 0; font-size: 22px; font-weight: 600; col=
+or: #4338ca;">Password Reset Request</p>
+              <p style=3D"margin: 8px 0 0; font-size: 14px; color: #6366f1;=
+">Secure your account with a new password</p>
+            </td>
+          </tr>
+         =20
+          <!-- Main Content -->
+          <tr>
+            <td style=3D"padding: 40px;">
+              <p style=3D"margin: 0 0 16px; font-size: 16px; line-height: 1=
+.6; color: #18181b;">
+                Hi amar,
+              </p>
+              <p style=3D"margin: 0 0 24px; font-size: 16px; line-height: 1=
+.6; color: #3f3f46;">
+                We received a request to reset your password for your TypeM=
+asterAI account. Click the button below to create a new password:
+              </p>
+             =20
+              <!-- CTA Button -->
+              <table role=3D"presentation" width=3D"100%" cellspacing=3D"0"=
+ cellpadding=3D"0" border=3D"0">
+                <tr>
+                  <td align=3D"center" style=3D"padding: 16px 0 24px;">
+                    <a href=3D"https://typemasterai.com/reset-password?toke=
+n=3D19bda3437e35dc870098f8ab9a38105de35973586e17dd275b077b176057041a" style=
+=3D"display: inline-block; padding: 16px 40px; background-color: #6366f1; c=
+olor: #ffffff; text-decoration: none; font-size: 16px; font-weight: 600; bo=
+rder-radius: 8px; mso-padding-alt: 0;">
+                      <!--[if mso]>
+                      <i style=3D"mso-font-width: 200%; mso-text-raise: 24p=
+t;">&nbsp;</i>
+                      <![endif]-->
+                      <span style=3D"mso-text-raise: 12pt;">Reset My Passwo=
+rd</span>
+                      <!--[if mso]>
+                      <i style=3D"mso-font-width: 200%;">&nbsp;</i>
+                      <![endif]-->
+                    </a>
+                  </td>
+                </tr>
+              </table>
+             =20
+              <!-- Expiry Notice -->
+              <table role=3D"presentation" width=3D"100%" cellspacing=3D"0"=
+ cellpadding=3D"0" border=3D"0" style=3D"margin-bottom: 24px;">
+                <tr>
+                  <td style=3D"background-color: #fef3c7; border-radius: 8p=
+x; padding: 14px 16px; text-align: center;">
+                    <p style=3D"margin: 0; font-size: 14px; color: #92400e;=
+">
+                      <span style=3D"font-weight: 600;">=E2=8F=B1 This link=
+ expires in 60 minutes</span> for your security.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+             =20
+              <!-- Security Details Card -->
+              <table role=3D"presentation" width=3D"100%" cellspacing=3D"0"=
+ cellpadding=3D"0" border=3D"0" style=3D"margin-bottom: 24px;">
+                <tr>
+                  <td style=3D"background-color: #f4f4f5; border-radius: 12=
+px; padding: 20px; border-left: 4px solid #6366f1;">
+                    <p style=3D"margin: 0 0 8px; font-size: 13px; font-weig=
+ht: 600; color: #71717a; text-transform: uppercase; letter-spacing: 0.5px;"=
+>Request Details</p>
+                    <table role=3D"presentation" width=3D"100%" cellspacing=
+=3D"0" cellpadding=3D"0" border=3D"0">
+                      <tr>
+                        <td style=3D"padding: 4px 0;">
+                          <span style=3D"font-size: 14px; color: #71717a;">=
+Date & Time:</span>
+                        </td>
+                        <td style=3D"padding: 4px 0; text-align: right;">
+                          <span style=3D"font-size: 14px; font-weight: 500;=
+ color: #18181b;">Tuesday, December 9, 2025 at 06:45 AM GMT+5:30</span>
+                        </td>
+                      </tr>
+                     =20
+                      <tr>
+                        <td style=3D"padding: 4px 0;">
+                          <span style=3D"font-size: 14px; color: #71717a;">=
+IP Address:</span>
+                        </td>
+                        <td style=3D"padding: 4px 0; text-align: right;">
+                          <span style=3D"font-size: 14px; font-weight: 500;=
+ color: #18181b;">10.82.8.17</span>
+                        </td>
+                      </tr>
+                     =20
+                    </table>
+                  </td>
+                </tr>
+              </table>
+             =20
+              <!-- Safety Note -->
+              <table role=3D"presentation" width=3D"100%" cellspacing=3D"0"=
+ cellpadding=3D"0" border=3D"0" style=3D"margin-bottom: 24px;">
+                <tr>
+                  <td style=3D"background-color: #f0fdf4; border-radius: 12=
+px; padding: 16px; border: 1px solid #bbf7d0;">
+                    <p style=3D"margin: 0; font-size: 14px; line-height: 1.=
+5; color: #166534;">
+                      <strong>Didn't request this?</strong> You can safely =
+ignore this email. Your password will remain unchanged and no action is nee=
+ded.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+             =20
+              <!-- Alternative Link -->
+              <table role=3D"presentation" width=3D"100%" cellspacing=3D"0"=
+ cellpadding=3D"0" border=3D"0">
+                <tr>
+                  <td style=3D"border-top: 1px solid #e4e4e7; padding-top: =
+20px;">
+                    <p style=3D"margin: 0 0 8px; font-size: 13px; color: #7=
+1717a;">
+                      If the button doesn't work, copy and paste this link =
+into your browser:
+                    </p>
+                    <p style=3D"margin: 0; font-size: 12px; word-break: bre=
+ak-all;">
+                      <a href=3D"https://typemasterai.com/reset-password?to=
+ken=3D19bda3437e35dc870098f8ab9a38105de35973586e17dd275b077b176057041a" sty=
+le=3D"color: #6366f1; text-decoration: none;">https://typemasterai.com/rese=
+t-password?token=3D19bda3437e35dc870098f8ab9a38105de35973586e17dd275b077b17=
+6057041a</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+         =20
+          <!-- Footer -->
+          <tr>
+            <td style=3D"background-color: #f9fafb; padding: 24px 40px; bor=
+der-top: 1px solid #e4e4e7;">
+              <table role=3D"presentation" width=3D"100%" cellspacing=3D"0"=
+ cellpadding=3D"0" border=3D"0">
+                <tr>
+                  <td align=3D"center">
+                    <p style=3D"margin: 0 0 8px; font-size: 14px; color: #7=
+1717a;">
+                      Need help? <a href=3D"https://typemasterai.com/contac=
+t" style=3D"color: #6366f1; text-decoration: none; font-weight: 500;">Conta=
+ct Support</a>
+                    </p>
+                    <p style=3D"margin: 0; font-size: 12px; color: #a1a1aa;=
+">
+                      =C2=A9 2025 TypeMasterAI. All rights reserved.<br>
+                      <a href=3D"https://typemasterai.com" style=3D"color: =
+#a1a1aa; text-decoration: none;">typemasterai.com</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+         =20
+        </table>
+       =20
+        <!-- Security Note -->
+        <table role=3D"presentation" width=3D"600" cellspacing=3D"0" cellpa=
+dding=3D"0" border=3D"0" style=3D"max-width: 600px; width: 100%;">
+          <tr>
+            <td style=3D"padding: 24px 20px; text-align: center;">
+              <p style=3D"margin: 0; font-size: 12px; color: #a1a1aa; line-=
+height: 1.5;">
+                This is an automated security notification. Please do not r=
+eply to this email.<br>
+                If you have any questions, visit our <a href=3D"https://typ=
+emasterai.com/help" style=3D"color: #6366f1; text-decoration: none;">Help C=
+enter</a>.
+              </p>
+            </td>
+          </tr>
+        </table>
+       =20
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+--24a09b3632b5ad1aead0406f6de597fdab97077ee42e0a660cb1369ee5af--
