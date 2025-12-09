@@ -108,8 +108,6 @@ export default function TypingTest() {
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("easy");
   const [customPrompt, setCustomPrompt] = useState("");
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
-  const [showPasteText, setShowPasteText] = useState(false);
-  const [pastedText, setPastedText] = useState("");
   const [text, setText] = useState("");
   const [originalText, setOriginalText] = useState(""); // Store original paragraph for repeating
   const [userInput, setUserInput] = useState("");
@@ -1778,15 +1776,12 @@ Can you beat my score? Try it here: `,
             </div>
           )}
           
-          {/* AI Custom Prompt & Paste Text */}
-          <div className="flex items-center justify-center gap-2 flex-wrap">
+          {/* AI Custom Prompt */}
+          <div className="flex items-center justify-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={() => {
-                    setShowCustomPrompt(!showCustomPrompt);
-                    if (!showCustomPrompt) setShowPasteText(false);
-                  }}
+                  onClick={() => setShowCustomPrompt(!showCustomPrompt)}
                   className={cn(
                     "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2",
                     showCustomPrompt
@@ -1796,41 +1791,11 @@ Can you beat my score? Try it here: `,
                   data-testid="button-toggle-custom-prompt"
                 >
                   <Sparkles className="w-4 h-4" />
-                  AI Custom
+                  AI Custom Content
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-[240px]">
-                <p className="font-medium mb-1">AI Custom Content</p>
-                <p className="text-xs text-muted-foreground">Tell AI what kind of paragraph you want (e.g., "about space exploration")</p>
-              </TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => {
-                    setShowPasteText(!showPasteText);
-                    if (!showPasteText) setShowCustomPrompt(false);
-                  }}
-                  className={cn(
-                    "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2",
-                    showPasteText
-                      ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/25" 
-                      : "bg-secondary text-muted-foreground hover:text-foreground"
-                  )}
-                  data-testid="button-toggle-paste-text"
-                >
-                  <Copy className="w-4 h-4" />
-                  Paste Text
-                </button>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[280px]">
-                <p className="font-medium mb-1">Paste Your Own Text</p>
-                <p className="text-xs text-muted-foreground mb-2">Paste any text you want to practice typing. Perfect for practicing specific content like articles, code, or documents.</p>
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <p><span className="text-blue-400">Tip:</span> Paste text from articles, books, or your own notes</p>
-                  <p><span className="text-cyan-400">Accuracy:</span> Tracked against your pasted text</p>
-                </div>
+              <TooltipContent>
+                <p>Tell AI what kind of paragraph you want (e.g., "about space exploration")</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -1904,108 +1869,6 @@ Can you beat my score? Try it here: `,
               </div>
               <p className="text-xs text-muted-foreground text-center">
                 Describe the topic or theme for your typing test paragraph
-              </p>
-            </div>
-          )}
-          
-          {showPasteText && (
-            <div className="flex flex-col items-center justify-center gap-2 max-w-2xl mx-auto">
-              <div className="flex flex-col w-full gap-2">
-                <textarea
-                  value={pastedText}
-                  onChange={(e) => setPastedText(e.target.value)}
-                  placeholder="Paste or type any text you want to practice typing..."
-                  rows={4}
-                  className={cn(
-                    "w-full px-4 py-3 rounded-lg text-sm text-foreground placeholder:text-muted-foreground border border-border focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none",
-                    "bg-secondary"
-                  )}
-                  data-testid="textarea-paste-text"
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs text-muted-foreground">
-                    {pastedText.length > 0 && (
-                      <span>
-                        {pastedText.trim().split(/\s+/).filter(w => w.length > 0).length} words, {pastedText.length} characters
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setPastedText("");
-                      }}
-                      disabled={!pastedText.trim()}
-                      className={cn(
-                        "px-4 py-2 rounded-lg text-sm font-medium transition-all",
-                        !pastedText.trim()
-                          ? "bg-secondary/50 text-muted-foreground/50 cursor-not-allowed"
-                          : "bg-secondary text-muted-foreground hover:text-foreground"
-                      )}
-                      data-testid="button-clear-pasted"
-                    >
-                      Clear
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (pastedText.trim()) {
-                          // Validate minimum length
-                          const trimmedText = pastedText.trim();
-                          if (trimmedText.length < 10) {
-                            toast({
-                              title: "Text Too Short",
-                              description: "Please paste at least 10 characters to practice.",
-                              variant: "destructive",
-                            });
-                            return;
-                          }
-                          
-                          // Set the pasted text as the target paragraph
-                          setText(trimmedText);
-                          setOriginalText(trimmedText);
-                          setUserInput("");
-                          setStartTime(null);
-                          setIsActive(false);
-                          setIsFinished(false);
-                          setWpm(0);
-                          setRawWpm(0);
-                          setConsistency(100);
-                          setAccuracy(100);
-                          keystrokeTrackerRef.current = null;
-                          wpmHistoryRef.current = [];
-                          setShowPasteText(false);
-                          
-                          toast({
-                            title: "Custom Text Loaded",
-                            description: `Ready to practice with your ${trimmedText.split(/\s+/).filter(w => w.length > 0).length} word paragraph!`,
-                          });
-                          
-                          setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 100);
-                        } else {
-                          toast({
-                            title: "No Text Provided",
-                            description: "Please paste or type some text to practice with.",
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      disabled={!pastedText.trim()}
-                      className={cn(
-                        "px-6 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all",
-                        !pastedText.trim()
-                          ? "bg-blue-500/50 text-white cursor-not-allowed"
-                          : "bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600"
-                      )}
-                      data-testid="button-use-pasted-text"
-                    >
-                      <Check className="w-4 h-4" />
-                      Use This Text
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground text-center">
-                Paste any content you want to practice: articles, code, notes, or documents
               </p>
             </div>
           )}
