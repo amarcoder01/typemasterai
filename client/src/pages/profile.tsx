@@ -738,14 +738,14 @@ export default function Profile() {
                   </div>
                 </div>
                 
-                <div className="flex-1 min-w-0 w-full sm:w-auto text-center sm:text-left">
+                <div className="flex-1 min-w-0 w-full sm:w-auto text-center sm:text-left overflow-hidden">
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-primary whitespace-nowrap">
                       Next Badge to Unlock
                     </span>
                     <Badge 
                       variant="outline" 
-                      className="text-[10px] px-1.5 py-0 capitalize"
+                      className="text-[10px] px-1.5 py-0 capitalize shrink-0"
                       style={{ 
                         borderColor: nextAchievement.color,
                         color: nextAchievement.color
@@ -756,17 +756,17 @@ export default function Profile() {
                     </Badge>
                     <Badge 
                       variant="secondary" 
-                      className="text-[10px] px-1.5 py-0"
+                      className="text-[10px] px-1.5 py-0 shrink-0"
                       data-testid="next-badge-points"
                     >
                       +{nextAchievement.points} XP
                     </Badge>
                   </div>
                   
-                  <h3 className="text-lg sm:text-xl font-bold truncate" data-testid="next-badge-name">
+                  <h3 className="text-lg sm:text-xl font-bold break-words" data-testid="next-badge-name">
                     {nextAchievement.name}
                   </h3>
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2 sm:line-clamp-1" data-testid="next-badge-description">
+                  <p className="text-sm text-muted-foreground mt-1 break-words" data-testid="next-badge-description">
                     {nextAchievement.description}
                   </p>
                   
