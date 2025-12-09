@@ -17,6 +17,8 @@ Domain-based email system for all communications:
 - Mailgun domain (mg.typemasterai.com) fully verified with SPF, DKIM, DMARC
 - Email tracking disabled for transactional emails to maximize deliverability
 - Domain reputation building in progress (2-4 weeks for full trust)
+- CAN-SPAM compliant with physical mailing address in all email footers
+- Optimized email templates for spam filter compatibility (no external fonts, proper headers)
 
 ## System Architecture
 

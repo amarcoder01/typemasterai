@@ -674,11 +674,8 @@ export class EmailService {
     </xml>
   </noscript>
   <![endif]-->
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-  </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f5;">
     <tr>
       <td align="center" style="padding: 40px 20px;">
@@ -820,9 +817,10 @@ export class EmailService {
                     <p style="margin: 0 0 8px; font-size: 14px; color: #71717a;">
                       Need help? <a href="${this.appUrl}/contact" style="color: #6366f1; text-decoration: none; font-weight: 500;">Contact Support</a>
                     </p>
-                    <p style="margin: 0; font-size: 12px; color: #a1a1aa;">
+                    <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.6;">
                       © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
-                      <a href="${this.appUrl}" style="color: #a1a1aa; text-decoration: none;">typemasterai.com</a>
+                      <a href="${this.appUrl}" style="color: #a1a1aa; text-decoration: none;">typemasterai.com</a><br>
+                      <span style="font-size: 11px;">TypeMasterAI, 123 Main Street, Suite 100, San Francisco, CA 94102, USA</span>
                     </p>
                   </td>
                 </tr>
@@ -837,8 +835,8 @@ export class EmailService {
           <tr>
             <td style="padding: 24px 20px; text-align: center;">
               <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
-                This is an automated security notification. Please do not reply to this email.<br>
-                If you have any questions, visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
+                This is an automated security notification. For assistance, please contact us at <a href="mailto:support@typemasterai.com" style="color: #6366f1; text-decoration: none;">support@typemasterai.com</a><br>
+                or visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
               </p>
             </td>
           </tr>
@@ -890,11 +888,8 @@ export class EmailService {
     </xml>
   </noscript>
   <![endif]-->
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-  </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f5;">
     <tr>
       <td align="center" style="padding: 40px 20px;">
@@ -1035,9 +1030,10 @@ export class EmailService {
                     <p style="margin: 0 0 8px; font-size: 14px; color: #71717a;">
                       Need help? <a href="${this.appUrl}/contact" style="color: #6366f1; text-decoration: none; font-weight: 500;">Contact Support</a>
                     </p>
-                    <p style="margin: 0; font-size: 12px; color: #a1a1aa;">
+                    <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.6;">
                       © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
-                      <a href="${this.appUrl}" style="color: #a1a1aa; text-decoration: none;">typemasterai.com</a>
+                      <a href="${this.appUrl}" style="color: #a1a1aa; text-decoration: none;">typemasterai.com</a><br>
+                      <span style="font-size: 11px;">TypeMasterAI, 123 Main Street, Suite 100, San Francisco, CA 94102, USA</span>
                     </p>
                   </td>
                 </tr>
@@ -1052,8 +1048,8 @@ export class EmailService {
           <tr>
             <td style="padding: 24px 20px; text-align: center;">
               <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
-                This is an automated security notification. Please do not reply to this email.<br>
-                If you have any questions, visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
+                This is an automated security notification. For assistance, please contact us at <a href="mailto:support@typemasterai.com" style="color: #6366f1; text-decoration: none;">support@typemasterai.com</a><br>
+                or visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
               </p>
             </td>
           </tr>
@@ -1091,11 +1087,8 @@ export class EmailService {
     </xml>
   </noscript>
   <![endif]-->
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-  </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f5;">
     <tr>
       <td align="center" style="padding: 40px 20px;">
@@ -1398,11 +1391,8 @@ export class EmailService {
     </xml>
   </noscript>
   <![endif]-->
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-  </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f5;">
     <tr>
       <td align="center" style="padding: 40px 20px;">
