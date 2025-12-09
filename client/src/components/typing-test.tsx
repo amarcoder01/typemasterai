@@ -2497,7 +2497,7 @@ Can you beat my score? Try it here: `,
                 </div>
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Characters</span>
-                  <span className="font-mono text-foreground">{userInput.length}</span>
+                  <span className="font-mono text-foreground">{freestyleMode ? freestyleText.length : userInput.length}</span>
                 </div>
                  <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Time</span>
