@@ -1199,30 +1199,8 @@ Can you beat my score? Try it here: `,
       if (!container) return;
       
       // Find the character element at current position
-      let charElement = document.querySelector(`[data-char-index="${userInput.length}"]`) as HTMLElement;
-      
-      // If we're at the end of text (all characters typed), position cursor after the last character
-      if (!charElement && userInput.length > 0 && text) {
-        const lastCharElement = document.querySelector(`[data-char-index="${text.length - 1}"]`) as HTMLElement;
-        if (lastCharElement) {
-          const containerRect = container.getBoundingClientRect();
-          const charRect = lastCharElement.getBoundingClientRect();
-          const scrollTop = container.scrollTop;
-          
-          // Position cursor AFTER the last character (add character width to left position)
-          const relativeLeft = charRect.right - containerRect.left;
-          const relativeTop = charRect.top - containerRect.top + scrollTop;
-          const height = charRect.height || 40;
-          
-          setCursorPosition(prev => {
-            if (prev.left === relativeLeft && prev.top === relativeTop && prev.height === height) {
-              return prev;
-            }
-            return { left: relativeLeft, top: relativeTop, height };
-          });
-          return;
-        }
-      }
+      const targetIndex = userInput.length;
+      const charElement = document.querySelector(`[data-char-index="${targetIndex}"]`) as HTMLElement;
       
       if (charElement) {
         const charRect = charElement.getBoundingClientRect();
@@ -1258,13 +1236,26 @@ Can you beat my score? Try it here: `,
           container.scrollTop = scrollTop + cursorTopRelative - 20; // Small padding at top
         }
       } else {
-        // No input yet - position at start
+        // Fallback: position at start (first character or container origin)
         const firstChar = document.querySelector(`[data-char-index="0"]`) as HTMLElement;
-        const height = firstChar?.getBoundingClientRect().height || 40;
-        setCursorPosition(prev => {
-          if (prev.left === 0 && prev.top === 0 && prev.height === height) return prev;
-          return { left: 0, top: 0, height };
-        });
+        if (firstChar) {
+          const containerRect = container.getBoundingClientRect();
+          const charRect = firstChar.getBoundingClientRect();
+          const scrollTop = container.scrollTop;
+          const relativeLeft = charRect.left - containerRect.left;
+          const relativeTop = charRect.top - containerRect.top + scrollTop;
+          const height = charRect.height || 40;
+          setCursorPosition(prev => {
+            if (prev.left === relativeLeft && prev.top === relativeTop && prev.height === height) return prev;
+            return { left: relativeLeft, top: relativeTop, height };
+          });
+        } else {
+          // No characters rendered yet - use container origin
+          setCursorPosition(prev => {
+            if (prev.left === 0 && prev.top === 0 && prev.height === 40) return prev;
+            return { left: 0, top: 0, height: 40 };
+          });
+        }
         // Reset scroll to top when starting fresh
         container.scrollTop = 0;
       }
