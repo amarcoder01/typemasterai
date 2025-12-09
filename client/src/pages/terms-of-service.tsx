@@ -90,7 +90,7 @@ export default function TermsOfService() {
         <section>
           <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">5. AI-Generated Content</h2>
           <p className="text-muted-foreground mb-4">
-            TypeMasterAI uses OpenAI's GPT-4 technology for content generation. You acknowledge that:
+            TypeMasterAI uses third-party artificial intelligence services for content generation. You acknowledge that:
           </p>
           <ul className="list-disc pl-6 text-muted-foreground space-y-2">
             <li>AI-generated content may occasionally contain errors or inaccuracies</li>

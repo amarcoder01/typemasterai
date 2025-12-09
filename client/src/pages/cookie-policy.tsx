@@ -102,9 +102,9 @@ export default function CookiePolicy() {
         <section>
           <h2 className="text-2xl font-bold text-foreground mb-4">3. Third-Party Cookies</h2>
           
-          <h3 className="text-xl font-semibold text-foreground mb-3">3.1 OpenAI API</h3>
+          <h3 className="text-xl font-semibold text-foreground mb-3">3.1 Third-Party AI Services</h3>
           <p className="text-muted-foreground">
-            When you use our AI features (chat assistant, content generation), OpenAI may set cookies to process your requests. These are governed by <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">OpenAI's Privacy Policy</a>.
+            When you use our AI features (chat assistant, content generation), our third-party AI service providers may set cookies to process your requests. These are governed by their respective privacy policies.
           </p>
 
           <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">3.2 Hosting and Infrastructure</h3>
