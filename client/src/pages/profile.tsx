@@ -719,27 +719,27 @@ export default function Profile() {
             className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-card/80 to-purple-500/5 backdrop-blur-md shadow-lg shadow-primary/10 hover:border-primary/50 transition-all duration-300"
             data-testid="next-badge-widget"
           >
-            <CardContent className="p-6">
-              <div className="flex items-center gap-6">
-                <div className="relative">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+                <div className="relative shrink-0 mx-auto sm:mx-0">
                   <div 
                     className={cn(
-                      "w-20 h-20 rounded-2xl flex items-center justify-center text-4xl shadow-lg",
+                      "w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shadow-lg",
                       "bg-gradient-to-br from-muted/80 to-muted border-2 border-border/50"
                     )}
                     style={{ 
                       boxShadow: `0 8px 32px ${nextAchievement.color}20`,
                     }}
                   >
-                    {nextAchievement.icon}
+                    <span className="select-none">{nextAchievement.icon}</span>
                   </div>
-                  <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-lg">
-                    <Target className="w-4 h-4 text-primary-foreground" />
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                    <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-foreground" />
                   </div>
                 </div>
                 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="flex-1 min-w-0 w-full sm:w-auto text-center sm:text-left">
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
                     <span className="text-xs font-semibold uppercase tracking-wider text-primary">
                       Next Badge to Unlock
                     </span>
@@ -763,24 +763,24 @@ export default function Profile() {
                     </Badge>
                   </div>
                   
-                  <h3 className="text-xl font-bold truncate" data-testid="next-badge-name">
+                  <h3 className="text-lg sm:text-xl font-bold truncate" data-testid="next-badge-name">
                     {nextAchievement.name}
                   </h3>
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-1" data-testid="next-badge-description">
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2 sm:line-clamp-1" data-testid="next-badge-description">
                     {nextAchievement.description}
                   </p>
                   
-                  <div className="mt-4 space-y-2">
+                  <div className="mt-3 sm:mt-4 space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Progress</span>
                       <span className="font-mono font-semibold text-primary" data-testid="next-badge-progress-text">
                         {nextAchievement.currentValue} / {nextAchievement.targetValue}
-                        <span className="text-muted-foreground ml-2">({nextAchievement.progress}%)</span>
+                        <span className="text-muted-foreground ml-1 sm:ml-2 text-xs sm:text-sm">({nextAchievement.progress}%)</span>
                       </span>
                     </div>
                     <Progress 
                       value={nextAchievement.progress} 
-                      className="h-3 bg-secondary [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-purple-500"
+                      className="h-2.5 sm:h-3 bg-secondary [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-purple-500"
                       data-testid="next-badge-progress"
                     />
                   </div>
@@ -789,7 +789,7 @@ export default function Profile() {
                 <Button 
                   variant="ghost" 
                   size="icon"
-                  className="shrink-0"
+                  className="shrink-0 hidden sm:flex"
                   onClick={() => setLocation("/")}
                   data-testid="next-badge-start-typing"
                 >
