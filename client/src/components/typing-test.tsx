@@ -1556,19 +1556,6 @@ Can you beat my score? Try it here: `,
                 </TooltipContent>
               </Tooltip>
             </div>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground cursor-help">
-                  <Sparkles className="w-3 h-3" />
-                  <span>AI-powered</span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-[240px]">
-                <p className="font-medium mb-1">GPT-4 Powered</p>
-                <p className="text-xs text-muted-foreground">AI automatically generates fresh, unique paragraphs when needed. Every practice session is different!</p>
-              </TooltipContent>
-            </Tooltip>
           </div>
 
         {/* Time Mode Selector */}
