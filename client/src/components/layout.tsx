@@ -118,6 +118,66 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </Tooltip>
               );
             })}
+            
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all duration-200 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent whitespace-nowrap"
+                      data-testid="nav-theme-toggle"
+                    >
+                      <Palette className="w-4 h-4" />
+                      <span>Theme</span>
+                    </button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="bg-card border-border">
+                  <p className="text-sm">Change color theme</p>
+                </TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="center" className="w-48">
+                <DropdownMenuLabel>Choose Theme</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setTheme("focus")}
+                  className="flex items-center gap-3 cursor-pointer"
+                  data-testid="theme-option-focus"
+                >
+                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-blue-700" />
+                  <span className="flex-1">Focus Flow</span>
+                  {theme === "focus" && <span className="text-primary">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setTheme("light")}
+                  className="flex items-center gap-3 cursor-pointer"
+                  data-testid="theme-option-light"
+                >
+                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500" />
+                  <span className="flex-1">Light</span>
+                  {theme === "light" && <span className="text-primary">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setTheme("cyber")}
+                  className="flex items-center gap-3 cursor-pointer"
+                  data-testid="theme-option-cyber"
+                >
+                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
+                  <span className="flex-1">Cyberpunk</span>
+                  {theme === "cyber" && <span className="text-primary">✓</span>}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setTheme("retro")}
+                  className="flex items-center gap-3 cursor-pointer"
+                  data-testid="theme-option-retro"
+                >
+                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-orange-500 to-amber-600" />
+                  <span className="flex-1">Retro</span>
+                  {theme === "retro" && <span className="text-primary">✓</span>}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
 
           <div className="flex items-center gap-1.5 shrink-0">
