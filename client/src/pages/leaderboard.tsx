@@ -499,7 +499,12 @@ function LeaderboardContent() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors" aria-label="Language help">
+                <button 
+                  type="button" 
+                  className="text-muted-foreground/60 hover:text-muted-foreground transition-colors" 
+                  aria-label="Language help"
+                  data-testid="language-help-button"
+                >
                   <HelpCircle className="w-3.5 h-3.5" />
                 </button>
               </TooltipTrigger>
