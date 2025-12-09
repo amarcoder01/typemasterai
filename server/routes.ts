@@ -1027,6 +1027,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rawTimeframe = (req.query.timeframe as string) || "all";
       const validTimeframes = ["all", "daily", "weekly", "monthly"];
       const timeframe = validTimeframes.includes(rawTimeframe) ? rawTimeframe : "all";
+      const language = (req.query.language as string) || "en";
       
       const actualOffset = cursor ? leaderboardCache.decodeCursor(cursor) : offset;
       
@@ -1034,6 +1035,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timeframe: timeframe as any,
         limit,
         offset: actualOffset,
+        language,
       });
       
       res.set('Cache-Control', 'public, max-age=30');
@@ -1053,8 +1055,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rawTimeframe = (req.query.timeframe as string) || "all";
       const validTimeframes = ["all", "daily", "weekly", "monthly"];
       const timeframe = validTimeframes.includes(rawTimeframe) ? rawTimeframe as "all" | "daily" | "weekly" | "monthly" : "all";
+      const language = (req.query.language as string) || "en";
       
-      const result = await leaderboardCache.getAroundMe("global", req.user!.id, { range, timeframe });
+      const result = await leaderboardCache.getAroundMe("global", req.user!.id, { range, timeframe, language });
       
       res.set('Cache-Control', 'private, max-age=10');
       res.set('X-Cache', result.cacheHit ? 'HIT' : 'MISS');
