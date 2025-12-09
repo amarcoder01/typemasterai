@@ -260,7 +260,7 @@ export interface IStorage {
     avgWpm: number;
     avgAccuracy: number;
   } | null>;
-  getLeaderboard(limit?: number): Promise<Array<{
+  getLeaderboard(limit?: number, language?: string): Promise<Array<{
     userId: string;
     username: string;
     wpm: number;
@@ -271,7 +271,7 @@ export interface IStorage {
     totalTests: number;
   }>>;
 
-  getLeaderboardPaginated(limit: number, offset: number, timeframe?: string): Promise<Array<{
+  getLeaderboardPaginated(limit: number, offset: number, timeframe?: string, language?: string): Promise<Array<{
     userId: string;
     username: string;
     wpm: number;
@@ -283,8 +283,8 @@ export interface IStorage {
     rank: number;
     isVerified: boolean;
   }>>;
-  getLeaderboardCount(timeframe?: string): Promise<number>;
-  getLeaderboardAroundUser(userId: string, range?: number, timeframe?: string): Promise<{ userRank: number; entries: any[] }>;
+  getLeaderboardCount(timeframe?: string, language?: string): Promise<number>;
+  getLeaderboardAroundUser(userId: string, range?: number, timeframe?: string, language?: string): Promise<{ userRank: number; entries: any[] }>;
 
   getStressTestLeaderboardPaginated(difficulty: string | undefined, limit: number, offset: number): Promise<Array<{
     userId: string;
@@ -1365,7 +1365,7 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getLeaderboard(limit: number = 20): Promise<Array<{
+  async getLeaderboard(limit: number = 20, language: string = "en"): Promise<Array<{
     userId: string;
     username: string;
     wpm: number;
@@ -1395,6 +1395,7 @@ export class DatabaseStorage implements IStorage {
           ) as rank
         FROM test_results tr
         WHERE (tr.freestyle = false OR tr.freestyle IS NULL)
+          AND tr.language = ${language}
       ),
       test_counts AS (
         SELECT 
@@ -1402,6 +1403,7 @@ export class DatabaseStorage implements IStorage {
           COUNT(*)::int as total_tests
         FROM test_results
         WHERE (freestyle = false OR freestyle IS NULL)
+          AND language = ${language}
         GROUP BY user_id
       )
       SELECT 
@@ -1424,7 +1426,7 @@ export class DatabaseStorage implements IStorage {
     return leaderboard.rows as any[];
   }
 
-  async getLeaderboardPaginated(limit: number, offset: number, timeframe?: string): Promise<Array<{
+  async getLeaderboardPaginated(limit: number, offset: number, timeframe?: string, language: string = "en"): Promise<Array<{
     userId: string;
     username: string;
     wpm: number;
@@ -1453,6 +1455,7 @@ export class DatabaseStorage implements IStorage {
         FROM test_results tr
         WHERE tr.created_at >= ${dateFilter}
           AND (tr.freestyle = false OR tr.freestyle IS NULL)
+          AND tr.language = ${language}
       ),
       test_counts AS (
         SELECT 
@@ -1461,6 +1464,7 @@ export class DatabaseStorage implements IStorage {
         FROM test_results
         WHERE created_at >= ${dateFilter}
           AND (freestyle = false OR freestyle IS NULL)
+          AND language = ${language}
         GROUP BY user_id
       ),
       final_ranking AS (
@@ -1498,7 +1502,7 @@ export class DatabaseStorage implements IStorage {
     return leaderboard.rows as any[];
   }
 
-  async getLeaderboardCount(timeframe?: string): Promise<number> {
+  async getLeaderboardCount(timeframe?: string, language: string = "en"): Promise<number> {
     const dateFilter = this.getTimeframeDateFilter(timeframe);
     
     const result = await db.execute(sql`
@@ -1506,12 +1510,13 @@ export class DatabaseStorage implements IStorage {
       FROM test_results
       WHERE created_at >= ${dateFilter}
         AND (freestyle = false OR freestyle IS NULL)
+        AND language = ${language}
     `);
     
     return (result.rows[0] as any)?.count || 0;
   }
 
-  async getLeaderboardAroundUser(userId: string, range: number = 5, timeframe?: string): Promise<{ userRank: number; entries: any[] }> {
+  async getLeaderboardAroundUser(userId: string, range: number = 5, timeframe?: string, language: string = "en"): Promise<{ userRank: number; entries: any[] }> {
     const dateFilter = this.getTimeframeDateFilter(timeframe);
     
     const rankResult = await db.execute(sql`
@@ -1526,6 +1531,7 @@ export class DatabaseStorage implements IStorage {
         FROM test_results tr
         WHERE tr.created_at >= ${dateFilter}
           AND (tr.freestyle = false OR tr.freestyle IS NULL)
+          AND tr.language = ${language}
       ),
       user_best AS (
         SELECT user_id, wpm FROM ranked_results WHERE user_rank = 1
@@ -1564,12 +1570,14 @@ export class DatabaseStorage implements IStorage {
         FROM test_results tr
         WHERE tr.created_at >= ${dateFilter}
           AND (tr.freestyle = false OR tr.freestyle IS NULL)
+          AND tr.language = ${language}
       ),
       test_counts AS (
         SELECT user_id, COUNT(*)::int as total_tests 
         FROM test_results 
         WHERE created_at >= ${dateFilter}
           AND (freestyle = false OR freestyle IS NULL)
+          AND language = ${language}
         GROUP BY user_id
       ),
       final_ranking AS (
