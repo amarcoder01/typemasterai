@@ -61,49 +61,46 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">3. AI and OpenAI Integration</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">3. Third-Party AI Services</h2>
           <p className="text-muted-foreground mb-4">
-            TypeMasterAI uses OpenAI's GPT-4 and GPT-4o technology to power:
+            TypeMasterAI uses third-party artificial intelligence services to provide enhanced features:
           </p>
           <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-            <li>AI chat assistant for typing tips and guidance (GPT-4o with web search capabilities)</li>
-            <li>Automatic paragraph generation for typing tests (GPT-4o-mini)</li>
-            <li>Code snippet generation for programming practice (GPT-4o-mini)</li>
-            <li>AI Ghost Racers in multiplayer mode (GPT-4o-mini for username generation)</li>
+            <li>AI chat assistant for typing tips and guidance</li>
+            <li>Automatic content generation for typing practice</li>
+            <li>Code snippet generation for programming exercises</li>
+            <li>Intelligent features in multiplayer mode</li>
           </ul>
           
-          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">3.1 Data Sent to OpenAI</h3>
+          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">3.1 Data Processing</h3>
           <p className="text-muted-foreground mb-4">
-            When you use AI features, the following data may be sent to OpenAI:
+            When you use AI-powered features, certain data may be processed by our third-party AI service providers:
           </p>
           <ul className="list-disc pl-6 text-muted-foreground space-y-2">
             <li>Your chat messages and conversation context</li>
             <li>Selected language and content preferences</li>
-            <li>Programming language selection for code mode</li>
+            <li>Feature-specific inputs and selections</li>
           </ul>
           <p className="text-muted-foreground mt-4">
-            <strong className="text-foreground">Important:</strong> We do not send your personal account information, typing test results, or analytics data to OpenAI unless you explicitly include it in your messages.
+            <strong className="text-foreground">Important:</strong> We do not send your personal account information, typing test results, or analytics data to third-party AI providers unless you explicitly include it in your inputs.
           </p>
 
-          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">3.2 OpenAI Data Retention</h3>
-          <p className="text-muted-foreground mb-4">
-            OpenAI retains API data for up to 30 days for abuse monitoring, then deletes it. OpenAI does <strong className="text-foreground">not</strong> use API data to train their models without explicit consent.
-          </p>
+          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">3.2 Third-Party Data Practices</h3>
           <p className="text-muted-foreground">
-            OpenAI's data usage is governed by their <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Privacy Policy</a> and <a href="https://openai.com/policies/api-data-usage-policies" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">API Data Usage Policies</a>. For complete details on our AI practices, see our <Link href="/ai-transparency" className="text-primary hover:underline">AI Transparency Notice</Link>.
+            Our AI service providers process data in accordance with their own privacy policies and industry-standard data protection practices. Data is typically retained for limited periods for security and abuse monitoring purposes. For additional details on our AI practices, see our <Link href="/ai-transparency" className="text-primary hover:underline">AI Transparency Notice</Link>.
           </p>
         </section>
 
         <section>
           <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">4. Data Storage and Security</h2>
           <p className="text-muted-foreground mb-4">
-            We implement industry-standard security measures:
+            We implement industry-standard security measures to protect your data:
           </p>
           <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-            <li>Passwords are encrypted using bcrypt with 10 rounds of hashing</li>
+            <li>Passwords are encrypted using strong cryptographic hashing</li>
             <li>Secure HTTPS encryption for all data transmission</li>
-            <li>PostgreSQL database with access controls and regular backups</li>
-            <li>Session-based authentication with HTTP-only cookies</li>
+            <li>Database access controls and regular backups</li>
+            <li>Session-based authentication with secure cookies</li>
             <li>Regular security audits and updates</li>
           </ul>
         </section>
@@ -115,7 +112,7 @@ export default function PrivacyPolicy() {
           </p>
           <ul className="list-disc pl-6 text-muted-foreground space-y-2">
             <li><strong className="text-foreground">Public Leaderboards:</strong> Your username and typing scores are publicly visible on leaderboards</li>
-            <li><strong className="text-foreground">Service Providers:</strong> OpenAI for AI features, hosting providers for infrastructure</li>
+            <li><strong className="text-foreground">Service Providers:</strong> Third-party providers for AI features, hosting, and infrastructure services</li>
             <li><strong className="text-foreground">Legal Requirements:</strong> When required by law, court order, or government request</li>
             <li><strong className="text-foreground">Business Transfers:</strong> In case of merger, acquisition, or sale of assets</li>
           </ul>
