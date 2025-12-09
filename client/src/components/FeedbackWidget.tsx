@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, MessageSquarePlus, Bug, Lightbulb, MessageCircle, Palette, Zap, FileText } from "lucide-react";
+import { Loader2, MessageSquare, Bug, Lightbulb, MessageCircle, Palette, Zap, FileText, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
 const feedbackFormSchema = z.object({
@@ -180,32 +180,31 @@ export default function FeedbackWidget({
           data-testid="button-open-feedback"
           aria-label="Give feedback"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 via-purple-400/20 to-pink-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-pulse" />
-          <MessageSquarePlus className="h-5 w-5 mr-2 relative z-10 group-hover:scale-110 transition-transform duration-200" />
-          <span className="relative z-10">Feedback</span>
+          <MessageSquare className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform duration-200" />
+          <span>Feedback</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border-2 border-cyan-500/30 shadow-[0_0_50px_rgba(6,182,212,0.2)] animate-in fade-in-0 zoom-in-95 duration-300">
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-purple-500/5 to-pink-500/5 rounded-lg pointer-events-none" />
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
-        <DialogHeader className="relative z-10">
-          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Send Feedback
-          </DialogTitle>
-          <DialogDescription className="text-slate-300">
-            Help us improve TypeMasterAI by sharing your thoughts, reporting bugs, or suggesting new features.
+      
+      <DialogContent className="sm:max-w-[540px] p-0 gap-0 bg-card border-border">
+        <DialogHeader className="p-6 pb-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-2xl font-semibold">Share your feedback</DialogTitle>
+          </div>
+          <DialogDescription className="text-base text-muted-foreground">
+            Help us improve by sharing your thoughts, reporting issues, or suggesting features.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4 relative z-10">
-          <div className="space-y-2">
-            <Label htmlFor="category">Category</Label>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="px-6 pb-6 space-y-5">
+          <div className="space-y-3">
+            <Label htmlFor="category" className="text-sm font-medium">
+              Category
+            </Label>
             <Select
               value={form.watch("categoryId") || ""}
               onValueChange={(value) => form.setValue("categoryId", value)}
             >
-              <SelectTrigger id="category" data-testid="select-feedback-category">
+              <SelectTrigger id="category" data-testid="select-feedback-category" className="h-10">
                 <SelectValue placeholder="Select a category (optional)" />
               </SelectTrigger>
               <SelectContent>
@@ -227,8 +226,8 @@ export default function FeedbackWidget({
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="subject">
+          <div className="space-y-3">
+            <Label htmlFor="subject" className="text-sm font-medium">
               Subject <span className="text-destructive">*</span>
             </Label>
             <Input
@@ -236,49 +235,51 @@ export default function FeedbackWidget({
               placeholder="Brief summary of your feedback"
               {...form.register("subject")}
               data-testid="input-feedback-subject"
+              className="h-10"
             />
             {form.formState.errors.subject && (
-              <p className="text-sm text-destructive" data-testid="text-error-subject">
+              <p className="text-xs text-destructive" data-testid="text-error-subject">
                 {form.formState.errors.subject.message}
               </p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="message">
+          <div className="space-y-3">
+            <Label htmlFor="message" className="text-sm font-medium">
               Message <span className="text-destructive">*</span>
             </Label>
             <Textarea
               id="message"
-              placeholder="Describe your feedback in detail. Include steps to reproduce if reporting a bug."
-              rows={5}
+              placeholder="Describe your feedback in detail..."
+              rows={4}
               {...form.register("message")}
               data-testid="textarea-feedback-message"
+              className="resize-none"
             />
             {form.formState.errors.message && (
-              <p className="text-sm text-destructive" data-testid="text-error-message">
+              <p className="text-xs text-destructive" data-testid="text-error-message">
                 {form.formState.errors.message.message}
               </p>
             )}
             <p className="text-xs text-muted-foreground">
-              {form.watch("message")?.length || 0} / 5000 characters
+              {form.watch("message")?.length || 0} / 5000
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="priority">Priority</Label>
+          <div className="space-y-3">
+            <Label htmlFor="priority" className="text-sm font-medium">Priority</Label>
             <Select
               value={form.watch("priority")}
               onValueChange={(value) => form.setValue("priority", value as "low" | "medium" | "high" | "critical")}
             >
-              <SelectTrigger id="priority" data-testid="select-feedback-priority">
+              <SelectTrigger id="priority" data-testid="select-feedback-priority" className="h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(priorityLabels).map(([value, { label, description }]) => (
                   <SelectItem key={value} value={value}>
-                    <div className="flex flex-col">
-                      <span>{label}</span>
+                    <div className="flex flex-col items-start">
+                      <span className="font-medium">{label}</span>
                       <span className="text-xs text-muted-foreground">{description}</span>
                     </div>
                   </SelectItem>
@@ -288,13 +289,13 @@ export default function FeedbackWidget({
           </div>
 
           {user && (
-            <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/50">
+            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
               <div className="space-y-0.5">
-                <Label htmlFor="anonymous" className="text-sm font-medium">
-                  Submit Anonymously
+                <Label htmlFor="anonymous" className="text-sm font-medium cursor-pointer">
+                  Submit anonymously
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Your username won't be attached to this feedback
+                  Your username won't be attached
                 </p>
               </div>
               <Switch
@@ -307,20 +308,23 @@ export default function FeedbackWidget({
           )}
 
           {(isAnonymous || !user) && (
-            <div className="space-y-2">
-              <Label htmlFor="contactEmail">Contact Email (Optional)</Label>
+            <div className="space-y-3">
+              <Label htmlFor="contactEmail" className="text-sm font-medium">
+                Contact email <span className="text-muted-foreground">(Optional)</span>
+              </Label>
               <Input
                 id="contactEmail"
                 type="email"
                 placeholder="your@email.com"
                 {...form.register("contactEmail")}
                 data-testid="input-feedback-email"
+                className="h-10"
               />
               <p className="text-xs text-muted-foreground">
-                Provide an email if you'd like us to follow up on your feedback
+                We'll reach out if we need more details
               </p>
               {form.formState.errors.contactEmail && (
-                <p className="text-sm text-destructive" data-testid="text-error-email">
+                <p className="text-xs text-destructive" data-testid="text-error-email">
                   {form.formState.errors.contactEmail.message}
                 </p>
               )}
@@ -336,13 +340,13 @@ export default function FeedbackWidget({
             aria-hidden="true"
           />
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex gap-3 pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
               data-testid="button-cancel-feedback"
-              className="border-slate-600 hover:border-slate-500 hover:bg-slate-800/50 transition-all duration-200"
+              className="flex-1 h-10"
             >
               Cancel
             </Button>
@@ -350,16 +354,15 @@ export default function FeedbackWidget({
               type="submit"
               disabled={submitMutation.isPending}
               data-testid="button-submit-feedback"
-              className="bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 hover:shadow-[0_0_20px_rgba(6,182,212,0.5)] transition-all duration-300 relative overflow-hidden group"
+              className="flex-1 h-10 bg-primary hover:bg-primary/90"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               {submitMutation.isPending ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin relative z-10" />
-                  <span className="relative z-10">Submitting...</span>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
                 </>
               ) : (
-                <span className="relative z-10 font-semibold">Submit Feedback</span>
+                "Submit feedback"
               )}
             </Button>
           </div>
