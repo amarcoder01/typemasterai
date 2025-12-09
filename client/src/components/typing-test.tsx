@@ -108,6 +108,8 @@ export default function TypingTest() {
   const [difficulty, setDifficulty] = useState<"easy" | "medium" | "hard">("easy");
   const [customPrompt, setCustomPrompt] = useState("");
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
+  const [showPasteText, setShowPasteText] = useState(false);
+  const [pastedText, setPastedText] = useState("");
   const [text, setText] = useState("");
   const [originalText, setOriginalText] = useState(""); // Store original paragraph for repeating
   const [userInput, setUserInput] = useState("");
@@ -136,6 +138,7 @@ export default function TypingTest() {
   const [zenMode, setZenMode] = useState(false);
   const [freeTypeMode, setFreeTypeMode] = useState(false);
   const [freeTypeText, setFreeTypeText] = useState("");
+  const freeTypeLastKeystrokeRef = useRef<number>(0);
   const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
   const [isTypingFast, setIsTypingFast] = useState(false);
   const lastKeystrokeTimeRef = useRef<number>(0);
@@ -538,6 +541,9 @@ export default function TypingTest() {
     keystrokeTrackerRef.current = null;
     wpmHistoryRef.current = [];
     
+    // Reset free type last keystroke time
+    freeTypeLastKeystrokeRef.current = 0;
+    
     // Only fetch new paragraph if not in free type mode
     if (!freeTypeMode) {
       // Use fetchParagraph with forceGenerate to centralize counter logic
@@ -902,10 +908,20 @@ Can you beat my score? Try it here: `,
     setIsFinished(true);
     setTestCompletionDate(new Date());
     
-    // For timed tests that complete naturally (timer reaches 0), use the mode duration
-    // This ensures WPM matches the standard formula: (chars/5) / minutes
-    // Using Date.now() - startTime can drift due to setInterval inaccuracy
-    const elapsedSeconds = completedNaturally ? mode : (startTime ? (Date.now() - startTime) / 1000 : mode);
+    // Calculate elapsed time with idle time handling for Free Type mode
+    let elapsedSeconds: number;
+    
+    if (completedNaturally) {
+      // Timer expired naturally - use mode duration
+      elapsedSeconds = mode;
+    } else if (freeTypeMode && startTime && freeTypeLastKeystrokeRef.current > 0) {
+      // Free Type mode with manual finish (Shift+Enter) - use time until last keystroke
+      // This ignores idle time between last keystroke and test finish
+      elapsedSeconds = (freeTypeLastKeystrokeRef.current - startTime) / 1000;
+    } else {
+      // Standard mode or fallback - use actual elapsed time
+      elapsedSeconds = startTime ? (Date.now() - startTime) / 1000 : mode;
+    }
     
     // Handle Free Type mode differently - no reference text to compare
     const typedText = freeTypeMode ? freeTypeText : userInput;
@@ -937,10 +953,13 @@ Can you beat my score? Try it here: `,
       correctChars = chars - errorCount;
     }
     
-    // Edge case: prevent division by zero for elapsed time
+    // Edge case: prevent division by zero and handle minimum time threshold
+    // At least 1 second to prevent unrealistic WPM values
     const safeElapsedSeconds = Math.max(elapsedSeconds, 1);
     
-    const finalWpm = calculateWPM(correctChars, safeElapsedSeconds);
+    // Calculate final WPM with cap to prevent unrealistic values
+    const rawFinalWpm = calculateWPM(correctChars, safeElapsedSeconds);
+    const finalWpm = Math.min(Math.max(rawFinalWpm, 0), 300); // Cap at 0-300 WPM range
     const finalAccuracy = freeTypeMode ? 100 : calculateAccuracy(correctChars, chars);
     const finalErrors = errorCount;
     
@@ -1759,12 +1778,15 @@ Can you beat my score? Try it here: `,
             </div>
           )}
           
-          {/* AI Custom Prompt */}
-          <div className="flex items-center justify-center gap-2">
+          {/* AI Custom Prompt & Paste Text */}
+          <div className="flex items-center justify-center gap-2 flex-wrap">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={() => setShowCustomPrompt(!showCustomPrompt)}
+                  onClick={() => {
+                    setShowCustomPrompt(!showCustomPrompt);
+                    if (!showCustomPrompt) setShowPasteText(false);
+                  }}
                   className={cn(
                     "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2",
                     showCustomPrompt
@@ -1774,11 +1796,41 @@ Can you beat my score? Try it here: `,
                   data-testid="button-toggle-custom-prompt"
                 >
                   <Sparkles className="w-4 h-4" />
-                  AI Custom Content
+                  AI Custom
                 </button>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>Tell AI what kind of paragraph you want (e.g., "about space exploration")</p>
+              <TooltipContent className="max-w-[240px]">
+                <p className="font-medium mb-1">AI Custom Content</p>
+                <p className="text-xs text-muted-foreground">Tell AI what kind of paragraph you want (e.g., "about space exploration")</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => {
+                    setShowPasteText(!showPasteText);
+                    if (!showPasteText) setShowCustomPrompt(false);
+                  }}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2",
+                    showPasteText
+                      ? "bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/25" 
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  )}
+                  data-testid="button-toggle-paste-text"
+                >
+                  <Copy className="w-4 h-4" />
+                  Paste Text
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[280px]">
+                <p className="font-medium mb-1">Paste Your Own Text</p>
+                <p className="text-xs text-muted-foreground mb-2">Paste any text you want to practice typing. Perfect for practicing specific content like articles, code, or documents.</p>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p><span className="text-blue-400">Tip:</span> Paste text from articles, books, or your own notes</p>
+                  <p><span className="text-cyan-400">Accuracy:</span> Tracked against your pasted text</p>
+                </div>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -1852,6 +1904,108 @@ Can you beat my score? Try it here: `,
               </div>
               <p className="text-xs text-muted-foreground text-center">
                 Describe the topic or theme for your typing test paragraph
+              </p>
+            </div>
+          )}
+          
+          {showPasteText && (
+            <div className="flex flex-col items-center justify-center gap-2 max-w-2xl mx-auto">
+              <div className="flex flex-col w-full gap-2">
+                <textarea
+                  value={pastedText}
+                  onChange={(e) => setPastedText(e.target.value)}
+                  placeholder="Paste or type any text you want to practice typing..."
+                  rows={4}
+                  className={cn(
+                    "w-full px-4 py-3 rounded-lg text-sm text-foreground placeholder:text-muted-foreground border border-border focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none",
+                    "bg-secondary"
+                  )}
+                  data-testid="textarea-paste-text"
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs text-muted-foreground">
+                    {pastedText.length > 0 && (
+                      <span>
+                        {pastedText.trim().split(/\s+/).filter(w => w.length > 0).length} words, {pastedText.length} characters
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setPastedText("");
+                      }}
+                      disabled={!pastedText.trim()}
+                      className={cn(
+                        "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                        !pastedText.trim()
+                          ? "bg-secondary/50 text-muted-foreground/50 cursor-not-allowed"
+                          : "bg-secondary text-muted-foreground hover:text-foreground"
+                      )}
+                      data-testid="button-clear-pasted"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (pastedText.trim()) {
+                          // Validate minimum length
+                          const trimmedText = pastedText.trim();
+                          if (trimmedText.length < 10) {
+                            toast({
+                              title: "Text Too Short",
+                              description: "Please paste at least 10 characters to practice.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          
+                          // Set the pasted text as the target paragraph
+                          setText(trimmedText);
+                          setOriginalText(trimmedText);
+                          setUserInput("");
+                          setStartTime(null);
+                          setIsActive(false);
+                          setIsFinished(false);
+                          setWpm(0);
+                          setRawWpm(0);
+                          setConsistency(100);
+                          setAccuracy(100);
+                          keystrokeTrackerRef.current = null;
+                          wpmHistoryRef.current = [];
+                          setShowPasteText(false);
+                          
+                          toast({
+                            title: "Custom Text Loaded",
+                            description: `Ready to practice with your ${trimmedText.split(/\s+/).filter(w => w.length > 0).length} word paragraph!`,
+                          });
+                          
+                          setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 100);
+                        } else {
+                          toast({
+                            title: "No Text Provided",
+                            description: "Please paste or type some text to practice with.",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      disabled={!pastedText.trim()}
+                      className={cn(
+                        "px-6 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all",
+                        !pastedText.trim()
+                          ? "bg-blue-500/50 text-white cursor-not-allowed"
+                          : "bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600"
+                      )}
+                      data-testid="button-use-pasted-text"
+                    >
+                      <Check className="w-4 h-4" />
+                      Use This Text
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                Paste any content you want to practice: articles, code, notes, or documents
               </p>
             </div>
           )}
@@ -1992,6 +2146,9 @@ Can you beat my score? Try it here: `,
                 // Prevent changes if test is finished
                 if (isFinished) return;
                 
+                // Track last keystroke time for idle time handling
+                freeTypeLastKeystrokeRef.current = Date.now();
+                
                 setFreeTypeText(newText);
                 
                 // Start timer on first keystroke (handle edge case of paste)
@@ -1999,6 +2156,7 @@ Can you beat my score? Try it here: `,
                   setIsActive(true);
                   setStartTime(Date.now());
                   setHasInteracted(true);
+                  freeTypeLastKeystrokeRef.current = Date.now();
                 }
                 
                 // Calculate WPM in real-time for free type with edge case handling
@@ -2011,24 +2169,65 @@ Can you beat my score? Try it here: `,
                     const charCount = newText.length;
                     // Use character-based WPM (standard: 5 chars = 1 word)
                     const charBasedWpm = Math.round((charCount / 5) / elapsedMinutes);
-                    // Cap WPM at reasonable max to handle edge cases
-                    const cappedWpm = Math.min(charBasedWpm, 300);
+                    // Cap WPM at reasonable max to handle edge cases (prevent unrealistic values)
+                    const cappedWpm = Math.min(Math.max(charBasedWpm, 0), 300);
                     setWpm(cappedWpm);
                     setRawWpm(cappedWpm);
                   }
                 }
               }}
+              onKeyDown={(e) => {
+                // Shift+Enter to finish test early (like Monkeytype)
+                if (e.shiftKey && e.key === 'Enter') {
+                  e.preventDefault();
+                  if (isActive && freeTypeText.length > 0) {
+                    finishTest(false); // Pass false since user ended manually
+                    toast({
+                      title: "Test Finished",
+                      description: "You ended the test early with Shift+Enter.",
+                    });
+                  } else if (!isActive && freeTypeText.length === 0) {
+                    toast({
+                      title: "Nothing to Save",
+                      description: "Start typing first, then use Shift+Enter to finish.",
+                      variant: "default",
+                    });
+                  }
+                }
+                
+                // Escape to exit free type mode
+                if (e.key === 'Escape') {
+                  if (!isActive || isFinished) {
+                    setFreeTypeMode(false);
+                    setFreeTypeText("");
+                    setIsActive(false);
+                    setIsFinished(false);
+                    setTimeLeft(mode);
+                    toast({
+                      title: "Exited Free Type Mode",
+                      description: "Switched back to standard typing test.",
+                    });
+                  }
+                }
+              }}
               onPaste={(e) => {
-                // Allow paste but show warning
-                toast({
-                  title: "Paste Detected",
-                  description: "Pasted text is included in your typing stats.",
-                  variant: "default",
-                });
+                // Track paste for transparency
+                const pastedText = e.clipboardData?.getData('text') || '';
+                const wordCount = pastedText.trim().split(/\s+/).filter(w => w.length > 0).length;
+                
+                if (wordCount > 5) {
+                  toast({
+                    title: "Paste Detected",
+                    description: `${wordCount} words pasted. Stats include pasted text.`,
+                    variant: "default",
+                  });
+                }
               }}
               placeholder="Start typing anything you want... Your WPM will be tracked in real-time!"
               disabled={isFinished}
               autoFocus
+              aria-label="Free type text area - type anything you want"
+              aria-describedby="free-type-instructions"
               className={cn(
                 "w-full h-full min-h-[200px] md:min-h-[300px] p-4 md:p-8 text-lg sm:text-xl md:text-2xl font-mono leading-relaxed",
                 "bg-transparent border-none outline-none resize-none",
@@ -2038,6 +2237,16 @@ Can you beat my score? Try it here: `,
               )}
               data-testid="textarea-free-type"
             />
+            
+            {/* Keyboard shortcut hint */}
+            {isActive && !isFinished && freeTypeText.length > 0 && (
+              <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 text-xs text-muted-foreground/60 hidden md:block" id="free-type-instructions">
+                <kbd className="px-1.5 py-0.5 bg-secondary/50 rounded text-[10px] font-mono">Shift</kbd>
+                <span className="mx-0.5">+</span>
+                <kbd className="px-1.5 py-0.5 bg-secondary/50 rounded text-[10px] font-mono">Enter</kbd>
+                <span className="ml-1">to finish early</span>
+              </div>
+            )}
             
             {/* Initial State Overlay */}
             {!isActive && !isFinished && freeTypeText.length === 0 && (
