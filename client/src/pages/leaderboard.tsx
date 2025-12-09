@@ -1,19 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trophy, Medal, Clock, Target, ChevronLeft, ChevronRight, ShieldCheck, User, AlertCircle, RefreshCw, Info, Wifi, WifiOff, Ban, Globe } from "lucide-react";
+import { Trophy, Medal, Clock, Target, ChevronLeft, ChevronRight, ShieldCheck, User, AlertCircle, RefreshCw, Info, Wifi, WifiOff, Ban, Globe, HelpCircle } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect } from "@/components/searchable-select";
 import {
   Tooltip,
   TooltipContent,
@@ -178,6 +172,34 @@ const LANGUAGE_NAMES: Record<string, string> = {
   id: "Indonesian",
 };
 
+const VALID_LANGUAGES = Object.keys(LANGUAGE_NAMES);
+
+const LANGUAGE_DESCRIPTIONS: Record<string, string> = {
+  en: "Most popular - Global competitive leaderboard",
+  es: "Second most popular - Large Spanish-speaking community",
+  fr: "Active French typing community",
+  de: "German language typing excellence",
+  it: "Italian keyboard mastery",
+  pt: "Portuguese (Brazil & Portugal)",
+  ja: "Japanese (Hiragana, Katakana, Kanji)",
+  zh: "Chinese (Simplified & Traditional)",
+  hi: "Hindi - Devanagari script",
+  ru: "Russian - Cyrillic script",
+  ar: "Arabic - Right-to-left script",
+  ko: "Korean - Hangul script",
+  mr: "Marathi - Devanagari script",
+  bn: "Bengali - Bengali script",
+  ta: "Tamil - Tamil script",
+  te: "Telugu - Telugu script",
+  vi: "Vietnamese with diacritics",
+  tr: "Turkish language typing",
+  pl: "Polish language typing",
+  nl: "Dutch language typing",
+  sv: "Swedish language typing",
+  th: "Thai script typing",
+  id: "Indonesian language typing",
+};
+
 function LeaderboardContent() {
   const [timeframe, setTimeframe] = useState<Timeframe>("all");
   const [offset, setOffset] = useState(0);
@@ -302,6 +324,15 @@ function LeaderboardContent() {
   };
 
   const handleLanguageChange = (value: string) => {
+    // Validate language code
+    if (!VALID_LANGUAGES.includes(value)) {
+      console.error(`Invalid language code: ${value}. Defaulting to English.`);
+      setLanguage("en");
+      setOffset(0);
+      return;
+    }
+    
+    // Prevent rapid switching (debounce)
     setLanguage(value);
     setOffset(0);
   };
@@ -333,16 +364,31 @@ function LeaderboardContent() {
     }
   };
 
-  const getEmptyStateMessage = (tf: Timeframe) => {
+  const getEmptyStateMessage = (tf: Timeframe, lang: string) => {
+    const langName = LANGUAGE_NAMES[lang] || "this language";
+    const timeLabel = tf === "all" ? "yet" : tf === "daily" ? "today" : tf === "weekly" ? "this week" : "this month";
+    
     switch (tf) {
       case "daily":
-        return { title: "No tests completed today", subtitle: "Be the first to set a record today!" };
+        return { 
+          title: `No ${langName} tests completed today`, 
+          subtitle: `Be the first to set a ${langName} record today!` 
+        };
       case "weekly":
-        return { title: "No tests completed this week", subtitle: "Start the week strong with a new record!" };
+        return { 
+          title: `No ${langName} tests completed this week`, 
+          subtitle: `Start the week strong with a ${langName} record!` 
+        };
       case "monthly":
-        return { title: "No tests completed this month", subtitle: "Be the first to make the monthly leaderboard!" };
+        return { 
+          title: `No ${langName} tests completed this month`, 
+          subtitle: `Be the first on the monthly ${langName} leaderboard!` 
+        };
       default:
-        return { title: "No test results yet", subtitle: "Complete a typing test to appear on the leaderboard!" };
+        return { 
+          title: `No ${langName} test results yet`, 
+          subtitle: `Complete a ${langName} typing test to appear on this leaderboard!` 
+        };
     }
   };
 
@@ -414,21 +460,62 @@ function LeaderboardContent() {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-muted-foreground" />
-            <Select value={language} onValueChange={handleLanguageChange}>
-              <SelectTrigger className="w-[180px]" data-testid="language-selector">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(LANGUAGE_NAMES).map(([code, name]) => (
-                  <SelectItem key={code} value={code} data-testid={`language-option-${code}`}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <span className="text-xs text-muted-foreground">Filter by typing language</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-muted-foreground" />
+                  <SearchableSelect
+                    value={language}
+                    onValueChange={handleLanguageChange}
+                    options={VALID_LANGUAGES.map((code) => ({
+                      value: code,
+                      label: LANGUAGE_NAMES[code],
+                    }))}
+                    placeholder="Select language"
+                    searchPlaceholder="Search languages..."
+                    emptyText="No language found."
+                    icon={<Globe className="w-4 h-4" />}
+                    triggerClassName="w-[200px]"
+                    contentClassName="max-h-[300px] overflow-y-auto"
+                    data-testid="language-selector"
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm" side="bottom">
+                <div className="space-y-2">
+                  <p className="font-medium">Language Filter</p>
+                  <p className="text-xs text-muted-foreground">
+                    Filter leaderboard by typing language. Only scores from tests typed in the selected language will appear.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Current:</strong> {LANGUAGE_NAMES[language]} - {LANGUAGE_DESCRIPTIONS[language]}
+                  </p>
+                  <p className="text-xs text-primary">
+                    💡 Supports 23 languages with search functionality
+                  </p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="text-muted-foreground/60 hover:text-muted-foreground transition-colors" aria-label="Language help">
+                  <HelpCircle className="w-3.5 h-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <div className="space-y-2">
+                  <p className="font-medium">How Language Filtering Works</p>
+                  <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                    <li>Rankings are separate per language</li>
+                    <li>Freestyle scores never count in rankings</li>
+                    <li>Use search to quickly find your language</li>
+                    <li>Changing language resets pagination</li>
+                    <li>Your rank updates automatically</li>
+                  </ul>
+                </div>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
@@ -518,8 +605,18 @@ function LeaderboardContent() {
             ) : entries.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <Trophy className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                <p className="text-lg font-medium">{getEmptyStateMessage(timeframe).title}</p>
-                <p className="text-sm mt-2">{getEmptyStateMessage(timeframe).subtitle}</p>
+                <p className="text-lg font-medium">{getEmptyStateMessage(timeframe, language).title}</p>
+                <p className="text-sm mt-2">{getEmptyStateMessage(timeframe, language).subtitle}</p>
+                <div className="mt-4 text-xs">
+                  <p className="text-muted-foreground/70">
+                    Selected language: <strong className="text-foreground">{LANGUAGE_NAMES[language]}</strong>
+                  </p>
+                  {language !== "en" && (
+                    <p className="text-muted-foreground/70 mt-1">
+                      Try switching to English for more results
+                    </p>
+                  )}
+                </div>
               </div>
             ) : (
               <>
