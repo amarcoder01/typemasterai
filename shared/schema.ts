@@ -283,12 +283,15 @@ export const testResults = pgTable("test_results", {
   characters: integer("characters").notNull(),
   errors: integer("errors").notNull(),
   freestyle: boolean("freestyle").default(false).notNull(),
+  language: varchar("language", { length: 10 }).notNull().default("en"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   userIdIdx: index("user_id_idx").on(table.userId),
   wpmIdx: index("wpm_idx").on(table.wpm),
   createdAtIdx: index("created_at_idx").on(table.createdAt),
   freestyleIdx: index("freestyle_idx").on(table.freestyle),
+  languageIdx: index("language_idx").on(table.language),
+  languageModeTimeIdx: index("language_mode_time_idx").on(table.language, table.mode, table.createdAt.desc(), table.wpm.desc()),
 }));
 
 export const insertTestResultSchema = createInsertSchema(testResults, {
@@ -298,6 +301,7 @@ export const insertTestResultSchema = createInsertSchema(testResults, {
   characters: z.number().int().min(0),
   errors: z.number().int().min(0),
   freestyle: z.boolean().optional(),
+  language: z.string().min(2).max(10).default("en"),
 }).omit({ id: true, createdAt: true });
 
 export type InsertTestResult = z.infer<typeof insertTestResultSchema>;
