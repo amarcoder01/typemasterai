@@ -1350,7 +1350,10 @@ export class DatabaseStorage implements IStorage {
         avgAccuracy: sql<number>`ROUND(avg(${testResults.accuracy})::numeric, 1)::float`,
       })
       .from(testResults)
-      .where(eq(testResults.userId, userId));
+      .where(and(
+        eq(testResults.userId, userId),
+        or(eq(testResults.freestyle, false), isNull(testResults.freestyle))
+      ));
 
     if (!result[0] || result[0].totalTests === 0) {
       return null;
@@ -1388,12 +1391,14 @@ export class DatabaseStorage implements IStorage {
             ORDER BY tr.wpm DESC, tr.created_at DESC
           ) as rank
         FROM test_results tr
+        WHERE (tr.freestyle = false OR tr.freestyle IS NULL)
       ),
       test_counts AS (
         SELECT 
           user_id,
           COUNT(*)::int as total_tests
         FROM test_results
+        WHERE (freestyle = false OR freestyle IS NULL)
         GROUP BY user_id
       )
       SELECT 
