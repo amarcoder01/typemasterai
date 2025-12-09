@@ -143,6 +143,7 @@ export default function TypingTest() {
     errors: number;
     characters: number;
     words: number;
+    consistency: number;
     freestyle: boolean;
     mode: number;
     completionDate: string; // ISO string to avoid Date serialization issues
@@ -982,10 +983,21 @@ Can you beat my score? Try it here: `,
     const finalAccuracy = freestyleMode ? 100 : calculateAccuracy(correctChars, chars);
     const finalErrors = errorCount;
     
+    // Calculate final consistency from WPM history (works for both standard and freestyle modes)
+    let finalConsistency = 100; // Default if no samples
+    if (wpmHistoryRef.current.length >= 3) {
+      const avg = wpmHistoryRef.current.reduce((a, b) => a + b, 0) / wpmHistoryRef.current.length;
+      const variance = wpmHistoryRef.current.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / wpmHistoryRef.current.length;
+      const stdDev = Math.sqrt(variance);
+      // Convert to 0-100% scale (lower deviation = higher consistency)
+      finalConsistency = avg > 0 ? Math.max(0, Math.min(100, Math.round(100 - (stdDev / avg * 100)))) : 100;
+    }
+    
     // Update state with precise final values
     setWpm(finalWpm);
     setAccuracy(finalAccuracy);
     setErrors(finalErrors);
+    setConsistency(finalConsistency); // Use calculated consistency, not reset to 100
     
     // Create immutable snapshot for certificate (never cleared, only updated on new test completion)
     setLastResultSnapshot({
@@ -994,6 +1006,7 @@ Can you beat my score? Try it here: `,
       errors: finalErrors,
       characters: chars,
       words: wordCount,
+      consistency: finalConsistency,
       freestyle: freestyleMode,
       mode,
       completionDate: new Date().toISOString(),
@@ -2574,6 +2587,7 @@ Can you beat my score? Try it here: `,
               freestyle={lastResultSnapshot.freestyle}
               characters={lastResultSnapshot.characters}
               words={lastResultSnapshot.words}
+              consistency={lastResultSnapshot.consistency}
             />
           )}
         </DialogContent>

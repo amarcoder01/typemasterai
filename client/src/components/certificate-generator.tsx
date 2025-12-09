@@ -19,17 +19,18 @@ interface CertificateProps {
   freestyle?: boolean;
   characters?: number;
   words?: number;
+  consistency?: number;
 }
 
 type DownloadFormat = "png" | "pdf" | "jpeg";
 
-export function CertificateGenerator({ username, wpm, accuracy, mode, date, freestyle = false, characters = 0, words = 0 }: CertificateProps) {
+export function CertificateGenerator({ username, wpm, accuracy, mode, date, freestyle = false, characters = 0, words = 0, consistency = 100 }: CertificateProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedFormat, setSelectedFormat] = useState<DownloadFormat>("png");
 
   useEffect(() => {
     generateCertificate();
-  }, [username, wpm, accuracy, mode, date, freestyle, characters, words]);
+  }, [username, wpm, accuracy, mode, date, freestyle, characters, words, consistency]);
 
   const generateCertificate = () => {
     const canvas = canvasRef.current;
