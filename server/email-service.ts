@@ -836,7 +836,7 @@ export class EmailService {
             <td style="padding: 24px 20px; text-align: center;">
               <p style="margin: 0 0 8px; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
                 This is an automated email. Please do not reply to this message.<br>
-                For assistance, contact us at <a href="mailto:support@typemasterai.com" style="color: #6366f1; text-decoration: none;">support@typemasterai.com</a> or visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
+                For assistance, contact us at <a href="mailto:support@typemasterai.com" style="color: #6366f1; text-decoration: none;">support@typemasterai.com</a> or visit our <a href="${this.appUrl}/contact" style="color: #6366f1; text-decoration: none;">Contact Support</a>.
               </p>
               <p style="margin: 0; font-size: 11px; color: #d4d4d8; line-height: 1.4;">
                 📬 <strong>Can't find this email?</strong> Please check your Spam or Junk folder and mark us as "Not Spam" to ensure future emails arrive in your inbox.
@@ -1052,7 +1052,7 @@ export class EmailService {
             <td style="padding: 24px 20px; text-align: center;">
               <p style="margin: 0 0 8px; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
                 This is an automated email. Please do not reply to this message.<br>
-                For assistance, contact us at <a href="mailto:support@typemasterai.com" style="color: #6366f1; text-decoration: none;">support@typemasterai.com</a> or visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
+                For assistance, contact us at <a href="mailto:support@typemasterai.com" style="color: #6366f1; text-decoration: none;">support@typemasterai.com</a> or visit our <a href="${this.appUrl}/contact" style="color: #6366f1; text-decoration: none;">Contact Support</a>.
               </p>
               <p style="margin: 0; font-size: 11px; color: #d4d4d8; line-height: 1.4;">
                 📬 <strong>Can't find this email?</strong> Please check your Spam or Junk folder and mark us as "Not Spam" to ensure future emails arrive in your inbox.
@@ -1297,7 +1297,7 @@ export class EmailService {
                 <tr>
                   <td align="center">
                     <p style="margin: 0 0 8px; font-size: 14px; color: #71717a;">
-                      Need help? <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none; font-weight: 500;">Visit our Help Center</a>
+                      Need help? <a href="${this.appUrl}/contact" style="color: #6366f1; text-decoration: none; font-weight: 500;">Contact Support</a>
                     </p>
                     <p style="margin: 0; font-size: 12px; color: #a1a1aa;">
                       © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
@@ -1317,7 +1317,7 @@ export class EmailService {
             <td style="padding: 24px 20px; text-align: center;">
               <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
                 This is an automated email from TypeMasterAI. Please do not reply to this email.<br>
-                If you have any questions, visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
+                If you have any questions, visit our <a href="${this.appUrl}/contact" style="color: #6366f1; text-decoration: none;">Contact Support</a>.
               </p>
             </td>
           </tr>

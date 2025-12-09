@@ -384,11 +384,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     Contact Support
                   </Link>
                 </li>
-                <li>
-                  <Link href="/contact" className="hover:text-primary transition-colors" data-testid="link-footer-help">
-                    Help Center
-                  </Link>
-                </li>
               </ul>
             </div>
 
