@@ -1,25 +1,18 @@
 import { Link } from "wouter";
-import { Sparkles, Bot, FileText, Shield, AlertTriangle, ExternalLink, Mail } from "lucide-react";
+import { Bot, AlertTriangle, ExternalLink } from "lucide-react";
 
 export default function AITransparency() {
   return (
     <div className="max-w-4xl mx-auto" data-testid="page-ai-transparency">
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-            <Sparkles className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-4xl font-bold" data-testid="heading-ai-transparency">AI Transparency Notice</h1>
-            <p className="text-muted-foreground text-sm mt-1">Last Updated: December 8, 2025</p>
-          </div>
-        </div>
-        <p className="text-muted-foreground">
+        <h1 className="text-4xl font-bold mb-2" data-testid="heading-ai-transparency">AI Transparency Notice</h1>
+        <p className="text-muted-foreground text-sm mb-4">Last Updated: December 9, 2025</p>
+        <p className="text-muted-foreground text-lg">
           TypeMasterAI is committed to transparency about our use of artificial intelligence. This page explains how we use AI technology, what data is processed, and your rights regarding AI-powered features.
         </p>
       </div>
 
-      <div className="space-y-8 prose prose-invert max-w-none">
+      <div className="space-y-10 prose prose-invert max-w-none">
         <section className="bg-primary/5 p-6 rounded-lg border border-primary/20">
           <div className="flex items-start gap-3">
             <Bot className="w-6 h-6 text-primary mt-1 flex-shrink-0" />
@@ -33,14 +26,13 @@ export default function AITransparency() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">1. AI-Powered Features</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">1. AI-Powered Features</h2>
           <p className="text-muted-foreground mb-4">
             The following features on TypeMasterAI use artificial intelligence:
           </p>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="bg-card/30 p-4 rounded-lg border border-border">
-              <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-primary" />
+              <h3 className="font-semibold text-foreground mb-2">
                 AI Chat Assistant
               </h3>
               <p className="text-sm text-muted-foreground">
@@ -48,8 +40,7 @@ export default function AITransparency() {
               </p>
             </div>
             <div className="bg-card/30 p-4 rounded-lg border border-border">
-              <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-primary" />
+              <h3 className="font-semibold text-foreground mb-2">
                 Paragraph Generation
               </h3>
               <p className="text-sm text-muted-foreground">
@@ -57,8 +48,7 @@ export default function AITransparency() {
               </p>
             </div>
             <div className="bg-card/30 p-4 rounded-lg border border-border">
-              <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-primary" />
+              <h3 className="font-semibold text-foreground mb-2">
                 Code Snippet Generation
               </h3>
               <p className="text-sm text-muted-foreground">
@@ -66,8 +56,7 @@ export default function AITransparency() {
               </p>
             </div>
             <div className="bg-card/30 p-4 rounded-lg border border-border">
-              <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Bot className="w-4 h-4 text-primary" />
+              <h3 className="font-semibold text-foreground mb-2">
                 AI Ghost Racers
               </h3>
               <p className="text-sm text-muted-foreground">
@@ -78,7 +67,7 @@ export default function AITransparency() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">2. How AI Processes Your Data</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">2. How AI Processes Your Data</h2>
           <p className="text-muted-foreground mb-4">
             When you use AI features, the following data may be sent to OpenAI's servers for processing:
           </p>
@@ -94,7 +83,7 @@ export default function AITransparency() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">3. Data Retention by AI Providers</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">3. Data Retention by AI Providers</h2>
           <p className="text-muted-foreground mb-4">
             OpenAI's data handling practices:
           </p>
@@ -150,7 +139,7 @@ export default function AITransparency() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">5. Your Rights & Controls</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">5. Your Rights & Controls</h2>
           <p className="text-muted-foreground mb-4">
             You have the following rights regarding AI features:
           </p>
@@ -163,7 +152,7 @@ export default function AITransparency() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">6. EU AI Act Compliance</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">6. EU AI Act Compliance</h2>
           <p className="text-muted-foreground mb-4">
             In compliance with the European Union AI Act (Regulation (EU) 2024/1689):
           </p>
@@ -176,14 +165,14 @@ export default function AITransparency() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">7. Updates to This Notice</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">7. Updates to This Notice</h2>
           <p className="text-muted-foreground">
             We may update this AI Transparency Notice as our AI features evolve or as regulations change. Significant updates will be communicated through our platform. We encourage you to review this page periodically.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">8. Related Policies</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">8. Related Policies</h2>
           <ul className="space-y-2">
             <li>
               <Link href="/privacy-policy" className="text-primary hover:underline">Privacy Policy</Link>
@@ -200,19 +189,26 @@ export default function AITransparency() {
           </ul>
         </section>
 
-        <section className="bg-card/50 p-6 rounded-lg border border-border">
-          <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
-            <Shield className="w-6 h-6 text-primary" />
-            Questions About Our AI?
-          </h2>
-          <p className="text-muted-foreground mb-4">
+        <section className="bg-card/30 p-8 rounded-xl border border-border">
+          <h2 className="text-2xl font-bold text-foreground mb-6">Questions About Our AI?</h2>
+          <p className="text-muted-foreground mb-6">
             If you have questions about our use of artificial intelligence, please contact us:
           </p>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Mail className="w-4 h-4 text-primary" />
-            <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">
-              support@typemasterai.com
-            </a>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-1">Email</p>
+              <a href="mailto:support@typemasterai.com" className="text-primary hover:underline text-lg">
+                support@typemasterai.com
+              </a>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-1">Mailing Address</p>
+              <p className="text-muted-foreground">
+                TypeMasterAI<br />
+                Solapur, Maharashtra 413224<br />
+                India
+              </p>
+            </div>
           </div>
         </section>
       </div>
