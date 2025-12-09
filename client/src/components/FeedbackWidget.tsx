@@ -185,19 +185,17 @@ export default function FeedbackWidget({
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="sm:max-w-[540px] p-0 gap-0 bg-card border-border">
-        <DialogHeader className="p-6 pb-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-semibold">Share your feedback</DialogTitle>
-          </div>
-          <DialogDescription className="text-base text-muted-foreground">
-            Help us improve by sharing your thoughts, reporting issues, or suggesting features.
+      <DialogContent className="sm:max-w-[480px] p-0 gap-0 bg-card border-border">
+        <DialogHeader className="px-5 pt-5 pb-3 space-y-1.5">
+          <DialogTitle className="text-xl font-semibold">Share feedback</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground">
+            Help us improve TypeMasterAI
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="px-6 pb-6 space-y-5">
-          <div className="space-y-3">
-            <Label htmlFor="category" className="text-sm font-medium">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="px-5 pb-5 space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="category" className="text-xs font-medium">
               Category
             </Label>
             <Select
@@ -226,8 +224,8 @@ export default function FeedbackWidget({
             </Select>
           </div>
 
-          <div className="space-y-3">
-            <Label htmlFor="subject" className="text-sm font-medium">
+          <div className="space-y-2">
+            <Label htmlFor="subject" className="text-xs font-medium">
               Subject <span className="text-destructive">*</span>
             </Label>
             <Input
@@ -244,14 +242,14 @@ export default function FeedbackWidget({
             )}
           </div>
 
-          <div className="space-y-3">
-            <Label htmlFor="message" className="text-sm font-medium">
+          <div className="space-y-2">
+            <Label htmlFor="message" className="text-xs font-medium">
               Message <span className="text-destructive">*</span>
             </Label>
             <Textarea
               id="message"
               placeholder="Describe your feedback in detail..."
-              rows={4}
+              rows={3}
               {...form.register("message")}
               data-testid="textarea-feedback-message"
               className="resize-none"
@@ -266,8 +264,8 @@ export default function FeedbackWidget({
             </p>
           </div>
 
-          <div className="space-y-3">
-            <Label htmlFor="priority" className="text-sm font-medium">Priority</Label>
+          <div className="space-y-2">
+            <Label htmlFor="priority" className="text-xs font-medium">Priority</Label>
             <Select
               value={form.watch("priority")}
               onValueChange={(value) => form.setValue("priority", value as "low" | "medium" | "high" | "critical")}
@@ -289,14 +287,11 @@ export default function FeedbackWidget({
           </div>
 
           {user && (
-            <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
-              <div className="space-y-0.5">
-                <Label htmlFor="anonymous" className="text-sm font-medium cursor-pointer">
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+              <div className="space-y-0">
+                <Label htmlFor="anonymous" className="text-xs font-medium cursor-pointer">
                   Submit anonymously
                 </Label>
-                <p className="text-xs text-muted-foreground">
-                  Your username won't be attached
-                </p>
               </div>
               <Switch
                 id="anonymous"
@@ -308,9 +303,9 @@ export default function FeedbackWidget({
           )}
 
           {(isAnonymous || !user) && (
-            <div className="space-y-3">
-              <Label htmlFor="contactEmail" className="text-sm font-medium">
-                Contact email <span className="text-muted-foreground">(Optional)</span>
+            <div className="space-y-2">
+              <Label htmlFor="contactEmail" className="text-xs font-medium">
+                Contact email <span className="text-muted-foreground text-[10px]">(Optional)</span>
               </Label>
               <Input
                 id="contactEmail"
@@ -318,11 +313,8 @@ export default function FeedbackWidget({
                 placeholder="your@email.com"
                 {...form.register("contactEmail")}
                 data-testid="input-feedback-email"
-                className="h-10"
+                className="h-9"
               />
-              <p className="text-xs text-muted-foreground">
-                We'll reach out if we need more details
-              </p>
               {form.formState.errors.contactEmail && (
                 <p className="text-xs text-destructive" data-testid="text-error-email">
                   {form.formState.errors.contactEmail.message}
@@ -340,13 +332,13 @@ export default function FeedbackWidget({
             aria-hidden="true"
           />
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex gap-2 pt-1">
             <Button
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
               data-testid="button-cancel-feedback"
-              className="flex-1 h-10"
+              className="flex-1 h-9"
             >
               Cancel
             </Button>
@@ -354,7 +346,7 @@ export default function FeedbackWidget({
               type="submit"
               disabled={submitMutation.isPending}
               data-testid="button-submit-feedback"
-              className="flex-1 h-10 bg-primary hover:bg-primary/90"
+              className="flex-1 h-9 bg-primary hover:bg-primary/90"
             >
               {submitMutation.isPending ? (
                 <>

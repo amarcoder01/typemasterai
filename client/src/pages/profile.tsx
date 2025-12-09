@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { BADGES, TOTAL_BADGES, type UserBadgeProgress, getTierColor, getTierBorder, type Badge as BadgeType } from "@shared/badges";
 import { BadgeCard } from "@/components/badge-card";
 import { BadgeShareCard } from "@/components/badge-share-card";
+import FeedbackWidget from "@/components/FeedbackWidget";
 
 function ProfileHeaderSkeleton() {
   return (
@@ -537,10 +538,16 @@ export default function Profile() {
               </div>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="sm" onClick={() => setLocation("/profile/edit")} data-testid="button-edit-profile">
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit Profile
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setLocation("/profile/edit")} data-testid="button-edit-profile">
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit Profile
+                    </Button>
+                    <FeedbackWidget 
+                      triggerVariant="outline"
+                      triggerSize="sm"
+                    />
+                  </div>
                 </TooltipTrigger>
                 <TooltipContent>
                   <p>Customize your avatar, bio, and preferences</p>

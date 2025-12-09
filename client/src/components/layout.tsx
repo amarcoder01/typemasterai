@@ -308,15 +308,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Floating Feedback Button - Industry Standard Position */}
-      <div className="fixed bottom-5 right-5 z-[9998] md:bottom-6 md:right-6">
-        <FeedbackWidget 
-          triggerVariant="default"
-          triggerSize="default"
-          triggerClassName="shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgba(6,182,212,0.5)] transition-all duration-300 min-w-[120px] min-h-[44px]"
-        />
-      </div>
-
       <footer 
         className="border-t border-border/40 bg-gradient-to-b from-card/30 to-card/50 backdrop-blur-sm"
         role="contentinfo"
