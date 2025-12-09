@@ -176,14 +176,13 @@ export default function FeedbackWidget({
         <Button
           variant={triggerVariant}
           size={triggerSize}
-          className={`${triggerClassName} relative overflow-hidden group bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10 border-cyan-500/30 hover:border-cyan-400/50 hover:shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all duration-300`}
+          className={`${triggerClassName} relative overflow-hidden group bg-gradient-to-r from-cyan-600 via-purple-600 to-pink-600 hover:from-cyan-500 hover:via-purple-500 hover:to-pink-500 border-0 text-white transition-all duration-300 font-semibold`}
           data-testid="button-open-feedback"
+          aria-label="Give feedback"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-purple-500/20 to-pink-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse" />
-          <MessageSquarePlus className="h-4 w-4 mr-2 relative z-10 group-hover:scale-110 transition-transform duration-300" />
-          <span className="relative z-10 bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent font-semibold">
-            Feedback
-          </span>
+          <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 via-purple-400/20 to-pink-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-pulse" />
+          <MessageSquarePlus className="h-5 w-5 mr-2 relative z-10 group-hover:scale-110 transition-transform duration-200" />
+          <span className="relative z-10">Feedback</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border-2 border-cyan-500/30 shadow-[0_0_50px_rgba(6,182,212,0.2)] animate-in fade-in-0 zoom-in-95 duration-300">
