@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
-import { Keyboard, BarChart2, User, Settings, Trophy, LogOut, Sparkles, Github, Twitter, Mail, Globe, Zap, Shield, BookOpen, Users, Award, TrendingUp, Code, Book, Headphones, Star, Menu, X, MessageSquarePlus } from "lucide-react";
+import { Keyboard, BarChart2, User, Settings, Trophy, LogOut, Sparkles, Github, Twitter, Mail, Globe, Zap, Shield, BookOpen, Users, Award, TrendingUp, Code, Book, Headphones, Star, Menu, MessageSquarePlus, Palette } from "lucide-react";
 import FeedbackWidget from "@/components/FeedbackWidget";
 import { useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -22,6 +26,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -182,6 +187,59 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         <DropdownMenuSeparator />
                       </>
                     )}
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger data-testid="button-theme-menu">
+                        <Palette className="w-4 h-4 mr-2" />
+                        Theme
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuItem 
+                          onClick={() => setTheme("focus")}
+                          className={cn(theme === "focus" && "bg-accent")}
+                          data-testid="theme-focus"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-gradient-to-br from-blue-500 to-blue-700" />
+                            Focus Flow
+                          </div>
+                          {theme === "focus" && <span className="ml-auto">✓</span>}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => setTheme("light")}
+                          className={cn(theme === "light" && "bg-accent")}
+                          data-testid="theme-light"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500" />
+                            Light
+                          </div>
+                          {theme === "light" && <span className="ml-auto">✓</span>}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => setTheme("cyber")}
+                          className={cn(theme === "cyber" && "bg-accent")}
+                          data-testid="theme-cyber"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
+                            Cyberpunk
+                          </div>
+                          {theme === "cyber" && <span className="ml-auto">✓</span>}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => setTheme("retro")}
+                          className={cn(theme === "retro" && "bg-accent")}
+                          data-testid="theme-retro"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full bg-gradient-to-br from-orange-500 to-amber-600" />
+                            Retro
+                          </div>
+                          {theme === "retro" && <span className="ml-auto">✓</span>}
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} data-testid="button-logout">
                       <LogOut className="w-4 h-4 mr-2" />
                       Logout
@@ -267,6 +325,86 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                         </Link>
                       );
                     })}
+                  </div>
+                  
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Theme
+                    </div>
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTheme("focus");
+                          setMobileMenuOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium",
+                          theme === "focus"
+                            ? "text-primary bg-primary/10"
+                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        )}
+                        data-testid="mobile-theme-focus"
+                      >
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-blue-500 to-blue-700" />
+                        <span className="flex-1 text-left">Focus Flow</span>
+                        {theme === "focus" && <span className="text-primary">✓</span>}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTheme("light");
+                          setMobileMenuOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium",
+                          theme === "light"
+                            ? "text-primary bg-primary/10"
+                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        )}
+                        data-testid="mobile-theme-light"
+                      >
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-yellow-300 to-yellow-500" />
+                        <span className="flex-1 text-left">Light</span>
+                        {theme === "light" && <span className="text-primary">✓</span>}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTheme("cyber");
+                          setMobileMenuOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium",
+                          theme === "cyber"
+                            ? "text-primary bg-primary/10"
+                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        )}
+                        data-testid="mobile-theme-cyber"
+                      >
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-purple-500 to-pink-500" />
+                        <span className="flex-1 text-left">Cyberpunk</span>
+                        {theme === "cyber" && <span className="text-primary">✓</span>}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTheme("retro");
+                          setMobileMenuOpen(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium",
+                          theme === "retro"
+                            ? "text-primary bg-primary/10"
+                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                        )}
+                        data-testid="mobile-theme-retro"
+                      >
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-orange-500 to-amber-600" />
+                        <span className="flex-1 text-left">Retro</span>
+                        {theme === "retro" && <span className="text-primary">✓</span>}
+                      </button>
+                    </div>
                   </div>
                   
                   {!user && (
