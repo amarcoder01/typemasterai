@@ -834,9 +834,12 @@ export class EmailService {
         <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; width: 100%;">
           <tr>
             <td style="padding: 24px 20px; text-align: center;">
-              <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
+              <p style="margin: 0 0 8px; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
                 This is an automated email. Please do not reply to this message.<br>
                 For assistance, contact us at <a href="mailto:support@typemasterai.com" style="color: #6366f1; text-decoration: none;">support@typemasterai.com</a> or visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #d4d4d8; line-height: 1.4;">
+                📬 <strong>Can't find this email?</strong> Please check your Spam or Junk folder and mark us as "Not Spam" to ensure future emails arrive in your inbox.
               </p>
             </td>
           </tr>
@@ -1047,9 +1050,12 @@ export class EmailService {
         <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; width: 100%;">
           <tr>
             <td style="padding: 24px 20px; text-align: center;">
-              <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
+              <p style="margin: 0 0 8px; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
                 This is an automated email. Please do not reply to this message.<br>
                 For assistance, contact us at <a href="mailto:support@typemasterai.com" style="color: #6366f1; text-decoration: none;">support@typemasterai.com</a> or visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #d4d4d8; line-height: 1.4;">
+                📬 <strong>Can't find this email?</strong> Please check your Spam or Junk folder and mark us as "Not Spam" to ensure future emails arrive in your inbox.
               </p>
             </td>
           </tr>
