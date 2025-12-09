@@ -724,14 +724,14 @@ export default function Profile() {
                 <div className="relative shrink-0 mx-auto sm:mx-0">
                   <div 
                     className={cn(
-                      "w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shadow-lg",
+                      "w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center text-3xl sm:text-4xl shadow-lg overflow-hidden",
                       "bg-gradient-to-br from-muted/80 to-muted border-2 border-border/50"
                     )}
                     style={{ 
                       boxShadow: `0 8px 32px ${nextAchievement.color}20`,
                     }}
                   >
-                    <span className="select-none">{nextAchievement.icon}</span>
+                    <span className="select-none leading-none">{nextAchievement.icon}</span>
                   </div>
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-primary flex items-center justify-center shadow-lg">
                     <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-foreground" />
