@@ -402,10 +402,10 @@ export default function TypingTest() {
     }
   }, [language, paragraphMode, difficulty, customPrompt, mode, toast, fetchRetryCount]);
 
-  const [pendingResult, setPendingResult] = useState<{ wpm: number; accuracy: number; mode: number; characters: number; errors: number } | null>(null);
+  const [pendingResult, setPendingResult] = useState<{ wpm: number; accuracy: number; mode: number; characters: number; errors: number; language: string; freestyle?: boolean } | null>(null);
 
   const saveResultMutation = useMutation({
-    mutationFn: async (result: { wpm: number; accuracy: number; mode: number; characters: number; errors: number }) => {
+    mutationFn: async (result: { wpm: number; accuracy: number; mode: number; characters: number; errors: number; language: string; freestyle?: boolean }) => {
       const response = await fetch("/api/test-results", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1034,6 +1034,7 @@ Can you beat my score? Try it here: `,
         characters: chars,
         errors: finalErrors,
         freestyle: freestyleMode,
+        language: language,
       };
       
       saveResultMutation.mutate(testData);
