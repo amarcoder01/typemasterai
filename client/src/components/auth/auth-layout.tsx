@@ -213,7 +213,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
               transition={{ type: "spring", stiffness: 400 }}
             >
               <img 
-                src="/logo.png" 
+                src="/logo-horizontal.svg" 
                 alt="TypeMasterAI Logo" 
                 className="h-20 w-auto object-contain drop-shadow-[0_0_20px_rgba(0,255,255,0.3)]"
               />
@@ -289,7 +289,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
               transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
             >
               <img 
-                src="/logo.png" 
+                src="/logo-horizontal.svg" 
                 alt="TypeMasterAI Logo" 
                 className="h-16 w-auto object-contain drop-shadow-[0_0_20px_rgba(0,255,255,0.3)]"
               />
