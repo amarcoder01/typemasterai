@@ -208,36 +208,17 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
             transition={{ delay: 0.2, duration: 0.6 }}
           >
             <motion.div 
-              className="relative w-16 h-16"
-              whileHover={{ scale: 1.1, rotate: 5 }}
+              className="relative h-20"
+              whileHover={{ scale: 1.05 }}
               transition={{ type: "spring", stiffness: 400 }}
             >
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-br from-primary to-purple-600 rounded-2xl"
-                animate={{
-                  boxShadow: [
-                    "0 0 20px hsl(var(--primary) / 0.3)",
-                    "0 0 40px hsl(var(--primary) / 0.5)",
-                    "0 0 20px hsl(var(--primary) / 0.3)",
-                  ],
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
+              <img 
+                src="/logo.png" 
+                alt="TypeMasterAI Logo" 
+                className="h-20 w-auto object-contain drop-shadow-[0_0_20px_rgba(0,255,255,0.3)]"
               />
-              <div className="relative w-full h-full flex items-center justify-center text-white">
-                <Keyboard className="w-8 h-8" />
-              </div>
             </motion.div>
             <div>
-              <motion.h2 
-                className="text-2xl font-bold bg-gradient-to-r from-white via-primary/90 to-purple-400 bg-clip-text text-transparent"
-                animate={{
-                  backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
-                }}
-                transition={{ duration: 5, repeat: Infinity }}
-                style={{ backgroundSize: "200% 200%" }}
-              >
-                TypeMasterAI
-              </motion.h2>
               <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-primary" />
                 Master your typing skills
@@ -302,25 +283,16 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         >
           <div className="lg:hidden flex flex-col items-center gap-4 mb-8">
             <motion.div 
-              className="relative w-16 h-16"
+              className="relative h-16"
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
             >
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-br from-primary to-purple-600 rounded-2xl"
-                animate={{
-                  boxShadow: [
-                    "0 0 20px hsl(var(--primary) / 0.3)",
-                    "0 0 40px hsl(var(--primary) / 0.5)",
-                    "0 0 20px hsl(var(--primary) / 0.3)",
-                  ],
-                }}
-                transition={{ duration: 2, repeat: Infinity }}
+              <img 
+                src="/logo.png" 
+                alt="TypeMasterAI Logo" 
+                className="h-16 w-auto object-contain drop-shadow-[0_0_20px_rgba(0,255,255,0.3)]"
               />
-              <div className="relative w-full h-full flex items-center justify-center text-white">
-                <Keyboard className="w-8 h-8" />
-              </div>
             </motion.div>
             <div className="text-center">
               <h1 className="text-2xl font-bold">{title}</h1>
