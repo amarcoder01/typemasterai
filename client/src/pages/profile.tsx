@@ -722,19 +722,27 @@ export default function Profile() {
             <CardContent className="p-3 sm:p-4">
               <div className="flex flex-col gap-3 sm:gap-4 md:grid md:grid-cols-[auto,minmax(0,1fr),auto] md:items-center">
                 {/* Icon Column - Fixed Width */}
-                <div className="relative shrink-0 mx-auto md:mx-0">
-                  <div 
-                    className="aspect-square w-12 sm:w-14 overflow-hidden rounded-xl bg-gradient-to-br from-muted/80 to-muted border border-border/50 flex items-center justify-center shadow-md"
-                    style={{ 
-                      boxShadow: `0 4px 16px ${nextAchievement.color}20`,
-                    }}
-                  >
-                    <BadgeIcon iconName={nextAchievement.icon} className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
-                  </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-primary flex items-center justify-center shadow-md">
-                    <Target className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary-foreground" />
-                  </div>
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="relative shrink-0 mx-auto md:mx-0 cursor-help">
+                      <div 
+                        className="aspect-square w-12 sm:w-14 overflow-hidden rounded-xl bg-gradient-to-br from-muted/80 to-muted border border-border/50 flex items-center justify-center shadow-md"
+                        style={{ 
+                          boxShadow: `0 4px 16px ${nextAchievement.color}20`,
+                        }}
+                      >
+                        <BadgeIcon iconName={nextAchievement.icon} className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
+                      </div>
+                      <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-primary flex items-center justify-center shadow-md">
+                        <Target className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary-foreground" />
+                      </div>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-xs">
+                    <p className="font-semibold">{nextAchievement.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Your next achievement to unlock. Complete the requirements to earn this badge and {nextAchievement.points} XP!</p>
+                  </TooltipContent>
+                </Tooltip>
                 
                 {/* Text Column - Flexible with Overflow Protection */}
                 <div className="min-w-0 flex flex-col gap-1.5 text-center md:text-left overflow-hidden">
@@ -742,59 +750,112 @@ export default function Profile() {
                     <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-primary">
                       Next Badge to Unlock
                     </span>
-                    <Badge 
-                      variant="outline" 
-                      className="text-[9px] sm:text-[10px] px-1 py-0 capitalize shrink-0"
-                      style={{ 
-                        borderColor: nextAchievement.color,
-                        color: nextAchievement.color
-                      }}
-                      data-testid="next-badge-tier"
-                    >
-                      {nextAchievement.tier}
-                    </Badge>
-                    <Badge 
-                      variant="secondary" 
-                      className="text-[9px] sm:text-[10px] px-1 py-0 shrink-0"
-                      data-testid="next-badge-points"
-                    >
-                      +{nextAchievement.points} XP
-                    </Badge>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge 
+                          variant="outline" 
+                          className="text-[9px] sm:text-[10px] px-1 py-0 capitalize shrink-0 cursor-help"
+                          style={{ 
+                            borderColor: nextAchievement.color,
+                            color: nextAchievement.color
+                          }}
+                          data-testid="next-badge-tier"
+                        >
+                          {nextAchievement.tier}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Badge tier: <span className="capitalize font-semibold">{nextAchievement.tier}</span></p>
+                        <p className="text-xs text-muted-foreground mt-1">Rarer badges are harder to unlock and more prestigious</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge 
+                          variant="secondary" 
+                          className="text-[9px] sm:text-[10px] px-1 py-0 shrink-0 cursor-help"
+                          data-testid="next-badge-points"
+                        >
+                          +{nextAchievement.points} XP
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Experience points reward</p>
+                        <p className="text-xs text-muted-foreground mt-1">Unlock this badge to earn {nextAchievement.points} XP towards your next level</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                   
-                  <h3 className="text-base sm:text-lg font-semibold text-balance break-words" data-testid="next-badge-name">
-                    {nextAchievement.name}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground text-pretty break-words" data-testid="next-badge-description">
-                    {nextAchievement.description}
-                  </p>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <h3 className="text-base sm:text-lg font-semibold text-balance break-words cursor-help" data-testid="next-badge-name">
+                        {nextAchievement.name}
+                      </h3>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold">{nextAchievement.name}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{nextAchievement.description}</p>
+                      <p className="text-xs text-primary mt-2">Progress: {nextAchievement.currentValue} / {nextAchievement.targetValue} ({nextAchievement.progress}%)</p>
+                    </TooltipContent>
+                  </Tooltip>
                   
-                  <div className="mt-1 space-y-1.5">
-                    <div className="flex flex-wrap justify-between gap-x-2 gap-y-1 text-xs sm:text-sm">
-                      <span className="text-muted-foreground">Progress</span>
-                      <span className="font-mono font-semibold text-primary" data-testid="next-badge-progress-text">
-                        {nextAchievement.currentValue} / {nextAchievement.targetValue}
-                        <span className="text-muted-foreground ml-1 text-[10px] sm:text-xs">({nextAchievement.progress}%)</span>
-                      </span>
-                    </div>
-                    <Progress 
-                      value={nextAchievement.progress} 
-                      className="h-2 sm:h-2.5 rounded-full bg-secondary [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-purple-500"
-                      data-testid="next-badge-progress"
-                    />
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <p className="text-xs sm:text-sm text-muted-foreground text-pretty break-words cursor-help" data-testid="next-badge-description">
+                        {nextAchievement.description}
+                      </p>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="text-xs">Requirement: {nextAchievement.description}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Keep typing to make progress towards unlocking this badge!</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="mt-1 space-y-1.5 cursor-help">
+                        <div className="flex flex-wrap justify-between gap-x-2 gap-y-1 text-xs sm:text-sm">
+                          <span className="text-muted-foreground">Progress</span>
+                          <span className="font-mono font-semibold text-primary" data-testid="next-badge-progress-text">
+                            {nextAchievement.currentValue} / {nextAchievement.targetValue}
+                            <span className="text-muted-foreground ml-1 text-[10px] sm:text-xs">({nextAchievement.progress}%)</span>
+                          </span>
+                        </div>
+                        <Progress 
+                          value={nextAchievement.progress} 
+                          className="h-2 sm:h-2.5 rounded-full bg-secondary [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-purple-500"
+                          data-testid="next-badge-progress"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-semibold">Your Progress</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        You've completed {nextAchievement.currentValue} out of {nextAchievement.targetValue} required. 
+                        Only {nextAchievement.targetValue - nextAchievement.currentValue} more to go!
+                      </p>
+                      <p className="text-xs text-primary mt-2">{Math.round(nextAchievement.progress)}% complete</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
                 
                 {/* CTA Button Column */}
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className="shrink-0 hidden md:flex md:justify-self-end h-8 w-8"
-                  onClick={() => setLocation("/")}
-                  data-testid="next-badge-start-typing"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      className="shrink-0 hidden md:flex md:justify-self-end h-8 w-8"
+                      onClick={() => setLocation("/")}
+                      data-testid="next-badge-start-typing"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Start typing to earn this badge!</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </CardContent>
           </Card>
