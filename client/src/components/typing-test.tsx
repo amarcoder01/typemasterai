@@ -911,6 +911,24 @@ Can you beat my score? Try it here: `,
     const typedText = freeTypeMode ? freeTypeText : userInput;
     const chars = typedText.length;
     
+    // Edge case: no characters typed
+    if (chars === 0) {
+      setWpm(0);
+      setRawWpm(0);
+      setAccuracy(freeTypeMode ? 100 : 0);
+      setErrors(0);
+      
+      // Show appropriate message
+      if (freeTypeMode) {
+        toast({
+          title: "No Text Typed",
+          description: "You didn't type anything during the test. Try again!",
+          variant: "default",
+        });
+      }
+      return;
+    }
+    
     let errorCount = 0;
     let correctChars = chars;
     
@@ -919,7 +937,10 @@ Can you beat my score? Try it here: `,
       correctChars = chars - errorCount;
     }
     
-    const finalWpm = calculateWPM(correctChars, elapsedSeconds);
+    // Edge case: prevent division by zero for elapsed time
+    const safeElapsedSeconds = Math.max(elapsedSeconds, 1);
+    
+    const finalWpm = calculateWPM(correctChars, safeElapsedSeconds);
     const finalAccuracy = freeTypeMode ? 100 : calculateAccuracy(correctChars, chars);
     const finalErrors = errorCount;
     
@@ -1610,8 +1631,23 @@ Can you beat my score? Try it here: `,
                   <span className="sm:hidden">Free</span>
                 </button>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>{freeTypeMode ? "Switch back to standard typing test" : "Type anything you want - no paragraph, just pure typing practice!"}</p>
+              <TooltipContent className="max-w-[280px]">
+                <p className="font-medium mb-1">{freeTypeMode ? "Exit Free Type Mode" : "Free Type Mode"}</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {freeTypeMode 
+                    ? "Return to standard typing test with AI-generated paragraphs" 
+                    : "Type anything you want without a pre-defined paragraph. Perfect for practice notes, creative writing, or just flowing thoughts."
+                  }
+                </p>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  {!freeTypeMode && (
+                    <>
+                      <p><span className="text-purple-400">Timer:</span> Uses your selected duration</p>
+                      <p><span className="text-pink-400">WPM:</span> Tracked in real-time</p>
+                      <p><span className="text-green-400">Accuracy:</span> Always 100% (no reference text)</p>
+                    </>
+                  )}
+                </div>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -1914,32 +1950,81 @@ Can you beat my score? Try it here: `,
         
         {/* Free Type Mode Interface */}
         {freeTypeMode && (
-          <div className="w-full h-full min-h-[200px] md:min-h-[300px] flex flex-col">
+          <div className="w-full h-full min-h-[200px] md:min-h-[300px] flex flex-col relative">
+            {/* Live Stats Bar for Free Type */}
+            {(isActive || freeTypeText.length > 0) && !isFinished && (
+              <div className="absolute top-2 right-2 md:top-4 md:right-4 flex items-center gap-2 md:gap-3 px-3 py-1.5 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full border border-purple-500/20 z-10">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 text-xs md:text-sm cursor-help">
+                      <span className="text-muted-foreground">Words:</span>
+                      <span className="font-mono font-semibold text-purple-400" data-testid="free-type-word-count">
+                        {freeTypeText.trim().split(/\s+/).filter(w => w.length > 0).length}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Total words typed (space-separated)</p>
+                  </TooltipContent>
+                </Tooltip>
+                <div className="w-px h-4 bg-border" />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 text-xs md:text-sm cursor-help">
+                      <span className="text-muted-foreground">Chars:</span>
+                      <span className="font-mono font-semibold text-pink-400" data-testid="free-type-char-count">
+                        {freeTypeText.length}
+                      </span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Total characters typed (including spaces)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            )}
+            
             <textarea
               value={freeTypeText}
               onChange={(e) => {
                 const newText = e.target.value;
+                
+                // Prevent changes if test is finished
+                if (isFinished) return;
+                
                 setFreeTypeText(newText);
                 
-                // Start timer on first keystroke
-                if (!isActive && !isFinished && newText.length === 1) {
+                // Start timer on first keystroke (handle edge case of paste)
+                if (!isActive && !isFinished && newText.length > 0 && freeTypeText.length === 0) {
                   setIsActive(true);
                   setStartTime(Date.now());
                   setHasInteracted(true);
                 }
                 
-                // Calculate WPM in real-time for free type
+                // Calculate WPM in real-time for free type with edge case handling
                 if (isActive && startTime) {
-                  const elapsedMinutes = (Date.now() - startTime) / 60000;
-                  if (elapsedMinutes > 0) {
-                    const wordCount = newText.trim().split(/\s+/).filter(w => w.length > 0).length;
+                  const elapsedMs = Date.now() - startTime;
+                  const elapsedMinutes = elapsedMs / 60000;
+                  
+                  // Prevent division by zero and handle very short typing sessions
+                  if (elapsedMinutes > 0.0167) { // At least 1 second
                     const charCount = newText.length;
                     // Use character-based WPM (standard: 5 chars = 1 word)
                     const charBasedWpm = Math.round((charCount / 5) / elapsedMinutes);
-                    setWpm(charBasedWpm);
-                    setRawWpm(charBasedWpm);
+                    // Cap WPM at reasonable max to handle edge cases
+                    const cappedWpm = Math.min(charBasedWpm, 300);
+                    setWpm(cappedWpm);
+                    setRawWpm(cappedWpm);
                   }
                 }
+              }}
+              onPaste={(e) => {
+                // Allow paste but show warning
+                toast({
+                  title: "Paste Detected",
+                  description: "Pasted text is included in your typing stats.",
+                  variant: "default",
+                });
               }}
               placeholder="Start typing anything you want... Your WPM will be tracked in real-time!"
               disabled={isFinished}
@@ -1948,10 +2033,13 @@ Can you beat my score? Try it here: `,
                 "w-full h-full min-h-[200px] md:min-h-[300px] p-4 md:p-8 text-lg sm:text-xl md:text-2xl font-mono leading-relaxed",
                 "bg-transparent border-none outline-none resize-none",
                 "placeholder:text-muted-foreground/50",
+                "focus:ring-0 focus:outline-none",
                 isFinished && "opacity-60 cursor-not-allowed"
               )}
               data-testid="textarea-free-type"
             />
+            
+            {/* Initial State Overlay */}
             {!isActive && !isFinished && freeTypeText.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="flex flex-col items-center gap-3 text-center px-4">
@@ -1961,8 +2049,33 @@ Can you beat my score? Try it here: `,
                   <div>
                     <p className="text-lg font-medium text-foreground">Free Type Mode</p>
                     <p className="text-sm text-muted-foreground mt-1">Type anything - practice notes, thoughts, or random words</p>
+                    <p className="text-xs text-muted-foreground/70 mt-2">Timer starts when you begin typing</p>
                   </div>
                 </div>
+              </div>
+            )}
+            
+            {/* Finished State Overlay */}
+            {isFinished && freeTypeText.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="flex flex-col items-center gap-3 text-center px-4">
+                  <div className="w-16 h-16 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                    <AlertCircle className="w-8 h-8 text-yellow-500" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-medium text-foreground">No Text Typed</p>
+                    <p className="text-sm text-muted-foreground mt-1">Time ran out before you started typing</p>
+                    <p className="text-xs text-muted-foreground/70 mt-2">Click "Restart" to try again</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Finished with content */}
+            {isFinished && freeTypeText.length > 0 && (
+              <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 flex items-center gap-2 px-3 py-1.5 bg-green-500/10 rounded-full border border-green-500/20">
+                <Check className="w-4 h-4 text-green-500" />
+                <span className="text-xs md:text-sm text-green-500 font-medium">Test Complete</span>
               </div>
             )}
           </div>
