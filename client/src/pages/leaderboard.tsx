@@ -1,12 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Trophy, Medal, Clock, Target, ChevronLeft, ChevronRight, ShieldCheck, User, AlertCircle, RefreshCw, Info, Wifi, WifiOff, Ban } from "lucide-react";
+import { Trophy, Medal, Clock, Target, ChevronLeft, ChevronRight, ShieldCheck, User, AlertCircle, RefreshCw, Info, Wifi, WifiOff, Ban, Globe } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -145,9 +152,36 @@ class LeaderboardError extends Error {
   }
 }
 
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  it: "Italian",
+  pt: "Portuguese",
+  ja: "Japanese",
+  zh: "Chinese",
+  hi: "Hindi",
+  ru: "Russian",
+  ar: "Arabic",
+  ko: "Korean",
+  mr: "Marathi",
+  bn: "Bengali",
+  ta: "Tamil",
+  te: "Telugu",
+  vi: "Vietnamese",
+  tr: "Turkish",
+  pl: "Polish",
+  nl: "Dutch",
+  sv: "Swedish",
+  th: "Thai",
+  id: "Indonesian",
+};
+
 function LeaderboardContent() {
   const [timeframe, setTimeframe] = useState<Timeframe>("all");
   const [offset, setOffset] = useState(0);
+  const [language, setLanguage] = useState<string>("en");
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const limit = 15;
 
@@ -165,7 +199,7 @@ function LeaderboardContent() {
   }, []);
 
   const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
-    queryKey: ["leaderboard", timeframe, offset, limit],
+    queryKey: ["leaderboard", timeframe, offset, limit, language],
     queryFn: async ({ signal }) => {
       const timeoutSignal = AbortSignal.timeout(15000);
       const combinedController = new AbortController();
@@ -176,7 +210,7 @@ function LeaderboardContent() {
       
       try {
         const response = await fetch(
-          `/api/leaderboard?limit=${limit}&offset=${offset}&timeframe=${timeframe}`,
+          `/api/leaderboard?limit=${limit}&offset=${offset}&timeframe=${timeframe}&language=${language}`,
           { signal: combinedController.signal }
         );
         
@@ -241,10 +275,10 @@ function LeaderboardContent() {
   });
 
   const { data: aroundMeData, isLoading: aroundMeLoading } = useQuery({
-    queryKey: ["leaderboard-around-me", timeframe],
+    queryKey: ["leaderboard-around-me", timeframe, language],
     queryFn: async () => {
       try {
-        const response = await fetch(`/api/leaderboard/around-me?range=3&timeframe=${timeframe}`);
+        const response = await fetch(`/api/leaderboard/around-me?range=3&timeframe=${timeframe}&language=${language}`);
         if (!response.ok) return null;
         return response.json();
       } catch {
@@ -264,6 +298,11 @@ function LeaderboardContent() {
 
   const handleTimeframeChange = (value: string) => {
     setTimeframe(value as Timeframe);
+    setOffset(0);
+  };
+
+  const handleLanguageChange = (value: string) => {
+    setLanguage(value);
     setOffset(0);
   };
 
@@ -335,43 +374,62 @@ function LeaderboardContent() {
           <p className="text-sm sm:text-base text-muted-foreground">Top typists worldwide</p>
         </div>
 
-        <div className="mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <Tabs value={timeframe} onValueChange={handleTimeframeChange} className="w-full sm:w-auto">
-            <TabsList className="grid grid-cols-4 w-full sm:w-auto" data-testid="timeframe-tabs">
-              {(["all", "daily", "weekly", "monthly"] as Timeframe[]).map((tf) => (
-                <Tooltip key={tf}>
-                  <TooltipTrigger asChild>
-                    <TabsTrigger value={tf} data-testid={`tab-${tf}`}>
-                      {tf === "all" ? "All Time" : tf.charAt(0).toUpperCase() + tf.slice(1)}
-                    </TabsTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p>{TIMEFRAME_TOOLTIPS[tf]}</p>
-                  </TooltipContent>
-                </Tooltip>
-              ))}
-            </TabsList>
-          </Tabs>
+        <div className="mb-6 flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <Tabs value={timeframe} onValueChange={handleTimeframeChange} className="w-full sm:w-auto">
+              <TabsList className="grid grid-cols-4 w-full sm:w-auto" data-testid="timeframe-tabs">
+                {(["all", "daily", "weekly", "monthly"] as Timeframe[]).map((tf) => (
+                  <Tooltip key={tf}>
+                    <TooltipTrigger asChild>
+                      <TabsTrigger value={tf} data-testid={`tab-${tf}`}>
+                        {tf === "all" ? "All Time" : tf.charAt(0).toUpperCase() + tf.slice(1)}
+                      </TabsTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>{TIMEFRAME_TOOLTIPS[tf]}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </TabsList>
+            </Tabs>
 
-          {userData?.user && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-help">
-                  <User className="w-4 h-4" />
-                  {aroundMeLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : aroundMeData?.userRank && aroundMeData.userRank > 0 ? (
-                    <span>Your rank: <strong className="text-foreground">#{aroundMeData.userRank}</strong></span>
-                  ) : (
-                    <span className="text-muted-foreground">Not ranked in {getTimeframeLabel(timeframe).toLowerCase()}</span>
-                  )}
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Your position in the {getTimeframeLabel(timeframe).toLowerCase()} leaderboard</p>
-              </TooltipContent>
-            </Tooltip>
-          )}
+            {userData?.user && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-help">
+                    <User className="w-4 h-4" />
+                    {aroundMeLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : aroundMeData?.userRank && aroundMeData.userRank > 0 ? (
+                      <span>Your rank: <strong className="text-foreground">#{aroundMeData.userRank}</strong></span>
+                    ) : (
+                      <span className="text-muted-foreground">Not ranked in {getTimeframeLabel(timeframe).toLowerCase()}</span>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Your position in the {getTimeframeLabel(timeframe).toLowerCase()} leaderboard</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-muted-foreground" />
+            <Select value={language} onValueChange={handleLanguageChange}>
+              <SelectTrigger className="w-[180px]" data-testid="language-selector">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(LANGUAGE_NAMES).map(([code, name]) => (
+                  <SelectItem key={code} value={code} data-testid={`language-option-${code}`}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-muted-foreground">Filter by typing language</span>
+          </div>
         </div>
 
         {userData?.user && aroundMeData?.entries?.length > 0 && aroundMeData.userRank > 0 && (
