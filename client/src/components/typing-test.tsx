@@ -987,6 +987,7 @@ Can you beat my score? Try it here: `,
         mode,
         characters: chars,
         errors: finalErrors,
+        freestyle: freestyleMode,
       };
       
       saveResultMutation.mutate(testData);
