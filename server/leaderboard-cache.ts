@@ -232,17 +232,18 @@ class LeaderboardCache {
     timeframe?: TimeFrame;
     limit?: number;
     offset?: number;
+    language?: string;
   }): Promise<PaginatedResponse<any>> {
-    const { timeframe = "all", limit = 20, offset = 0 } = options;
-    const cacheKey = this.getCacheKey("global", { timeframe, limit, offset });
+    const { timeframe = "all", limit = 20, offset = 0, language = "en" } = options;
+    const cacheKey = this.getCacheKey("global", { timeframe, limit, offset, language });
     
     const cached = this.get<PaginatedResponse<any>>(cacheKey, CACHE_TTL_MS.global);
     if (cached) {
       return { ...cached.data, metadata: { ...cached.data.metadata, cacheHit: true, etag: cached.etag } };
     }
 
-    const entries = await storage.getLeaderboardPaginated(limit, offset, timeframe);
-    const total = await storage.getLeaderboardCount(timeframe);
+    const entries = await storage.getLeaderboardPaginated(limit, offset, timeframe, language);
+    const total = await storage.getLeaderboardCount(timeframe, language);
 
     const response: PaginatedResponse<any> = {
       entries,
@@ -435,7 +436,7 @@ class LeaderboardCache {
 
     switch (type) {
       case "global":
-        result = await storage.getLeaderboardAroundUser(userId, range, timeframe);
+        result = await storage.getLeaderboardAroundUser(userId, range, timeframe, options.language || "en");
         break;
       case "stress":
         result = await storage.getStressLeaderboardAroundUser(userId, options.difficulty, range);
