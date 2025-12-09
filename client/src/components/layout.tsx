@@ -339,26 +339,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <h3 className="font-semibold text-xs mb-2">Product</h3>
               <ul className="space-y-1.5 text-[11px] text-muted-foreground">
                 <li>
-                  <Link href="/" className="hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-features">
-                    <Keyboard className="w-3 h-3" />
+                  <Link href="/" className="hover:text-primary transition-colors" data-testid="link-footer-features">
                     Typing Tests
                   </Link>
                 </li>
                 <li>
-                  <Link href="/leaderboard" className="hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-leaderboard">
-                    <Trophy className="w-3 h-3" />
+                  <Link href="/leaderboard" className="hover:text-primary transition-colors" data-testid="link-footer-leaderboard">
                     Leaderboard
                   </Link>
                 </li>
                 <li>
-                  <Link href="/chat" className="hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-ai-chat">
-                    <Sparkles className="w-3 h-3" />
+                  <Link href="/chat" className="hover:text-primary transition-colors" data-testid="link-footer-ai-chat">
                     AI Assistant
                   </Link>
                 </li>
                 <li>
-                  <Link href="/profile" className="hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-analytics">
-                    <TrendingUp className="w-3 h-3" />
+                  <Link href="/profile" className="hover:text-primary transition-colors" data-testid="link-footer-analytics">
                     Analytics
                   </Link>
                 </li>
@@ -392,8 +388,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <h3 className="font-semibold text-xs mb-2">Legal & Compliance</h3>
               <ul className="space-y-1.5 text-[11px] text-muted-foreground">
                 <li>
-                  <Link href="/privacy-policy" className="hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-privacy">
-                    <Shield className="w-3 h-3" />
+                  <Link href="/privacy-policy" className="hover:text-primary transition-colors" data-testid="link-footer-privacy">
                     Privacy Policy
                   </Link>
                 </li>
@@ -408,8 +403,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/ai-transparency" className="hover:text-primary transition-colors flex items-center gap-1.5" data-testid="link-footer-ai-transparency">
-                    <Sparkles className="w-3 h-3" />
+                  <Link href="/ai-transparency" className="hover:text-primary transition-colors" data-testid="link-footer-ai-transparency">
                     AI Transparency
                   </Link>
                 </li>
