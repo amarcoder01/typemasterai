@@ -820,7 +820,7 @@ export class EmailService {
                     <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.6;">
                       © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
                       <a href="${this.appUrl}" style="color: #a1a1aa; text-decoration: none;">typemasterai.com</a><br>
-                      <span style="font-size: 11px;">TypeMasterAI, 123 Main Street, Suite 100, San Francisco, CA 94102, USA</span>
+                      <span style="font-size: 11px;">TypeMasterAI, Solapur, Maharashtra 413224, India</span>
                     </p>
                   </td>
                 </tr>
@@ -835,8 +835,8 @@ export class EmailService {
           <tr>
             <td style="padding: 24px 20px; text-align: center;">
               <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
-                This is an automated security notification. For assistance, please contact us at <a href="mailto:support@typemasterai.com" style="color: #6366f1; text-decoration: none;">support@typemasterai.com</a><br>
-                or visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
+                This is an automated email. Please do not reply to this message.<br>
+                For assistance, contact us at <a href="mailto:support@typemasterai.com" style="color: #6366f1; text-decoration: none;">support@typemasterai.com</a> or visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
               </p>
             </td>
           </tr>
@@ -1033,7 +1033,7 @@ export class EmailService {
                     <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.6;">
                       © ${new Date().getFullYear()} TypeMasterAI. All rights reserved.<br>
                       <a href="${this.appUrl}" style="color: #a1a1aa; text-decoration: none;">typemasterai.com</a><br>
-                      <span style="font-size: 11px;">TypeMasterAI, 123 Main Street, Suite 100, San Francisco, CA 94102, USA</span>
+                      <span style="font-size: 11px;">TypeMasterAI, Solapur, Maharashtra 413224, India</span>
                     </p>
                   </td>
                 </tr>
@@ -1048,8 +1048,8 @@ export class EmailService {
           <tr>
             <td style="padding: 24px 20px; text-align: center;">
               <p style="margin: 0; font-size: 12px; color: #a1a1aa; line-height: 1.5;">
-                This is an automated security notification. For assistance, please contact us at <a href="mailto:support@typemasterai.com" style="color: #6366f1; text-decoration: none;">support@typemasterai.com</a><br>
-                or visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
+                This is an automated email. Please do not reply to this message.<br>
+                For assistance, contact us at <a href="mailto:support@typemasterai.com" style="color: #6366f1; text-decoration: none;">support@typemasterai.com</a> or visit our <a href="${this.appUrl}/help" style="color: #6366f1; text-decoration: none;">Help Center</a>.
               </p>
             </td>
           </tr>
