@@ -719,32 +719,32 @@ export default function Profile() {
             className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-card/80 to-purple-500/5 backdrop-blur-md shadow-lg shadow-primary/10 hover:border-primary/50 transition-all duration-300 overflow-hidden"
             data-testid="next-badge-widget"
           >
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex flex-col gap-4 sm:gap-6 md:grid md:grid-cols-[auto,minmax(0,1fr),auto] md:items-center">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex flex-col gap-3 sm:gap-4 md:grid md:grid-cols-[auto,minmax(0,1fr),auto] md:items-center">
                 {/* Icon Column - Fixed Width */}
                 <div className="relative shrink-0 mx-auto md:mx-0">
                   <div 
-                    className="aspect-square w-16 sm:w-20 overflow-hidden rounded-2xl bg-gradient-to-br from-muted/80 to-muted border-2 border-border/50 flex items-center justify-center shadow-lg"
+                    className="aspect-square w-12 sm:w-14 overflow-hidden rounded-xl bg-gradient-to-br from-muted/80 to-muted border border-border/50 flex items-center justify-center shadow-md"
                     style={{ 
-                      boxShadow: `0 8px 32px ${nextAchievement.color}20`,
+                      boxShadow: `0 4px 16px ${nextAchievement.color}20`,
                     }}
                   >
-                    <BadgeIcon iconName={nextAchievement.icon} className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+                    <BadgeIcon iconName={nextAchievement.icon} className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
                   </div>
-                  <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-primary flex items-center justify-center shadow-lg">
-                    <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-foreground" />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-primary flex items-center justify-center shadow-md">
+                    <Target className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary-foreground" />
                   </div>
                 </div>
                 
                 {/* Text Column - Flexible with Overflow Protection */}
-                <div className="min-w-0 flex flex-col gap-2 text-center md:text-left overflow-hidden">
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                <div className="min-w-0 flex flex-col gap-1.5 text-center md:text-left overflow-hidden">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-1.5">
+                    <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-primary">
                       Next Badge to Unlock
                     </span>
                     <Badge 
                       variant="outline" 
-                      className="text-[10px] px-1.5 py-0 capitalize shrink-0"
+                      className="text-[9px] sm:text-[10px] px-1 py-0 capitalize shrink-0"
                       style={{ 
                         borderColor: nextAchievement.color,
                         color: nextAchievement.color
@@ -755,31 +755,31 @@ export default function Profile() {
                     </Badge>
                     <Badge 
                       variant="secondary" 
-                      className="text-[10px] px-1.5 py-0 shrink-0"
+                      className="text-[9px] sm:text-[10px] px-1 py-0 shrink-0"
                       data-testid="next-badge-points"
                     >
                       +{nextAchievement.points} XP
                     </Badge>
                   </div>
                   
-                  <h3 className="text-lg sm:text-xl font-semibold text-balance break-words" data-testid="next-badge-name">
+                  <h3 className="text-base sm:text-lg font-semibold text-balance break-words" data-testid="next-badge-name">
                     {nextAchievement.name}
                   </h3>
-                  <p className="text-sm text-muted-foreground text-pretty break-words" data-testid="next-badge-description">
+                  <p className="text-xs sm:text-sm text-muted-foreground text-pretty break-words" data-testid="next-badge-description">
                     {nextAchievement.description}
                   </p>
                   
-                  <div className="mt-1 sm:mt-2 space-y-2">
-                    <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
+                  <div className="mt-1 space-y-1.5">
+                    <div className="flex flex-wrap justify-between gap-x-2 gap-y-1 text-xs sm:text-sm">
                       <span className="text-muted-foreground">Progress</span>
                       <span className="font-mono font-semibold text-primary" data-testid="next-badge-progress-text">
                         {nextAchievement.currentValue} / {nextAchievement.targetValue}
-                        <span className="text-muted-foreground ml-1 sm:ml-2 text-xs sm:text-sm">({nextAchievement.progress}%)</span>
+                        <span className="text-muted-foreground ml-1 text-[10px] sm:text-xs">({nextAchievement.progress}%)</span>
                       </span>
                     </div>
                     <Progress 
                       value={nextAchievement.progress} 
-                      className="h-2.5 sm:h-3 rounded-full bg-secondary [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-purple-500"
+                      className="h-2 sm:h-2.5 rounded-full bg-secondary [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-purple-500"
                       data-testid="next-badge-progress"
                     />
                   </div>
@@ -789,11 +789,11 @@ export default function Profile() {
                 <Button 
                   variant="ghost" 
                   size="icon"
-                  className="shrink-0 hidden md:flex md:justify-self-end"
+                  className="shrink-0 hidden md:flex md:justify-self-end h-8 w-8"
                   onClick={() => setLocation("/")}
                   data-testid="next-badge-start-typing"
                 >
-                  <ChevronRight className="w-5 h-5" />
+                  <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
             </CardContent>
