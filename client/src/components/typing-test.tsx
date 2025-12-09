@@ -2144,21 +2144,49 @@ Can you beat my score? Try it here: `,
                 }
               }}
               onPaste={(e) => {
-                // Track paste for transparency
-                const pastedText = e.clipboardData?.getData('text') || '';
-                const wordCount = pastedText.trim().split(/\s+/).filter(w => w.length > 0).length;
-                
-                if (wordCount > 5) {
+                // Prevent pasting in Freestyle mode - only typing allowed
+                e.preventDefault();
+                toast({
+                  title: "Pasting Not Allowed",
+                  description: "Please type the text yourself to get accurate WPM metrics.",
+                  variant: "destructive",
+                });
+              }}
+              onCut={(e) => {
+                // Prevent cutting text
+                e.preventDefault();
+              }}
+              onDrop={(e) => {
+                // Prevent drag-and-drop text
+                e.preventDefault();
+                toast({
+                  title: "Drag & Drop Not Allowed",
+                  description: "Please type the text yourself for accurate results.",
+                  variant: "destructive",
+                });
+              }}
+              onDragOver={(e) => {
+                // Prevent drag-over visual feedback
+                e.preventDefault();
+              }}
+              onBeforeInput={(e: any) => {
+                // Block mobile long-press paste and autocomplete insertions
+                if (e.inputType === 'insertFromPaste' || e.inputType === 'insertFromDrop') {
+                  e.preventDefault();
                   toast({
-                    title: "Paste Detected",
-                    description: `${wordCount} words pasted. Stats include pasted text.`,
-                    variant: "default",
+                    title: "Pasting Not Allowed",
+                    description: "Please type the text yourself to get accurate WPM metrics.",
+                    variant: "destructive",
                   });
                 }
               }}
               placeholder="Start typing anything you want... Your WPM will be tracked in real-time!"
               disabled={isFinished}
               autoFocus
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="off"
+              autoComplete="off"
               aria-label="Free type text area - type anything you want"
               aria-describedby="freestyle-instructions"
               className={cn(
