@@ -19,24 +19,6 @@ import { BadgeCard } from "@/components/badge-card";
 import { BadgeShareCard } from "@/components/badge-share-card";
 import FeedbackWidget from "@/components/FeedbackWidget";
 
-// Helper to normalize badge icon rendering
-function getBadgeIcon(icon: string): React.ReactNode {
-  const iconMap: Record<string, React.ReactNode> = {
-    "🔥": <Flame className="w-8 h-8 sm:w-10 sm:h-10" />,
-    "⭐": <Star className="w-8 h-8 sm:w-10 sm:h-10" />,
-    "🎯": <Target className="w-8 h-8 sm:w-10 sm:h-10" />,
-    "🏆": <Trophy className="w-8 h-8 sm:w-10 sm:h-10" />,
-    "⚡": <Zap className="w-8 h-8 sm:w-10 sm:h-10" />,
-    "💬": <MessageSquare className="w-8 h-8 sm:w-10 sm:h-10" />,
-    "🌙": <Moon className="w-8 h-8 sm:w-10 sm:h-10" />,
-    "🌅": <Sunrise className="w-8 h-8 sm:w-10 sm:h-10" />,
-    "🚀": <Rocket className="w-8 h-8 sm:w-10 sm:h-10" />,
-    "⏱️": <Timer className="w-8 h-8 sm:w-10 sm:h-10" />,
-  };
-  
-  return iconMap[icon] || <span className="text-3xl sm:text-4xl leading-none">{icon}</span>;
-}
-
 function ProfileHeaderSkeleton() {
   return (
     <div className="flex items-start gap-6 p-6 rounded-2xl bg-card/70 backdrop-blur-md border border-border/50 shadow-xl">
@@ -747,9 +729,7 @@ export default function Profile() {
                       boxShadow: `0 8px 32px ${nextAchievement.color}20`,
                     }}
                   >
-                    <div className="flex items-center justify-center text-primary">
-                      {getBadgeIcon(nextAchievement.icon)}
-                    </div>
+                    <BadgeIcon iconName={nextAchievement.icon} className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
                   </div>
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-primary flex items-center justify-center shadow-lg">
                     <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-foreground" />
