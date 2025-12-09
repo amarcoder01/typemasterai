@@ -724,7 +724,7 @@ export default function Profile() {
                 {/* Icon Column - Fixed Width */}
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="relative shrink-0 mx-auto md:mx-0 cursor-help">
+                    <div className="shrink-0 mx-auto md:mx-0 cursor-help">
                       <div 
                         className="aspect-square w-12 sm:w-14 overflow-hidden rounded-xl bg-gradient-to-br from-muted/80 to-muted border border-border/50 flex items-center justify-center shadow-md"
                         style={{ 
@@ -732,9 +732,6 @@ export default function Profile() {
                         }}
                       >
                         <BadgeIcon iconName={nextAchievement.icon} className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
-                      </div>
-                      <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-primary flex items-center justify-center shadow-md">
-                        <Target className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary-foreground" />
                       </div>
                     </div>
                   </TooltipTrigger>
