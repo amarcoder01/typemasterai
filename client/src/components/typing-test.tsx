@@ -134,9 +134,9 @@ export default function TypingTest() {
   const [caretSpeed, setCaretSpeed] = useState<'off' | 'fast' | 'medium' | 'smooth'>('medium');
   const [quickRestart, setQuickRestart] = useState(true);
   const [zenMode, setZenMode] = useState(false);
-  const [freeTypeMode, setFreeTypeMode] = useState(false);
-  const [freeTypeText, setFreeTypeText] = useState("");
-  const freeTypeLastKeystrokeRef = useRef<number>(0);
+  const [freestyleMode, setFreestyleMode] = useState(false);
+  const [freestyleText, setFreestyleText] = useState("");
+  const freestyleLastKeystrokeRef = useRef<number>(0);
   const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
   const [isTypingFast, setIsTypingFast] = useState(false);
   const lastKeystrokeTimeRef = useRef<number>(0);
@@ -520,7 +520,7 @@ export default function TypingTest() {
   const resetTest = useCallback(async () => {
     // Reset test state first
     setUserInput("");
-    setFreeTypeText("");
+    setFreestyleText("");
     setStartTime(null);
     setTimeLeft(mode);
     setIsActive(false);
@@ -539,17 +539,17 @@ export default function TypingTest() {
     keystrokeTrackerRef.current = null;
     wpmHistoryRef.current = [];
     
-    // Reset free type last keystroke time
-    freeTypeLastKeystrokeRef.current = 0;
+    // Reset freestyle last keystroke time
+    freestyleLastKeystrokeRef.current = 0;
     
-    // Only fetch new paragraph if not in free type mode
-    if (!freeTypeMode) {
+    // Only fetch new paragraph if not in freestyle mode
+    if (!freestyleMode) {
       // Use fetchParagraph with forceGenerate to centralize counter logic
       await fetchParagraph(false, true);
     }
     
     setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 100);
-  }, [mode, fetchParagraph, freeTypeMode]);
+  }, [mode, fetchParagraph, freestyleMode]);
 
   const createShareLink = async () => {
     if (!lastResultId) {
@@ -906,34 +906,34 @@ Can you beat my score? Try it here: `,
     setIsFinished(true);
     setTestCompletionDate(new Date());
     
-    // Calculate elapsed time with idle time handling for Free Type mode
+    // Calculate elapsed time with idle time handling for Freestyle mode
     let elapsedSeconds: number;
     
     if (completedNaturally) {
       // Timer expired naturally - use mode duration
       elapsedSeconds = mode;
-    } else if (freeTypeMode && startTime && freeTypeLastKeystrokeRef.current > 0) {
-      // Free Type mode with manual finish (Shift+Enter) - use time until last keystroke
+    } else if (freestyleMode && startTime && freestyleLastKeystrokeRef.current > 0) {
+      // Freestyle mode with manual finish (Shift+Enter) - use time until last keystroke
       // This ignores idle time between last keystroke and test finish
-      elapsedSeconds = (freeTypeLastKeystrokeRef.current - startTime) / 1000;
+      elapsedSeconds = (freestyleLastKeystrokeRef.current - startTime) / 1000;
     } else {
       // Standard mode or fallback - use actual elapsed time
       elapsedSeconds = startTime ? (Date.now() - startTime) / 1000 : mode;
     }
     
-    // Handle Free Type mode differently - no reference text to compare
-    const typedText = freeTypeMode ? freeTypeText : userInput;
+    // Handle Freestyle mode differently - no reference text to compare
+    const typedText = freestyleMode ? freestyleText : userInput;
     const chars = typedText.length;
     
     // Edge case: no characters typed
     if (chars === 0) {
       setWpm(0);
       setRawWpm(0);
-      setAccuracy(freeTypeMode ? 100 : 0);
+      setAccuracy(freestyleMode ? 100 : 0);
       setErrors(0);
       
       // Show appropriate message
-      if (freeTypeMode) {
+      if (freestyleMode) {
         toast({
           title: "No Text Typed",
           description: "You didn't type anything during the test. Try again!",
@@ -946,7 +946,7 @@ Can you beat my score? Try it here: `,
     let errorCount = 0;
     let correctChars = chars;
     
-    if (!freeTypeMode) {
+    if (!freestyleMode) {
       errorCount = userInput.split("").filter((char, i) => char !== text[i]).length;
       correctChars = chars - errorCount;
     }
@@ -958,7 +958,7 @@ Can you beat my score? Try it here: `,
     // Calculate final WPM with cap to prevent unrealistic values
     const rawFinalWpm = calculateWPM(correctChars, safeElapsedSeconds);
     const finalWpm = Math.min(Math.max(rawFinalWpm, 0), 300); // Cap at 0-300 WPM range
-    const finalAccuracy = freeTypeMode ? 100 : calculateAccuracy(correctChars, chars);
+    const finalAccuracy = freestyleMode ? 100 : calculateAccuracy(correctChars, chars);
     const finalErrors = errorCount;
     
     // Update state with precise final values
@@ -992,7 +992,7 @@ Can you beat my score? Try it here: `,
       saveResultMutation.mutate(testData);
       
       // Save keystroke analytics if tracking is enabled (skip for free type mode)
-      if (!freeTypeMode && trackingEnabled && keystrokeTrackerRef.current) {
+      if (!freestyleMode && trackingEnabled && keystrokeTrackerRef.current) {
         try {
           const rawWpm = calculateWPM(chars, elapsedSeconds);
           const analytics = keystrokeTrackerRef.current.computeAnalytics(
@@ -1591,12 +1591,12 @@ Can you beat my score? Try it here: `,
               <TooltipTrigger asChild>
                 <button
                   onClick={resetTest}
-                  disabled={isGenerating || freeTypeMode}
+                  disabled={isGenerating || freestyleMode}
                   className={cn(
                     "px-2.5 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium transition-all flex items-center gap-1.5 md:gap-2",
                     isGenerating
                       ? "bg-primary/50 text-primary-foreground cursor-not-allowed"
-                      : freeTypeMode
+                      : freestyleMode
                         ? "bg-secondary/50 text-muted-foreground/50 cursor-not-allowed"
                         : "bg-secondary text-muted-foreground hover:text-foreground"
                   )}
@@ -1608,7 +1608,7 @@ Can you beat my score? Try it here: `,
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{freeTypeMode ? "Disabled in Free Type mode" : isGenerating ? "AI is generating fresh content..." : "Get a fresh paragraph without changing settings"}</p>
+                <p>{freestyleMode ? "Disabled in Freestyle mode" : isGenerating ? "AI is generating fresh content..." : "Get a fresh paragraph without changing settings"}</p>
               </TooltipContent>
             </Tooltip>
             
@@ -1616,9 +1616,9 @@ Can you beat my score? Try it here: `,
               <TooltipTrigger asChild>
                 <button
                   onClick={() => {
-                    const newValue = !freeTypeMode;
-                    setFreeTypeMode(newValue);
-                    setFreeTypeText("");
+                    const newValue = !freestyleMode;
+                    setFreestyleMode(newValue);
+                    setFreestyleText("");
                     setUserInput("");
                     setIsActive(false);
                     setIsFinished(false);
@@ -1629,7 +1629,7 @@ Can you beat my score? Try it here: `,
                     setErrors(0);
                     setStartTime(null);
                     toast({
-                      title: newValue ? "Free Type Mode" : "Standard Mode",
+                      title: newValue ? "Freestyle Mode" : "Standard Mode",
                       description: newValue 
                         ? "Type anything you want! WPM will be tracked." 
                         : "Switched back to standard typing test.",
@@ -1637,27 +1637,27 @@ Can you beat my score? Try it here: `,
                   }}
                   className={cn(
                     "px-2.5 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium transition-all flex items-center gap-1.5 md:gap-2",
-                    freeTypeMode
+                    freestyleMode
                       ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25" 
                       : "bg-secondary text-muted-foreground hover:text-foreground"
                   )}
-                  data-testid="button-free-type"
+                  data-testid="button-freestyle"
                 >
                   <PenLine className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                  <span className="hidden sm:inline">Free Type</span>
+                  <span className="hidden sm:inline">Freestyle</span>
                   <span className="sm:hidden">Free</span>
                 </button>
               </TooltipTrigger>
               <TooltipContent className="max-w-[280px]">
-                <p className="font-medium mb-1">{freeTypeMode ? "Exit Free Type Mode" : "Free Type Mode"}</p>
+                <p className="font-medium mb-1">{freestyleMode ? "Exit Freestyle Mode" : "Freestyle Mode"}</p>
                 <p className="text-xs text-muted-foreground mb-2">
-                  {freeTypeMode 
+                  {freestyleMode 
                     ? "Return to standard typing test with AI-generated paragraphs" 
                     : "Type anything you want without a pre-defined paragraph. Perfect for practice notes, creative writing, or just flowing thoughts."
                   }
                 </p>
                 <div className="text-xs text-muted-foreground space-y-1">
-                  {!freeTypeMode && (
+                  {!freestyleMode && (
                     <>
                       <p><span className="text-purple-400">Timer:</span> Uses your selected duration</p>
                       <p><span className="text-pink-400">WPM:</span> Tracked in real-time</p>
@@ -1965,18 +1965,18 @@ Can you beat my score? Try it here: `,
       {/* Typing Area */}
       <div className="relative min-h-[200px] md:min-h-[300px] max-h-[300px] md:max-h-[400px] overflow-hidden group">
         
-        {/* Free Type Mode Interface */}
-        {freeTypeMode && (
+        {/* Freestyle Mode Interface */}
+        {freestyleMode && (
           <div className="w-full h-full min-h-[200px] md:min-h-[300px] flex flex-col relative">
-            {/* Live Stats Bar for Free Type */}
-            {(isActive || freeTypeText.length > 0) && !isFinished && (
+            {/* Live Stats Bar for Freestyle */}
+            {(isActive || freestyleText.length > 0) && !isFinished && (
               <div className="absolute top-2 right-2 md:top-4 md:right-4 flex items-center gap-2 md:gap-3 px-3 py-1.5 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-full border border-purple-500/20 z-10">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-1 text-xs md:text-sm cursor-help">
                       <span className="text-muted-foreground">Words:</span>
                       <span className="font-mono font-semibold text-purple-400" data-testid="free-type-word-count">
-                        {freeTypeText.trim().split(/\s+/).filter(w => w.length > 0).length}
+                        {freestyleText.trim().split(/\s+/).filter(w => w.length > 0).length}
                       </span>
                     </div>
                   </TooltipTrigger>
@@ -1990,7 +1990,7 @@ Can you beat my score? Try it here: `,
                     <div className="flex items-center gap-1 text-xs md:text-sm cursor-help">
                       <span className="text-muted-foreground">Chars:</span>
                       <span className="font-mono font-semibold text-pink-400" data-testid="free-type-char-count">
-                        {freeTypeText.length}
+                        {freestyleText.length}
                       </span>
                     </div>
                   </TooltipTrigger>
@@ -2002,7 +2002,7 @@ Can you beat my score? Try it here: `,
             )}
             
             <textarea
-              value={freeTypeText}
+              value={freestyleText}
               onChange={(e) => {
                 const newText = e.target.value;
                 
@@ -2010,16 +2010,16 @@ Can you beat my score? Try it here: `,
                 if (isFinished) return;
                 
                 // Track last keystroke time for idle time handling
-                freeTypeLastKeystrokeRef.current = Date.now();
+                freestyleLastKeystrokeRef.current = Date.now();
                 
-                setFreeTypeText(newText);
+                setFreestyleText(newText);
                 
                 // Start timer on first keystroke (handle edge case of paste)
-                if (!isActive && !isFinished && newText.length > 0 && freeTypeText.length === 0) {
+                if (!isActive && !isFinished && newText.length > 0 && freestyleText.length === 0) {
                   setIsActive(true);
                   setStartTime(Date.now());
                   setHasInteracted(true);
-                  freeTypeLastKeystrokeRef.current = Date.now();
+                  freestyleLastKeystrokeRef.current = Date.now();
                 }
                 
                 // Calculate WPM in real-time for free type with edge case handling
@@ -2043,13 +2043,13 @@ Can you beat my score? Try it here: `,
                 // Shift+Enter to finish test early (like Monkeytype)
                 if (e.shiftKey && e.key === 'Enter') {
                   e.preventDefault();
-                  if (isActive && freeTypeText.length > 0) {
+                  if (isActive && freestyleText.length > 0) {
                     finishTest(false); // Pass false since user ended manually
                     toast({
                       title: "Test Finished",
                       description: "You ended the test early with Shift+Enter.",
                     });
-                  } else if (!isActive && freeTypeText.length === 0) {
+                  } else if (!isActive && freestyleText.length === 0) {
                     toast({
                       title: "Nothing to Save",
                       description: "Start typing first, then use Shift+Enter to finish.",
@@ -2058,16 +2058,16 @@ Can you beat my score? Try it here: `,
                   }
                 }
                 
-                // Escape to exit free type mode
+                // Escape to exit freestyle mode
                 if (e.key === 'Escape') {
                   if (!isActive || isFinished) {
-                    setFreeTypeMode(false);
-                    setFreeTypeText("");
+                    setFreestyleMode(false);
+                    setFreestyleText("");
                     setIsActive(false);
                     setIsFinished(false);
                     setTimeLeft(mode);
                     toast({
-                      title: "Exited Free Type Mode",
+                      title: "Exited Freestyle Mode",
                       description: "Switched back to standard typing test.",
                     });
                   }
@@ -2090,7 +2090,7 @@ Can you beat my score? Try it here: `,
               disabled={isFinished}
               autoFocus
               aria-label="Free type text area - type anything you want"
-              aria-describedby="free-type-instructions"
+              aria-describedby="freestyle-instructions"
               className={cn(
                 "w-full h-full min-h-[200px] md:min-h-[300px] p-4 md:p-8 text-lg sm:text-xl md:text-2xl font-mono leading-relaxed",
                 "bg-transparent border-none outline-none resize-none",
@@ -2098,12 +2098,12 @@ Can you beat my score? Try it here: `,
                 "focus:ring-0 focus:outline-none",
                 isFinished && "opacity-60 cursor-not-allowed"
               )}
-              data-testid="textarea-free-type"
+              data-testid="textarea-freestyle"
             />
             
             {/* Keyboard shortcut hint */}
-            {isActive && !isFinished && freeTypeText.length > 0 && (
-              <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 text-xs text-muted-foreground/60 hidden md:block" id="free-type-instructions">
+            {isActive && !isFinished && freestyleText.length > 0 && (
+              <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 text-xs text-muted-foreground/60 hidden md:block" id="freestyle-instructions">
                 <kbd className="px-1.5 py-0.5 bg-secondary/50 rounded text-[10px] font-mono">Shift</kbd>
                 <span className="mx-0.5">+</span>
                 <kbd className="px-1.5 py-0.5 bg-secondary/50 rounded text-[10px] font-mono">Enter</kbd>
@@ -2112,14 +2112,14 @@ Can you beat my score? Try it here: `,
             )}
             
             {/* Initial State Overlay */}
-            {!isActive && !isFinished && freeTypeText.length === 0 && (
+            {!isActive && !isFinished && freestyleText.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="flex flex-col items-center gap-3 text-center px-4">
                   <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-500/20 to-pink-500/20 flex items-center justify-center">
                     <PenLine className="w-8 h-8 text-purple-500" />
                   </div>
                   <div>
-                    <p className="text-lg font-medium text-foreground">Free Type Mode</p>
+                    <p className="text-lg font-medium text-foreground">Freestyle Mode</p>
                     <p className="text-sm text-muted-foreground mt-1">Type anything - practice notes, thoughts, or random words</p>
                     <p className="text-xs text-muted-foreground/70 mt-2">Timer starts when you begin typing</p>
                   </div>
@@ -2128,7 +2128,7 @@ Can you beat my score? Try it here: `,
             )}
             
             {/* Finished State Overlay */}
-            {isFinished && freeTypeText.length === 0 && (
+            {isFinished && freestyleText.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="flex flex-col items-center gap-3 text-center px-4">
                   <div className="w-16 h-16 rounded-full bg-yellow-500/20 flex items-center justify-center">
@@ -2144,7 +2144,7 @@ Can you beat my score? Try it here: `,
             )}
             
             {/* Finished with content */}
-            {isFinished && freeTypeText.length > 0 && (
+            {isFinished && freestyleText.length > 0 && (
               <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 flex items-center gap-2 px-3 py-1.5 bg-green-500/10 rounded-full border border-green-500/20">
                 <Check className="w-4 h-4 text-green-500" />
                 <span className="text-xs md:text-sm text-green-500 font-medium">Test Complete</span>
@@ -2154,7 +2154,7 @@ Can you beat my score? Try it here: `,
         )}
         
         {/* Error State */}
-        {!freeTypeMode && paragraphError && !text && (
+        {!freestyleMode && paragraphError && !text && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
             <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
               <AlertCircle className="w-8 h-8 text-destructive" />
@@ -2201,7 +2201,7 @@ Can you beat my score? Try it here: `,
         )}
 
         {/* Loading State - only show full overlay if no text exists yet */}
-        {!freeTypeMode && isGenerating && !text && (
+        {!freestyleMode && isGenerating && !text && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10">
             <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
             <p className="text-muted-foreground">Generating content...</p>
@@ -2209,7 +2209,7 @@ Can you beat my score? Try it here: `,
         )}
         
         {/* Inline loading indicator when text exists (regenerating) */}
-        {!freeTypeMode && isGenerating && text && (
+        {!freestyleMode && isGenerating && text && (
           <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full z-10">
             <Loader2 className="w-4 h-4 animate-spin text-primary" />
             <span className="text-xs text-primary">Loading new content...</span>
@@ -2217,7 +2217,7 @@ Can you beat my score? Try it here: `,
         )}
 
         {/* Hidden Input */}
-        {!freeTypeMode && (
+        {!freestyleMode && (
           <input
             ref={inputRef}
             type="text"
@@ -2234,7 +2234,7 @@ Can you beat my score? Try it here: `,
         )}
 
         {/* Visual Text Display */}
-        {!freeTypeMode && text && (
+        {!freestyleMode && text && (
           <div 
             ref={containerRef}
             lang={language}
@@ -2290,7 +2290,7 @@ Can you beat my score? Try it here: `,
         )}
         
         {/* Focus Overlay - Professional Monkeytype-style hint */}
-        {!freeTypeMode && !isActive && !isFinished && !hasInteracted && userInput.length === 0 && text && !isGenerating && (
+        {!freestyleMode && !isActive && !isFinished && !hasInteracted && userInput.length === 0 && text && !isGenerating && (
           <div 
             className="absolute inset-0 flex items-center justify-center cursor-text transition-opacity duration-200"
             onClick={() => {
