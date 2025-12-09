@@ -333,11 +333,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-muted-foreground/40">·</span>
             <span>© {new Date().getFullYear()} TypeMasterAI</span>
             <span className="text-muted-foreground/40">·</span>
-            <span>Solapur, Maharashtra, India</span>
-            <span className="text-muted-foreground/40">·</span>
             <a href="mailto:support@typemasterai.com" className="hover:text-primary transition-colors" data-testid="link-footer-support-email">support@typemasterai.com</a>
             <span className="text-muted-foreground/40">·</span>
-            <span>All Rights Reserved</span>
+            <span className="text-[10px]">Registered in Solapur, India</span>
           </div>
         </div>
       </footer>
