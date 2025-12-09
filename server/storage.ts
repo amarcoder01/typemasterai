@@ -174,7 +174,7 @@ import {
   type FeedbackAdmin,
   type InsertFeedbackAdmin,
 } from "@shared/schema";
-import { eq, desc, sql, and, notInArray, or } from "drizzle-orm";
+import { eq, desc, sql, and, notInArray, or, isNull } from "drizzle-orm";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -1352,7 +1352,10 @@ export class DatabaseStorage implements IStorage {
       .from(testResults)
       .where(and(
         eq(testResults.userId, userId),
-        or(eq(testResults.freestyle, false), isNull(testResults.freestyle))
+        or(
+          eq(testResults.freestyle, false),
+          isNull(testResults.freestyle)
+        )
       ));
 
     if (!result[0] || result[0].totalTests === 0) {
@@ -1449,6 +1452,7 @@ export class DatabaseStorage implements IStorage {
           ) as user_rank
         FROM test_results tr
         WHERE tr.created_at >= ${dateFilter}
+          AND (tr.freestyle = false OR tr.freestyle IS NULL)
       ),
       test_counts AS (
         SELECT 
@@ -1456,6 +1460,7 @@ export class DatabaseStorage implements IStorage {
           COUNT(*)::int as total_tests
         FROM test_results
         WHERE created_at >= ${dateFilter}
+          AND (freestyle = false OR freestyle IS NULL)
         GROUP BY user_id
       ),
       final_ranking AS (
@@ -1500,6 +1505,7 @@ export class DatabaseStorage implements IStorage {
       SELECT COUNT(DISTINCT user_id)::int as count
       FROM test_results
       WHERE created_at >= ${dateFilter}
+        AND (freestyle = false OR freestyle IS NULL)
     `);
     
     return (result.rows[0] as any)?.count || 0;
@@ -1519,6 +1525,7 @@ export class DatabaseStorage implements IStorage {
           ) as user_rank
         FROM test_results tr
         WHERE tr.created_at >= ${dateFilter}
+          AND (tr.freestyle = false OR tr.freestyle IS NULL)
       ),
       user_best AS (
         SELECT user_id, wpm FROM ranked_results WHERE user_rank = 1
@@ -1556,11 +1563,13 @@ export class DatabaseStorage implements IStorage {
           ) as user_rank
         FROM test_results tr
         WHERE tr.created_at >= ${dateFilter}
+          AND (tr.freestyle = false OR tr.freestyle IS NULL)
       ),
       test_counts AS (
         SELECT user_id, COUNT(*)::int as total_tests 
         FROM test_results 
         WHERE created_at >= ${dateFilter}
+          AND (freestyle = false OR freestyle IS NULL)
         GROUP BY user_id
       ),
       final_ranking AS (

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { generateText, calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award, Share2, Twitter, Facebook, MessageCircle, Copy, Check, Link2, Linkedin, Mail, Send, AlertCircle, Loader2, HelpCircle, Timer, BarChart3, Eye, EyeOff, PenLine } from "lucide-react";
+import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award, Share2, Twitter, Facebook, MessageCircle, Copy, Check, Link2, Linkedin, Mail, Send, AlertCircle, Loader2, HelpCircle, Timer, BarChart3, Eye, EyeOff, PenLine, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
@@ -2048,6 +2048,16 @@ Can you beat my score? Try it here: `,
            </>
          )}
       </div>
+
+      {/* Freestyle Mode Notice */}
+      {freestyleMode && (
+        <div className="mb-3 px-3 py-2 bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-start gap-2" data-testid="notice-freestyle-leaderboard">
+          <Info className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
+          <p className="text-xs text-purple-300">
+            <span className="font-medium">Personal Practice Mode:</span> Freestyle scores are for your insight only and don't count in leaderboards or stats.
+          </p>
+        </div>
+      )}
 
       {/* Typing Area */}
       <div className="relative min-h-[200px] md:min-h-[300px] max-h-[300px] md:max-h-[400px] overflow-hidden group">
