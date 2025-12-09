@@ -212,7 +212,7 @@ export default function PrivacyPolicy() {
 
           <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">10.3 International Data Transfers</h3>
           <p className="text-muted-foreground">
-            Your data may be transferred to the United States. We ensure appropriate safeguards through Standard Contractual Clauses (SCCs) and other legally recognized transfer mechanisms to protect your data during international transfers.
+            Your data may be transferred internationally to countries where our service providers operate. We ensure appropriate safeguards through Standard Contractual Clauses (SCCs) and other legally recognized transfer mechanisms to protect your data during international transfers.
           </p>
         </section>
 
@@ -252,7 +252,7 @@ export default function PrivacyPolicy() {
         <section>
           <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">12. International Users</h2>
           <p className="text-muted-foreground">
-            TypeMasterAI is operated from the United States. If you access our service from outside the US, your information may be transferred to, stored, and processed in the United States. By using our service, you consent to this transfer. We implement appropriate safeguards to protect your data during international transfers, including Standard Contractual Clauses for EU data.
+            TypeMasterAI operates globally and serves users worldwide. Your information may be transferred to, stored, and processed in multiple countries where we or our service providers operate. By using our service, you consent to international data transfers. We implement appropriate safeguards to protect your data during such transfers, including Standard Contractual Clauses where required by law.
           </p>
         </section>
 

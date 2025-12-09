@@ -101,7 +101,7 @@ export default function AITransparency() {
           <ul className="list-disc pl-6 text-muted-foreground space-y-2">
             <li>API data is retained for up to 30 days for abuse monitoring, then deleted</li>
             <li>OpenAI does <strong className="text-foreground">not</strong> use API data to train their models without explicit consent</li>
-            <li>Data is processed in the United States and other countries where OpenAI operates</li>
+            <li>Data is processed internationally in countries where OpenAI operates its infrastructure</li>
           </ul>
           <p className="text-muted-foreground mt-4">
             For complete details, see{" "}

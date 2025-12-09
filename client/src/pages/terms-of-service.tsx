@@ -225,7 +225,7 @@ export default function TermsOfService() {
         <section>
           <h2 className="text-2xl font-bold text-foreground mb-4">15. Governing Law</h2>
           <p className="text-muted-foreground">
-            These Terms shall be governed by and construed in accordance with the laws of the United States, without regard to its conflict of law provisions. Any disputes arising from these Terms or your use of the Service shall be resolved in the courts located in the United States.
+            These Terms shall be governed by and construed in accordance with the laws of India, without regard to its conflict of law provisions. Any disputes arising from these Terms or your use of the Service shall be subject to the exclusive jurisdiction of the courts in Solapur, Maharashtra, India.
           </p>
         </section>
 
@@ -236,22 +236,27 @@ export default function TermsOfService() {
           </p>
         </section>
 
-        <section className="bg-card/50 p-6 rounded-lg border border-border">
-          <h2 className="text-2xl font-bold text-foreground mb-4">Contact Information</h2>
-          <p className="text-muted-foreground mb-4">
+        <section className="bg-card/30 p-8 rounded-xl border border-border">
+          <h2 className="text-2xl font-bold text-foreground mb-6">Contact Information</h2>
+          <p className="text-muted-foreground mb-6">
             For questions about these Terms of Service, please contact us:
           </p>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Mail className="w-4 h-4 text-primary" />
-            <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">
-              support@typemasterai.com
-            </a>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-1">Email</p>
+              <a href="mailto:support@typemasterai.com" className="text-primary hover:underline text-lg">
+                support@typemasterai.com
+              </a>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-1">Mailing Address</p>
+              <p className="text-muted-foreground">
+                TypeMasterAI<br />
+                Solapur, Maharashtra 413224<br />
+                India
+              </p>
+            </div>
           </div>
-          <p className="text-muted-foreground mt-4 text-sm">
-            TypeMasterAI<br />
-            Legal Department<br />
-            TypeMasterAI.com
-          </p>
         </section>
       </div>
     </div>
