@@ -1,34 +1,26 @@
 import { Link } from "wouter";
-import { FileText, Mail } from "lucide-react";
 
 export default function TermsOfService() {
   return (
     <div className="max-w-4xl mx-auto" data-testid="page-terms-of-service">
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-            <FileText className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-4xl font-bold" data-testid="heading-terms-of-service">Terms of Service</h1>
-            <p className="text-muted-foreground text-sm mt-1">Last Updated: December 8, 2025</p>
-          </div>
-        </div>
-        <p className="text-muted-foreground">
+        <h1 className="text-4xl font-bold mb-2" data-testid="heading-terms-of-service">Terms of Service</h1>
+        <p className="text-muted-foreground text-sm mb-4">Last Updated: December 9, 2025</p>
+        <p className="text-muted-foreground text-lg">
           Welcome to TypeMasterAI! These Terms of Service govern your use of our typing test platform. By using TypeMasterAI, you agree to these terms.
         </p>
       </div>
 
-      <div className="space-y-8 prose prose-invert max-w-none">
+      <div className="space-y-10 prose prose-invert max-w-none">
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">1. Acceptance of Terms</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">1. Acceptance of Terms</h2>
           <p className="text-muted-foreground">
             By accessing or using TypeMasterAI ("the Service"), you agree to be bound by these Terms of Service and our <Link href="/privacy-policy" className="text-primary hover:underline">Privacy Policy</Link>. If you do not agree to these terms, please do not use the Service.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">2. Description of Service</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">2. Description of Service</h2>
           <p className="text-muted-foreground mb-4">
             TypeMasterAI provides:
           </p>
@@ -44,7 +36,7 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">3. User Accounts</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">3. User Accounts</h2>
           
           <h3 className="text-xl font-semibold text-foreground mb-3">3.1 Account Creation</h3>
           <p className="text-muted-foreground mb-4">
@@ -65,7 +57,7 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">4. Acceptable Use Policy</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">4. Acceptable Use Policy</h2>
           
           <h3 className="text-xl font-semibold text-foreground mb-3">4.1 Permitted Use</h3>
           <p className="text-muted-foreground mb-4">
@@ -96,7 +88,7 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">5. AI-Generated Content</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">5. AI-Generated Content</h2>
           <p className="text-muted-foreground mb-4">
             TypeMasterAI uses OpenAI's GPT-4 technology for content generation. You acknowledge that:
           </p>
@@ -109,7 +101,7 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">6. Intellectual Property Rights</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">6. Intellectual Property Rights</h2>
           
           <h3 className="text-xl font-semibold text-foreground mb-3">6.1 Our Property</h3>
           <p className="text-muted-foreground mb-4">
@@ -129,7 +121,7 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">7. Leaderboards and Rankings</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">7. Leaderboards and Rankings</h2>
           <p className="text-muted-foreground mb-4">
             Our leaderboards display typing performance publicly. By participating:
           </p>
@@ -142,7 +134,7 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">8. Disclaimer of Warranties</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">8. Disclaimer of Warranties</h2>
           <p className="text-muted-foreground">
             THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. TypeMasterAI DOES NOT WARRANT THAT:
           </p>
@@ -155,14 +147,14 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">9. Limitation of Liability</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">9. Limitation of Liability</h2>
           <p className="text-muted-foreground">
             TO THE MAXIMUM EXTENT PERMITTED BY LAW, TypeMasterAI SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS OR REVENUES, WHETHER INCURRED DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA, USE, OR OTHER INTANGIBLE LOSSES.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">10. Indemnification</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">10. Indemnification</h2>
           <p className="text-muted-foreground mb-4">
             You agree to indemnify, defend, and hold harmless TypeMasterAI, its affiliates, officers, directors, employees, agents, licensors, and suppliers from and against any claims, liabilities, damages, judgments, awards, losses, costs, expenses, or fees (including reasonable attorneys' fees) arising out of or relating to:
           </p>
@@ -176,14 +168,14 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">11. Force Majeure</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">11. Force Majeure</h2>
           <p className="text-muted-foreground">
             TypeMasterAI shall not be liable for any failure or delay in performing its obligations under these Terms if such failure or delay results from circumstances beyond its reasonable control, including but not limited to: acts of God, natural disasters, pandemics, war, terrorism, riots, government actions, power failures, internet outages, third-party service provider failures, or cyberattacks. In such events, our obligations shall be suspended for the duration of the force majeure event.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">12. Account Termination</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">12. Account Termination</h2>
           
           <h3 className="text-xl font-semibold text-foreground mb-3">12.1 Termination by You</h3>
           <p className="text-muted-foreground">
@@ -203,7 +195,7 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">13. Service Availability</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">13. Service Availability</h2>
           <p className="text-muted-foreground">
             TypeMasterAI is currently free to use. We reserve the right to:
           </p>
@@ -216,21 +208,21 @@ export default function TermsOfService() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">14. Changes to Terms</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">14. Changes to Terms</h2>
           <p className="text-muted-foreground">
             We may update these Terms of Service at any time. Significant changes will be communicated via email or a prominent notice on the platform. Your continued use of TypeMasterAI after changes constitutes acceptance of the new terms.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">15. Governing Law</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">15. Governing Law</h2>
           <p className="text-muted-foreground">
             These Terms shall be governed by and construed in accordance with the laws of India, without regard to its conflict of law provisions. Any disputes arising from these Terms or your use of the Service shall be subject to the exclusive jurisdiction of the courts in Solapur, Maharashtra, India.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">16. Severability</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">16. Severability</h2>
           <p className="text-muted-foreground">
             If any provision of these Terms is found to be invalid or unenforceable, the remaining provisions shall continue in full force and effect.
           </p>
