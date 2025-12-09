@@ -7,7 +7,7 @@
   <!-- Home Page / Main Typing Test -->
   <url>
     <loc>https://typemaster-ai.replit.app/</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
     <mobile:mobile/>
@@ -16,16 +16,43 @@
   <!-- Code Typing Mode -->
   <url>
     <loc>https://typemaster-ai.replit.app/code-mode</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
+    <mobile:mobile/>
+  </url>
+  
+  <!-- Dictation Test -->
+  <url>
+    <loc>https://typemaster-ai.replit.app/dictation-test</loc>
+    <lastmod>2025-12-09</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <mobile:mobile/>
+  </url>
+  
+  <!-- Stress Test -->
+  <url>
+    <loc>https://typemaster-ai.replit.app/stress-test</loc>
+    <lastmod>2025-12-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <mobile:mobile/>
+  </url>
+  
+  <!-- Book Chapter Typing -->
+  <url>
+    <loc>https://typemaster-ai.replit.app/book-chapter-test</loc>
+    <lastmod>2025-12-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
     <mobile:mobile/>
   </url>
   
   <!-- Code Leaderboard -->
   <url>
     <loc>https://typemaster-ai.replit.app/code-leaderboard</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
     <mobile:mobile/>
@@ -34,16 +61,16 @@
   <!-- Multiplayer Racing -->
   <url>
     <loc>https://typemaster-ai.replit.app/multiplayer</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <priority>0.9</priority>
     <mobile:mobile/>
   </url>
   
   <!-- Leaderboard -->
   <url>
     <loc>https://typemaster-ai.replit.app/leaderboard</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>hourly</changefreq>
     <priority>0.8</priority>
     <mobile:mobile/>
@@ -52,7 +79,7 @@
   <!-- Analytics -->
   <url>
     <loc>https://typemaster-ai.replit.app/analytics</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
     <mobile:mobile/>
@@ -61,16 +88,34 @@
   <!-- Profile -->
   <url>
     <loc>https://typemaster-ai.replit.app/profile</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
+    <mobile:mobile/>
+  </url>
+  
+  <!-- Achievements -->
+  <url>
+    <loc>https://typemaster-ai.replit.app/achievements</loc>
+    <lastmod>2025-12-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+    <mobile:mobile/>
+  </url>
+  
+  <!-- Challenges -->
+  <url>
+    <loc>https://typemaster-ai.replit.app/challenges</loc>
+    <lastmod>2025-12-09</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
     <mobile:mobile/>
   </url>
   
   <!-- Settings -->
   <url>
     <loc>https://typemaster-ai.replit.app/settings</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
     <mobile:mobile/>
@@ -79,7 +124,7 @@
   <!-- Login -->
   <url>
     <loc>https://typemaster-ai.replit.app/login</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
     <mobile:mobile/>
@@ -88,16 +133,16 @@
   <!-- Register -->
   <url>
     <loc>https://typemaster-ai.replit.app/register</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
     <mobile:mobile/>
   </url>
   
-  <!-- SEO Landing Pages -->
+  <!-- SEO Landing Pages - Duration Tests -->
   <url>
     <loc>https://typemaster-ai.replit.app/1-minute-typing-test</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <mobile:mobile/>
@@ -105,7 +150,7 @@
   
   <url>
     <loc>https://typemaster-ai.replit.app/3-minute-typing-test</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <mobile:mobile/>
@@ -113,15 +158,16 @@
   
   <url>
     <loc>https://typemaster-ai.replit.app/5-minute-typing-test</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <mobile:mobile/>
   </url>
   
+  <!-- SEO Landing Pages - Competitor Alternatives -->
   <url>
     <loc>https://typemaster-ai.replit.app/monkeytype-alternative</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <mobile:mobile/>
@@ -129,7 +175,7 @@
   
   <url>
     <loc>https://typemaster-ai.replit.app/typeracer-alternative</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <mobile:mobile/>
@@ -137,7 +183,7 @@
   
   <url>
     <loc>https://typemaster-ai.replit.app/10fastfingers-alternative</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <mobile:mobile/>
@@ -145,9 +191,50 @@
   
   <url>
     <loc>https://typemaster-ai.replit.app/typingcom-alternative</loc>
-    <lastmod>2025-11-26</lastmod>
+    <lastmod>2025-12-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
+    <mobile:mobile/>
+  </url>
+  
+  <!-- Legal & Compliance Pages -->
+  <url>
+    <loc>https://typemaster-ai.replit.app/privacy-policy</loc>
+    <lastmod>2025-12-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <mobile:mobile/>
+  </url>
+  
+  <url>
+    <loc>https://typemaster-ai.replit.app/terms-of-service</loc>
+    <lastmod>2025-12-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <mobile:mobile/>
+  </url>
+  
+  <url>
+    <loc>https://typemaster-ai.replit.app/cookie-policy</loc>
+    <lastmod>2025-12-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <mobile:mobile/>
+  </url>
+  
+  <url>
+    <loc>https://typemaster-ai.replit.app/ai-transparency</loc>
+    <lastmod>2025-12-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+    <mobile:mobile/>
+  </url>
+  
+  <url>
+    <loc>https://typemaster-ai.replit.app/accessibility</loc>
+    <lastmod>2025-12-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
     <mobile:mobile/>
   </url>
 

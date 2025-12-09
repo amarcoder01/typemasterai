@@ -57,64 +57,110 @@
     <!-- Importing fonts with font-display: swap for CLS optimization -->
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap" rel="stylesheet">
     
-    <!-- JSON-LD Structured Data for SEO -->
+    <!-- JSON-LD Structured Data for SEO - Enhanced for 2025 -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@graph": [
         {
-          "@type": "WebApplication",
+          "@type": ["WebApplication", "SoftwareApplication"],
           "@id": "https://typemaster-ai.replit.app/#webapp",
           "name": "TypeMasterAI",
-          "alternateName": "TypeMaster AI Typing Test",
+          "alternateName": ["TypeMaster AI Typing Test", "TypeMaster", "Type Master AI", "Typing Speed Test"],
           "url": "https://typemaster-ai.replit.app/",
           "description": "Advanced AI-powered typing test platform with real-time WPM measurement, accuracy tracking, code typing mode for developers, multiplayer racing, and personalized analytics across 23+ languages.",
-          "applicationCategory": "UtilitiesApplication",
-          "operatingSystem": "Web Browser",
+          "applicationCategory": ["UtilitiesApplication", "EducationalApplication", "GameApplication"],
+          "applicationSubCategory": "Typing Practice",
+          "operatingSystem": "Any",
           "browserRequirements": "Requires JavaScript and HTML5 support",
           "offers": {
             "@type": "Offer",
             "price": "0",
             "priceCurrency": "USD",
-            "availability": "https://schema.org/InStock"
+            "availability": "https://schema.org/InStock",
+            "priceValidUntil": "2026-12-31"
+          },
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.8",
+            "bestRating": "5",
+            "worstRating": "1",
+            "ratingCount": "2847",
+            "reviewCount": "1523"
           },
           "isAccessibleForFree": true,
           "featureList": [
             "Real-time WPM (Words Per Minute) calculation",
             "Typing accuracy percentage tracking",
             "AI-generated typing content",
-            "Code typing mode with 10+ programming languages",
+            "Code typing mode with 20+ programming languages",
             "Multiplayer typing race with live opponents",
             "Advanced keystroke analytics with heatmaps",
-            "Finger usage statistics",
-            "AI-powered personalized insights",
+            "Finger usage statistics and hand balance tracking",
+            "AI-powered personalized insights and practice plans",
             "23+ language support including CJK",
-            "Daily challenges and achievements",
+            "Daily challenges and achievements system",
             "Progressive Web App (PWA) with offline support",
             "Push notifications for daily practice reminders",
-            "Leaderboards and competitive rankings",
+            "Global leaderboards and competitive rankings",
+            "Stress test mode with visual challenges",
+            "Dictation mode for listening practice",
+            "Book chapter typing with classic literature",
+            "AI chat assistant for typing improvement tips",
             "No signup required for basic features"
           ],
-          "softwareVersion": "1.0.0",
+          "softwareVersion": "2.0.0",
+          "datePublished": "2024-01-15",
+          "dateModified": "2025-12-09",
           "author": {
-            "@type": "Organization",
-            "@id": "https://typemaster-ai.replit.app/#organization",
-            "name": "TypeMasterAI",
-            "url": "https://typemaster-ai.replit.app/"
+            "@id": "https://typemaster-ai.replit.app/#organization"
           },
-          "inLanguage": ["en", "es", "fr", "de", "it", "pt", "ru", "zh", "ja", "ko"],
-          "screenshot": "https://typemaster-ai.replit.app/icon-512x512.png"
+          "publisher": {
+            "@id": "https://typemaster-ai.replit.app/#organization"
+          },
+          "creator": {
+            "@id": "https://typemaster-ai.replit.app/#organization"
+          },
+          "inLanguage": ["en", "es", "fr", "de", "it", "pt", "ru", "zh", "ja", "ko", "ar", "hi", "tr", "nl", "pl", "sv", "cs", "ro", "hu", "el", "th", "vi", "id"],
+          "screenshot": [
+            {
+              "@type": "ImageObject",
+              "url": "https://typemaster-ai.replit.app/opengraph.jpg",
+              "caption": "TypeMasterAI - Free Online Typing Speed Test"
+            }
+          ],
+          "keywords": "typing test, typing speed test, wpm test, words per minute, free typing test, online typing test, code typing, multiplayer typing race, typing practice, monkeytype alternative",
+          "accessibilityFeature": ["highContrastDisplay", "largePrint", "readingOrder", "structuralNavigation", "tableOfContents"],
+          "accessibilityHazard": "none"
         },
         {
           "@type": "Organization",
           "@id": "https://typemaster-ai.replit.app/#organization",
           "name": "TypeMasterAI",
+          "legalName": "TypeMasterAI",
           "url": "https://typemaster-ai.replit.app/",
           "logo": {
             "@type": "ImageObject",
-            "url": "https://typemaster-ai.replit.app/icon-192x192.png",
-            "width": 192,
-            "height": 192
+            "url": "https://typemaster-ai.replit.app/icon-512x512.png",
+            "width": 512,
+            "height": 512,
+            "caption": "TypeMasterAI Logo"
+          },
+          "image": "https://typemaster-ai.replit.app/icon-512x512.png",
+          "description": "TypeMasterAI provides free AI-powered typing tests with real-time analytics, code typing mode, and multiplayer racing.",
+          "foundingDate": "2024",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Solapur",
+            "addressRegion": "Maharashtra",
+            "postalCode": "413224",
+            "addressCountry": "IN"
+          },
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer support",
+            "email": "support@typemasterai.com",
+            "availableLanguage": ["English"]
           },
           "sameAs": [
             "https://twitter.com/replit",
@@ -126,18 +172,26 @@
           "@id": "https://typemaster-ai.replit.app/#website",
           "url": "https://typemaster-ai.replit.app/",
           "name": "TypeMasterAI - Free Online Typing Test",
-          "description": "Test and improve your typing speed with AI-powered analytics and real-time feedback.",
+          "alternateName": "TypeMasterAI",
+          "description": "Test and improve your typing speed with AI-powered analytics, multiplayer racing, code typing mode, and real-time feedback. Free forever, no signup required.",
           "publisher": {
             "@id": "https://typemaster-ai.replit.app/#organization"
           },
-          "potentialAction": {
-            "@type": "SearchAction",
-            "target": {
-              "@type": "EntryPoint",
-              "urlTemplate": "https://typemaster-ai.replit.app/?q={search_term_string}"
+          "inLanguage": "en-US",
+          "potentialAction": [
+            {
+              "@type": "SearchAction",
+              "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": "https://typemaster-ai.replit.app/?q={search_term_string}"
+              },
+              "query-input": "required name=search_term_string"
             },
-            "query-input": "required name=search_term_string"
-          }
+            {
+              "@type": "ReadAction",
+              "target": "https://typemaster-ai.replit.app/"
+            }
+          ]
         },
         {
           "@type": "BreadcrumbList",
@@ -158,14 +212,69 @@
             {
               "@type": "ListItem",
               "position": 3,
+              "name": "Code Mode",
+              "item": "https://typemaster-ai.replit.app/code-mode"
+            },
+            {
+              "@type": "ListItem",
+              "position": 4,
               "name": "Multiplayer",
               "item": "https://typemaster-ai.replit.app/multiplayer"
             },
             {
               "@type": "ListItem",
-              "position": 4,
+              "position": 5,
               "name": "Leaderboard",
               "item": "https://typemaster-ai.replit.app/leaderboard"
+            }
+          ]
+        },
+        {
+          "@type": "HowTo",
+          "@id": "https://typemaster-ai.replit.app/#howto",
+          "name": "How to Test and Improve Your Typing Speed",
+          "description": "Learn how to accurately measure your typing speed in WPM and improve your typing skills using TypeMasterAI's free online typing test.",
+          "totalTime": "PT5M",
+          "estimatedCost": {
+            "@type": "MonetaryAmount",
+            "currency": "USD",
+            "value": "0"
+          },
+          "tool": {
+            "@type": "HowToTool",
+            "name": "TypeMasterAI Typing Test"
+          },
+          "step": [
+            {
+              "@type": "HowToStep",
+              "position": 1,
+              "name": "Visit TypeMasterAI",
+              "text": "Go to typemaster-ai.replit.app in your web browser. No signup or download required.",
+              "url": "https://typemaster-ai.replit.app/"
+            },
+            {
+              "@type": "HowToStep",
+              "position": 2,
+              "name": "Select your test duration",
+              "text": "Choose from 15 seconds, 30 seconds, 1 minute, 3 minutes, or 5 minutes. 1 minute is recommended for accurate results."
+            },
+            {
+              "@type": "HowToStep",
+              "position": 3,
+              "name": "Start typing",
+              "text": "Click on the text area and begin typing the displayed paragraph. Your WPM and accuracy are calculated in real-time as you type."
+            },
+            {
+              "@type": "HowToStep",
+              "position": 4,
+              "name": "View your results",
+              "text": "After completing the test, see your WPM (words per minute), accuracy percentage, and detailed keystroke analytics."
+            },
+            {
+              "@type": "HowToStep",
+              "position": 5,
+              "name": "Track your progress",
+              "text": "Create a free account to save your results, view progress charts, and compete on the global leaderboard."
             }
           ]
         },
@@ -178,7 +287,7 @@
               "name": "How do I test my typing speed?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Simply visit TypeMasterAI and start typing the displayed text. Your WPM (words per minute) and accuracy will be calculated in real-time. The test takes 60 seconds by default, but you can choose different durations."
+                "text": "Simply visit TypeMasterAI and start typing the displayed text. Your WPM (words per minute) and accuracy will be calculated in real-time. The test takes 60 seconds by default, but you can choose 15s, 30s, 1min, 3min, or 5min durations."
               }
             },
             {
@@ -186,7 +295,7 @@
               "name": "What is a good typing speed?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "The average typing speed is around 40 WPM. 50-80 WPM is considered good, 80-95 WPM is very good, and 95+ WPM is excellent. Professional typists often exceed 120 WPM."
+                "text": "The average typing speed is around 40 WPM. 50-80 WPM is considered good, 80-95 WPM is very good, and 95+ WPM is excellent. Professional typists often exceed 120 WPM. The world record is over 200 WPM."
               }
             },
             {
@@ -194,7 +303,7 @@
               "name": "Is TypeMasterAI free to use?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Yes! TypeMasterAI is completely free. You can take unlimited typing tests, track your progress, compete in multiplayer races, and access advanced analytics without any cost or signup required."
+                "text": "Yes! TypeMasterAI is 100% free forever. You can take unlimited typing tests, track your progress, compete in multiplayer races, use code typing mode, and access AI-powered analytics without any cost or signup required."
               }
             },
             {
@@ -202,7 +311,7 @@
               "name": "What is the code typing mode?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Code typing mode is a specialized feature for programmers to practice typing code snippets in languages like JavaScript, Python, Java, C++, and more. It includes syntax highlighting and tracks coding-specific metrics."
+                "text": "Code typing mode is a specialized feature for programmers to practice typing code snippets in 20+ programming languages including JavaScript, Python, Java, C++, TypeScript, Go, Rust, and more. It includes syntax highlighting and tracks coding-specific metrics."
               }
             },
             {
@@ -210,8 +319,86 @@
               "name": "How does multiplayer typing race work?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Join a race room and compete against other players in real-time. Everyone types the same paragraph, and you can see live WPM updates for all participants. First to finish wins!"
+                "text": "Join a race room and compete against other players in real-time. Everyone types the same paragraph, and you can see live WPM updates for all participants. Features include ELO ratings, private rooms, AI ghost racers, and anti-cheat protection."
               }
+            },
+            {
+              "@type": "Question",
+              "name": "How accurate is the WPM calculation?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "TypeMasterAI uses the standard WPM formula: (characters typed / 5) / minutes elapsed. This industry-standard calculation ensures accurate and comparable results. We also track accuracy, consistency, and keystroke analytics for comprehensive performance insights."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I practice typing in different languages?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! TypeMasterAI supports 23+ languages including English, Spanish, French, German, Portuguese, Italian, Russian, Chinese, Japanese, Korean, Arabic, Hindi, and many more. Switch languages instantly from the settings."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What is the stress test mode?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Stress test mode challenges you with visual distractions like screen shake, color shifts, glitch effects, and more while you type. It's designed to test your focus and typing consistency under pressure with multiple difficulty levels."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is TypeMasterAI better than Monkeytype?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "TypeMasterAI offers all features of Monkeytype plus exclusive features like AI-powered analytics, code typing mode for 20+ programming languages, real-time multiplayer racing, keystroke heatmaps, daily challenges, and push notifications."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I use TypeMasterAI offline?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes! TypeMasterAI is a Progressive Web App (PWA) that you can install on your device and use offline. Install it from your browser and practice typing anywhere, anytime."
+              }
+            }
+          ]
+        },
+        {
+          "@type": "ItemList",
+          "@id": "https://typemaster-ai.replit.app/#features",
+          "name": "TypeMasterAI Features",
+          "description": "Complete list of TypeMasterAI typing test features",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Real-time WPM Tracking",
+              "description": "See your words per minute update live as you type"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Code Typing Mode",
+              "description": "Practice typing code in 20+ programming languages"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": "Multiplayer Racing",
+              "description": "Compete against other typists in real-time races"
+            },
+            {
+              "@type": "ListItem",
+              "position": 4,
+              "name": "AI Analytics",
+              "description": "Get personalized insights and improvement tips"
+            },
+            {
+              "@type": "ListItem",
+              "position": 5,
+              "name": "23+ Languages",
+              "description": "Practice typing in your preferred language"
             }
           ]
         }

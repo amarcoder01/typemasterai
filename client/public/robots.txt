@@ -1,23 +1,29 @@
 # Robots.txt for TypeMasterAI - Free Online Typing Test
-# Allow all search engines to crawl and index
+# https://typemaster-ai.replit.app
+# Last updated: 2025-12-09
 
+# Allow all search engines to crawl and index
 User-agent: *
 Allow: /
 
 # Sitemaps
 Sitemap: https://typemaster-ai.replit.app/sitemap.xml
 
-# Crawl-delay for specific bots (prevent overload)
-User-agent: Googlebot
-Crawl-delay: 1
-
-User-agent: Bingbot
-Crawl-delay: 1
-
 # Block specific paths that shouldn't be indexed
 Disallow: /api/
 Disallow: /*?*session=*
 Disallow: /*?*token=*
+Disallow: /race/
+Disallow: /*.json$
+
+# Allow important resources for rendering
+Allow: /manifest.json
+Allow: /*.js$
+Allow: /*.css$
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.svg$
+Allow: /*.woff2$
 
 # Allow social media crawlers for rich previews
 User-agent: Twitterbot
@@ -29,9 +35,40 @@ Allow: /
 User-agent: LinkedInBot
 Allow: /
 
-# Block bad bots
+User-agent: Slackbot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+User-agent: TelegramBot
+Allow: /
+
+# Allow AI search engines for better AI search visibility
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: Anthropic-AI
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+# Crawl delay for aggressive bots (prevents server overload)
 User-agent: AhrefsBot
 Crawl-delay: 10
 
 User-agent: SemrushBot
+Crawl-delay: 10
+
+User-agent: MJ12bot
+Crawl-delay: 10
+
+User-agent: DotBot
 Crawl-delay: 10
