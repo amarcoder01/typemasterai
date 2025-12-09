@@ -1,198 +1,151 @@
-import { Mail, MessageSquare, Github, Twitter, Globe, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function Contact() {
   return (
     <div className="max-w-4xl mx-auto" data-testid="page-contact">
-      <div className="mb-12 text-center">
-        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-          <MessageSquare className="w-8 h-8 text-primary" />
-        </div>
-        <h1 className="text-5xl font-bold mb-4" data-testid="heading-contact">Get in Touch</h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Have questions, feedback, or suggestions? We'd love to hear from you!
+      <div className="mb-16 text-center">
+        <h1 className="text-5xl font-bold mb-4" data-testid="heading-contact">Contact Support</h1>
+        <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+          Our support team is here to help you with any questions or concerns.
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8 mb-12">
-        <div className="space-y-6">
-          <div className="bg-card/30 p-6 rounded-xl border border-border">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Mail className="w-5 h-5 text-primary" />
-              </div>
-              <h3 className="font-semibold text-lg">General Inquiries</h3>
-            </div>
-            <p className="text-muted-foreground text-sm mb-3">
-              For general questions and information about TypeMasterAI
-            </p>
-            <a
-              href="mailto:support@typemasterai.com"
-              className="text-primary hover:underline flex items-center gap-2"
-              data-testid="link-email-general"
-            >
-              support@typemasterai.com
-              <Send className="w-4 h-4" />
-            </a>
-          </div>
-
-          <div className="bg-card/30 p-6 rounded-xl border border-border">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Mail className="w-5 h-5 text-primary" />
-              </div>
-              <h3 className="font-semibold text-lg">Support</h3>
-            </div>
-            <p className="text-muted-foreground text-sm mb-3">
-              Need help with your account or experiencing technical issues?
-            </p>
-            <a
-              href="mailto:support@typemasterai.com"
-              className="text-primary hover:underline flex items-center gap-2"
-              data-testid="link-email-support"
-            >
-              support@typemasterai.com
-              <Send className="w-4 h-4" />
-            </a>
-          </div>
-
-          <div className="bg-card/30 p-6 rounded-xl border border-border">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Mail className="w-5 h-5 text-primary" />
-              </div>
-              <h3 className="font-semibold text-lg">Privacy & Legal</h3>
-            </div>
-            <p className="text-muted-foreground text-sm mb-3">
-              Questions about privacy, data protection, or legal matters
-            </p>
-            <a
-              href="mailto:support@typemasterai.com"
-              className="text-primary hover:underline flex items-center gap-2"
-              data-testid="link-email-legal"
-            >
-              support@typemasterai.com
-              <Send className="w-4 h-4" />
-            </a>
-          </div>
-
-          <div className="bg-card/30 p-6 rounded-xl border border-border">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                <Mail className="w-5 h-5 text-primary" />
-              </div>
-              <h3 className="font-semibold text-lg">Business & Partnerships</h3>
-            </div>
-            <p className="text-muted-foreground text-sm mb-3">
-              Interested in partnerships, collaborations, or business opportunities?
-            </p>
-            <a
-              href="mailto:business@typemasterai.com"
-              className="text-primary hover:underline flex items-center gap-2"
-              data-testid="link-email-business"
-            >
-              business@typemasterai.com
-              <Send className="w-4 h-4" />
-            </a>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-gradient-to-br from-primary/10 to-purple-500/10 p-8 rounded-xl border border-primary/20">
-            <h3 className="font-semibold text-xl mb-4">Connect With Us</h3>
-            <p className="text-muted-foreground mb-6">
-              Follow us on social media for updates, tips, and community engagement
-            </p>
-            <div className="space-y-3">
+      <div className="space-y-8 mb-12">
+        <section>
+          <h2 className="text-3xl font-bold mb-6 pb-3 border-b-2 border-primary/20">
+            Contact Channels
+          </h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-card/30 p-8 rounded-xl border border-border">
+              <h3 className="font-semibold text-xl mb-3 text-primary">General Support</h3>
+              <p className="text-muted-foreground mb-4 leading-relaxed">
+                For general questions, technical support, and account assistance
+              </p>
               <a
-                href="https://twitter.com/typemasterai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-background/50 rounded-lg hover:bg-background transition-colors"
-                data-testid="link-social-twitter"
+                href="mailto:support@typemasterai.com"
+                className="text-primary hover:underline font-medium text-lg"
+                data-testid="link-email-general"
               >
-                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                  <Twitter className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <div className="font-semibold">Twitter</div>
-                  <div className="text-sm text-muted-foreground">@typemasterai</div>
-                </div>
+                support@typemasterai.com
               </a>
+            </div>
 
+            <div className="bg-card/30 p-8 rounded-xl border border-border">
+              <h3 className="font-semibold text-xl mb-3 text-primary">Business & Partnerships</h3>
+              <p className="text-muted-foreground mb-4 leading-relaxed">
+                For partnerships, collaborations, and business opportunities
+              </p>
               <a
-                href="https://github.com/typemasterai"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-background/50 rounded-lg hover:bg-background transition-colors"
-                data-testid="link-social-github"
+                href="mailto:business@typemasterai.com"
+                className="text-primary hover:underline font-medium text-lg"
+                data-testid="link-email-business"
               >
-                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                  <Github className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <div className="font-semibold">GitHub</div>
-                  <div className="text-sm text-muted-foreground">@typemasterai</div>
-                </div>
-              </a>
-
-              <a
-                href="https://typemasterai.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 p-3 bg-background/50 rounded-lg hover:bg-background transition-colors"
-                data-testid="link-social-website"
-              >
-                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                  <Globe className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <div className="font-semibold">Website</div>
-                  <div className="text-sm text-muted-foreground">typemasterai.com</div>
-                </div>
+                business@typemasterai.com
               </a>
             </div>
           </div>
+        </section>
 
-          <div className="bg-card/30 p-8 rounded-xl border border-border">
-            <h3 className="font-semibold text-xl mb-4">Feedback & Suggestions</h3>
-            <p className="text-muted-foreground mb-4">
-              We're constantly improving TypeMasterAI based on user feedback. Your ideas help shape the future of our platform!
-            </p>
-            <ul className="space-y-2 text-sm text-muted-foreground mb-6">
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-1">•</span>
-                <span>Feature requests and improvement ideas</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-1">•</span>
-                <span>Bug reports and technical issues</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-1">•</span>
-                <span>Language and content suggestions</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-primary mt-1">•</span>
-                <span>User experience feedback</span>
-              </li>
-            </ul>
-            <a href="mailto:support@typemasterai.com" data-testid="link-email-feedback">
-              <Button className="w-full" data-testid="button-send-feedback">
-                <Mail className="w-4 h-4 mr-2" />
-                Send Feedback
-              </Button>
-            </a>
+        <section className="bg-card/30 p-10 rounded-2xl border border-border">
+          <h2 className="text-2xl font-bold mb-6">What We Can Help With</h2>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="font-semibold text-lg mb-3 text-primary">Technical Support</h3>
+              <ul className="space-y-2 text-muted-foreground">
+                <li className="flex items-start gap-3">
+                  <span className="text-primary font-bold mt-1">•</span>
+                  <span>Account and login issues</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-primary font-bold mt-1">•</span>
+                  <span>Bug reports and technical problems</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-primary font-bold mt-1">•</span>
+                  <span>Feature troubleshooting</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-primary font-bold mt-1">•</span>
+                  <span>Browser compatibility issues</span>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-lg mb-3 text-primary">General Inquiries</h3>
+              <ul className="space-y-2 text-muted-foreground">
+                <li className="flex items-start gap-3">
+                  <span className="text-primary font-bold mt-1">•</span>
+                  <span>Privacy and data protection questions</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-primary font-bold mt-1">•</span>
+                  <span>Feature requests and suggestions</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-primary font-bold mt-1">•</span>
+                  <span>Language and content feedback</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-primary font-bold mt-1">•</span>
+                  <span>Legal and compliance matters</span>
+                </li>
+              </ul>
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div className="bg-card/20 p-8 rounded-xl border border-border text-center">
-        <h3 className="font-semibold text-xl mb-3">Response Time</h3>
-        <p className="text-muted-foreground">
-          We typically respond to all inquiries within <span className="text-primary font-semibold">24-48 hours</span> during business days.
-          For urgent matters, please mark your email as "Urgent" in the subject line.
-        </p>
+        <section className="bg-gradient-to-r from-primary/10 via-purple-500/10 to-primary/10 p-10 rounded-2xl border border-primary/20">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold mb-4">Response Time</h2>
+            <p className="text-muted-foreground text-lg leading-relaxed max-w-2xl mx-auto">
+              We typically respond to all inquiries within <span className="text-primary font-semibold">24-48 hours</span> during business days (Monday to Friday).
+              For urgent matters, please include "URGENT" in your email subject line.
+            </p>
+          </div>
+        </section>
+
+        <section className="bg-card/20 p-10 rounded-xl border border-border/50">
+          <h2 className="text-2xl font-bold mb-4">Before Contacting Us</h2>
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            To help us serve you better and receive a faster response, please include the following information in your email:
+          </p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="p-4 bg-card/30 rounded-lg border border-border/50">
+              <h3 className="font-semibold mb-2">For Technical Issues:</h3>
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                <li>• Your browser and version</li>
+                <li>• Operating system</li>
+                <li>• Steps to reproduce the issue</li>
+                <li>• Screenshots if applicable</li>
+              </ul>
+            </div>
+            <div className="p-4 bg-card/30 rounded-lg border border-border/50">
+              <h3 className="font-semibold mb-2">For Account Issues:</h3>
+              <ul className="space-y-1 text-sm text-muted-foreground">
+                <li>• Your account email address</li>
+                <li>• Description of the problem</li>
+                <li>• When the issue started</li>
+                <li>• Any error messages received</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section className="text-center pt-8">
+          <h2 className="text-3xl font-bold mb-4">Ready to Get Help?</h2>
+          <p className="text-muted-foreground text-lg mb-8">
+            Our support team is standing by to assist you.
+          </p>
+          <a
+            href="mailto:support@typemasterai.com"
+            data-testid="link-email-footer"
+          >
+            <Button size="lg" className="px-10 py-6 text-lg" data-testid="button-contact-support">
+              Contact Support Team
+            </Button>
+          </a>
+        </section>
       </div>
     </div>
   );
