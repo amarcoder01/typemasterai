@@ -16,17 +16,20 @@ interface CertificateProps {
   accuracy: number;
   mode: number;
   date: Date;
+  freestyle?: boolean;
+  characters?: number;
+  words?: number;
 }
 
 type DownloadFormat = "png" | "pdf" | "jpeg";
 
-export function CertificateGenerator({ username, wpm, accuracy, mode, date }: CertificateProps) {
+export function CertificateGenerator({ username, wpm, accuracy, mode, date, freestyle = false, characters = 0, words = 0 }: CertificateProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedFormat, setSelectedFormat] = useState<DownloadFormat>("png");
 
   useEffect(() => {
     generateCertificate();
-  }, [username, wpm, accuracy, mode, date]);
+  }, [username, wpm, accuracy, mode, date, freestyle, characters, words]);
 
   const generateCertificate = () => {
     const canvas = canvasRef.current;
@@ -103,7 +106,10 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date }: Ce
     // Achievement text
     ctx.fillStyle = "#94a3b8";
     ctx.font = "24px 'DM Sans', sans-serif";
-    ctx.fillText("has successfully completed a typing test with", canvas.width / 2, 360);
+    const achievementText = freestyle 
+      ? "has successfully completed a freestyle typing session with"
+      : "has successfully completed a typing test with";
+    ctx.fillText(achievementText, canvas.width / 2, 360);
 
     // Stats box
     const boxY = 400;
@@ -114,31 +120,60 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date }: Ce
     ctx.lineWidth = 2;
     ctx.strokeRect(200, boxY, canvas.width - 400, boxHeight);
 
-    // WPM stat
-    ctx.fillStyle = "#00ffff";
-    ctx.font = "bold 64px 'JetBrains Mono', monospace";
-    ctx.textAlign = "center";
-    ctx.fillText(`${wpm}`, 400, boxY + 70);
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "18px 'DM Sans', sans-serif";
-    ctx.fillText("Words Per Minute", 400, boxY + 105);
+    if (freestyle) {
+      // Freestyle mode: Show WPM, Words, Characters
+      // WPM stat
+      ctx.fillStyle = "#00ffff";
+      ctx.font = "bold 64px 'JetBrains Mono', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(`${wpm}`, 400, boxY + 70);
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "18px 'DM Sans', sans-serif";
+      ctx.fillText("Words Per Minute", 400, boxY + 105);
 
-    // Accuracy stat
-    ctx.fillStyle = "#a855f7";
-    ctx.font = "bold 64px 'JetBrains Mono', monospace";
-    ctx.fillText(`${accuracy}%`, canvas.width / 2, boxY + 70);
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "18px 'DM Sans', sans-serif";
-    ctx.fillText("Accuracy", canvas.width / 2, boxY + 105);
+      // Words stat
+      ctx.fillStyle = "#a855f7";
+      ctx.font = "bold 64px 'JetBrains Mono', monospace";
+      ctx.fillText(`${words}`, canvas.width / 2, boxY + 70);
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "18px 'DM Sans', sans-serif";
+      ctx.fillText("Words Typed", canvas.width / 2, boxY + 105);
 
-    // Mode stat
-    ctx.fillStyle = "#00ffff";
-    ctx.font = "bold 64px 'JetBrains Mono', monospace";
-    const modeText = mode >= 60 ? `${Math.floor(mode / 60)}min` : `${mode}s`;
-    ctx.fillText(modeText, 800, boxY + 70);
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "18px 'DM Sans', sans-serif";
-    ctx.fillText("Test Duration", 800, boxY + 105);
+      // Characters stat
+      ctx.fillStyle = "#00ffff";
+      ctx.font = "bold 64px 'JetBrains Mono', monospace";
+      ctx.fillText(`${characters}`, 800, boxY + 70);
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "18px 'DM Sans', sans-serif";
+      ctx.fillText("Characters", 800, boxY + 105);
+    } else {
+      // Standard mode: Show WPM, Accuracy, Duration
+      // WPM stat
+      ctx.fillStyle = "#00ffff";
+      ctx.font = "bold 64px 'JetBrains Mono', monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(`${wpm}`, 400, boxY + 70);
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "18px 'DM Sans', sans-serif";
+      ctx.fillText("Words Per Minute", 400, boxY + 105);
+
+      // Accuracy stat
+      ctx.fillStyle = "#a855f7";
+      ctx.font = "bold 64px 'JetBrains Mono', monospace";
+      ctx.fillText(`${accuracy}%`, canvas.width / 2, boxY + 70);
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "18px 'DM Sans', sans-serif";
+      ctx.fillText("Accuracy", canvas.width / 2, boxY + 105);
+
+      // Mode stat
+      ctx.fillStyle = "#00ffff";
+      ctx.font = "bold 64px 'JetBrains Mono', monospace";
+      const modeText = mode >= 60 ? `${Math.floor(mode / 60)}min` : `${mode}s`;
+      ctx.fillText(modeText, 800, boxY + 70);
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "18px 'DM Sans', sans-serif";
+      ctx.fillText("Test Duration", 800, boxY + 105);
+    }
 
     // Date
     ctx.fillStyle = "#64748b";

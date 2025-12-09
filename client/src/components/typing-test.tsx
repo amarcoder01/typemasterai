@@ -2519,6 +2519,9 @@ Can you beat my score? Try it here: `,
               accuracy={accuracy}
               mode={mode}
               date={testCompletionDate}
+              freestyle={freestyleMode}
+              characters={freestyleMode ? freestyleCharCount : userInput.length}
+              words={freestyleMode ? freestyleWordCount : Math.floor((freestyleMode ? freestyleCharCount : userInput.length) / 5)}
             />
           )}
         </DialogContent>
