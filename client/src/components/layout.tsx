@@ -309,125 +309,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       <footer 
-        className="border-t border-border/40 bg-gradient-to-b from-card/30 to-card/50 backdrop-blur-sm"
+        className="border-t border-border/40"
         role="contentinfo"
         aria-label="Site footer"
       >
-        <div className="container mx-auto px-4 py-5">
-          {/* Main Footer Content */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-4">
-            {/* Brand Section */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5">
-                <div className="w-6 h-6 bg-gradient-to-br from-primary to-purple-500 rounded-lg flex items-center justify-center text-primary-foreground font-mono font-bold text-sm">
-                  T
-                </div>
-                <h2 className="text-sm font-bold">TypeMasterAI</h2>
-              </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Master your typing speed with AI-powered tests and analytics.
-              </p>
-            </div>
-
-            {/* Product */}
-            <div>
-              <h3 className="font-semibold text-xs mb-2">Product</h3>
-              <ul className="space-y-1.5 text-[11px] text-muted-foreground">
-                <li>
-                  <Link href="/" className="hover:text-primary transition-colors" data-testid="link-footer-features">
-                    Typing Tests
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/leaderboard" className="hover:text-primary transition-colors" data-testid="link-footer-leaderboard">
-                    Leaderboard
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/chat" className="hover:text-primary transition-colors" data-testid="link-footer-ai-chat">
-                    AI Assistant
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/profile" className="hover:text-primary transition-colors" data-testid="link-footer-analytics">
-                    Analytics
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Resources */}
-            <div>
-              <h3 className="font-semibold text-xs mb-2">Resources</h3>
-              <ul className="space-y-1.5 text-[11px] text-muted-foreground">
-                <li>
-                  <Link href="/learn" className="hover:text-primary transition-colors" data-testid="link-footer-learn">
-                    Learn to Type
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/about" className="hover:text-primary transition-colors" data-testid="link-footer-blog">
-                    About Us
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/contact" className="hover:text-primary transition-colors" data-testid="link-footer-guides">
-                    Contact Support
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Legal */}
-            <div>
-              <h3 className="font-semibold text-xs mb-2">Legal & Compliance</h3>
-              <ul className="space-y-1.5 text-[11px] text-muted-foreground">
-                <li>
-                  <Link href="/privacy-policy" className="hover:text-primary transition-colors" data-testid="link-footer-privacy">
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/terms-of-service" className="hover:text-primary transition-colors" data-testid="link-footer-terms">
-                    Terms of Service
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/cookie-policy" className="hover:text-primary transition-colors" data-testid="link-footer-cookies">
-                    Cookie Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/ai-transparency" className="hover:text-primary transition-colors" data-testid="link-footer-ai-transparency">
-                    AI Transparency
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/accessibility" className="hover:text-primary transition-colors" data-testid="link-footer-accessibility">
-                    Accessibility
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/privacy-policy#california-residents" className="hover:text-primary transition-colors text-amber-500/80" data-testid="link-footer-do-not-sell">
-                    Do Not Sell My Info
-                  </Link>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Bottom Bar */}
-          <div className="pt-4 border-t border-border/40">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-2">
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                <span className="px-1.5 py-0.5 rounded bg-accent/50 font-mono">v1.0.0</span>
-                <span className="hidden sm:inline">•</span>
-                <span className="hidden sm:inline">Made with ❤️ for typing enthusiasts</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground text-center">
-                © {new Date().getFullYear()} <span className="font-semibold text-foreground">TypeMasterAI</span>. All rights reserved.
-              </p>
-            </div>
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+            <Link href="/contact" className="hover:text-primary transition-colors" data-testid="link-footer-contact">contact</Link>
+            <span className="text-muted-foreground/40">•</span>
+            <Link href="/about" className="hover:text-primary transition-colors" data-testid="link-footer-about">about</Link>
+            <span className="text-muted-foreground/40">•</span>
+            <Link href="/privacy-policy" className="hover:text-primary transition-colors" data-testid="link-footer-privacy">privacy</Link>
+            <span className="text-muted-foreground/40">•</span>
+            <Link href="/terms-of-service" className="hover:text-primary transition-colors" data-testid="link-footer-terms">terms</Link>
+            <span className="text-muted-foreground/40">•</span>
+            <Link href="/cookie-policy" className="hover:text-primary transition-colors" data-testid="link-footer-cookies">cookies</Link>
+            <span className="text-muted-foreground/40">•</span>
+            <Link href="/ai-transparency" className="hover:text-primary transition-colors" data-testid="link-footer-ai">AI transparency</Link>
+            <span className="text-muted-foreground/40">•</span>
+            <Link href="/accessibility" className="hover:text-primary transition-colors" data-testid="link-footer-accessibility">accessibility</Link>
+            <span className="text-muted-foreground/40">•</span>
+            <Link href="/privacy-policy#california-residents" className="hover:text-amber-500 transition-colors" data-testid="link-footer-ccpa">do not sell</Link>
           </div>
         </div>
       </footer>
