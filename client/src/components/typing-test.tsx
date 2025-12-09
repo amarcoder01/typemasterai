@@ -1313,8 +1313,8 @@ Can you beat my score? Try it here: `,
   return (
     <TooltipProvider delayDuration={300}>
       <div className="w-full max-w-5xl mx-auto flex flex-col gap-4 md:gap-8 px-2 sm:px-0">
-        {/* API Error Banner - only show when there's an error and not currently fetching, hidden in zen mode */}
-        {!(zenMode && isActive) && ((languagesError && !languagesFetching) || (modesError && !modesFetching)) && (
+        {/* API Error Banner - only show when there's an error and not currently fetching */}
+        {((languagesError && !languagesFetching) || (modesError && !modesFetching)) && (
           <div className="flex items-center justify-center gap-2 p-2 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
             <AlertCircle className="w-4 h-4" />
             <span>Some options may be limited. </span>
@@ -1331,8 +1331,7 @@ Can you beat my score? Try it here: `,
           </div>
         )}
 
-        {/* Language & Mode Selectors - Removed from DOM in Zen Mode when typing */}
-        {!(zenMode && isActive) && (
+        {/* Language & Mode Selectors */}
         <div className="flex flex-col gap-3 md:gap-4 transition-opacity duration-300">
           <div className="flex items-center justify-center gap-2 md:gap-4 flex-wrap">
             <div className="flex items-center gap-1.5">
