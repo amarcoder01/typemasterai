@@ -1,29 +1,21 @@
 import { Link } from "wouter";
-import { Shield, Mail } from "lucide-react";
 
 export default function PrivacyPolicy() {
   return (
     <div className="max-w-4xl mx-auto" data-testid="page-privacy-policy">
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-            <Shield className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-4xl font-bold" data-testid="heading-privacy-policy">Privacy Policy</h1>
-            <p className="text-muted-foreground text-sm mt-1">Last Updated: December 8, 2025</p>
-          </div>
-        </div>
-        <p className="text-muted-foreground">
+      <div className="mb-12">
+        <h1 className="text-4xl font-bold mb-2" data-testid="heading-privacy-policy">Privacy Policy</h1>
+        <p className="text-muted-foreground text-sm mb-6">Last Updated: December 9, 2025</p>
+        <p className="text-muted-foreground text-lg leading-relaxed">
           At TypeMasterAI, we take your privacy seriously. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our typing test platform.
         </p>
       </div>
 
-      <div className="space-y-8 prose prose-invert max-w-none">
+      <div className="space-y-10 prose prose-invert max-w-none">
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">1. Information We Collect</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">1. Information We Collect</h2>
           
-          <h3 className="text-xl font-semibold text-foreground mb-3">1.1 Personal Information</h3>
+          <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">1.1 Personal Information</h3>
           <p className="text-muted-foreground mb-4">
             When you create an account, we collect:
           </p>
@@ -54,7 +46,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">2. How We Use Your Information</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">2. How We Use Your Information</h2>
           <p className="text-muted-foreground mb-4">
             We use the collected information for:
           </p>
@@ -69,7 +61,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">3. AI and OpenAI Integration</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">3. AI and OpenAI Integration</h2>
           <p className="text-muted-foreground mb-4">
             TypeMasterAI uses OpenAI's GPT-4 and GPT-4o technology to power:
           </p>
@@ -103,7 +95,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">4. Data Storage and Security</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">4. Data Storage and Security</h2>
           <p className="text-muted-foreground mb-4">
             We implement industry-standard security measures:
           </p>
@@ -117,7 +109,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">5. Data Sharing and Disclosure</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">5. Data Sharing and Disclosure</h2>
           <p className="text-muted-foreground mb-4">
             We do not sell your personal information. We may share data only in these circumstances:
           </p>
@@ -130,7 +122,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">6. Cookies and Tracking</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">6. Cookies and Tracking</h2>
           <p className="text-muted-foreground mb-4">
             We use cookies and similar technologies for:
           </p>
@@ -145,7 +137,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">7. Your Rights and Choices</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">7. Your Rights and Choices</h2>
           <p className="text-muted-foreground mb-4">
             You have the right to:
           </p>
@@ -162,14 +154,14 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">8. Children's Privacy</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">8. Children's Privacy</h2>
           <p className="text-muted-foreground">
             TypeMasterAI is intended for users aged 13 and above. We do not knowingly collect personal information from children under 13. If you believe we have collected information from a child under 13, please contact us immediately.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">9. Data Retention</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">9. Data Retention</h2>
           <p className="text-muted-foreground mb-4">
             We retain your personal data only for as long as necessary to fulfill the purposes outlined in this policy:
           </p>
@@ -187,7 +179,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">10. European Union Users (GDPR)</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">10. European Union Users (GDPR)</h2>
           <p className="text-muted-foreground mb-4">
             If you are located in the European Economic Area (EEA), United Kingdom, or Switzerland, you have additional rights under the General Data Protection Regulation (GDPR):
           </p>
@@ -228,7 +220,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section id="california-residents">
-          <h2 className="text-2xl font-bold text-foreground mb-4">11. California Residents (CCPA/CPRA)</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">11. California Residents (CCPA/CPRA)</h2>
           <p className="text-muted-foreground mb-4">
             If you are a California resident, the California Consumer Privacy Act (CCPA) and California Privacy Rights Act (CPRA) provide you with additional rights:
           </p>
@@ -256,40 +248,45 @@ export default function PrivacyPolicy() {
 
           <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">11.3 Do Not Sell or Share</h3>
           <p className="text-muted-foreground">
-            <strong className="text-foreground">TypeMasterAI does not sell your personal information.</strong> We do not share your personal information for cross-context behavioral advertising. To exercise any California privacy rights, contact us at <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">support@typemasterai.com</a> or call 1-800-TYPEMASTER. We will verify your identity and respond within 45 days.
+            <strong className="text-foreground">TypeMasterAI does not sell your personal information.</strong> We do not share your personal information for cross-context behavioral advertising. To exercise any California privacy rights, contact us at <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">support@typemasterai.com</a>. We will verify your identity and respond within 45 days.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">12. International Users</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">12. International Users</h2>
           <p className="text-muted-foreground">
             TypeMasterAI is operated from the United States. If you access our service from outside the US, your information may be transferred to, stored, and processed in the United States. By using our service, you consent to this transfer. We implement appropriate safeguards to protect your data during international transfers, including Standard Contractual Clauses for EU data.
           </p>
         </section>
 
         <section>
-          <h2 className="text-2xl font-bold text-foreground mb-4">13. Changes to This Policy</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-4 pb-2 border-b border-primary/20">13. Changes to This Policy</h2>
           <p className="text-muted-foreground">
             We may update this Privacy Policy periodically. We will notify you of significant changes by email or through a prominent notice on our platform. Your continued use of TypeMasterAI after changes indicates acceptance of the updated policy.
           </p>
         </section>
 
-        <section className="bg-card/50 p-6 rounded-lg border border-border">
-          <h2 className="text-2xl font-bold text-foreground mb-4">Contact Us</h2>
-          <p className="text-muted-foreground mb-4">
+        <section className="bg-card/30 p-8 rounded-xl border border-border">
+          <h2 className="text-2xl font-bold text-foreground mb-6">Contact Us</h2>
+          <p className="text-muted-foreground mb-6">
             If you have questions or concerns about this Privacy Policy, please contact us:
           </p>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Mail className="w-4 h-4 text-primary" />
-            <a href="mailto:support@typemasterai.com" className="text-primary hover:underline">
-              support@typemasterai.com
-            </a>
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-1">Email</p>
+              <a href="mailto:support@typemasterai.com" className="text-primary hover:underline text-lg">
+                support@typemasterai.com
+              </a>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-foreground mb-1">Mailing Address</p>
+              <p className="text-muted-foreground">
+                TypeMasterAI<br />
+                Solapur, Maharashtra 413224<br />
+                India
+              </p>
+            </div>
           </div>
-          <p className="text-muted-foreground mt-4 text-sm">
-            TypeMasterAI<br />
-            Privacy Department<br />
-            TypeMasterAI.com
-          </p>
         </section>
       </div>
     </div>
