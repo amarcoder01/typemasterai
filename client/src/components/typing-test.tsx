@@ -137,6 +137,16 @@ export default function TypingTest() {
   const [freestyleMode, setFreestyleMode] = useState(false);
   const [freestyleText, setFreestyleText] = useState("");
   const freestyleLastKeystrokeRef = useRef<number>(0);
+  const [lastResultSnapshot, setLastResultSnapshot] = useState<{
+    wpm: number;
+    accuracy: number;
+    errors: number;
+    characters: number;
+    words: number;
+    freestyle: boolean;
+    mode: number;
+    completionDate: string; // ISO string to avoid Date serialization issues
+  } | null>(null);
   const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
   const [isTypingFast, setIsTypingFast] = useState(false);
   const lastKeystrokeTimeRef = useRef<number>(0);
@@ -535,6 +545,10 @@ export default function TypingTest() {
     setLastResultId(null);
     setHasInteracted(false);
     
+    // NOTE: certificateMetrics intentionally NOT cleared here
+    // This allows users to view their certificate even after quick restart
+    // Metrics will be updated when the next test completes
+    
     // Clear keystroke tracker and WPM history to start fresh
     keystrokeTrackerRef.current = null;
     wpmHistoryRef.current = [];
@@ -925,6 +939,10 @@ Can you beat my score? Try it here: `,
     const typedText = freestyleMode ? freestyleText : userInput;
     const chars = typedText.length;
     
+    // Use consistent word count metric across all UI: chars / 5
+    // This matches WPM calculation (where 1 word = 5 characters)
+    const wordCount = Math.floor(chars / 5);
+    
     // Edge case: no characters typed
     if (chars === 0) {
       setWpm(0);
@@ -965,6 +983,18 @@ Can you beat my score? Try it here: `,
     setWpm(finalWpm);
     setAccuracy(finalAccuracy);
     setErrors(finalErrors);
+    
+    // Create immutable snapshot for certificate (never cleared, only updated on new test completion)
+    setLastResultSnapshot({
+      wpm: finalWpm,
+      accuracy: finalAccuracy,
+      errors: finalErrors,
+      characters: chars,
+      words: wordCount,
+      freestyle: freestyleMode,
+      mode,
+      completionDate: new Date().toISOString(),
+    });
     
     // Safe confetti call with error handling
     try {
@@ -2512,16 +2542,16 @@ Can you beat my score? Try it here: `,
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-center">Your Achievement Certificate</DialogTitle>
           </DialogHeader>
-          {user && (
+          {user && lastResultSnapshot && (
             <CertificateGenerator
               username={user.username}
-              wpm={wpm}
-              accuracy={accuracy}
-              mode={mode}
-              date={testCompletionDate}
-              freestyle={freestyleMode}
-              characters={freestyleMode ? freestyleCharCount : userInput.length}
-              words={freestyleMode ? freestyleWordCount : Math.floor((freestyleMode ? freestyleCharCount : userInput.length) / 5)}
+              wpm={lastResultSnapshot.wpm}
+              accuracy={lastResultSnapshot.accuracy}
+              mode={lastResultSnapshot.mode}
+              date={new Date(lastResultSnapshot.completionDate)}
+              freestyle={lastResultSnapshot.freestyle}
+              characters={lastResultSnapshot.characters}
+              words={lastResultSnapshot.words}
             />
           )}
         </DialogContent>
