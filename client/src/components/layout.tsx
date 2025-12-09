@@ -314,38 +314,30 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         aria-label="Site footer"
       >
         <div className="container mx-auto px-4 py-3">
-          {/* Navigation Links */}
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs text-muted-foreground mb-2">
-            <span className="font-semibold text-foreground">TypeMasterAI</span>
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+            <Link href="/contact" className="hover:text-primary transition-colors" data-testid="link-footer-contact">Contact</Link>
             <span className="text-muted-foreground/40">·</span>
-            <Link href="/contact" className="hover:text-primary transition-colors" data-testid="link-footer-contact">contact</Link>
+            <Link href="/about" className="hover:text-primary transition-colors" data-testid="link-footer-about">About</Link>
             <span className="text-muted-foreground/40">·</span>
-            <Link href="/about" className="hover:text-primary transition-colors" data-testid="link-footer-about">about</Link>
+            <Link href="/privacy-policy" className="hover:text-primary transition-colors" data-testid="link-footer-privacy">Privacy</Link>
             <span className="text-muted-foreground/40">·</span>
-            <Link href="/privacy-policy" className="hover:text-primary transition-colors" data-testid="link-footer-privacy">privacy</Link>
+            <Link href="/terms-of-service" className="hover:text-primary transition-colors" data-testid="link-footer-terms">Terms</Link>
             <span className="text-muted-foreground/40">·</span>
-            <Link href="/terms-of-service" className="hover:text-primary transition-colors" data-testid="link-footer-terms">terms</Link>
+            <Link href="/cookie-policy" className="hover:text-primary transition-colors" data-testid="link-footer-cookies">Cookies</Link>
             <span className="text-muted-foreground/40">·</span>
-            <Link href="/cookie-policy" className="hover:text-primary transition-colors" data-testid="link-footer-cookies">cookies</Link>
+            <Link href="/ai-transparency" className="hover:text-primary transition-colors" data-testid="link-footer-ai">AI Transparency</Link>
             <span className="text-muted-foreground/40">·</span>
-            <Link href="/ai-transparency" className="hover:text-primary transition-colors" data-testid="link-footer-ai">AI transparency</Link>
+            <Link href="/accessibility" className="hover:text-primary transition-colors" data-testid="link-footer-accessibility">Accessibility</Link>
             <span className="text-muted-foreground/40">·</span>
-            <Link href="/accessibility" className="hover:text-primary transition-colors" data-testid="link-footer-accessibility">accessibility</Link>
+            <Link href="/privacy-policy#california-residents" className="hover:text-amber-500 transition-colors" data-testid="link-footer-ccpa">Do Not Sell</Link>
             <span className="text-muted-foreground/40">·</span>
-            <Link href="/privacy-policy#california-residents" className="hover:text-amber-500 transition-colors" data-testid="link-footer-ccpa">do not sell</Link>
-          </div>
-          
-          {/* Company & Contact Info */}
-          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground/80">
             <span>© {new Date().getFullYear()} TypeMasterAI</span>
             <span className="text-muted-foreground/40">·</span>
             <span>Solapur, Maharashtra, India</span>
             <span className="text-muted-foreground/40">·</span>
             <a href="mailto:support@typemasterai.com" className="hover:text-primary transition-colors" data-testid="link-footer-support-email">support@typemasterai.com</a>
-            <span className="text-muted-foreground/40">|</span>
-            <a href="mailto:business@typemasterai.com" className="hover:text-primary transition-colors" data-testid="link-footer-business-email">business@typemasterai.com</a>
             <span className="text-muted-foreground/40">·</span>
-            <span>Serving users worldwide</span>
+            <span>All Rights Reserved</span>
           </div>
         </div>
       </footer>
