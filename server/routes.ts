@@ -4643,6 +4643,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      if (certificateData.dictationTestId) {
+        const dictationTest = await storage.getDictationTestById(certificateData.dictationTestId);
+        if (!dictationTest || dictationTest.userId !== userId) {
+          return res.status(403).json({ message: "Access denied: You don't own this dictation test" });
+        }
+      }
+
+      if (certificateData.stressTestId) {
+        const stressTest = await storage.getStressTestById(certificateData.stressTestId);
+        if (!stressTest || stressTest.userId !== userId) {
+          return res.status(403).json({ message: "Access denied: You don't own this stress test" });
+        }
+      }
+
       const certificate = await storage.createCertificate({
         ...certificateData,
         userId,

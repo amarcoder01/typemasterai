@@ -843,13 +843,15 @@ export type SharedCodeResult = typeof sharedCodeResults.$inferSelect;
 export const certificates = pgTable("certificates", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  certificateType: varchar("certificate_type", { length: 20 }).notNull(), // standard, code, book, race
+  certificateType: varchar("certificate_type", { length: 20 }).notNull(), // standard, code, book, race, dictation, stress
   
   // Test result references (based on type)
   testResultId: integer("test_result_id").references(() => testResults.id, { onDelete: "cascade" }),
   codeTestId: integer("code_test_id").references(() => codeTypingTests.id, { onDelete: "cascade" }),
   bookTestId: integer("book_test_id").references(() => bookTypingTests.id, { onDelete: "cascade" }),
   raceId: integer("race_id").references(() => races.id, { onDelete: "cascade" }),
+  dictationTestId: integer("dictation_test_id").references(() => dictationTests.id, { onDelete: "cascade" }),
+  stressTestId: integer("stress_test_id").references(() => stressTests.id, { onDelete: "cascade" }),
   
   // Performance metrics (denormalized for quick display)
   wpm: integer("wpm").notNull(),
@@ -887,6 +889,19 @@ export const certificates = pgTable("certificates", {
     placement?: number;
     totalParticipants?: number;
     raceId?: string;
+    
+    // Dictation
+    speedLevel?: string;
+    sentencesCompleted?: number;
+    totalWords?: number;
+    
+    // Stress Test
+    difficulty?: string;
+    stressScore?: number;
+    maxCombo?: number;
+    completionRate?: number;
+    survivalTime?: number;
+    activeChallenges?: number;
   }>(),
   
   // Sharing
@@ -904,7 +919,7 @@ export const certificates = pgTable("certificates", {
 }));
 
 export const insertCertificateSchema = createInsertSchema(certificates, {
-  certificateType: z.enum(["standard", "code", "book", "race"]),
+  certificateType: z.enum(["standard", "code", "book", "race", "dictation", "stress"]),
   wpm: z.number().int().min(0).max(500),
   accuracy: z.number().min(0).max(100),
   consistency: z.number().int().min(0).max(100),

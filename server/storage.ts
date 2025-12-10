@@ -775,6 +775,8 @@ export interface IStorage {
   getCodeTypingTestById(id: number): Promise<CodeTypingTest | undefined>;
   getBookTypingTestById(id: number): Promise<BookTypingTest | undefined>;
   getRaceParticipationByRaceAndUser(raceId: number, userId: string): Promise<RaceParticipant | undefined>;
+  getDictationTestById(id: number): Promise<DictationTest | undefined>;
+  getStressTestById(id: number): Promise<StressTest | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5607,6 +5609,24 @@ export class DatabaseStorage implements IStorage {
         eq(raceParticipants.raceId, raceId),
         eq(raceParticipants.userId, userId)
       ))
+      .limit(1);
+    return result[0];
+  }
+
+  async getDictationTestById(id: number): Promise<DictationTest | undefined> {
+    const result = await db
+      .select()
+      .from(dictationTests)
+      .where(eq(dictationTests.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getStressTestById(id: number): Promise<StressTest | undefined> {
+    const result = await db
+      .select()
+      .from(stressTests)
+      .where(eq(stressTests.id, id))
       .limit(1);
     return result[0];
   }
