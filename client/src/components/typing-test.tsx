@@ -1149,9 +1149,13 @@ Can you beat my score? Try it here: `,
     const previousLength = userInput.length;
     const now = Date.now();
     
-    // Detect input type: typing forward or backspace
+    // Get actual caret position from DOM input
+    const actualCaretPos = inputRef.current?.selectionStart ?? value.length;
+    
+    // Detect input type: typing forward, backspace, or replacement
     const isForwardTyping = value.length > previousLength;
     const isBackspace = value.length < previousLength;
+    const isReplacement = value.length === previousLength; // User replaced character in place
     
     // Track typing speed to disable smooth animation during fast typing
     if (isForwardTyping) {
@@ -1167,7 +1171,7 @@ Can you beat my score? Try it here: `,
     }
     
     // Play keyboard sound on keystroke (only when adding characters, not deleting)
-    if (isForwardTyping) {
+    if (isForwardTyping || isReplacement) {
       import('@/lib/keyboard-sounds')
         .then((module) => {
           if (module.keyboardSound && typeof module.keyboardSound.play === 'function') {
@@ -1188,30 +1192,57 @@ Can you beat my score? Try it here: `,
     // Update userInput for backward compatibility with existing code
     setUserInput(value);
     
-    // MONKEYTYPE-STYLE CHARACTER VALIDATION
-    // Update character states based on input type
-    if (isForwardTyping && cursorIndex < text.length) {
-      // User typed a character - update the state at cursor position
-      const typedChar = value[cursorIndex];
-      const expectedChar = text[cursorIndex];
-      const isCorrect = typedChar === expectedChar;
-      
-      setCharStates(prev => {
-        const newStates = [...prev];
-        newStates[cursorIndex] = {
-          expected: expectedChar,
-          typed: typedChar,
-          state: isCorrect ? 'correct' : 'incorrect'
-        };
-        return newStates;
-      });
-      
-      // Move cursor forward
-      setCursorIndex(prev => Math.min(prev + 1, text.length));
-    } else if (isBackspace && cursorIndex > 0) {
+    // MONKEYTYPE-STYLE CHARACTER VALIDATION - CARET-AWARE
+    // Use actual DOM caret position instead of assuming cursor is at end
+    if (isForwardTyping) {
+      // User typed a new character - update state at the position BEFORE caret moved
+      const typingPosition = actualCaretPos - 1; // Character was inserted before current caret
+      if (typingPosition >= 0 && typingPosition < text.length) {
+        const typedChar = value[typingPosition];
+        const expectedChar = text[typingPosition];
+        const isCorrect = typedChar === expectedChar;
+        
+        setCharStates(prev => {
+          const newStates = [...prev];
+          newStates[typingPosition] = {
+            expected: expectedChar,
+            typed: typedChar,
+            state: isCorrect ? 'correct' : 'incorrect'
+          };
+          return newStates;
+        });
+        
+        // Update cursor index to match actual caret position
+        setCursorIndex(actualCaretPos);
+      }
+    } else if (isBackspace) {
       // User pressed backspace - move cursor back but KEEP the character state
       // This makes errors persist visually (Monkeytype behavior)
-      setCursorIndex(prev => Math.max(prev - 1, 0));
+      setCursorIndex(actualCaretPos);
+    } else if (isReplacement) {
+      // User replaced a character (e.g., selected and typed over, or arrow-key navigation + type)
+      // Find which position changed and update that character state
+      for (let i = 0; i < Math.min(value.length, previousLength); i++) {
+        if (value[i] !== userInput[i]) {
+          const typedChar = value[i];
+          const expectedChar = text[i];
+          const isCorrect = typedChar === expectedChar;
+          
+          setCharStates(prev => {
+            const newStates = [...prev];
+            newStates[i] = {
+              expected: expectedChar,
+              typed: typedChar,
+              state: isCorrect ? 'correct' : 'incorrect'
+            };
+            return newStates;
+          });
+          break; // Only handle first changed character
+        }
+      }
+      
+      // Update cursor index to match actual caret position
+      setCursorIndex(actualCaretPos);
     }
 
     // If approaching end of text and time still remaining, extend with queued content
