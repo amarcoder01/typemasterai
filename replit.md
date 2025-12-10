@@ -23,6 +23,29 @@ Domain-based email system for all communications:
 - CAN-SPAM compliant with physical mailing address in all email footers (Solapur, Maharashtra 413224, India)
 - Optimized email templates for spam filter compatibility (no external fonts, proper headers)
 
+## Recent Changes (December 2025)
+
+### Certificate System Implementation
+- **Certificate Coverage**: Expert-level certificates now available in 5 out of 7 modes (~71% coverage)
+  - ✅ Standard Mode: Certificate with tier-based visuals and performance metrics
+  - ✅ Code Typing Mode: Certificate with code language, snippet preview, and specialized metrics
+  - ✅ Book Mode: Certificate with book title, author, and reading-specific stats
+  - ✅ Race/Multiplayer Mode: Certificate with placement badges and opponent metrics
+  - ✅ Chapter Typing: Certificate with book + chapter metadata
+  - 🔲 Profile Certificate Gallery (in progress)
+  - 🔲 Shared Results Certificate Display (pending)
+- **Database Schema**: Created `certificates` table with:
+  - Multi-mode support (standard, code, book, race, chapter)
+  - Foreign keys to all test result tables (cascade delete)
+  - Denormalized performance metrics (WPM, accuracy, consistency, duration)
+  - Sharing features (unique shareId, view count, public/private toggle)
+  - JSONB metadata for mode-specific data
+  - Optimized indexes for user queries, type filtering, and chronological ordering
+- **Certificate Design Pattern**: Consistent tabbed share dialog (Certificate/Card/Link) across all modes
+- **Sharing Features**: Download as PNG, copy share link, social media integration
+- **Tier System**: Diamond/Platinum/Gold/Silver/Bronze based on performance metrics
+- **Consistency Formula**: Standardized across all modes: `100 - (errors/characters)*100` clamped 0-100
+
 ## System Architecture
 
 ### UI/UX Decisions

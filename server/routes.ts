@@ -11,7 +11,7 @@ import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import bcrypt from "bcryptjs";
-import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, insertCodeTypingTestSchema, insertSharedCodeResultSchema, insertBookTypingTestSchema, insertDictationTestSchema, submitFeedbackSchema, updateFeedbackStatusSchema, feedbackResponseSchema, type User } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertTestResultSchema, updateProfileSchema, insertKeystrokeAnalyticsSchema, insertCodeTypingTestSchema, insertSharedCodeResultSchema, insertBookTypingTestSchema, insertDictationTestSchema, submitFeedbackSchema, updateFeedbackStatusSchema, feedbackResponseSchema, insertCertificateSchema, type User } from "@shared/schema";
 import { fromError } from "zod-validation-error";
 import ConnectPgSimple from "connect-pg-simple";
 import { Pool } from "@neondatabase/serverless";
@@ -4593,6 +4593,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Mark spam error:", error);
       res.status(500).json({ message: "Failed to mark as spam" });
+    }
+  });
+
+  // ============================================================================
+  // CERTIFICATE ROUTES
+  // ============================================================================
+
+  app.post("/api/certificates", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const parsed = insertCertificateSchema.safeParse(req.body);
+      
+      if (!parsed.success) {
+        return res.status(400).json({
+          message: "Invalid certificate data",
+          errors: fromError(parsed.error).toString(),
+        });
+      }
+
+      const certificateData = parsed.data;
+
+      // Critical: Verify ownership of referenced test result
+      if (certificateData.testResultId) {
+        const isOwner = await storage.verifyTestResultOwnership(certificateData.testResultId, userId);
+        if (!isOwner) {
+          return res.status(403).json({ message: "Access denied: You don't own this test result" });
+        }
+      }
+
+      if (certificateData.codeTestId) {
+        const codeTest = await storage.getCodeTypingTestById(certificateData.codeTestId);
+        if (!codeTest || codeTest.userId !== userId) {
+          return res.status(403).json({ message: "Access denied: You don't own this code test" });
+        }
+      }
+
+      if (certificateData.bookTestId) {
+        const bookTest = await storage.getBookTypingTestById(certificateData.bookTestId);
+        if (!bookTest || bookTest.userId !== userId) {
+          return res.status(403).json({ message: "Access denied: You don't own this book test" });
+        }
+      }
+
+      if (certificateData.raceId) {
+        const participation = await storage.getRaceParticipationByRaceAndUser(certificateData.raceId, userId);
+        if (!participation) {
+          return res.status(403).json({ message: "Access denied: You didn't participate in this race" });
+        }
+      }
+
+      const certificate = await storage.createCertificate({
+        ...certificateData,
+        userId,
+      });
+      
+      res.json(certificate);
+    } catch (error: any) {
+      console.error("Create certificate error:", error);
+      res.status(500).json({ message: "Failed to create certificate" });
+    }
+  });
+
+  app.get("/api/certificates", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const certificateType = req.query.type as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : undefined;
+      
+      const certificates = await storage.getUserCertificates(userId, certificateType, limit, offset);
+      res.json(certificates);
+    } catch (error: any) {
+      console.error("Get certificates error:", error);
+      res.status(500).json({ message: "Failed to fetch certificates" });
+    }
+  });
+
+  app.get("/api/certificates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const certificateId = parseInt(req.params.id);
+      
+      if (isNaN(certificateId)) {
+        return res.status(400).json({ message: "Invalid certificate ID" });
+      }
+
+      const certificate = await storage.getCertificateById(certificateId);
+      
+      if (!certificate) {
+        return res.status(404).json({ message: "Certificate not found" });
+      }
+
+      if (certificate.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(certificate);
+    } catch (error: any) {
+      console.error("Get certificate error:", error);
+      res.status(500).json({ message: "Failed to fetch certificate" });
+    }
+  });
+
+  app.get("/api/share/certificate/:shareId", async (req, res) => {
+    try {
+      const shareId = req.params.shareId;
+      
+      const certificate = await storage.getCertificateByShareId(shareId);
+      
+      if (!certificate) {
+        return res.status(404).json({ message: "Certificate not found" });
+      }
+
+      await storage.updateCertificateViewCount(certificate.id);
+
+      res.json(certificate);
+    } catch (error: any) {
+      console.error("Get shared certificate error:", error);
+      res.status(500).json({ message: "Failed to fetch shared certificate" });
+    }
+  });
+
+  app.delete("/api/certificates/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const certificateId = parseInt(req.params.id);
+      
+      if (isNaN(certificateId)) {
+        return res.status(400).json({ message: "Invalid certificate ID" });
+      }
+
+      const certificate = await storage.getCertificateById(certificateId);
+      
+      if (!certificate) {
+        return res.status(404).json({ message: "Certificate not found" });
+      }
+
+      if (certificate.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.deleteCertificate(certificateId);
+      res.json({ message: "Certificate deleted successfully" });
+    } catch (error: any) {
+      console.error("Delete certificate error:", error);
+      res.status(500).json({ message: "Failed to delete certificate" });
     }
   });
 

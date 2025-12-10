@@ -173,6 +173,9 @@ import {
   type InsertFeedbackUpvote,
   type FeedbackAdmin,
   type InsertFeedbackAdmin,
+  certificates,
+  type Certificate,
+  type InsertCertificate,
 } from "@shared/schema";
 import { eq, desc, sql, and, notInArray, or, isNull } from "drizzle-orm";
 
@@ -759,6 +762,19 @@ export interface IStorage {
     statusBreakdown: Record<string, number>;
   }>;
   saveFeedbackAnalytics(analytics: InsertFeedbackAnalytics): Promise<FeedbackAnalytics>;
+
+  // ============================================================================
+  // CERTIFICATES
+  // ============================================================================
+  createCertificate(certificate: InsertCertificate): Promise<Certificate>;
+  getUserCertificates(userId: string, certificateType?: string, limit?: number, offset?: number): Promise<Certificate[]>;
+  getCertificateById(id: number): Promise<Certificate | undefined>;
+  getCertificateByShareId(shareId: string): Promise<Certificate | undefined>;
+  updateCertificateViewCount(id: number): Promise<void>;
+  deleteCertificate(id: number): Promise<void>;
+  getCodeTypingTestById(id: number): Promise<CodeTypingTest | undefined>;
+  getBookTypingTestById(id: number): Promise<BookTypingTest | undefined>;
+  getRaceParticipationByRaceAndUser(raceId: number, userId: string): Promise<RaceParticipant | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5528,6 +5544,105 @@ export class DatabaseStorage implements IStorage {
       .values(analytics)
       .returning();
     return inserted[0];
+  }
+
+  // ============================================================================
+  // CERTIFICATES
+  // ============================================================================
+
+  async createCertificate(certificate: InsertCertificate): Promise<Certificate> {
+    const result = await db
+      .insert(certificates)
+      .values(certificate)
+      .returning();
+    return result[0];
+  }
+
+  async getUserCertificates(userId: string, certificateType?: string, limit?: number, offset?: number): Promise<Certificate[]> {
+    const conditions = [eq(certificates.userId, userId)];
+    if (certificateType) {
+      conditions.push(eq(certificates.certificateType, certificateType));
+    }
+
+    let baseQuery = db
+      .select()
+      .from(certificates)
+      .where(and(...conditions))
+      .orderBy(desc(certificates.createdAt));
+
+    if (limit !== undefined && offset !== undefined) {
+      return await baseQuery.limit(limit).offset(offset);
+    } else if (limit !== undefined) {
+      return await baseQuery.limit(limit);
+    } else if (offset !== undefined) {
+      return await baseQuery.offset(offset);
+    }
+
+    return await baseQuery;
+  }
+
+  async getCodeTypingTestById(id: number): Promise<CodeTypingTest | undefined> {
+    const result = await db
+      .select()
+      .from(codeTypingTests)
+      .where(eq(codeTypingTests.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getBookTypingTestById(id: number): Promise<BookTypingTest | undefined> {
+    const result = await db
+      .select()
+      .from(bookTypingTests)
+      .where(eq(bookTypingTests.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getRaceParticipationByRaceAndUser(raceId: number, userId: string): Promise<RaceParticipant | undefined> {
+    const result = await db
+      .select()
+      .from(raceParticipants)
+      .where(and(
+        eq(raceParticipants.raceId, raceId),
+        eq(raceParticipants.userId, userId)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async getCertificateById(id: number): Promise<Certificate | undefined> {
+    const result = await db
+      .select()
+      .from(certificates)
+      .where(eq(certificates.id, id))
+      .limit(1);
+    return result[0];
+  }
+
+  async getCertificateByShareId(shareId: string): Promise<Certificate | undefined> {
+    const result = await db
+      .select()
+      .from(certificates)
+      .where(and(
+        eq(certificates.shareId, shareId),
+        eq(certificates.isPublic, true)
+      ))
+      .limit(1);
+    return result[0];
+  }
+
+  async updateCertificateViewCount(id: number): Promise<void> {
+    await db
+      .update(certificates)
+      .set({ viewCount: sql`${certificates.viewCount} + 1` })
+      .where(eq(certificates.id, id));
+  }
+
+  async deleteCertificate(id: number): Promise<void> {
+    await db
+      .delete(certificates)
+      .where(eq(certificates.id, id));
   }
 }
 
