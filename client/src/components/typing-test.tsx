@@ -188,6 +188,9 @@ export default function TypingTest() {
   const appliedRequestIdRef = useRef(0);
   const [trackingEnabled, setTrackingEnabled] = useState(true);
   
+  // PRODUCTION-READY: Capture selection BEFORE it collapses
+  const selectionRangeRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+  
   // Paragraph queue for seamless continuous typing
   interface QueuedParagraph { id: number; content: string; }
   const paragraphQueueRef = useRef<QueuedParagraph[]>([]);
@@ -1146,7 +1149,7 @@ Can you beat my score? Try it here: `,
     if (isFinished) return;
     if (!text) return;
     
-    // Prevent typing beyond text length (Code Mode has this)
+    // Prevent typing beyond text length
     if (value.length > text.length) {
       if (inputRef.current) inputRef.current.value = userInput;
       return;
@@ -1154,16 +1157,24 @@ Can you beat my score? Try it here: `,
     
     const previousLength = userInput.length;
     const now = Date.now();
-    
-    // Get actual caret position from DOM input
     const actualCaretPos = inputRef.current?.selectionStart ?? value.length;
     
-    // Robust input type detection using string diff
-    // Simple length change detection as optimization
-    const isSimpleForward = value.length === previousLength + 1;
-    const isSimpleBackspace = value.length === previousLength - 1;
+    // PRODUCTION-READY DIFF ALGORITHM
+    // Use captured selection range to determine what changed
+    const { start: selectionStart, end: selectionEnd } = selectionRangeRef.current;
+    const hadSelection = selectionStart !== selectionEnd;
     
-    // For all other cases (replacements, multi-char changes), use full diff
+    // Calculate what was deleted and what was inserted
+    const deletedLength = hadSelection ? (selectionEnd - selectionStart) : (previousLength - value.length);
+    const insertedLength = value.length - previousLength + (hadSelection ? (selectionEnd - selectionStart) : 0);
+    
+    // Determine the affected range
+    const editStart = Math.min(selectionStart, value.length);
+    const editEnd = editStart + Math.max(0, insertedLength);
+    
+    // Simple case detection for optimization
+    const isSimpleForward = !hadSelection && value.length === previousLength + 1 && deletedLength === 0;
+    const isSimpleBackspace = !hadSelection && value.length === previousLength - 1 && insertedLength === 0;
     const needsFullDiff = !isSimpleForward && !isSimpleBackspace;
     
     // Track typing speed to disable smooth animation during fast typing
@@ -1310,6 +1321,16 @@ Can you beat my score? Try it here: `,
     }
   };
 
+  // Capture selection BEFORE browser collapses it
+  const handleBeforeInput = (e: React.FormEvent<HTMLInputElement>) => {
+    if (inputRef.current) {
+      selectionRangeRef.current = {
+        start: inputRef.current.selectionStart ?? 0,
+        end: inputRef.current.selectionEnd ?? 0
+      };
+    }
+  };
+
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isComposing) return;
     processInput(e.target.value);
@@ -1327,6 +1348,17 @@ Can you beat my score? Try it here: `,
       setTimeout(() => {
         processInput(newValue);
       }, 0);
+    }
+  };
+  
+  // Handle Delete key (forward delete) explicitly
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Capture selection before any key press
+    if (inputRef.current) {
+      selectionRangeRef.current = {
+        start: inputRef.current.selectionStart ?? 0,
+        end: inputRef.current.selectionEnd ?? 0
+      };
     }
   };
 
@@ -2504,7 +2536,9 @@ Can you beat my score? Try it here: `,
             ref={inputRef}
             type="text"
             value={userInput}
+            onBeforeInput={handleBeforeInput}
             onChange={handleInput}
+            onKeyDown={handleKeyDown}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
             onPaste={handlePaste}
