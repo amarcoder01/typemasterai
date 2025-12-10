@@ -229,7 +229,6 @@ export class EmailService {
       console.log(`[EmailService] From Email: ${this.fromEmail}`);
       console.log(`[EmailService] From Name: ${this.fromName}`);
       console.log(`[EmailService] Domain: ${this.domain}`);
-      console.log(`[EmailService] API Key length: ${apiKey.length}`);
     } else {
       console.warn("[EmailService] No Mailgun API key found - emails will be logged only");
     }
