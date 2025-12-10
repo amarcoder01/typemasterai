@@ -770,6 +770,7 @@ export interface IStorage {
   getUserCertificates(userId: string, certificateType?: string, limit?: number, offset?: number): Promise<Certificate[]>;
   getCertificateById(id: number): Promise<Certificate | undefined>;
   getCertificateByShareId(shareId: string): Promise<Certificate | undefined>;
+  getCertificateByCodeTestId(codeTestId: number): Promise<Certificate | undefined>;
   updateCertificateViewCount(id: number): Promise<void>;
   deleteCertificate(id: number): Promise<void>;
   getCodeTypingTestById(id: number): Promise<CodeTypingTest | undefined>;
@@ -5639,6 +5640,19 @@ export class DatabaseStorage implements IStorage {
         eq(certificates.shareId, shareId),
         eq(certificates.isPublic, true)
       ))
+      .limit(1);
+    return result[0];
+  }
+
+  async getCertificateByCodeTestId(codeTestId: number): Promise<Certificate | undefined> {
+    const result = await db
+      .select()
+      .from(certificates)
+      .where(and(
+        eq(certificates.codeTestId, codeTestId),
+        eq(certificates.isPublic, true)
+      ))
+      .orderBy(desc(certificates.createdAt))
       .limit(1);
     return result[0];
   }

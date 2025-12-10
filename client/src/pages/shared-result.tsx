@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Code, Trophy, Zap, Target, Clock, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Code, Trophy, Zap, Target, Clock, AlertCircle, Award } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { CodeCertificate } from "@/components/CodeCertificate";
 
 interface SharedResult {
   id: number;
@@ -20,6 +22,14 @@ interface SharedResult {
   duration: number;
   codeContent: string;
   createdAt: string;
+  certificate?: {
+    id: number;
+    wpm: number;
+    accuracy: number;
+    consistency: number;
+    duration: number;
+    metadata?: any;
+  } | null;
 }
 
 export default function SharedResult() {
@@ -30,6 +40,7 @@ export default function SharedResult() {
   const [result, setResult] = useState<SharedResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCertificate, setShowCertificate] = useState(false);
 
   useEffect(() => {
     const fetchSharedResult = async () => {
@@ -199,6 +210,12 @@ export default function SharedResult() {
         </Card>
 
         <div className="flex gap-4 justify-center flex-wrap">
+          {result.certificate && (
+            <Button variant="default" onClick={() => setShowCertificate(true)} data-testid="button-view-certificate">
+              <Award className="w-4 h-4 mr-2" />
+              View Certificate
+            </Button>
+          )}
           <Button onClick={() => window.location.href = '/code-mode'} data-testid="button-try-yourself">
             <Code className="w-4 h-4 mr-2" />
             Try This Yourself
@@ -208,6 +225,35 @@ export default function SharedResult() {
             View Leaderboard
           </Button>
         </div>
+
+        <Dialog open={showCertificate} onOpenChange={setShowCertificate}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Code Typing Certificate</DialogTitle>
+              <DialogDescription>
+                Earned on {result.certificate && new Date(result.createdAt).toLocaleDateString()}
+              </DialogDescription>
+            </DialogHeader>
+            {result.certificate && (
+              <div className="mt-4">
+                <CodeCertificate
+                  wpm={result.certificate.wpm}
+                  rawWpm={result.certificate.metadata?.rawWpm || result.wpm}
+                  accuracy={result.certificate.accuracy}
+                  consistency={result.certificate.consistency}
+                  language={result.programmingLanguage}
+                  languageName={result.certificate.metadata?.languageName || result.programmingLanguage.toUpperCase()}
+                  difficulty={result.difficulty}
+                  characters={result.certificate.metadata?.characters || result.codeContent.length}
+                  errors={result.certificate.metadata?.errors || result.errors}
+                  time={formatDuration(result.certificate.duration || result.duration)}
+                  username={result.certificate.metadata?.username || result.username}
+                  date={result.certificate.metadata?.date ? new Date(result.certificate.metadata.date) : new Date(result.createdAt)}
+                />
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <div className="mt-8 text-center text-sm text-muted-foreground">
           <p>Want to improve your coding typing speed?</p>

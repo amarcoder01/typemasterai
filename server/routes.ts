@@ -3149,7 +3149,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Shared result not found" });
       }
       
-      res.json(sharedResult);
+      const certificate = await storage.getCertificateByCodeTestId(sharedResult.id);
+      
+      res.json({
+        ...sharedResult,
+        certificate: certificate || null,
+      });
     } catch (error: any) {
       console.error("Get shared result error:", error);
       res.status(500).json({ message: "Failed to fetch shared result" });
