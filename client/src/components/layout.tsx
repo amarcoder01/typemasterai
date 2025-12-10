@@ -53,12 +53,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const xpProgress = (xpInCurrentLevel / 100) * 100;
 
   const primaryNavItems = [
-    { href: "/", icon: Keyboard, label: "Type", description: "Practice typing with various texts and languages" },
-    { href: "/code-mode", icon: Code, label: "Code Mode", description: "Practice typing real programming code" },
-    { href: "/books", icon: Book, label: "Books", description: "Type passages from famous books" },
-    { href: "/dictation-mode", icon: Headphones, label: "Dictation", description: "Listen and type what you hear" },
-    { href: "/stress-test", icon: Zap, label: "Stress Test", description: "Test your typing under pressure" },
-    { href: "/multiplayer", icon: Users, label: "Multiplayer", description: "Race against other players in real-time" },
+    { href: "/", icon: Keyboard, label: "Quick Test", description: "Practice typing with various texts and languages" },
+    { href: "/code-mode", icon: Code, label: "Code Practice", description: "Practice typing real programming code" },
+    { href: "/books", icon: Book, label: "Book Library", description: "Type passages from famous books" },
+    { href: "/dictation-mode", icon: Headphones, label: "Listen & Type", description: "Listen and type what you hear" },
+    { href: "/stress-test", icon: Zap, label: "Speed Challenge", description: "Test your typing under pressure" },
+    { href: "/multiplayer", icon: Users, label: "Live Race", description: "Race against other players in real-time" },
   ];
 
   const secondaryNavItems = [
