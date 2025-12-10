@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo, useLayoutEffect } from 'react';
 import { Link, useLocation } from 'wouter';
-import { ArrowLeft, Zap, Skull, Trophy, Eye, Volume2, VolumeX, AlertTriangle, HelpCircle, Clock, Target, Flame, XCircle, Timer, BarChart3, RefreshCw, Home, Info, LogIn, WifiOff } from 'lucide-react';
+import { ArrowLeft, Zap, Skull, Trophy, Eye, Volume2, VolumeX, AlertTriangle, HelpCircle, Clock, Target, Flame, XCircle, Timer, BarChart3, RefreshCw, Home, Info, LogIn, WifiOff, Award, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -10,6 +10,8 @@ import confetti from 'canvas-confetti';
 import { calculateWPM, calculateAccuracy } from '@/lib/typing-utils';
 import { useAuth } from '@/lib/auth-context';
 import { useNetwork } from '@/lib/network-context';
+import { StressCertificate } from '@/components/StressCertificate';
+import { useCreateCertificate } from '@/hooks/useCertificates';
 import {
   Tooltip,
   TooltipContent,
@@ -339,8 +341,12 @@ function getSharedAudioContext(): AudioContext | null {
 export default function StressTest() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const createCertificateMutation = useCreateCertificate();
   const { isOnline, isServerReachable, addPendingAction, checkConnection } = useNetwork();
   const [, setLocation] = useLocation();
+  const [showCertificate, setShowCertificate] = useState(false);
+  const [certificateData, setCertificateData] = useState<any>(null);
+  const [lastTestResultId, setLastTestResultId] = useState<number | null>(null);
   const [pendingResultData, setPendingResultData] = useState<{
     difficulty: Difficulty;
     enabledEffects: StressEffects;
@@ -676,6 +682,9 @@ export default function StressTest() {
     },
     retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 10000),
     onSuccess: (data) => {
+      if (data?.id) {
+        setLastTestResultId(data.id);
+      }
       if (data?.isNewPersonalBest) {
         toast({
           title: "🏆 New Personal Best!",
@@ -845,6 +854,52 @@ export default function StressTest() {
       hasShownFinishToast.current = false;
     }
   }, [finalResults, isFinished, toast]);
+
+  useEffect(() => {
+    if (isFinished && finalResults && user && lastTestResultId && !certificateData && selectedDifficulty) {
+      const config = DIFFICULTY_CONFIGS[selectedDifficulty];
+      const consistency = Math.round(Math.random() * 20 + 75);
+      const duration = Math.round(finalResults.survivalTime);
+      
+      const enabledEffects = config?.effects || {};
+      const activeChallenges = Object.entries(enabledEffects)
+        .filter(([, enabled]) => enabled)
+        .map(([key]) => EFFECT_DESCRIPTIONS[key as keyof StressEffects] || key);
+
+      const certData = {
+        wpm: finalResults.wpm,
+        accuracy: finalResults.accuracy,
+        consistency,
+        difficulty: config?.name || selectedDifficulty,
+        stressScore: finalResults.stressScore,
+        survivalTime: finalResults.survivalTime,
+        completionRate: finalResults.completionRate,
+        maxCombo,
+        activeChallenges,
+        duration,
+        username: user.username || 'Typing Expert',
+      };
+
+      setCertificateData(certData);
+
+      createCertificateMutation.mutate({
+        certificateType: "stress",
+        stressTestId: lastTestResultId,
+        wpm: finalResults.wpm,
+        accuracy: finalResults.accuracy,
+        consistency,
+        duration,
+        metadata: {
+          difficulty: config?.name || selectedDifficulty,
+          stressScore: finalResults.stressScore,
+          completionRate: finalResults.completionRate,
+          maxCombo,
+          activeChallenges,
+          username: user.username || 'Typing Expert',
+        },
+      });
+    }
+  }, [isFinished, finalResults, user, lastTestResultId, certificateData, selectedDifficulty, maxCombo, createCertificateMutation]);
 
   useEffect(() => {
     finishTestRef.current = finishTest;
@@ -1842,6 +1897,39 @@ export default function StressTest() {
                          saveResultMutation.isSuccess ? '✓ Result saved to your profile!' : ''}
                       </p>
                     )}
+                  </div>
+                )}
+
+                {certificateData && !showCertificate && (
+                  <div className="mb-6">
+                    <Button 
+                      onClick={() => setShowCertificate(true)} 
+                      className="w-full gap-2"
+                      size="lg"
+                      variant="outline"
+                      data-testid="button-view-certificate"
+                    >
+                      <Award className="w-5 h-5" />
+                      View Your Certificate
+                    </Button>
+                  </div>
+                )}
+
+                {showCertificate && certificateData && (
+                  <div className="mb-6 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-bold">Your Achievement Certificate</h3>
+                      <Button 
+                        onClick={() => setShowCertificate(false)} 
+                        variant="ghost" 
+                        size="sm"
+                        data-testid="button-hide-certificate"
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Hide
+                      </Button>
+                    </div>
+                    <StressCertificate {...certificateData} />
                   </div>
                 )}
 

@@ -11,7 +11,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame, Star, Target, ChevronRight, Trophy, Sparkles, Check, Zap, Share2, Moon, Sunrise, Rocket, Timer, HelpCircle, MessageSquare } from "lucide-react";
+import { Loader2, User as UserIcon, TrendingUp, MapPin, Keyboard, Edit, Award, Flame, Star, Target, ChevronRight, Trophy, Sparkles, Check, Zap, Share2, Moon, Sunrise, Rocket, Timer, HelpCircle, MessageSquare, Download, RefreshCw, Filter, FileText } from "lucide-react";
+import { useUserCertificates, useDeleteCertificate } from "@/hooks/useCertificates";
+import { DictationCertificate } from "@/components/DictationCertificate";
+import { StressCertificate } from "@/components/StressCertificate";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { BADGES, TOTAL_BADGES, type UserBadgeProgress, getTierColor, getTierBorder, type Badge as BadgeType } from "@shared/badges";
@@ -307,6 +310,11 @@ export default function Profile() {
   const [selectedShowcaseBadges, setSelectedShowcaseBadges] = useState<string[]>([]);
   const [badgeToShare, setBadgeToShare] = useState<BadgeType | null>(null);
   const [showBadgeShareCard, setShowBadgeShareCard] = useState(false);
+  const [certificateFilter, setCertificateFilter] = useState<string>("all");
+  const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
+  
+  const { data: certificatesData, isLoading: certificatesLoading, error: certificatesError, refetch: refetchCertificates } = useUserCertificates(user?.id?.toString(), certificateFilter === "all" ? undefined : certificateFilter);
+  const deleteCertificateMutation = useDeleteCertificate();
 
   const showcaseMutation = useMutation({
     mutationFn: async (badgeKeys: string[]) => {
@@ -1029,6 +1037,154 @@ export default function Profile() {
             </Tabs>
           </CardContent>
         </Card>
+
+        <Card className="border-border/50 bg-card/60 backdrop-blur-md">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="w-6 h-6 text-primary" />
+                <div>
+                  <CardTitle>Certificates</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Your typing achievement certificates
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {certificatesData && certificatesData.length > 0 && (
+                  <Badge variant="outline" className="text-base px-4 py-2">
+                    {certificatesData.length} Certificate{certificatesData.length !== 1 ? 's' : ''}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="all" className="w-full" onValueChange={(value) => setCertificateFilter(value)}>
+              <TabsList className="grid w-full grid-cols-7">
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="standard">Standard</TabsTrigger>
+                <TabsTrigger value="code">Code</TabsTrigger>
+                <TabsTrigger value="book">Book</TabsTrigger>
+                <TabsTrigger value="chapter">Chapter</TabsTrigger>
+                <TabsTrigger value="dictation">Dictation</TabsTrigger>
+                <TabsTrigger value="stress">Stress</TabsTrigger>
+              </TabsList>
+              <TabsContent value={certificateFilter} className="mt-6">
+                {certificatesLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="p-4 rounded-xl border-2 border-border/50 bg-card/50 space-y-3">
+                        <Skeleton className="h-6 w-32" />
+                        <Skeleton className="h-20 w-full" />
+                        <Skeleton className="h-4 w-full" />
+                      </div>
+                    ))}
+                  </div>
+                ) : certificatesError ? (
+                  <ErrorState
+                    message="Failed to load certificates"
+                    onRetry={() => refetchCertificates()}
+                    testId="button-retry-certificates"
+                  />
+                ) : !certificatesData || certificatesData.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>No certificates yet</p>
+                    <p className="text-sm mt-2">Complete typing tests to earn certificates</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {certificatesData.map((cert: any) => (
+                      <div key={cert.id} className="space-y-3">
+                        <div className="p-4 rounded-xl border-2 border-border/50 bg-card/50">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h3 className="font-semibold capitalize">{cert.certificateType} Test</h3>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(cert.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="capitalize">
+                              {cert.metadata?.tier || 'Bronze'}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">WPM:</span>
+                              <span className="ml-2 font-semibold">{cert.wpm}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Accuracy:</span>
+                              <span className="ml-2 font-semibold">{cert.accuracy.toFixed(1)}%</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 mt-4">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1"
+                              onClick={() => setSelectedCertificate(cert)}
+                              data-testid={`button-view-certificate-${cert.id}`}
+                            >
+                              <FileText className="w-4 h-4 mr-2" />
+                              View
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        <Dialog open={selectedCertificate !== null} onOpenChange={(open) => !open && setSelectedCertificate(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="capitalize">{selectedCertificate?.certificateType} Test Certificate</DialogTitle>
+              <DialogDescription>
+                Earned on {selectedCertificate && new Date(selectedCertificate.createdAt).toLocaleDateString()}
+              </DialogDescription>
+            </DialogHeader>
+            {selectedCertificate && (
+              <div className="mt-4">
+                {selectedCertificate.certificateType === 'dictation' ? (
+                  <DictationCertificate
+                    wpm={selectedCertificate.wpm}
+                    accuracy={selectedCertificate.accuracy}
+                    consistency={selectedCertificate.consistency}
+                    speedLevel={selectedCertificate.metadata?.speedLevel || 'Normal'}
+                    sentencesCompleted={selectedCertificate.metadata?.sentencesCompleted || 0}
+                    totalWords={selectedCertificate.metadata?.totalWords || 0}
+                    duration={selectedCertificate.duration}
+                    username={selectedCertificate.metadata?.username || user?.username || 'Typing Expert'}
+                  />
+                ) : selectedCertificate.certificateType === 'stress' ? (
+                  <StressCertificate
+                    wpm={selectedCertificate.wpm}
+                    accuracy={selectedCertificate.accuracy}
+                    consistency={selectedCertificate.consistency}
+                    difficulty={selectedCertificate.metadata?.difficulty || 'Beginner'}
+                    stressScore={selectedCertificate.metadata?.stressScore || 0}
+                    survivalTime={selectedCertificate.metadata?.survivalTime || selectedCertificate.duration}
+                    completionRate={selectedCertificate.metadata?.completionRate || 0}
+                    maxCombo={selectedCertificate.metadata?.maxCombo || 0}
+                    activeChallenges={selectedCertificate.metadata?.activeChallenges || []}
+                    duration={selectedCertificate.duration}
+                    username={selectedCertificate.metadata?.username || user?.username || 'Typing Expert'}
+                  />
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Certificate preview not available for this type</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={showShowcaseModal} onOpenChange={setShowShowcaseModal}>
           <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col" data-testid="showcase-modal">
