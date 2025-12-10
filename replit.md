@@ -39,6 +39,29 @@ Preferred communication style: Simple, everyday language.
 - **Database Optimization**: Upgraded all paragraph queries to use `ORDER BY RANDOM() LIMIT 1` for better performance
 - **Files Modified**: `server/ai-paragraph-generator.ts`, `server/storage.ts`
 
+### Multi-Layer Content Hygiene System (December 10, 2025 - COMPLETED)
+- **Issue**: Need to ensure AI generates content about actual topics (travel, tech, food) without typing/keyboard/practice references
+- **Solution**: Implemented comprehensive 3-layer defense system
+- **Implementation Details**:
+  1. **Expert System Prompt** (`server/ai-paragraph-generator.ts`):
+     - Added content curator system prompt: "You are a content curator that creates engaging paragraphs... Never mention typing, keyboards, or practice"
+     - Explicit instruction in all prompts: "Write ONLY about [topic] - do NOT mention typing, keyboards, or practice"
+     - Applied to both custom prompts and standard mode-based prompts
+  2. **Post-Generation Validation** (`server/ai-paragraph-generator.ts`):
+     - Content validation layer rejects AI outputs containing banned keywords before saving
+     - Banned keywords: typing, keyboard, practice, WPM, keystroke
+     - Prevents contaminated content from entering database
+  3. **Database Content Filtering** (`shared/schema.ts`, `server/storage.ts`):
+     - Added `isTypingRelated` boolean column to `typingParagraphs` table (default: false)
+     - Marked 85 legacy typing-focused paragraphs with `isTypingRelated=true` via SQL UPDATE
+     - Updated all paragraph queries to exclude flagged content:
+       - `getExactParagraph()` - exact language/mode/difficulty match
+       - `getRandomParagraph()` - all 3 fallback branches (mode, language, English)
+       - `getRandomParagraphs()` - batch fetch with all fallback branches
+- **Testing**: E2E test verified 4 consecutive unique paragraphs with NO banned keywords
+- **Result**: Complete content hygiene - AI generates diverse topics without typing references, database never serves legacy typing-focused content
+- **Files Modified**: `server/ai-paragraph-generator.ts`, `server/storage.ts`, `shared/schema.ts`
+
 ## System Architecture
 
 ### UI/UX Decisions
