@@ -1158,13 +1158,16 @@ Can you beat my score? Try it here: `,
     // Get actual caret position from DOM input
     const actualCaretPos = inputRef.current?.selectionStart ?? value.length;
     
-    // Detect input type: typing forward, backspace, or replacement
-    const isForwardTyping = value.length > previousLength;
-    const isBackspace = value.length < previousLength;
-    const isReplacement = value.length === previousLength; // User replaced character in place
+    // Robust input type detection using string diff
+    // Simple length change detection as optimization
+    const isSimpleForward = value.length === previousLength + 1;
+    const isSimpleBackspace = value.length === previousLength - 1;
+    
+    // For all other cases (replacements, multi-char changes), use full diff
+    const needsFullDiff = !isSimpleForward && !isSimpleBackspace;
     
     // Track typing speed to disable smooth animation during fast typing
-    if (isForwardTyping) {
+    if (isSimpleForward || (needsFullDiff && value.length > previousLength)) {
       const timeSinceLastKeystroke = now - lastKeystrokeTimeRef.current;
       lastKeystrokeTimeRef.current = now;
       
@@ -1177,7 +1180,7 @@ Can you beat my score? Try it here: `,
     }
     
     // Play keyboard sound on keystroke (only when adding characters, not deleting)
-    if (isForwardTyping || isReplacement) {
+    if (value.length > 0 && value.length >= previousLength) {
       import('@/lib/keyboard-sounds')
         .then((module) => {
           if (module.keyboardSound && typeof module.keyboardSound.play === 'function') {
@@ -1195,18 +1198,17 @@ Can you beat my score? Try it here: `,
       preWarmAudioContext();
     }
 
-    // ROBUST CHARACTER VALIDATION - Code Mode inspired
-    // Always validate based on the NEW value and caret position, not stale state
+    // ROBUST CHARACTER VALIDATION - Always use full diff to handle ALL edge cases
+    // This handles: forward typing, backspace, arrow navigation, selection replacement
     
-    if (isForwardTyping) {
-      // User typed a new character - update state at the position BEFORE caret moved
+    if (isSimpleForward) {
+      // Optimization: Simple forward typing (added 1 char at cursor)
       const typingPosition = actualCaretPos - 1;
       if (typingPosition >= 0 && typingPosition < text.length) {
         const typedChar = value[typingPosition];
         const expectedChar = text[typingPosition];
         const isCorrect = typedChar === expectedChar;
         
-        // Increment error counter only for NEW mistakes
         const wasIncorrect = charStates[typingPosition]?.state === 'incorrect';
         if (!isCorrect && !wasIncorrect) {
           setErrors(prev => prev + 1);
@@ -1224,41 +1226,55 @@ Can you beat my score? Try it here: `,
         
         setCursorIndex(actualCaretPos);
       }
-    } else if (isBackspace) {
-      // User pressed backspace - move cursor back but KEEP character state (Monkeytype style)
+    } else if (isSimpleBackspace) {
+      // Optimization: Simple backspace (deleted 1 char)
+      // Keep character states for Monkeytype-style error persistence
       setCursorIndex(actualCaretPos);
-    } else if (isReplacement) {
-      // User replaced a character - scan from start to find ALL differences
-      // This handles: arrow key navigation + type, selection + type, or any in-place edits
-      const minLength = Math.min(value.length, text.length);
+    } else {
+      // FULL DIFF: Handles all complex cases (selections, replacements, multi-char changes)
+      // This ALWAYS runs for length changes != ±1, catching selection replacements
       
-      for (let i = 0; i < minLength; i++) {
-        const oldChar = userInput[i] || '';
-        const newChar = value[i];
+      let errorDelta = 0;
+      
+      setCharStates(prev => {
+        const newStates = [...prev];
+        const maxLength = Math.max(value.length, userInput.length, text.length);
         
-        // Only update positions where the character actually changed
-        if (oldChar !== newChar) {
+        for (let i = 0; i < maxLength; i++) {
+          const oldChar = userInput[i] || '';
+          const newChar = value[i] || '';
           const expectedChar = text[i];
-          const isCorrect = newChar === expectedChar;
           
-          // Track if this was previously incorrect
-          const wasIncorrect = charStates[i]?.state === 'incorrect';
-          
-          // Increment errors only for NEW mistakes (not corrections)
-          if (!isCorrect && !wasIncorrect) {
-            setErrors(prev => prev + 1);
-          }
-          
-          setCharStates(prev => {
-            const newStates = [...prev];
+          // Update character if it changed AND is within new value AND within text
+          if (oldChar !== newChar && i < value.length && i < text.length) {
+            const isCorrect = newChar === expectedChar;
+            const wasIncorrect = prev[i]?.state === 'incorrect';
+            
+            if (!isCorrect && !wasIncorrect) {
+              errorDelta++;
+            }
+            
             newStates[i] = {
               expected: expectedChar,
               typed: newChar,
               state: isCorrect ? 'correct' : 'incorrect'
             };
-            return newStates;
-          });
+          }
+          // Clear deleted positions (beyond new value length but within old and text)
+          else if (i >= value.length && i < userInput.length && i < text.length) {
+            newStates[i] = {
+              expected: expectedChar,
+              typed: '',
+              state: 'pending'
+            };
+          }
         }
+        
+        return newStates;
+      });
+      
+      if (errorDelta > 0) {
+        setErrors(prev => prev + errorDelta);
       }
       
       setCursorIndex(actualCaretPos);
