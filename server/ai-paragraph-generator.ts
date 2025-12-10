@@ -146,6 +146,17 @@ const MODE_SUBTOPICS: Record<string, string[]> = {
   ]
 };
 
+// Helper function to count words accurately
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+}
+
+// Helper function to parse word count range
+function parseWordCountRange(range: string): { min: number; max: number } {
+  const [min, max] = range.split('-').map(num => parseInt(num.trim(), 10));
+  return { min, max };
+}
+
 export async function generateTypingParagraph(
   language: string,
   mode: string,
@@ -179,7 +190,8 @@ export async function generateTypingParagraph(
   };
 
   const languageName = languageNames[language] || language;
-  const wordCount = difficulty === "easy" ? "25-35" : difficulty === "medium" ? "35-50" : "50-70";
+  const wordCountRange = difficulty === "easy" ? "25-35" : difficulty === "medium" ? "35-50" : "50-70";
+  const { min: minWords, max: maxWords } = parseWordCountRange(wordCountRange);
   
   // Difficulty-specific writing guidelines
   const difficultyGuidelines: Record<string, string> = {
@@ -215,12 +227,11 @@ export async function generateTypingParagraph(
     prompt = `Write a ${difficulty}-level paragraph about: "${customPrompt}".
 
 CRITICAL REQUIREMENTS:
-1. STRICT WORD COUNT: Write EXACTLY ${wordCount} words in ${languageName} - NO MORE, NO LESS
+1. STRICT WORD COUNT: Write between ${minWords} and ${maxWords} words in ${languageName} (inclusive). This is mandatory.
 2. Use proper grammar and natural sentence structure appropriate for ${difficulty} level
 3. Make it engaging and educational about the topic: "${customPrompt}"${scriptNote}
 4. Focus specifically on the user's requested topic: "${customPrompt}"
 5. Write ONLY about "${customPrompt}" - do NOT mention typing, keyboards, or practice
-6. DO NOT exceed the word limit of ${wordCount.split('-')[1]} words
 
 ${difficulty.toUpperCase()} DIFFICULTY GUIDELINES:
 ${difficultyGuidelines[difficulty]}
@@ -233,13 +244,12 @@ Return ONLY the paragraph text, no explanations or meta-commentary.`;
     prompt = `Write a ${difficulty}-level paragraph in ${languageName} about "${randomSubtopic}" (${mode} category).
 
 CRITICAL REQUIREMENTS:
-1. STRICT WORD COUNT: Write EXACTLY ${wordCount} words in ${languageName} - NO MORE, NO LESS
+1. STRICT WORD COUNT: Write between ${minWords} and ${maxWords} words in ${languageName} (inclusive). This is mandatory.
 2. Use proper grammar and natural sentence structure appropriate for ${difficulty} level
 3. Make it engaging, informative, and educational about "${randomSubtopic}"${scriptNote}
 4. Focus specifically on the subtopic "${randomSubtopic}" - provide interesting facts, insights, or perspectives
 5. Avoid generic content - make it specific and engaging about this particular subtopic
 6. Write ONLY about "${randomSubtopic}" - do NOT mention typing, keyboards, or practice
-7. DO NOT exceed the word limit of ${wordCount.split('-')[1]} words
 
 ${difficulty.toUpperCase()} DIFFICULTY GUIDELINES:
 ${difficultyGuidelines[difficulty]}
@@ -247,14 +257,8 @@ ${difficultyGuidelines[difficulty]}
 Return ONLY the paragraph text, no explanations or meta-commentary.`;
   }
 
-  try {
-    if (!customPrompt) {
-      console.log(`📝 Generating ${languageName}/${mode} paragraph about: "${randomSubtopic}"`);
-    }
-    console.log(`📝 Prompt:`, prompt.substring(0, 200) + "...");
-    
-    // Expert system prompt to prevent typing-related content
-    const systemPrompt = `You are an expert content writer specialized in creating diverse, engaging educational paragraphs.
+  // Expert system prompt to prevent typing-related content
+  const systemPrompt = `You are an expert content writer specialized in creating diverse, engaging educational paragraphs.
 
 CRITICAL RULES:
 1. NEVER mention typing, keyboards, typing practice, typing speed, accuracy, or any typing-related concepts
@@ -267,39 +271,74 @@ FORBIDDEN WORDS (never use these): typing, keyboard, type, practice, speed, accu
 
 Your role is to educate readers about interesting topics, not to create typing practice material.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: prompt }
-      ],
-      max_tokens: 500,
-      temperature: 0.9,
-    });
+  const maxRetries = 3;
+  let attempt = 0;
 
-    console.log(`📦 API Response:`, JSON.stringify(response, null, 2).substring(0, 500));
+  try {
+    if (!customPrompt) {
+      console.log(`📝 Generating ${languageName}/${mode} paragraph about: "${randomSubtopic}"`);
+    }
     
-    const content = response.choices[0]?.message?.content?.trim() || "";
-    
-    if (!content) {
-      console.error("Empty content from AI. Full response:", JSON.stringify(response));
-      throw new Error("AI generated empty content");
+    // Retry loop for word count validation
+    while (attempt < maxRetries) {
+      attempt++;
+      console.log(`📝 Generation attempt ${attempt}/${maxRetries} - Word count range: ${minWords}-${maxWords}`);
+      
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.9,
+      });
+      
+      const content = response.choices[0]?.message?.content?.trim() || "";
+      
+      if (!content) {
+        console.error("Empty content from AI. Full response:", JSON.stringify(response));
+        if (attempt === maxRetries) {
+          throw new Error("AI generated empty content after all retries");
+        }
+        continue;
+      }
+
+      // Count words in generated content
+      const wordCount = countWords(content);
+      console.log(`📊 Generated content word count: ${wordCount} (required: ${minWords}-${maxWords})`);
+
+      // Validate content doesn't contain typing-related terms
+      const forbiddenTerms = ['typing', 'keyboard', 'type', 'practice', ' wpm', 'keystroke', 'accuracy', 'speed test'];
+      const lowerContent = content.toLowerCase();
+      const foundTerms = forbiddenTerms.filter(term => lowerContent.includes(term));
+      
+      if (foundTerms.length > 0) {
+        console.warn(`⚠️ AI generated content with forbidden terms: ${foundTerms.join(', ')}`);
+        console.warn(`Content: ${content.substring(0, 200)}...`);
+        if (attempt === maxRetries) {
+          throw new Error(`Generated content contains typing-related terms: ${foundTerms.join(', ')}`);
+        }
+        continue;
+      }
+
+      // Validate word count is within range
+      if (wordCount < minWords || wordCount > maxWords) {
+        console.warn(`⚠️ Word count ${wordCount} is outside range ${minWords}-${maxWords}`);
+        if (attempt === maxRetries) {
+          throw new Error(`Failed to generate content within word count range ${minWords}-${maxWords} after ${maxRetries} attempts. Last attempt had ${wordCount} words.`);
+        }
+        continue;
+      }
+
+      // Success - all validations passed
+      console.log(`✅ Generated ${wordCount} words for ${languageName}/${mode} (difficulty: ${difficulty})`);
+      console.log(`✅ Content validated - no typing-related terms, word count within range`);
+      return content;
     }
 
-    // Validate content doesn't contain typing-related terms
-    const forbiddenTerms = ['typing', 'keyboard', 'type', 'practice', ' wpm', 'keystroke', 'accuracy', 'speed test'];
-    const lowerContent = content.toLowerCase();
-    const foundTerms = forbiddenTerms.filter(term => lowerContent.includes(term));
-    
-    if (foundTerms.length > 0) {
-      console.error(`❌ AI generated content with forbidden terms: ${foundTerms.join(', ')}`);
-      console.error(`Content: ${content.substring(0, 200)}...`);
-      throw new Error(`Generated content contains typing-related terms: ${foundTerms.join(', ')}`);
-    }
-
-    console.log(`✅ Generated ${content.split(/\s+/).length} words for ${languageName}/${mode}`);
-    console.log(`✅ Content validated - no typing-related terms found`);
-    return content;
+    // Should never reach here, but just in case
+    throw new Error("Unexpected error in generation loop");
   } catch (error: any) {
     console.error("❌ AI paragraph generation error:", error.message || error);
     if (error.response) {
