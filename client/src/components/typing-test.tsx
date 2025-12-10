@@ -2357,28 +2357,6 @@ Can you beat my score? Try it here: `,
                 />
               );
             })}
-            {/* Single persistent cursor with smooth transitions - Monkeytype/VSCode style */}
-            {!isFinished && (
-              <span 
-                className={cn(
-                  "absolute w-[2.5px] rounded-sm bg-primary pointer-events-none",
-                  // Only blink when idle (not typing)
-                  !isActive && "animate-caret-blink",
-                  // GPU acceleration hints
-                  "will-change-transform backface-visibility-hidden"
-                )}
-                style={{ 
-                  transform: `translate3d(${cursorPosition.left}px, ${cursorPosition.top}px, 0)`,
-                  height: `${cursorPosition.height}px`,
-                  // Transition timing based on settings - disabled during fast typing, reduced motion, or user preference
-                  transition: !smoothCaret || caretSpeed === 'off' || isTypingFast || prefersReducedMotion
-                    ? 'none'
-                    : `transform ${caretSpeed === 'fast' ? '50ms' : caretSpeed === 'medium' ? '100ms' : '150ms'} cubic-bezier(0.22, 1, 0.36, 1)`,
-                  // Subtle glow effect
-                  boxShadow: '0 0 6px 1px hsl(var(--primary) / 0.4)',
-                }}
-              />
-            )}
           </div>
         )}
         

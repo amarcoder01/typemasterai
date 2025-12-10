@@ -25,26 +25,22 @@ Domain-based email system for all communications:
 
 ## Recent Changes (December 2025)
 
-### Cursor Positioning Fix (December 10, 2025 - COMPLETED)
-- **Issue**: Typing test cursor appeared at the end of text instead of tracking typing position
-- **Root Cause**: CharSpan component was memoized without forwarding refs, causing cursor position calculation to fail. Additional issue: stale refs remained in array when text changed to shorter length
+### Cursor Removal from Typing Test (December 10, 2025 - COMPLETED)
+- **Issue**: User requested removal of the visual cursor from the typing test
 - **Solution Implemented**:
-  - Updated CharSpan component to use `React.forwardRef` to expose element refs
-  - **Removed `memo()` wrapper** from CharSpan to ensure refs stay synchronized with text changes
-  - Added ref callbacks to populate `charRefs.current[index]` array during render
-  - Modified `updateCursorPosition` to use `charRefs.current[targetIndex]` instead of `document.querySelector`
-  - **Added `charRefs.current.length = text.length` in useMemo** to prevent stale refs by truncating array when text changes
-  - Removed manual charRefs cleanup from useEffect hooks (now handled automatically by useMemo)
+  - Removed cursor span element rendering completely from the typing test component
+  - Cursor-related state and positioning logic retained (can be re-enabled if needed)
+  - Typing functionality remains fully intact - characters still change color to show correct/incorrect input
 - **Files Modified**: `client/src/components/typing-test.tsx`
 - **Testing**: 
-  - Verified cursor tracks typing position correctly during normal typing
-  - Verified cursor resets to beginning on restart
-  - **Verified cursor handles paragraph changes correctly** (language, mode, difficulty switches) without stale ref issues
-  - All edge cases tested: initial position, typing, paragraph changes, restarts
+  - Verified no cursor visible on page load
+  - Verified no cursor visible during typing
+  - Verified typing functionality works normally (characters turn green/red)
+  - Verified restart and all other features work without issues
 - **Technical Details**: 
-  - Cursor position calculated using `getBoundingClientRect()` relative to container
-  - Refs provide stable DOM element references
-  - useMemo ensures charRefs array length always matches text length to prevent stale references
+  - Removed the absolutely positioned cursor span that was styled with yellow/gold color
+  - Hidden input field still receives all keystrokes for typing detection
+  - Visual feedback now relies solely on character color changes (gray → green/red)
 
 ### Certificate System Implementation (COMPLETED)
 - **Certificate Coverage**: Expert-level certificates now available across ALL 7 typing modes (100% coverage)
