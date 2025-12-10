@@ -1435,13 +1435,8 @@ Can you beat my score? Try it here: `,
       return;
     }
     
-    // Keyboard shortcuts for test control (Tab/Escape)
-    // Note: These functions would trigger restart/reset if implemented
-    if (e.key === 'Tab' || e.key === 'Escape') {
-      e.preventDefault();
-      // Restart/reset functionality can be added later
-      return;
-    }
+    // Keyboard shortcuts for test control handled by global listener
+    // (Tab/Escape handled in useEffect below - don't block them here)
     
     // Allow Shift+Enter to finish early
     if (e.key === 'Enter' && e.shiftKey) {
@@ -1495,8 +1490,11 @@ Can you beat my score? Try it here: `,
     }
   }, []);
 
+  // Track if cursor update is from keystroke (for auto-scroll gating)
+  const lastCursorIndexRef = useRef(0);
+  
   // Update cursor position based on typing progress and layout changes
-  const updateCursorPosition = useCallback(() => {
+  const updateCursorPosition = useCallback((fromKeystroke = false) => {
     // Use requestAnimationFrame to ensure DOM has updated before measuring
     requestAnimationFrame(() => {
       const container = containerRef.current;
@@ -1511,7 +1509,8 @@ Can you beat my score? Try it here: `,
         const containerRect = container.getBoundingClientRect();
         const scrollTop = container.scrollTop;
         
-        // Calculate position relative to container, accounting for scroll
+        // Calculate position in CONTENT COORDINATES (includes scrollTop)
+        // This makes cursor position absolute within content, not viewport
         const relativeLeft = charRect.left - containerRect.left;
         const relativeTop = charRect.top - containerRect.top + scrollTop;
         const height = charRect.height || 40;
@@ -1524,10 +1523,9 @@ Can you beat my score? Try it here: `,
           return { left: relativeLeft, top: relativeTop, height };
         });
         
-        // Auto-scroll: Keep cursor in the top third of visible area
-        // CRITICAL: Only auto-scroll if user is NOT manually scrolling
-        // This prevents fighting with user's scroll actions
-        if (!isUserScrollingRef.current) {
+        // Auto-scroll: ONLY on keystroke-driven changes, NOT during manual scroll or resize
+        // This prevents cursor from jumping during user-initiated scrolling
+        if (fromKeystroke && !isUserScrollingRef.current) {
           const cursorTopRelative = charRect.top - containerRect.top;
           const containerHeight = container.clientHeight;
           const idealCursorPosition = containerHeight * 0.3; // Keep cursor at 30% from top
@@ -1569,16 +1567,22 @@ Can you beat my score? Try it here: `,
     });
   }, [userInput.length, text]);
 
+  // Only update cursor position on keystroke changes (not on every layout change)
   useEffect(() => {
-    updateCursorPosition();
-  }, [updateCursorPosition, text]);
+    const cursorIndex = userInput.length;
+    const wasKeystroke = cursorIndex !== lastCursorIndexRef.current;
+    lastCursorIndexRef.current = cursorIndex;
+    
+    // Pass fromKeystroke=true only when cursor actually moved from typing
+    updateCursorPosition(wasKeystroke);
+  }, [userInput.length, updateCursorPosition]);
 
-  // Recalculate cursor position on resize/layout changes
+  // Recalculate cursor position on resize/layout changes (but don't auto-scroll)
   useEffect(() => {
     if (!containerRef.current) return;
 
     const resizeObserver = new ResizeObserver(() => {
-      updateCursorPosition();
+      updateCursorPosition(false); // false = not from keystroke, don't auto-scroll
     });
 
     resizeObserver.observe(containerRef.current);
@@ -2687,6 +2691,10 @@ Can you beat my score? Try it here: `,
             onScroll={() => {
               // Detect manual user scrolling
               isUserScrollingRef.current = true;
+              
+              // CRITICAL: Recalculate cursor position SYNCHRONOUSLY during scroll
+              // This keeps cursor aligned with character without React state lag
+              updateCursorPosition(false);
               
               // Clear any existing timeout
               if (userScrollTimeoutRef.current) {
