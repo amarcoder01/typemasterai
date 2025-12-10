@@ -2523,7 +2523,29 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .selectDistinct({ language: typingParagraphs.language })
       .from(typingParagraphs);
-    return result.map(r => r.language);
+    
+    const languages = result.map(r => r.language);
+    
+    // Sort languages: English first, Hindi second, Marathi third, then all others alphabetically
+    const priorityOrder = ['en', 'hi', 'mr'];
+    const priorityLanguages: string[] = [];
+    const otherLanguages: string[] = [];
+    
+    languages.forEach(lang => {
+      if (priorityOrder.includes(lang)) {
+        priorityLanguages.push(lang);
+      } else {
+        otherLanguages.push(lang);
+      }
+    });
+    
+    // Sort priority languages by their order in priorityOrder array
+    priorityLanguages.sort((a, b) => priorityOrder.indexOf(a) - priorityOrder.indexOf(b));
+    
+    // Sort other languages alphabetically
+    otherLanguages.sort();
+    
+    return [...priorityLanguages, ...otherLanguages];
   }
 
   async getAvailableModes(): Promise<string[]> {

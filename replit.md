@@ -8,7 +8,21 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (December 2025)
 
-### Educational & Engaging General Mode Content (December 10, 2025 - LATEST)
+### Multi-Language Support with Cultural Adaptation (December 10, 2025 - LATEST)
+- **Enhancement**: All 95 educational topics now work seamlessly across 23+ supported languages with cultural adaptation
+- **Language Ordering**: Language dropdown now shows English first, Hindi second, Marathi third, then all others alphabetically
+- **Cultural Adaptation**: AI system prompt includes explicit guidance to adapt content culturally for each language
+  - Examples, references, and contexts resonate with native speakers
+  - Universal topics (technology, mental health, career skills, etc.) adapted to cultural nuances
+  - Content maintains educational value while respecting cultural sensitivities
+- **Implementation**:
+  - Modified `getAvailableLanguages()` in `server/storage.ts` to prioritize English, Hindi, Marathi
+  - Enhanced AI system prompt with "MULTI-LANGUAGE & CULTURAL ADAPTATION" section
+  - All 95 topics generate naturally in any language with appropriate cultural context
+- **Result**: Users can learn in their preferred language with culturally relevant, engaging educational content
+- **Files Modified**: `server/storage.ts`, `server/ai-paragraph-generator.ts`
+
+### Educational & Engaging General Mode Content (December 10, 2025)
 - **Enhancement**: Expanded General Mode with 95 research-backed, trending topics that engage users while they learn
 - **Research-Driven**: Based on 2025 education trends showing 83% higher engagement with relevant, practical content
 - **Implementation**:

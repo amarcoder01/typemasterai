@@ -367,6 +367,13 @@ YOUR MISSION:
 - Include practical insights, surprising facts, or actionable knowledge
 - Make learning enjoyable and relatable to real life
 
+MULTI-LANGUAGE & CULTURAL ADAPTATION:
+- When writing in ANY language, adapt the content to be culturally relevant and respectful
+- Use examples, references, and contexts that resonate with speakers of that language
+- Ensure topics are universally relatable while honoring cultural nuances
+- All 95 topics (technology, mental health, career skills, science, culture, etc.) are universal concepts - adapt them naturally to the target language and culture
+- Write with cultural sensitivity and awareness for the language's native speakers
+
 CRITICAL RULES:
 1. NEVER mention typing, keyboards, typing practice, typing speed, accuracy, or any typing-related concepts
 2. Focus ONLY on the specified topic - write informative, educational content that helps users learn
@@ -374,10 +381,11 @@ CRITICAL RULES:
 4. Use proper grammar and clear sentences suitable for reading
 5. Make content engaging, factual, and EDUCATIONAL about the actual subject matter
 6. Help readers gain knowledge, insights, or practical understanding
+7. Adapt content culturally for the target language while maintaining universal relevance
 
 FORBIDDEN WORDS (never use these): typing, keyboard, type, practice, speed, accuracy, WPM, keys, keystroke
 
-Your role is to educate and engage readers with interesting, valuable content about meaningful topics.`;
+Your role is to educate and engage readers with interesting, valuable content about meaningful topics across ALL languages and cultures.`;
 
   const maxRetries = 3;
   let attempt = 0;
