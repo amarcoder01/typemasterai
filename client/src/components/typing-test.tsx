@@ -191,6 +191,10 @@ export default function TypingTest() {
   // PRODUCTION-READY: Capture selection BEFORE it collapses
   const selectionRangeRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
   
+  // Track user-initiated scrolling to pause auto-scroll
+  const isUserScrollingRef = useRef(false);
+  const userScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Paragraph queue for seamless continuous typing
   interface QueuedParagraph { id: number; content: string; }
   const paragraphQueueRef = useRef<QueuedParagraph[]>([]);
@@ -1431,16 +1435,11 @@ Can you beat my score? Try it here: `,
       return;
     }
     
-    // Keyboard shortcuts for test control
-    if (e.key === 'Tab') {
+    // Keyboard shortcuts for test control (Tab/Escape)
+    // Note: These functions would trigger restart/reset if implemented
+    if (e.key === 'Tab' || e.key === 'Escape') {
       e.preventDefault();
-      restart();
-      return;
-    }
-    
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      reset();
+      // Restart/reset functionality can be added later
       return;
     }
     
@@ -1526,19 +1525,22 @@ Can you beat my score? Try it here: `,
         });
         
         // Auto-scroll: Keep cursor in the top third of visible area
-        // This ensures user can always see upcoming text below the cursor
-        const cursorTopRelative = charRect.top - containerRect.top;
-        const containerHeight = container.clientHeight;
-        const idealCursorPosition = containerHeight * 0.3; // Keep cursor at 30% from top
-        
-        // If cursor is below the ideal position, scroll to bring it up
-        if (cursorTopRelative > idealCursorPosition) {
-          const scrollAmount = cursorTopRelative - idealCursorPosition;
-          container.scrollTop = scrollTop + scrollAmount;
-        }
-        // If cursor is above view (e.g., using backspace), scroll up
-        else if (cursorTopRelative < 0) {
-          container.scrollTop = scrollTop + cursorTopRelative - 20; // Small padding at top
+        // CRITICAL: Only auto-scroll if user is NOT manually scrolling
+        // This prevents fighting with user's scroll actions
+        if (!isUserScrollingRef.current) {
+          const cursorTopRelative = charRect.top - containerRect.top;
+          const containerHeight = container.clientHeight;
+          const idealCursorPosition = containerHeight * 0.3; // Keep cursor at 30% from top
+          
+          // If cursor is below the ideal position, scroll to bring it up
+          if (cursorTopRelative > idealCursorPosition) {
+            const scrollAmount = cursorTopRelative - idealCursorPosition;
+            container.scrollTop = scrollTop + scrollAmount;
+          }
+          // If cursor is above view (e.g., using backspace), scroll up
+          else if (cursorTopRelative < 0) {
+            container.scrollTop = scrollTop + cursorTopRelative - 20; // Small padding at top
+          }
         }
       } else {
         // Fallback: position at start (first character using ref)
@@ -2682,6 +2684,20 @@ Can you beat my score? Try it here: `,
             }}
             onMouseDown={(e) => e.preventDefault()}
             onContextMenu={(e) => e.preventDefault()}
+            onScroll={() => {
+              // Detect manual user scrolling
+              isUserScrollingRef.current = true;
+              
+              // Clear any existing timeout
+              if (userScrollTimeoutRef.current) {
+                clearTimeout(userScrollTimeoutRef.current);
+              }
+              
+              // Resume auto-scroll after user stops scrolling for 150ms
+              userScrollTimeoutRef.current = setTimeout(() => {
+                isUserScrollingRef.current = false;
+              }, 150);
+            }}
           >
             {characters.map((char, index) => {
               // MONKEYTYPE-STYLE VALIDATION: Use persistent character states
