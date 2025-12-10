@@ -1146,6 +1146,12 @@ Can you beat my score? Try it here: `,
     if (isFinished) return;
     if (!text) return;
     
+    // Prevent typing beyond text length (Code Mode has this)
+    if (value.length > text.length) {
+      if (inputRef.current) inputRef.current.value = userInput;
+      return;
+    }
+    
     const previousLength = userInput.length;
     const now = Date.now();
     
@@ -1202,6 +1208,11 @@ Can you beat my score? Try it here: `,
         const expectedChar = text[typingPosition];
         const isCorrect = typedChar === expectedChar;
         
+        // Increment error counter if this is a new mistake (Code Mode pattern)
+        if (!isCorrect) {
+          setErrors(prev => prev + 1);
+        }
+        
         setCharStates(prev => {
           const newStates = [...prev];
           newStates[typingPosition] = {
@@ -1227,6 +1238,14 @@ Can you beat my score? Try it here: `,
           const typedChar = value[i];
           const expectedChar = text[i];
           const isCorrect = typedChar === expectedChar;
+          
+          // Check if this was previously incorrect and now being corrected
+          const wasIncorrect = charStates[i]?.state === 'incorrect';
+          
+          // Only increment errors if making a NEW mistake (not when correcting)
+          if (!isCorrect && !wasIncorrect) {
+            setErrors(prev => prev + 1);
+          }
           
           setCharStates(prev => {
             const newStates = [...prev];
@@ -1470,24 +1489,42 @@ Can you beat my score? Try it here: `,
     };
   }, [trackingEnabled, text]);
 
-  // Quick restart with Tab key (only when typing input is focused)
+  // Keyboard shortcuts for typing test (Code Mode-style)
   useEffect(() => {
-    if (!quickRestart) return;
-
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Only restart if Tab is pressed, no modifiers, and the typing input is focused
-      if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        const activeElement = document.activeElement;
-        if (activeElement === inputRef.current) {
+      const activeElement = document.activeElement;
+      const isTypingInputFocused = activeElement === inputRef.current;
+      
+      // Tab key - restart test (only when quick restart enabled and input focused)
+      if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && quickRestart) {
+        if (isTypingInputFocused) {
           e.preventDefault();
           resetTest();
+        }
+      }
+      
+      // Escape key - reset/restart test anytime
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        resetTest();
+      }
+      
+      // Shift+Enter - finish test early (like Monkeytype and Code Mode)
+      if (e.shiftKey && e.key === 'Enter') {
+        e.preventDefault();
+        if (isActive && userInput.length > 0 && !isFinished) {
+          finishTest(false); // false = manual finish
+          toast({
+            title: "Test Finished",
+            description: "You ended the test early with Shift+Enter.",
+          });
         }
       }
     };
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [quickRestart, resetTest]);
+  }, [quickRestart, resetTest, isActive, userInput.length, isFinished, finishTest, toast]);
 
   // Focus handling - only focus when clicking on the typing area
   useEffect(() => {
