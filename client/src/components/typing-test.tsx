@@ -2466,6 +2466,20 @@ Can you beat my score? Try it here: `,
                 />
               );
             })}
+            
+            {/* Blinking cursor */}
+            {!isFinished && (
+              <div
+                className="absolute w-0.5 bg-primary animate-pulse"
+                style={{
+                  left: `${cursorPosition.left}px`,
+                  top: `${cursorPosition.top}px`,
+                  height: `${cursorPosition.height}px`,
+                  transition: prefersReducedMotion || isTypingFast ? 'none' : 'left 0.1s ease-out, top 0.1s ease-out',
+                }}
+                aria-hidden="true"
+              />
+            )}
           </div>
         )}
         
