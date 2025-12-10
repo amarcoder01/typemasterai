@@ -12,10 +12,12 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/searchable-select";
-import { BookOpen, Trophy, Zap, Target, RotateCcw, ArrowRight, Sparkles, Loader2, HelpCircle, RefreshCw, AlertCircle, WifiOff } from "lucide-react";
+import { BookOpen, Trophy, Zap, Target, RotateCcw, ArrowRight, Sparkles, Loader2, HelpCircle, RefreshCw, AlertCircle, WifiOff, Share2, Award } from "lucide-react";
 import confetti from "canvas-confetti";
 import type { BookParagraph, InsertBookTypingTest } from "@shared/schema";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
+import { BookCertificate } from "@/components/BookCertificate";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface CachedTopics {
   topics: string[];
@@ -378,6 +380,22 @@ export default function BookMode() {
   } | null>(null);
   const [pendingResult, setPendingResult] = useState<Omit<InsertBookTypingTest, 'userId'> | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [lastResultSnapshot, setLastResultSnapshot] = useState<{
+    wpm: number;
+    accuracy: number;
+    characters: number;
+    errors: number;
+    duration: number;
+    consistency: number;
+    bookTitle: string;
+    author: string;
+    chapter?: number;
+    chapterTitle?: string;
+    paragraphsCompleted: number;
+    wordsTyped: number;
+    difficulty: string;
+  } | null>(null);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasInitiallyLoaded = useRef(false);
@@ -672,6 +690,26 @@ export default function BookMode() {
       wpm: finalWpm,
       accuracy: finalAccuracy,
       errors: errorCount,
+    });
+    
+    const words = normalizedText.split(/\s+/).length;
+    const wordsTyped = Math.min(words, Math.floor(userInput.split(/\s+/).length));
+    const consistency = Math.max(0, Math.min(100, Math.round(100 - (errorCount / chars) * 100)));
+    
+    setLastResultSnapshot({
+      wpm: finalWpm,
+      accuracy: finalAccuracy,
+      characters: chars,
+      errors: errorCount,
+      duration,
+      consistency,
+      bookTitle: currentParagraph.bookTitle,
+      author: currentParagraph.author,
+      chapter: currentParagraph.chapter,
+      chapterTitle: currentParagraph.chapterTitle,
+      paragraphsCompleted: 1,
+      wordsTyped,
+      difficulty: filters.difficulty,
     });
     
     confetti({
@@ -1348,6 +1386,24 @@ export default function BookMode() {
               )}
               
               <div className="flex gap-3">
+                {lastResultSnapshot && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => setShareDialogOpen(true)}
+                        variant="outline"
+                        className="gap-2"
+                        data-testid="button-share-results"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        Share
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="text-xs">Share your book typing achievement with certificate</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
                 <Button
                   onClick={continueReading}
                   className="flex-1 gap-2"
@@ -1369,6 +1425,58 @@ export default function BookMode() {
                 </Button>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog with Certificate */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-5 h-5" />
+              Share Your Book Typing Result
+            </DialogTitle>
+            <DialogDescription>
+              Share your {lastResultSnapshot?.bookTitle} achievement with others!
+            </DialogDescription>
+          </DialogHeader>
+          
+          {lastResultSnapshot && (
+            <Tabs defaultValue="certificate" className="w-full">
+              <TabsList className="grid w-full grid-cols-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="certificate" className="gap-2" data-testid="tab-certificate">
+                      <Award className="w-4 h-4" />
+                      Certificate
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Professional 1200×675 certificate with verification ID</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TabsList>
+              
+              <TabsContent value="certificate" className="mt-4">
+                <BookCertificate
+                  wpm={lastResultSnapshot.wpm}
+                  accuracy={lastResultSnapshot.accuracy}
+                  consistency={lastResultSnapshot.consistency}
+                  bookTitle={lastResultSnapshot.bookTitle}
+                  author={lastResultSnapshot.author}
+                  chapter={lastResultSnapshot.chapter}
+                  chapterTitle={lastResultSnapshot.chapterTitle}
+                  paragraphsCompleted={lastResultSnapshot.paragraphsCompleted}
+                  wordsTyped={lastResultSnapshot.wordsTyped}
+                  characters={lastResultSnapshot.characters}
+                  errors={lastResultSnapshot.errors}
+                  duration={lastResultSnapshot.duration}
+                  difficulty={lastResultSnapshot.difficulty}
+                  username={user?.username}
+                />
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>

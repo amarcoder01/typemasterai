@@ -9,12 +9,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film, Zap, LogOut, Lock, ExternalLink } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
+import { RaceCertificate } from "@/components/RaceCertificate";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Error types for better error handling
 type ErrorType = "network" | "race_not_found" | "race_full" | "race_started" | "websocket" | "unknown";
@@ -880,6 +883,17 @@ export default function RacePage() {
     createdBy: string;
   } | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [lastResultSnapshot, setLastResultSnapshot] = useState<{
+    wpm: number;
+    accuracy: number;
+    consistency: number;
+    placement: number;
+    totalParticipants: number;
+    characters: number;
+    errors: number;
+    duration: number;
+  } | null>(null);
 
   useEffect(() => {
     raceRef.current = race;
@@ -1135,12 +1149,27 @@ export default function RacePage() {
         : sortedParticipants[0]; // Fallback for when myParticipant isn't loaded
       
       if (myResult) {
+        const chars = (myResult as any).characters || myResult.wpm * 5;
+        const consistency = Math.max(0, Math.min(100, Math.round(100 - ((chars - myResult.wpm * 5) / chars) * 100)));
+        
         setFinishBannerData({
           position: myResult.finishPosition || null,
           totalPlayers: participants.length,
           wpm: myResult.wpm,
           accuracy: myResult.accuracy,
         });
+        
+        setLastResultSnapshot({
+          wpm: myResult.wpm,
+          accuracy: myResult.accuracy,
+          consistency: consistency || 85,
+          placement: myResult.finishPosition || participants.length,
+          totalParticipants: participants.length,
+          characters: chars,
+          errors: Math.round(chars * (1 - myResult.accuracy / 100)),
+          duration: (race as any)?.duration || 60,
+        });
+        
         setShowFinishBanner(true);
         setIsRacing(false);
       }
@@ -1469,12 +1498,29 @@ export default function RacePage() {
         const myResult = message.results.find((p: Participant) => p.id === currentParticipant?.id);
         
         // If myResult found, use server values; otherwise default to 100% accuracy for no typing
+        const finalWpm = myResult?.wpm ?? 0;
+        const finalAccuracy = myResult?.accuracy ?? 100;
+        const finalCharacters = myResult?.characters || finalWpm * 5;
+        const finalConsistency = Math.max(0, Math.min(100, Math.round(100 - ((finalCharacters - finalWpm * 5) / finalCharacters) * 100))) || 85;
+        
         setFinishBannerData({
           position: myResult?.finishPosition || null,
           totalPlayers: message.results.length,
-          wpm: myResult?.wpm ?? 0,
-          accuracy: myResult?.accuracy ?? 100, // Default to 100% if not found (no typing = perfect)
+          wpm: finalWpm,
+          accuracy: finalAccuracy,
         });
+        
+        setLastResultSnapshot({
+          wpm: finalWpm,
+          accuracy: finalAccuracy,
+          consistency: finalConsistency,
+          placement: myResult?.finishPosition || message.results.length,
+          totalParticipants: message.results.length,
+          characters: finalCharacters,
+          errors: Math.round(finalCharacters * (1 - finalAccuracy / 100)),
+          duration: (raceRef.current as any)?.duration || 60,
+        });
+        
         setShowFinishBanner(true);
         
         if (user) {
@@ -2611,6 +2657,26 @@ export default function RacePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                {myResult && lastResultSnapshot && (
+                  <div className="flex justify-center">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => setShareDialogOpen(true)}
+                          className="gap-2"
+                          data-testid="button-share-race-results"
+                        >
+                          <Share2 className="w-4 h-4" />
+                          Share Race Certificate
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p className="text-xs">Share your race achievement with professional certificate</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+                
                 <div className="space-y-3">
                   {sortedParticipants.map((p, idx) => {
                     const isParticipantBot = p.isBot === 1 || p.isBot === true;
@@ -2815,6 +2881,54 @@ export default function RacePage() {
             </Card>
           </div>
         </div>
+
+        {/* Share Dialog with Race Certificate */}
+        <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+          <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Share2 className="w-5 h-5" />
+                Share Your Race Result
+              </DialogTitle>
+              <DialogDescription>
+                Share your multiplayer race achievement with others!
+              </DialogDescription>
+            </DialogHeader>
+            
+            {lastResultSnapshot && (
+              <Tabs defaultValue="certificate" className="w-full">
+                <TabsList className="grid w-full grid-cols-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <TabsTrigger value="certificate" className="gap-2" data-testid="tab-race-certificate">
+                        <Award className="w-4 h-4" />
+                        Certificate
+                      </TabsTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="text-xs">Professional 1200×675 certificate with verification ID</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TabsList>
+                
+                <TabsContent value="certificate" className="mt-4">
+                  <RaceCertificate
+                    wpm={lastResultSnapshot.wpm}
+                    accuracy={lastResultSnapshot.accuracy}
+                    consistency={lastResultSnapshot.consistency}
+                    placement={lastResultSnapshot.placement}
+                    totalParticipants={lastResultSnapshot.totalParticipants}
+                    characters={lastResultSnapshot.characters}
+                    errors={lastResultSnapshot.errors}
+                    duration={lastResultSnapshot.duration}
+                    username={user?.username}
+                    raceId={race?.id?.toString()}
+                  />
+                </TabsContent>
+              </Tabs>
+            )}
+          </DialogContent>
+        </Dialog>
       </TooltipProvider>
     );
   }
