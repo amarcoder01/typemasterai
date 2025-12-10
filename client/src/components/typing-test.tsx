@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo, forwardRef } from "react";
 import { generateText, calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award, Share2, Twitter, Facebook, MessageCircle, Copy, Check, Link2, Linkedin, Mail, Send, AlertCircle, Loader2, HelpCircle, Timer, BarChart3, Eye, EyeOff, PenLine, Info } from "lucide-react";
@@ -25,16 +25,13 @@ import { useAchievementCelebration, type UnlockedAchievement, preWarmAudioContex
 
 type TestMode = 15 | 30 | 45 | 60 | 90 | 120 | 180 | number;
 
-// Memoized character component for performance - only re-renders when state changes
-const CharSpan = memo(({ 
-  char, 
-  index, 
-  state 
-}: { 
+// Character component with forwardRef for cursor positioning
+// Removed memo() to ensure refs stay synchronized with text changes
+const CharSpan = forwardRef<HTMLSpanElement, { 
   char: string; 
   index: number; 
   state: 'pending' | 'correct' | 'incorrect';
-}) => {
+}>(({ char, index, state }, ref) => {
   const className = state === 'pending' 
     ? "relative text-muted-foreground/40"
     : state === 'correct' 
@@ -42,7 +39,7 @@ const CharSpan = memo(({
       : "relative text-destructive";
   
   return (
-    <span data-char-index={index} className={className}>
+    <span ref={ref} data-char-index={index} className={className}>
       {char}
     </span>
   );
@@ -831,6 +828,7 @@ Can you beat my score? Try it here: `,
     // Clear keystroke tracker and WPM history for new test
     keystrokeTrackerRef.current = null;
     wpmHistoryRef.current = [];
+    // charRefs cleanup handled automatically by useMemo when text changes
     // Reset paragraph queue (will be filled after fetchParagraph returns with ID)
     paragraphQueueRef.current = [];
     usedParagraphIdsRef.current = new Set();
@@ -853,6 +851,7 @@ Can you beat my score? Try it here: `,
       // Clear keystroke tracker and WPM history for new test
       keystrokeTrackerRef.current = null;
       wpmHistoryRef.current = [];
+      // charRefs cleanup handled automatically by useMemo when text changes
       // Reset queue (will be filled after fetchParagraph returns with ID)
       paragraphQueueRef.current = [];
       usedParagraphIdsRef.current = new Set();
@@ -1199,9 +1198,9 @@ Can you beat my score? Try it here: `,
       const container = containerRef.current;
       if (!container) return;
       
-      // Find the character element at current position
+      // Find the character element at current position using refs
       const targetIndex = userInput.length;
-      const charElement = document.querySelector(`[data-char-index="${targetIndex}"]`) as HTMLElement;
+      const charElement = charRefs.current[targetIndex];
       
       if (charElement) {
         const charRect = charElement.getBoundingClientRect();
@@ -1237,8 +1236,8 @@ Can you beat my score? Try it here: `,
           container.scrollTop = scrollTop + cursorTopRelative - 20; // Small padding at top
         }
       } else {
-        // Fallback: position at start (first character or container origin)
-        const firstChar = document.querySelector(`[data-char-index="0"]`) as HTMLElement;
+        // Fallback: position at start (first character using ref)
+        const firstChar = charRefs.current[0];
         if (firstChar) {
           const containerRect = container.getBoundingClientRect();
           const charRect = firstChar.getBoundingClientRect();
@@ -1380,7 +1379,11 @@ Can you beat my score? Try it here: `,
   };
 
   // Memoize the characters array to avoid recreating on every render
-  const characters = useMemo(() => text.split(""), [text]);
+  const characters = useMemo(() => {
+    // Ensure charRefs array length matches text length to prevent stale refs
+    charRefs.current.length = text.length;
+    return text.split("");
+  }, [text]);
   
   const availableLanguages = languagesData?.languages || ["en"];
   const availableModes = modesData?.modes || ["general"];
@@ -2345,6 +2348,9 @@ Can you beat my score? Try it here: `,
               return (
                 <CharSpan 
                   key={`${text.length}-${index}`}
+                  ref={(el) => {
+                    charRefs.current[index] = el;
+                  }}
                   char={char}
                   index={index}
                   state={state}

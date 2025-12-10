@@ -25,6 +25,27 @@ Domain-based email system for all communications:
 
 ## Recent Changes (December 2025)
 
+### Cursor Positioning Fix (December 10, 2025 - COMPLETED)
+- **Issue**: Typing test cursor appeared at the end of text instead of tracking typing position
+- **Root Cause**: CharSpan component was memoized without forwarding refs, causing cursor position calculation to fail. Additional issue: stale refs remained in array when text changed to shorter length
+- **Solution Implemented**:
+  - Updated CharSpan component to use `React.forwardRef` to expose element refs
+  - **Removed `memo()` wrapper** from CharSpan to ensure refs stay synchronized with text changes
+  - Added ref callbacks to populate `charRefs.current[index]` array during render
+  - Modified `updateCursorPosition` to use `charRefs.current[targetIndex]` instead of `document.querySelector`
+  - **Added `charRefs.current.length = text.length` in useMemo** to prevent stale refs by truncating array when text changes
+  - Removed manual charRefs cleanup from useEffect hooks (now handled automatically by useMemo)
+- **Files Modified**: `client/src/components/typing-test.tsx`
+- **Testing**: 
+  - Verified cursor tracks typing position correctly during normal typing
+  - Verified cursor resets to beginning on restart
+  - **Verified cursor handles paragraph changes correctly** (language, mode, difficulty switches) without stale ref issues
+  - All edge cases tested: initial position, typing, paragraph changes, restarts
+- **Technical Details**: 
+  - Cursor position calculated using `getBoundingClientRect()` relative to container
+  - Refs provide stable DOM element references
+  - useMemo ensures charRefs array length always matches text length to prevent stale references
+
 ### Certificate System Implementation (COMPLETED)
 - **Certificate Coverage**: Expert-level certificates now available across ALL 7 typing modes (100% coverage)
   - ✅ Standard Mode: Certificate with tier-based visuals and performance metrics
