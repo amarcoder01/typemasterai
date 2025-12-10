@@ -2290,6 +2290,7 @@ Can you beat my score? Try it here: `,
                 "bg-transparent border-none outline-none resize-none",
                 "placeholder:text-muted-foreground/50",
                 "focus:ring-0 focus:outline-none",
+                "caret-primary",
                 isFinished && "opacity-60 cursor-not-allowed"
               )}
               data-testid="textarea-freestyle"
