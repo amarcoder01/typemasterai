@@ -873,7 +873,7 @@ export const certificates = pgTable("certificates", {
     // Code test
     programmingLanguage?: string;
     framework?: string;
-    difficulty?: string;
+    difficulty?: string; // Used by both Code and Stress tests
     testMode?: string;
     syntaxErrors?: number;
     
@@ -896,7 +896,6 @@ export const certificates = pgTable("certificates", {
     totalWords?: number;
     
     // Stress Test
-    difficulty?: string;
     stressScore?: number;
     maxCombo?: number;
     completionRate?: number;

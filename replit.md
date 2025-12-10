@@ -25,17 +25,19 @@ Domain-based email system for all communications:
 
 ## Recent Changes (December 2025)
 
-### Certificate System Implementation
-- **Certificate Coverage**: Expert-level certificates now available in 5 out of 7 modes (~71% coverage)
+### Certificate System Implementation (COMPLETED)
+- **Certificate Coverage**: Expert-level certificates now available across ALL 7 typing modes (100% coverage)
   - ✅ Standard Mode: Certificate with tier-based visuals and performance metrics
   - ✅ Code Typing Mode: Certificate with code language, snippet preview, and specialized metrics
   - ✅ Book Mode: Certificate with book title, author, and reading-specific stats
   - ✅ Race/Multiplayer Mode: Certificate with placement badges and opponent metrics
   - ✅ Chapter Typing: Certificate with book + chapter metadata
-  - 🔲 Profile Certificate Gallery (in progress)
-  - 🔲 Shared Results Certificate Display (pending)
+  - ✅ Dictation Mode: Certificate with speed level, sentences completed, and total words
+  - ✅ Stress Test Mode: Certificate with difficulty, stress score, survival time, and active challenges
+  - ✅ Profile Certificate Gallery: Full filtering by mode, view/download functionality
+  - ✅ Shared Results Certificate Display: Code test shared results show certificates
 - **Database Schema**: Created `certificates` table with:
-  - Multi-mode support (standard, code, book, race, chapter)
+  - Multi-mode support (standard, code, book, race, chapter, dictation, stress)
   - Foreign keys to all test result tables (cascade delete)
   - Denormalized performance metrics (WPM, accuracy, consistency, duration)
   - Sharing features (unique shareId, view count, public/private toggle)
