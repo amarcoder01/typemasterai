@@ -214,12 +214,13 @@ export async function generateTypingParagraph(
     
     prompt = `Write a ${difficulty}-level paragraph about: "${customPrompt}".
 
-Requirements:
-1. Write ${wordCount} words in ${languageName}
+CRITICAL REQUIREMENTS:
+1. STRICT WORD COUNT: Write EXACTLY ${wordCount} words in ${languageName} - NO MORE, NO LESS
 2. Use proper grammar and natural sentence structure appropriate for ${difficulty} level
 3. Make it engaging and educational about the topic: "${customPrompt}"${scriptNote}
 4. Focus specifically on the user's requested topic: "${customPrompt}"
 5. Write ONLY about "${customPrompt}" - do NOT mention typing, keyboards, or practice
+6. DO NOT exceed the word limit of ${wordCount.split('-')[1]} words
 
 ${difficulty.toUpperCase()} DIFFICULTY GUIDELINES:
 ${difficultyGuidelines[difficulty]}
@@ -231,13 +232,14 @@ Return ONLY the paragraph text, no explanations or meta-commentary.`;
     
     prompt = `Write a ${difficulty}-level paragraph in ${languageName} about "${randomSubtopic}" (${mode} category).
 
-Requirements:
-1. Write ${wordCount} words in ${languageName}
+CRITICAL REQUIREMENTS:
+1. STRICT WORD COUNT: Write EXACTLY ${wordCount} words in ${languageName} - NO MORE, NO LESS
 2. Use proper grammar and natural sentence structure appropriate for ${difficulty} level
 3. Make it engaging, informative, and educational about "${randomSubtopic}"${scriptNote}
 4. Focus specifically on the subtopic "${randomSubtopic}" - provide interesting facts, insights, or perspectives
 5. Avoid generic content - make it specific and engaging about this particular subtopic
 6. Write ONLY about "${randomSubtopic}" - do NOT mention typing, keyboards, or practice
+7. DO NOT exceed the word limit of ${wordCount.split('-')[1]} words
 
 ${difficulty.toUpperCase()} DIFFICULTY GUIDELINES:
 ${difficultyGuidelines[difficulty]}
