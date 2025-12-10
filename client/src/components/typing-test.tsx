@@ -1195,21 +1195,20 @@ Can you beat my score? Try it here: `,
       preWarmAudioContext();
     }
 
-    // Update userInput for backward compatibility with existing code
-    setUserInput(value);
+    // ROBUST CHARACTER VALIDATION - Code Mode inspired
+    // Always validate based on the NEW value and caret position, not stale state
     
-    // MONKEYTYPE-STYLE CHARACTER VALIDATION - CARET-AWARE
-    // Use actual DOM caret position instead of assuming cursor is at end
     if (isForwardTyping) {
       // User typed a new character - update state at the position BEFORE caret moved
-      const typingPosition = actualCaretPos - 1; // Character was inserted before current caret
+      const typingPosition = actualCaretPos - 1;
       if (typingPosition >= 0 && typingPosition < text.length) {
         const typedChar = value[typingPosition];
         const expectedChar = text[typingPosition];
         const isCorrect = typedChar === expectedChar;
         
-        // Increment error counter if this is a new mistake (Code Mode pattern)
-        if (!isCorrect) {
+        // Increment error counter only for NEW mistakes
+        const wasIncorrect = charStates[typingPosition]?.state === 'incorrect';
+        if (!isCorrect && !wasIncorrect) {
           setErrors(prev => prev + 1);
         }
         
@@ -1223,26 +1222,29 @@ Can you beat my score? Try it here: `,
           return newStates;
         });
         
-        // Update cursor index to match actual caret position
         setCursorIndex(actualCaretPos);
       }
     } else if (isBackspace) {
-      // User pressed backspace - move cursor back but KEEP the character state
-      // This makes errors persist visually (Monkeytype behavior)
+      // User pressed backspace - move cursor back but KEEP character state (Monkeytype style)
       setCursorIndex(actualCaretPos);
     } else if (isReplacement) {
-      // User replaced a character (e.g., selected and typed over, or arrow-key navigation + type)
-      // Find which position changed and update that character state
-      for (let i = 0; i < Math.min(value.length, previousLength); i++) {
-        if (value[i] !== userInput[i]) {
-          const typedChar = value[i];
+      // User replaced a character - scan from start to find ALL differences
+      // This handles: arrow key navigation + type, selection + type, or any in-place edits
+      const minLength = Math.min(value.length, text.length);
+      
+      for (let i = 0; i < minLength; i++) {
+        const oldChar = userInput[i] || '';
+        const newChar = value[i];
+        
+        // Only update positions where the character actually changed
+        if (oldChar !== newChar) {
           const expectedChar = text[i];
-          const isCorrect = typedChar === expectedChar;
+          const isCorrect = newChar === expectedChar;
           
-          // Check if this was previously incorrect and now being corrected
+          // Track if this was previously incorrect
           const wasIncorrect = charStates[i]?.state === 'incorrect';
           
-          // Only increment errors if making a NEW mistake (not when correcting)
+          // Increment errors only for NEW mistakes (not corrections)
           if (!isCorrect && !wasIncorrect) {
             setErrors(prev => prev + 1);
           }
@@ -1251,18 +1253,19 @@ Can you beat my score? Try it here: `,
             const newStates = [...prev];
             newStates[i] = {
               expected: expectedChar,
-              typed: typedChar,
+              typed: newChar,
               state: isCorrect ? 'correct' : 'incorrect'
             };
             return newStates;
           });
-          break; // Only handle first changed character
         }
       }
       
-      // Update cursor index to match actual caret position
       setCursorIndex(actualCaretPos);
     }
+    
+    // Update userInput AFTER validation to ensure fresh state for next iteration
+    setUserInput(value);
 
     // If approaching end of text and time still remaining, extend with queued content
     // Trigger early (100 chars before end) for smooth continuous experience
