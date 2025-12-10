@@ -97,6 +97,13 @@ const TIME_PRESETS = [
   { value: 180, label: "3 min" },
 ];
 
+// Character state interface for Monkeytype-style validation
+interface CharState {
+  expected: string;
+  typed: string | null;
+  state: 'pending' | 'correct' | 'incorrect';
+}
+
 export default function TypingTest() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -112,6 +119,9 @@ export default function TypingTest() {
   const [text, setText] = useState("");
   const [originalText, setOriginalText] = useState(""); // Store original paragraph for repeating
   const [userInput, setUserInput] = useState("");
+  // Monkeytype-style character tracking - persistent state for each character
+  const [charStates, setCharStates] = useState<CharState[]>([]);
+  const [cursorIndex, setCursorIndex] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(mode);
   const [isActive, setIsActive] = useState(false);
@@ -553,6 +563,10 @@ export default function TypingTest() {
     setLastResultId(null);
     setHasInteracted(false);
     
+    // Reset Monkeytype-style character tracking
+    setCursorIndex(0);
+    setCharStates([]);
+    
     // NOTE: certificateMetrics intentionally NOT cleared here
     // This allows users to view their certificate even after quick restart
     // Metrics will be updated when the next test completes
@@ -834,6 +848,39 @@ Can you beat my score? Try it here: `,
     }
   };
 
+  // Initialize character states when text changes (Monkeytype-style validation)
+  useEffect(() => {
+    if (text) {
+      setCharStates(prevStates => {
+        const newLength = text.length;
+        const prevLength = prevStates.length;
+        
+        // Text extended during test (continuous typing) - preserve existing states
+        if (newLength > prevLength && prevLength > 0) {
+          // Keep all existing character states (including errors!)
+          // Only append new pending states for the new characters
+          const newChars = text.slice(prevLength);
+          const appendedStates: CharState[] = newChars.split('').map(char => ({
+            expected: char,
+            typed: null,
+            state: 'pending' as const
+          }));
+          return [...prevStates, ...appendedStates];
+        } else {
+          // New paragraph or reset - replace all states
+          const initialStates: CharState[] = text.split('').map(char => ({
+            expected: char,
+            typed: null,
+            state: 'pending' as const
+          }));
+          // Only reset cursor on full replacement, not extension
+          setCursorIndex(0);
+          return initialStates;
+        }
+      });
+    }
+  }, [text]);
+
   // Initial setup and when time mode changes
   useEffect(() => {
     fetchParagraph();
@@ -854,6 +901,8 @@ Can you beat my score? Try it here: `,
     // Reset paragraph queue (will be filled after fetchParagraph returns with ID)
     paragraphQueueRef.current = [];
     usedParagraphIdsRef.current = new Set();
+    // Reset cursor index
+    setCursorIndex(0);
     setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 0);
   }, [mode]);
 
@@ -877,6 +926,8 @@ Can you beat my score? Try it here: `,
       // Reset queue (will be filled after fetchParagraph returns with ID)
       paragraphQueueRef.current = [];
       usedParagraphIdsRef.current = new Set();
+      // Reset cursor index
+      setCursorIndex(0);
     }
   }, [language, paragraphMode, difficulty]);
 
@@ -1098,8 +1149,12 @@ Can you beat my score? Try it here: `,
     const previousLength = userInput.length;
     const now = Date.now();
     
+    // Detect input type: typing forward or backspace
+    const isForwardTyping = value.length > previousLength;
+    const isBackspace = value.length < previousLength;
+    
     // Track typing speed to disable smooth animation during fast typing
-    if (value.length > previousLength) {
+    if (isForwardTyping) {
       const timeSinceLastKeystroke = now - lastKeystrokeTimeRef.current;
       lastKeystrokeTimeRef.current = now;
       
@@ -1112,7 +1167,7 @@ Can you beat my score? Try it here: `,
     }
     
     // Play keyboard sound on keystroke (only when adding characters, not deleting)
-    if (value.length > previousLength) {
+    if (isForwardTyping) {
       import('@/lib/keyboard-sounds')
         .then((module) => {
           if (module.keyboardSound && typeof module.keyboardSound.play === 'function') {
@@ -1130,7 +1185,34 @@ Can you beat my score? Try it here: `,
       preWarmAudioContext();
     }
 
+    // Update userInput for backward compatibility with existing code
     setUserInput(value);
+    
+    // MONKEYTYPE-STYLE CHARACTER VALIDATION
+    // Update character states based on input type
+    if (isForwardTyping && cursorIndex < text.length) {
+      // User typed a character - update the state at cursor position
+      const typedChar = value[cursorIndex];
+      const expectedChar = text[cursorIndex];
+      const isCorrect = typedChar === expectedChar;
+      
+      setCharStates(prev => {
+        const newStates = [...prev];
+        newStates[cursorIndex] = {
+          expected: expectedChar,
+          typed: typedChar,
+          state: isCorrect ? 'correct' : 'incorrect'
+        };
+        return newStates;
+      });
+      
+      // Move cursor forward
+      setCursorIndex(prev => Math.min(prev + 1, text.length));
+    } else if (isBackspace && cursorIndex > 0) {
+      // User pressed backspace - move cursor back but KEEP the character state
+      // This makes errors persist visually (Monkeytype behavior)
+      setCursorIndex(prev => Math.max(prev - 1, 0));
+    }
 
     // If approaching end of text and time still remaining, extend with queued content
     // Trigger early (100 chars before end) for smooth continuous experience
@@ -2364,13 +2446,12 @@ Can you beat my score? Try it here: `,
             }}
           >
             {characters.map((char, index) => {
-              const state: 'pending' | 'correct' | 'incorrect' = 
-                index >= userInput.length 
-                  ? 'pending' 
-                  : userInput[index] === text[index] 
-                    ? 'correct' 
-                    : 'incorrect';
-              const typedChar = index < userInput.length ? userInput[index] : undefined;
+              // MONKEYTYPE-STYLE VALIDATION: Use persistent character states
+              // Characters remain in 'incorrect' (red) state even after backspace
+              const charState = charStates[index];
+              const state = charState ? charState.state : 'pending';
+              const typedChar = charState?.typed || undefined;
+              
               return (
                 <CharSpan 
                   key={`${text.length}-${index}`}
