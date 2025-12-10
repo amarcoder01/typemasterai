@@ -191,30 +191,31 @@ export async function generateTypingParagraph(
     // Custom user-specified content
     const scriptNote = language !== 'en' ? ` Use appropriate script (Devanagari for Hindi/Marathi, Arabic script for Arabic, etc.).` : '';
     
-    prompt = `Generate a ${difficulty}-level typing practice paragraph about: "${customPrompt}".
+    prompt = `Write a ${difficulty}-level paragraph about: "${customPrompt}".
 
 Requirements:
 1. Write ${wordCount} words in ${languageName}
 2. Use proper grammar and natural sentence structure
 3. Make it engaging and educational about the topic: "${customPrompt}"${scriptNote}
-4. Make it suitable for typing practice (clear, well-structured sentences)
+4. Write in clear, well-structured sentences
 5. Focus specifically on the user's requested topic: "${customPrompt}"
+6. Write ONLY about "${customPrompt}" - do NOT mention typing, keyboards, or practice
 
 Return ONLY the paragraph text, no explanations or meta-commentary.`;
   } else {
     // Standard mode-based content with random subtopic for variety
     const scriptNote = language !== 'en' ? ` Use appropriate script (Devanagari for Hindi/Marathi, Arabic script for Arabic, etc.).` : '';
     
-    prompt = `Generate a ${difficulty}-level typing practice paragraph in ${languageName} about "${randomSubtopic}" (${mode} category).
+    prompt = `Write a ${difficulty}-level paragraph in ${languageName} about "${randomSubtopic}" (${mode} category).
 
 Requirements:
 1. Write ${wordCount} words
 2. Use proper grammar and natural sentence structure
 3. Make it engaging, informative, and educational about "${randomSubtopic}"${scriptNote}
-4. Make it suitable for typing practice (clear, well-structured sentences)
+4. Write in clear, well-structured sentences
 5. Focus specifically on the subtopic "${randomSubtopic}" - provide interesting facts, insights, or perspectives
 6. Avoid generic content - make it specific and engaging about this particular subtopic
-7. Do NOT write about typing itself - write about the actual topic
+7. Write ONLY about "${randomSubtopic}" - do NOT mention typing, keyboards, or practice
 
 Return ONLY the paragraph text, no explanations or meta-commentary.`;
   }

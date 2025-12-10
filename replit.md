@@ -21,6 +21,17 @@ Preferred communication style: Simple, everyday language.
 - **Testing**: E2E test verified "New Paragraph" button generates 4 consecutive unique paragraphs with AI generation confirmed in server logs
 - **Result**: Clicking "New Paragraph" now **always** generates fresh, diverse AI content - no more repeated paragraphs
 
+### AI Paragraph Content Diversity Fix (December 10, 2025 - COMPLETED)
+- **Issue**: AI was generating paragraphs ABOUT typing/keyboards/practice instead of focusing on actual topics (travel, technology, food, etc.)
+- **Root Cause**: Prompt template said "Generate a typing practice paragraph about X", causing AI to relate all content back to typing
+- **Solution Implemented**:
+  1. **Removed "typing practice" from prompts**: Changed from "Generate a typing practice paragraph" to "Write a paragraph"
+  2. **Added explicit instruction**: "Write ONLY about [topic] - do NOT mention typing, keyboards, or practice"
+  3. **Applied to both templates**: Custom prompts and standard mode-based prompts
+- **Expected Behavior**: AI now generates content about the actual topics (e.g., "travel destinations", "AI applications", "healthy recipes") without mentioning typing
+- **Files Modified**: `server/ai-paragraph-generator.ts`
+- **Note**: Old database paragraphs may still contain typing references (created before fix); new AI generations will be diverse
+
 ### AI Paragraph Diversity System (December 10, 2025 - COMPLETED)
 - **Enhancement**: Implemented 15-subtopic diversity system for all paragraph modes
 - **Details**: Each mode (general, entertainment, technical, quotes, programming, news, stories, business) now has exactly 15 unique subtopics
