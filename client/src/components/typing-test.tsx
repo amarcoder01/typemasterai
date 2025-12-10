@@ -1149,40 +1149,35 @@ Can you beat my score? Try it here: `,
     if (isFinished) return;
     if (!text) return;
     
-    // Prevent typing beyond text length
+    // ANTI-CHEAT: Prevent typing beyond text length (overflow protection)
     if (value.length > text.length) {
       if (inputRef.current) inputRef.current.value = userInput;
       return;
     }
     
-    const previousLength = userInput.length;
-    const now = Date.now();
-    const actualCaretPos = inputRef.current?.selectionStart ?? value.length;
-    
-    // PRODUCTION-READY DIFF ALGORITHM
-    // Use captured selection range to determine what changed
+    // ANTI-CHEAT: Block any text selection manipulation
+    // If user somehow selected text (despite our prevention), restore previous value
     const { start: selectionStart, end: selectionEnd } = selectionRangeRef.current;
     const hadSelection = selectionStart !== selectionEnd;
+    if (hadSelection && value.length !== userInput.length - (selectionEnd - selectionStart)) {
+      // Selection-based deletion or replacement detected - block it
+      if (inputRef.current) inputRef.current.value = userInput;
+      toast({
+        title: "Selection Disabled",
+        description: "Please type character-by-character for accurate results",
+        variant: "default",
+      });
+      return;
+    }
     
-    // Calculate what was deleted and what was inserted
-    const deletedLength = hadSelection ? (selectionEnd - selectionStart) : (previousLength - value.length);
-    const insertedLength = value.length - previousLength + (hadSelection ? (selectionEnd - selectionStart) : 0);
-    
-    // Determine the affected range
-    const editStart = Math.min(selectionStart, value.length);
-    const editEnd = editStart + Math.max(0, insertedLength);
-    
-    // Simple case detection for optimization
-    const isSimpleForward = !hadSelection && value.length === previousLength + 1 && deletedLength === 0;
-    const isSimpleBackspace = !hadSelection && value.length === previousLength - 1 && insertedLength === 0;
-    const needsFullDiff = !isSimpleForward && !isSimpleBackspace;
+    const previousLength = userInput.length;
+    const now = Date.now();
     
     // Track typing speed to disable smooth animation during fast typing
-    if (isSimpleForward || (needsFullDiff && value.length > previousLength)) {
+    if (value.length > previousLength) {
       const timeSinceLastKeystroke = now - lastKeystrokeTimeRef.current;
       lastKeystrokeTimeRef.current = now;
       
-      // If typing faster than 80ms between keystrokes, disable smooth animation temporarily
       if (timeSinceLastKeystroke < 80 && timeSinceLastKeystroke > 0) {
         setIsTypingFast(true);
       } else {
@@ -1190,8 +1185,8 @@ Can you beat my score? Try it here: `,
       }
     }
     
-    // Play keyboard sound on keystroke (only when adding characters, not deleting)
-    if (value.length > 0 && value.length >= previousLength) {
+    // Play keyboard sound on keystroke (only when adding characters)
+    if (value.length > previousLength) {
       import('@/lib/keyboard-sounds')
         .then((module) => {
           if (module.keyboardSound && typeof module.keyboardSound.play === 'function') {
@@ -1203,104 +1198,67 @@ Can you beat my score? Try it here: `,
         });
     }
     
+    // Start timer on first keystroke
     if (!isActive && value.length === 1) {
       setIsActive(true);
       setStartTime(now);
       preWarmAudioContext();
     }
 
-    // ROBUST CHARACTER VALIDATION - Always use full diff to handle ALL edge cases
-    // This handles: forward typing, backspace, arrow navigation, selection replacement
+    // PRODUCTION-READY CHARACTER VALIDATION
+    // Simple, robust approach like Monkeytype - no complex diff algorithms
+    // Validate every character in the current input against expected text
     
-    if (isSimpleForward) {
-      // Optimization: Simple forward typing (added 1 char at cursor)
-      const typingPosition = actualCaretPos - 1;
-      if (typingPosition >= 0 && typingPosition < text.length) {
-        const typedChar = value[typingPosition];
-        const expectedChar = text[typingPosition];
+    const newStates: CharState[] = [];
+    let newErrorCount = 0;
+    
+    // Validate each position in the input
+    for (let i = 0; i < text.length; i++) {
+      const typedChar = value[i];
+      const expectedChar = text[i];
+      
+      if (i < value.length) {
+        // User has typed this position
         const isCorrect = typedChar === expectedChar;
         
-        const wasIncorrect = charStates[typingPosition]?.state === 'incorrect';
+        // Track new errors (only increment on first mistake at this position)
+        const wasIncorrect = charStates[i]?.state === 'incorrect';
         if (!isCorrect && !wasIncorrect) {
-          setErrors(prev => prev + 1);
+          newErrorCount++;
         }
         
-        setCharStates(prev => {
-          const newStates = [...prev];
-          newStates[typingPosition] = {
+        newStates[i] = {
+          expected: expectedChar,
+          typed: typedChar,
+          state: isCorrect ? 'correct' : 'incorrect'
+        };
+      } else {
+        // User hasn't typed this position yet
+        // CRITICAL: Keep incorrect state if already marked (Monkeytype persistence)
+        if (charStates[i]?.state === 'incorrect') {
+          newStates[i] = charStates[i];
+        } else {
+          newStates[i] = {
             expected: expectedChar,
-            typed: typedChar,
-            state: isCorrect ? 'correct' : 'incorrect'
+            typed: '',
+            state: 'pending'
           };
-          return newStates;
-        });
-        
-        setCursorIndex(actualCaretPos);
-      }
-    } else if (isSimpleBackspace) {
-      // Optimization: Simple backspace (deleted 1 char)
-      // Keep character states for Monkeytype-style error persistence
-      setCursorIndex(actualCaretPos);
-    } else {
-      // FULL DIFF: Handles all complex cases (selections, replacements, multi-char changes)
-      // This ALWAYS runs for length changes != ±1, catching selection replacements
-      
-      let errorDelta = 0;
-      
-      setCharStates(prev => {
-        const newStates = [...prev];
-        const maxLength = Math.max(value.length, userInput.length, text.length);
-        
-        for (let i = 0; i < maxLength; i++) {
-          const oldChar = userInput[i] || '';
-          const newChar = value[i] || '';
-          const expectedChar = text[i];
-          
-          // Update character if it changed AND is within new value AND within text
-          if (oldChar !== newChar && i < value.length && i < text.length) {
-            const isCorrect = newChar === expectedChar;
-            const wasIncorrect = prev[i]?.state === 'incorrect';
-            
-            if (!isCorrect && !wasIncorrect) {
-              errorDelta++;
-            }
-            
-            newStates[i] = {
-              expected: expectedChar,
-              typed: newChar,
-              state: isCorrect ? 'correct' : 'incorrect'
-            };
-          }
-          // Clear deleted positions (beyond new value length but within old and text)
-          else if (i >= value.length && i < userInput.length && i < text.length) {
-            newStates[i] = {
-              expected: expectedChar,
-              typed: '',
-              state: 'pending'
-            };
-          }
         }
-        
-        return newStates;
-      });
-      
-      if (errorDelta > 0) {
-        setErrors(prev => prev + errorDelta);
       }
-      
-      setCursorIndex(actualCaretPos);
     }
     
-    // Update userInput AFTER validation to ensure fresh state for next iteration
+    // Single atomic state update - prevents race conditions
+    setCharStates(newStates);
+    if (newErrorCount > 0) {
+      setErrors(prev => prev + newErrorCount);
+    }
+    setCursorIndex(value.length);
     setUserInput(value);
 
     // If approaching end of text and time still remaining, extend with queued content
-    // Trigger early (100 chars before end) for smooth continuous experience
     if (value.length >= text.length - 100 && timeLeft > 5) {
-      // Try to get next paragraph from queue (instant)
       const nextParagraph = getNextFromQueue();
       if (nextParagraph) {
-        // Use functional setState to avoid closure issues
         setText(prevText => {
           const newText = prevText + " " + nextParagraph;
           if (keystrokeTrackerRef.current) {
@@ -1309,7 +1267,6 @@ Can you beat my score? Try it here: `,
           return newText;
         });
       } else if (originalText) {
-        // Fallback to repeating original if queue is empty
         setText(prevText => {
           const newText = prevText + " " + originalText;
           if (keystrokeTrackerRef.current) {
@@ -1351,7 +1308,7 @@ Can you beat my score? Try it here: `,
     }
   };
   
-  // Handle Delete key (forward delete) explicitly
+  // Handle keyboard events with strict validation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // Block Ctrl+A (select all) - anti-cheat measure
     if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
@@ -1365,7 +1322,47 @@ Can you beat my score? Try it here: `,
       return;
     }
     
-    // Capture selection before any key press
+    // STRICT VALIDATION: Block arrow keys (prevent cursor manipulation)
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      e.preventDefault();
+      return;
+    }
+    
+    // STRICT VALIDATION: Block Home, End, PageUp, PageDown (prevent jumping)
+    if (['Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
+      e.preventDefault();
+      return;
+    }
+    
+    // STRICT VALIDATION: Block Delete key (forward delete not allowed)
+    if (e.key === 'Delete') {
+      e.preventDefault();
+      return;
+    }
+    
+    // Keyboard shortcuts for test control
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      restart();
+      return;
+    }
+    
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      reset();
+      return;
+    }
+    
+    // Allow Shift+Enter to finish early
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault();
+      if (isActive && !isFinished) {
+        finishTest();
+      }
+      return;
+    }
+    
+    // Capture selection before any key press (for anti-cheat detection)
     if (inputRef.current) {
       selectionRangeRef.current = {
         start: inputRef.current.selectionStart ?? 0,
