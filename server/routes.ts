@@ -1793,7 +1793,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } 
       // Check for exact match first (no fallbacks)
       else if (mode) {
+        console.log(`🔍 Looking for exact match: ${language}/${mode}/${difficulty || 'medium'}`);
         paragraph = await storage.getExactParagraph(language, mode, difficulty);
+        if (paragraph) {
+          console.log(`✅ Found exact match: ID ${paragraph.id}, "${paragraph.content.substring(0, 50)}..."`);
+        } else {
+          console.log(`❌ No exact match found`);
+        }
       }
       
       // If no exact match found and AI generation is requested
@@ -1818,22 +1824,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           isGenerated = true;
-          console.log(`✅ Successfully generated and saved paragraph for ${language}/${mode}`);
+          console.log(`✅ Successfully generated and saved paragraph: ID ${paragraph.id}, ${wordCount} words`);
         } catch (aiError) {
           console.error("❌ AI generation failed:", aiError);
           // Fall back to existing logic if AI generation fails
+          console.log(`🔄 Falling back to random paragraph from database`);
           paragraph = await storage.getRandomParagraph(language, mode, difficulty);
+          if (paragraph) {
+            console.log(`✅ Fallback success: ID ${paragraph.id}`);
+          }
         }
       }
       
       // If still no paragraph, use fallback system
       if (!paragraph) {
+        console.log(`🔄 Using fallback system for ${language}/${mode || 'any'}/${difficulty || 'any'}`);
         paragraph = await storage.getRandomParagraph(language, mode, difficulty);
+        if (paragraph) {
+          console.log(`✅ Fallback paragraph: ID ${paragraph.id}, mode=${paragraph.mode}`);
+        }
       }
       
       if (!paragraph) {
+        console.error(`❌ No paragraphs available for ${language}/${mode || 'any'}/${difficulty || 'any'}`);
         return res.status(500).json({ message: "No paragraphs available in database" });
       }
+      
+      console.log(`📤 Returning paragraph ID ${paragraph.id} for ${language}/${mode || 'any'}/${difficulty || 'any'}`);
+
       
       // Prevent caching so each request gets a new paragraph
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -1859,8 +1877,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const difficulty = req.query.difficulty as string | undefined;
       const count = Math.min(parseInt(req.query.count as string) || 5, 10); // Max 10
       
+      console.log(`📦 Batch request: ${count} paragraphs for ${language}/${mode || 'any'}/${difficulty || 'any'}`);
+      
       // Use efficient batch fetch with single query and shuffle
       const paragraphs = await storage.getRandomParagraphs(language, count, mode, difficulty);
+      
+      console.log(`📤 Returning batch: ${paragraphs.length} paragraphs, IDs: [${paragraphs.map(p => p.id).join(', ')}]`);
       
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
       res.json({ 

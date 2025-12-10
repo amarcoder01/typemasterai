@@ -556,15 +556,14 @@ export default function TypingTest() {
     
     // Only fetch new paragraph if not in freestyle mode
     if (!freestyleMode) {
-      // Try to get from queue first for instant loading, otherwise fetch from database
-      // No need to force-generate - use existing content or fetch from database
+      // Try to get from queue first for instant loading, otherwise fetch with AI generation
       const queuedParagraph = getNextFromQueue();
       if (queuedParagraph) {
         setText(queuedParagraph);
         setOriginalText(queuedParagraph);
       } else {
-        // Fetch from database without force-generating (more efficient)
-        await fetchParagraph(false, false);
+        // Request AI generation to ensure diverse, fresh content when queue is empty
+        await fetchParagraph(false, true);
       }
     }
     

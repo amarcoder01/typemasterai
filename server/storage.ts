@@ -2386,7 +2386,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getExactParagraph(language: string, mode: string, difficulty?: string): Promise<TypingParagraph | undefined> {
-    // Get ONLY exact language + mode + difficulty match, no fallbacks
+    // Get ONLY exact language + mode + difficulty match using SQL RANDOM() for better distribution
     const conditions = [
       eq(typingParagraphs.language, language),
       eq(typingParagraphs.mode, mode)
@@ -2396,21 +2396,18 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(typingParagraphs.difficulty, difficulty));
     }
     
-    const specificParagraphs = await db
+    const [paragraph] = await db
       .select()
       .from(typingParagraphs)
-      .where(and(...conditions));
+      .where(and(...conditions))
+      .orderBy(sql`RANDOM()`)
+      .limit(1);
     
-    if (specificParagraphs.length > 0) {
-      const randomIndex = Math.floor(Math.random() * specificParagraphs.length);
-      return specificParagraphs[randomIndex];
-    }
-    
-    return undefined;
+    return paragraph;
   }
 
   async getRandomParagraph(language: string, mode?: string, difficulty?: string): Promise<TypingParagraph | undefined> {
-    // Try with language, mode, and difficulty
+    // Try with language, mode, and difficulty using SQL RANDOM() for better distribution
     if (mode) {
       const conditions = [
         eq(typingParagraphs.language, language),
@@ -2421,40 +2418,39 @@ export class DatabaseStorage implements IStorage {
         conditions.push(eq(typingParagraphs.difficulty, difficulty));
       }
       
-      const specificParagraphs = await db
+      const [paragraph] = await db
         .select()
         .from(typingParagraphs)
-        .where(and(...conditions));
+        .where(and(...conditions))
+        .orderBy(sql`RANDOM()`)
+        .limit(1);
       
-      if (specificParagraphs.length > 0) {
-        const randomIndex = Math.floor(Math.random() * specificParagraphs.length);
-        return specificParagraphs[randomIndex];
+      if (paragraph) {
+        return paragraph;
       }
     }
     
-    // Fallback to any paragraph in the requested language
-    const languageParagraphs = await db
+    // Fallback to any paragraph in the requested language using SQL RANDOM() for better distribution
+    const [languageParagraph] = await db
       .select()
       .from(typingParagraphs)
-      .where(eq(typingParagraphs.language, language));
+      .where(eq(typingParagraphs.language, language))
+      .orderBy(sql`RANDOM()`)
+      .limit(1);
     
-    if (languageParagraphs.length > 0) {
-      const randomIndex = Math.floor(Math.random() * languageParagraphs.length);
-      return languageParagraphs[randomIndex];
+    if (languageParagraph) {
+      return languageParagraph;
     }
     
     // Final fallback to any English paragraph
-    const englishParagraphs = await db
+    const [englishParagraph] = await db
       .select()
       .from(typingParagraphs)
-      .where(eq(typingParagraphs.language, 'en'));
+      .where(eq(typingParagraphs.language, 'en'))
+      .orderBy(sql`RANDOM()`)
+      .limit(1);
     
-    if (englishParagraphs.length > 0) {
-      const randomIndex = Math.floor(Math.random() * englishParagraphs.length);
-      return englishParagraphs[randomIndex];
-    }
-    
-    return undefined;
+    return englishParagraph;
   }
 
   async getRandomParagraphs(language: string, count: number, mode?: string, difficulty?: string): Promise<TypingParagraph[]> {
@@ -2469,54 +2465,39 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(typingParagraphs.difficulty, difficulty));
     }
     
-    // Get all matching paragraphs in a single query
-    const allParagraphs = await db
+    // Use SQL RANDOM() for efficient random selection without loading all rows
+    const paragraphs = await db
       .select()
       .from(typingParagraphs)
-      .where(and(...conditions));
+      .where(and(...conditions))
+      .orderBy(sql`RANDOM()`)
+      .limit(count);
     
-    // If we have enough paragraphs, shuffle and take the requested count
-    if (allParagraphs.length > 0) {
-      // Fisher-Yates shuffle for random selection
-      const shuffled = [...allParagraphs];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      return shuffled.slice(0, count);
+    if (paragraphs.length > 0) {
+      return paragraphs;
     }
     
     // Fallback to any paragraph in the requested language
     const languageParagraphs = await db
       .select()
       .from(typingParagraphs)
-      .where(eq(typingParagraphs.language, language));
+      .where(eq(typingParagraphs.language, language))
+      .orderBy(sql`RANDOM()`)
+      .limit(count);
     
     if (languageParagraphs.length > 0) {
-      const shuffled = [...languageParagraphs];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      return shuffled.slice(0, count);
+      return languageParagraphs;
     }
     
     // Final fallback to English paragraphs
     const englishParagraphs = await db
       .select()
       .from(typingParagraphs)
-      .where(eq(typingParagraphs.language, 'en'));
+      .where(eq(typingParagraphs.language, 'en'))
+      .orderBy(sql`RANDOM()`)
+      .limit(count);
     
-    if (englishParagraphs.length > 0) {
-      const shuffled = [...englishParagraphs];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      return shuffled.slice(0, count);
-    }
-    
-    return [];
+    return englishParagraphs;
   }
 
   async getAvailableLanguages(): Promise<string[]> {

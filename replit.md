@@ -25,6 +25,35 @@ Domain-based email system for all communications:
 
 ## Recent Changes (December 2025)
 
+### AI Paragraph Diversity & Database Optimization (December 10, 2025 - COMPLETED)
+- **Issue**: Repetitive paragraph content across tests; inefficient database queries
+- **Solutions Implemented**:
+  1. **Diverse Subtopic System**: AI paragraph generator now uses 15+ random subtopics per mode for varied content
+     - Each mode (general, entertainment, technical, quotes, programming, news, stories, business) has unique subtopic pools
+     - Random subtopic selection ensures fresh, diverse paragraphs every time AI generates content
+     - Examples: Technical mode rotates through machine learning, quantum computing, cybersecurity, etc.
+  2. **Optimized Restart Behavior**: Changed restart to use paragraph queue instead of force-generating
+     - Reduces unnecessary AI API calls and costs
+     - Uses existing database paragraphs first, generates only when queue needs refilling
+  3. **SQL Randomization Optimization**: Upgraded database queries to use `ORDER BY RANDOM() LIMIT 1`
+     - More efficient than loading all paragraphs into memory
+     - Better random distribution across database paragraphs
+     - Applies to `getExactParagraph`, `getRandomParagraph`, and `getRandomParagraphs`
+  4. **Hybrid Paragraph System**: Seamless integration of database + AI content
+     - Uses database paragraphs first (efficient, fast)
+     - Generates AI content when database exhausted (diverse, fresh)
+     - All AI-generated paragraphs automatically saved to database
+     - Natural diversity growth over time as new paragraphs accumulate
+- **Files Modified**: 
+  - `server/ai-paragraph-generator.ts` (diverse subtopics)
+  - `server/storage.ts` (SQL RANDOM() optimization)
+  - `client/src/components/typing-test.tsx` (restart behavior)
+- **Technical Details**:
+  - Database contains existing paragraphs (will naturally diversify over time)
+  - AI generation uses random subtopic selection for variety
+  - SQL queries optimized for performance and randomization
+  - No deletion of existing paragraphs - natural growth approach
+
 ### Cursor Removal from Typing Test (December 10, 2025 - COMPLETED)
 - **Issue**: User requested removal of the visual cursor from the typing test
 - **Solution Implemented**:

@@ -37,7 +37,10 @@ const MODE_SUBTOPICS: Record<string, string[]> = {
     "celebrity culture",
     "animation and cartoons",
     "fan communities",
-    "virtual reality entertainment"
+    "virtual reality entertainment",
+    "board games and tabletop gaming",
+    "theme parks and attractions",
+    "karaoke and singing"
   ],
   technical: [
     "artificial intelligence and machine learning",
@@ -51,7 +54,10 @@ const MODE_SUBTOPICS: Record<string, string[]> = {
     "biotechnology innovations",
     "space exploration technology",
     "robotics and automation",
-    "augmented and virtual reality"
+    "augmented and virtual reality",
+    "edge computing and distributed systems",
+    "nanotechnology applications",
+    "3D printing and additive manufacturing"
   ],
   quotes: [
     "perseverance and determination",
@@ -63,7 +69,12 @@ const MODE_SUBTOPICS: Record<string, string[]> = {
     "happiness and joy",
     "leadership and influence",
     "mindfulness and peace",
-    "change and growth"
+    "change and growth",
+    "gratitude and appreciation",
+    "integrity and honesty",
+    "resilience and strength",
+    "love and relationships",
+    "purpose and meaning"
   ],
   programming: [
     "web development frameworks",
@@ -77,7 +88,10 @@ const MODE_SUBTOPICS: Record<string, string[]> = {
     "clean code principles",
     "design patterns",
     "microservices architecture",
-    "software security best practices"
+    "software security best practices",
+    "code review and collaboration",
+    "performance optimization techniques",
+    "containerization and orchestration"
   ],
   news: [
     "climate change initiatives",
@@ -91,7 +105,10 @@ const MODE_SUBTOPICS: Record<string, string[]> = {
     "urban development",
     "scientific discoveries",
     "transportation innovations",
-    "social movements"
+    "social movements",
+    "cultural heritage preservation",
+    "sustainable agriculture",
+    "disaster relief and preparedness"
   ],
   stories: [
     "a mysterious discovery",
@@ -103,7 +120,12 @@ const MODE_SUBTOPICS: Record<string, string[]> = {
     "an adventure in nature",
     "meeting a mentor",
     "solving a puzzle",
-    "a day that changed everything"
+    "a day that changed everything",
+    "finding hidden talents",
+    "a second chance",
+    "breaking free from comfort zones",
+    "an act of kindness",
+    "pursuing a dream"
   ],
   business: [
     "remote work and hybrid models",
@@ -117,7 +139,10 @@ const MODE_SUBTOPICS: Record<string, string[]> = {
     "business ethics",
     "innovation and disruption",
     "supply chain management",
-    "data-driven decision making"
+    "data-driven decision making",
+    "corporate social responsibility",
+    "employee engagement and retention",
+    "strategic planning and execution"
   ]
 };
 
