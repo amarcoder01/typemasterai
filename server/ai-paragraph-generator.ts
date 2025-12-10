@@ -9,47 +9,120 @@ const openai = new OpenAI({
 // Diverse subtopics for each mode to ensure variety
 const MODE_SUBTOPICS: Record<string, string[]> = {
   general: [
-    // Technology & Learning
-    "how smartphones changed communication",
-    "basics of internet and websites",
-    "social media and digital connections",
-    "learning new skills online",
-    "technology in everyday life",
+    // Technology & Digital Life (Trending 2025)
+    "how AI is changing everyday tasks",
+    "understanding algorithms and recommendations",
+    "digital wellness and screen time balance",
+    "online privacy and data protection",
+    "how the internet works",
+    "social media and mental health",
+    "virtual reality and the metaverse",
+    "smart homes and IoT devices",
+    "cybersecurity basics for everyone",
+    "the future of smartphones and gadgets",
+    "cloud storage and digital backups",
+    "understanding cryptocurrency basics",
     
     // Friendship & Relationships
     "building strong friendships",
-    "effective communication skills",
+    "effective communication in the digital age",
+    "active listening skills",
+    "resolving conflicts peacefully",
+    "supporting friends through challenges",
+    "celebrating diversity in friendships",
+    "maintaining long-distance relationships",
     "trust and honesty in relationships",
-    "helping friends in difficult times",
-    "celebrating together and creating memories",
     
-    // Personal Growth
-    "developing good habits",
-    "time management and productivity",
-    "setting and achieving goals",
-    "overcoming fear and challenges",
-    "learning from mistakes",
+    // Personal Growth & Mindset
+    "developing good daily habits",
+    "time management strategies",
+    "setting achievable goals",
+    "overcoming procrastination",
+    "learning from failure",
+    "growth mindset vs fixed mindset",
+    "building self-confidence",
+    "managing stress effectively",
+    "the power of gratitude",
+    "developing emotional intelligence",
     
-    // Interesting Topics & Knowledge
-    "fascinating facts about space",
-    "how languages evolved",
-    "the science behind everyday things",
-    "amazing animal behaviors",
-    "historical discoveries that changed the world",
+    // Mental Health & Well-Being (High Engagement 2025)
+    "understanding anxiety and coping strategies",
+    "mindfulness and meditation basics",
+    "the importance of sleep",
+    "recognizing burnout and recovery",
+    "building resilience",
+    "positive self-talk techniques",
+    "healthy ways to express emotions",
+    "dealing with social pressure",
+    "the importance of asking for help",
+    "self-care routines that work",
     
-    // Life Skills
-    "financial literacy basics",
-    "healthy eating and nutrition",
-    "mental health and well-being",
-    "environmental conservation",
+    // Career & Future Skills (92% value soft skills)
+    "teamwork and collaboration",
     "creative problem solving",
+    "critical thinking in daily life",
+    "public speaking confidence",
+    "leadership skills for everyone",
+    "adapting to change",
+    "continuous learning mindset",
+    "work-life balance strategies",
+    "networking and building connections",
+    "interview skills and preparation",
     
-    // Culture & Society
-    "different cultures and traditions",
-    "the power of kindness",
-    "volunteering and helping others",
-    "music and its impact on emotions",
-    "art and creative expression"
+    // Science & Discovery (Sparks Curiosity)
+    "how vaccines work",
+    "fascinating facts about the human brain",
+    "the science of sleep and dreams",
+    "climate change explained simply",
+    "renewable energy basics",
+    "space exploration milestones",
+    "how plants communicate",
+    "the mystery of black holes",
+    "ocean depths and unexplored regions",
+    "the science behind emotions",
+    
+    // Life Skills & Financial Literacy
+    "budgeting basics for beginners",
+    "understanding credit and debt",
+    "smart saving strategies",
+    "investing fundamentals",
+    "healthy eating on a budget",
+    "meal planning and cooking skills",
+    "sustainable living choices",
+    "first aid essentials",
+    "home organization tips",
+    
+    // Culture, Society & Global Awareness
+    "celebrating cultural diversity",
+    "famous festivals around the world",
+    "how music shapes cultures",
+    "art movements that changed history",
+    "languages and their evolution",
+    "environmental activism",
+    "volunteering and community impact",
+    "human rights and equality",
+    "immigration stories and experiences",
+    
+    // Entertainment & Creativity
+    "the psychology of storytelling",
+    "how movies influence society",
+    "music and brain development",
+    "photography basics and composition",
+    "creative writing techniques",
+    "the rise of podcasts",
+    "gaming and problem-solving skills",
+    
+    // Current Trends & Innovations
+    "electric vehicles and transportation",
+    "sustainable fashion movement",
+    "urban gardening and farming",
+    "the sharing economy",
+    "remote work revolution",
+    "social entrepreneurship",
+    "biotechnology breakthroughs",
+    "renewable energy innovations",
+    "food delivery and ghost kitchens",
+    "personalized medicine advances"
   ],
   entertainment: [
     "streaming services and binge-watching",

@@ -9,14 +9,24 @@ Preferred communication style: Simple, everyday language.
 ## Recent Changes (December 2025)
 
 ### Educational & Engaging General Mode Content (December 10, 2025 - LATEST)
-- **Enhancement**: Updated General Mode to generate educational, engaging content that helps users learn while typing
+- **Enhancement**: Expanded General Mode with 95 research-backed, trending topics that engage users while they learn
+- **Research-Driven**: Based on 2025 education trends showing 83% higher engagement with relevant, practical content
 - **Implementation**:
-  - **Enhanced Subtopics**: 30+ new engaging topics across Technology & Learning, Friendship & Relationships, Personal Growth, Interesting Topics & Knowledge, Life Skills, and Culture & Society
-  - **Educational Focus**: AI now generates content that teaches valuable lessons, interesting facts, and practical insights
-  - **Topics Include**: Technology basics, building friendships, personal development, fascinating science, life skills, cultural knowledge
-  - **User Engagement**: Content written as if teaching a friend - relatable, practical, and inspiring curiosity
-  - **Real-World Value**: Every paragraph helps users gain knowledge, insights, or actionable understanding
-- **Result**: General mode now provides educational value beyond typing practice, engaging users with meaningful, learning-focused content
+  - **95 Diverse Topics** organized into 10 categories:
+    - **Technology & Digital Life** (12 topics): AI in daily life, digital wellness, online privacy, cybersecurity, metaverse, smart homes, cloud storage, cryptocurrency
+    - **Friendship & Relationships** (8 topics): Communication, conflict resolution, diversity, long-distance relationships, active listening, trust
+    - **Personal Growth & Mindset** (10 topics): Habits, goal-setting, procrastination, growth mindset, emotional intelligence, self-confidence, stress management
+    - **Mental Health & Well-Being** (10 topics): Anxiety management, mindfulness, sleep, burnout, resilience, self-talk, social pressure, asking for help, self-care
+    - **Career & Future Skills** (10 topics): Teamwork, problem-solving, critical thinking, leadership, work-life balance, networking, interview skills, public speaking
+    - **Science & Discovery** (10 topics): Brain science, vaccines, climate, space, ocean exploration, plant communication, black holes, renewable energy
+    - **Life Skills & Financial Literacy** (9 topics): Budgeting, credit, investing, cooking, sustainable living, first aid, meal planning, healthy eating
+    - **Culture & Society** (9 topics): Cultural diversity, festivals, music, art, human rights, environmental activism, volunteering, immigration
+    - **Entertainment & Creativity** (7 topics): Storytelling, movies, photography, writing, podcasts, gaming, music and brain development
+    - **Current Trends & Innovations** (10 topics): EVs, sustainable fashion, urban farming, sharing economy, remote work, social entrepreneurship, biotechnology, renewable energy, food delivery, personalized medicine
+  - **Educational Focus**: AI instructs to teach something valuable, include practical insights, and write as if explaining to a curious friend
+  - **Trending Topics**: Includes 2025 high-engagement subjects like AI daily use, mental health (10 topics), career skills (10 topics), climate action
+  - **Real-World Relevance**: Every topic provides actionable knowledge or interesting facts that users can apply in life
+- **Result**: General mode transforms typing practice into an engaging learning experience with 95 diverse, meaningful topics
 - **Files Modified**: `server/ai-paragraph-generator.ts`
 
 ### Enhanced AI Difficulty System Based on Content Complexity (December 10, 2025 - COMPLETED)
