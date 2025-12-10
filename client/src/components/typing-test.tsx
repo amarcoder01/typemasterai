@@ -296,12 +296,12 @@ export default function TypingTest() {
       
       // Calculate initial text size - cap at ~500 words for performance
       // The queue system will extend text dynamically as user types
-      // IMPORTANT: Skip extension for explicitly generated paragraphs to respect difficulty word counts
+      // IMPORTANT: Skip extension for explicitly generated paragraphs to preserve AI content as-is
       let extendedText = paragraphText;
       
       if (!forceGenerate) {
         // Only extend text for database-fetched paragraphs, not explicit AI generations
-        // This ensures difficulty-based word counts are respected for "New Paragraph" button
+        // This ensures AI-generated paragraphs are used as-is when user clicks "New Paragraph"
         const MAX_INITIAL_WORDS = 500; // ~10 minutes of typing at 50 WPM
         const wordsNeeded = Math.min(Math.ceil((mode / 60) * 50), MAX_INITIAL_WORDS);
         const currentWords = paragraphText.split(/\s+/).length;

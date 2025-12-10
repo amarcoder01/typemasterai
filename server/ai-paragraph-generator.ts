@@ -146,15 +146,9 @@ const MODE_SUBTOPICS: Record<string, string[]> = {
   ]
 };
 
-// Helper function to count words accurately
+// Helper function to count words (used for logging only)
 function countWords(text: string): number {
   return text.trim().split(/\s+/).filter(word => word.length > 0).length;
-}
-
-// Helper function to parse word count range
-function parseWordCountRange(range: string): { min: number; max: number } {
-  const [min, max] = range.split('-').map(num => parseInt(num.trim(), 10));
-  return { min, max };
 }
 
 export async function generateTypingParagraph(
@@ -190,11 +184,8 @@ export async function generateTypingParagraph(
   };
 
   const languageName = languageNames[language] || language;
-  // Slightly relaxed upper limits to accommodate AI word count variability while maintaining difficulty distinctions
-  const wordCountRange = difficulty === "easy" ? "25-35" : difficulty === "medium" ? "35-55" : "50-75";
-  const { min: minWords, max: maxWords } = parseWordCountRange(wordCountRange);
   
-  // Difficulty-specific writing guidelines
+  // Difficulty-specific writing guidelines (no word count limits - focus on complexity)
   const difficultyGuidelines: Record<string, string> = {
     easy: `- Use simple, common vocabulary that's easy to understand
 - Write short, clear sentences (8-12 words per sentence)
@@ -228,11 +219,11 @@ export async function generateTypingParagraph(
     prompt = `Write a ${difficulty}-level paragraph about: "${customPrompt}".
 
 CRITICAL REQUIREMENTS:
-1. STRICT WORD COUNT: Write between ${minWords} and ${maxWords} words in ${languageName} (inclusive). This is mandatory.
-2. Use proper grammar and natural sentence structure appropriate for ${difficulty} level
-3. Make it engaging and educational about the topic: "${customPrompt}"${scriptNote}
-4. Focus specifically on the user's requested topic: "${customPrompt}"
-5. Write ONLY about "${customPrompt}" - do NOT mention typing, keyboards, or practice
+1. Use proper grammar and natural sentence structure appropriate for ${difficulty} level
+2. Make it engaging and educational about the topic: "${customPrompt}"${scriptNote}
+3. Focus specifically on the user's requested topic: "${customPrompt}"
+4. Write ONLY about "${customPrompt}" - do NOT mention typing, keyboards, or practice
+5. Write a complete paragraph with natural length based on the content and difficulty level
 
 ${difficulty.toUpperCase()} DIFFICULTY GUIDELINES:
 ${difficultyGuidelines[difficulty]}
@@ -245,12 +236,12 @@ Return ONLY the paragraph text, no explanations or meta-commentary.`;
     prompt = `Write a ${difficulty}-level paragraph in ${languageName} about "${randomSubtopic}" (${mode} category).
 
 CRITICAL REQUIREMENTS:
-1. STRICT WORD COUNT: Write between ${minWords} and ${maxWords} words in ${languageName} (inclusive). This is mandatory.
-2. Use proper grammar and natural sentence structure appropriate for ${difficulty} level
-3. Make it engaging, informative, and educational about "${randomSubtopic}"${scriptNote}
-4. Focus specifically on the subtopic "${randomSubtopic}" - provide interesting facts, insights, or perspectives
-5. Avoid generic content - make it specific and engaging about this particular subtopic
-6. Write ONLY about "${randomSubtopic}" - do NOT mention typing, keyboards, or practice
+1. Use proper grammar and natural sentence structure appropriate for ${difficulty} level
+2. Make it engaging, informative, and educational about "${randomSubtopic}"${scriptNote}
+3. Focus specifically on the subtopic "${randomSubtopic}" - provide interesting facts, insights, or perspectives
+4. Avoid generic content - make it specific and engaging about this particular subtopic
+5. Write ONLY about "${randomSubtopic}" - do NOT mention typing, keyboards, or practice
+6. Write a complete paragraph with natural length based on the content and difficulty level
 
 ${difficulty.toUpperCase()} DIFFICULTY GUIDELINES:
 ${difficultyGuidelines[difficulty]}
@@ -277,13 +268,13 @@ Your role is to educate readers about interesting topics, not to create typing p
 
   try {
     if (!customPrompt) {
-      console.log(`📝 Generating ${languageName}/${mode} paragraph about: "${randomSubtopic}"`);
+      console.log(`📝 Generating ${languageName}/${mode} paragraph about: "${randomSubtopic}" (${difficulty} difficulty)`);
     }
     
-    // Retry loop for word count validation
+    // Retry loop for content validation (forbidden terms only)
     while (attempt < maxRetries) {
       attempt++;
-      console.log(`📝 Generation attempt ${attempt}/${maxRetries} - Word count range: ${minWords}-${maxWords}`);
+      console.log(`📝 Generation attempt ${attempt}/${maxRetries} - ${difficulty} difficulty`);
       
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
@@ -305,9 +296,9 @@ Your role is to educate readers about interesting topics, not to create typing p
         continue;
       }
 
-      // Count words in generated content
+      // Count words for logging
       const wordCount = countWords(content);
-      console.log(`📊 Generated content word count: ${wordCount} (required: ${minWords}-${maxWords})`);
+      console.log(`📊 Generated content: ${wordCount} words`);
 
       // Validate content doesn't contain typing-related terms
       const forbiddenTerms = ['typing', 'keyboard', 'type', 'practice', ' wpm', 'keystroke', 'accuracy', 'speed test'];
@@ -323,18 +314,9 @@ Your role is to educate readers about interesting topics, not to create typing p
         continue;
       }
 
-      // Validate word count is within range
-      if (wordCount < minWords || wordCount > maxWords) {
-        console.warn(`⚠️ Word count ${wordCount} is outside range ${minWords}-${maxWords}`);
-        if (attempt === maxRetries) {
-          throw new Error(`Failed to generate content within word count range ${minWords}-${maxWords} after ${maxRetries} attempts. Last attempt had ${wordCount} words.`);
-        }
-        continue;
-      }
-
-      // Success - all validations passed
+      // Success - content validated
       console.log(`✅ Generated ${wordCount} words for ${languageName}/${mode} (difficulty: ${difficulty})`);
-      console.log(`✅ Content validated - no typing-related terms, word count within range`);
+      console.log(`✅ Content validated - no typing-related terms`);
       return content;
     }
 
