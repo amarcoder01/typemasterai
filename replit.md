@@ -6,6 +6,28 @@ TypeMasterAI is a high-performance, full-stack typing test web application desig
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (December 2025)
+
+### Fixed "New Paragraph" Button Repetition Issue (December 10, 2025 - COMPLETED)
+- **Issue**: Clicking "New Paragraph" button returned repeated paragraphs from database instead of generating fresh AI content
+- **Root Cause**: The `resetTest` function was checking paragraph queue first and using database paragraphs when available. Since the queue was filled with batch requests, it never triggered AI generation.
+- **Solution Implemented**:
+  1. Added `forceNewParagraph` parameter to `resetTest(forceNewParagraph = false)` function
+  2. When `forceNewParagraph = true`, the function **skips the queue entirely** and **always requests AI generation**
+  3. Updated "New Paragraph" button to call `resetTest(true)` to force fresh AI content generation
+  4. Other buttons (Restart Test, Next Test, Close) call `resetTest()` for normal queue-based behavior
+  5. Each click now generates a **unique, diverse** paragraph using random subtopics from the 15-subtopic pool
+- **Files Modified**: `client/src/components/typing-test.tsx` (added forceNewParagraph parameter, updated all onClick handlers)
+- **Testing**: E2E test verified "New Paragraph" button generates 4 consecutive unique paragraphs with AI generation confirmed in server logs
+- **Result**: Clicking "New Paragraph" now **always** generates fresh, diverse AI content - no more repeated paragraphs
+
+### AI Paragraph Diversity System (December 10, 2025 - COMPLETED)
+- **Enhancement**: Implemented 15-subtopic diversity system for all paragraph modes
+- **Details**: Each mode (general, entertainment, technical, quotes, programming, news, stories, business) now has exactly 15 unique subtopics
+- **Examples**: Technical mode rotates through AI/ML, cloud computing, cybersecurity, IoT, blockchain, 5G, quantum computing, renewable energy tech, biotech, space tech, robotics, AR/VR, edge computing, nanotech, 3D printing
+- **Database Optimization**: Upgraded all paragraph queries to use `ORDER BY RANDOM() LIMIT 1` for better performance
+- **Files Modified**: `server/ai-paragraph-generator.ts`, `server/storage.ts`
+
 ## System Architecture
 
 ### UI/UX Decisions

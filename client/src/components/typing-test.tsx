@@ -525,7 +525,7 @@ export default function TypingTest() {
     }
   }, [pendingResult, saveResultMutation]);
 
-  const resetTest = useCallback(async () => {
+  const resetTest = useCallback(async (forceNewParagraph = false) => {
     // Reset test state first
     setUserInput("");
     setFreestyleText("");
@@ -556,14 +556,19 @@ export default function TypingTest() {
     
     // Only fetch new paragraph if not in freestyle mode
     if (!freestyleMode) {
-      // Try to get from queue first for instant loading, otherwise fetch with AI generation
-      const queuedParagraph = getNextFromQueue();
-      if (queuedParagraph) {
-        setText(queuedParagraph);
-        setOriginalText(queuedParagraph);
-      } else {
-        // Request AI generation to ensure diverse, fresh content when queue is empty
+      if (forceNewParagraph) {
+        // User explicitly requested a new paragraph - always use AI generation for diversity
         await fetchParagraph(false, true);
+      } else {
+        // Normal restart - try queue first for instant loading
+        const queuedParagraph = getNextFromQueue();
+        if (queuedParagraph) {
+          setText(queuedParagraph);
+          setOriginalText(queuedParagraph);
+        } else {
+          // Queue empty - fetch from database
+          await fetchParagraph(false, false);
+        }
       }
     }
     
@@ -1626,7 +1631,7 @@ Can you beat my score? Try it here: `,
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={resetTest}
+                  onClick={() => resetTest(true)}
                   disabled={isGenerating || freestyleMode}
                   className={cn(
                     "px-2.5 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium transition-all flex items-center gap-1.5 md:gap-2",
@@ -2390,7 +2395,7 @@ Can you beat my score? Try it here: `,
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={resetTest}
+                onClick={() => resetTest()}
                 className="flex items-center gap-1.5 md:gap-2 px-4 md:px-8 py-2 md:py-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-secondary-foreground font-medium text-sm md:text-base"
                 data-testid="button-restart-test"
               >
@@ -2557,14 +2562,14 @@ Can you beat my score? Try it here: `,
                 )}
                 <div className="flex gap-3">
                   <button
-                    onClick={resetTest}
+                    onClick={() => resetTest()}
                     className="flex-1 py-3 bg-primary text-primary-foreground font-bold rounded-lg hover:opacity-90 transition-opacity"
                     data-testid="button-next-test"
                   >
                     Next Test
                   </button>
                   <button
-                    onClick={resetTest}
+                    onClick={() => resetTest()}
                     className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition-colors"
                     data-testid="button-close-results"
                   >
