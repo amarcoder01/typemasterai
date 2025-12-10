@@ -8,7 +8,18 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (December 2025)
 
-### Multi-Language Support with Cultural Adaptation (December 10, 2025 - LATEST)
+### Typing Validation Visual Feedback Fix (December 10, 2025 - LATEST)
+- **Issue**: When users typed a wrong character instead of a space, the error display showed an invisible red space instead of the character they actually typed, making it confusing
+- **Solution**: Modified `CharSpan` component to display the typed character when incorrect, not the expected character
+- **Implementation**:
+  - Added `typedChar` prop to `CharSpan` component in `client/src/components/typing-test.tsx`
+  - Updated display logic: `const displayChar = state === 'incorrect' && typedChar ? typedChar : char;`
+  - Now shows what user typed in red (visible) instead of what was expected (invisible for spaces)
+- **Result**: All typing errors are now clearly visible with the typed character displayed in red
+- **Testing**: Confirmed typing 'x' instead of space shows red 'x' (visible), error clearly marked
+- **Files Modified**: `client/src/components/typing-test.tsx`
+
+### Multi-Language Support with Cultural Adaptation (December 10, 2025)
 - **Enhancement**: All 95 educational topics now work seamlessly across 23+ supported languages with cultural adaptation
 - **Language Ordering**: Language dropdown now shows English first, Hindi second, Marathi third, then all others alphabetically
 - **Cultural Adaptation**: AI system prompt includes explicit guidance to adapt content culturally for each language
