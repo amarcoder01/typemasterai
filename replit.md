@@ -6,62 +6,6 @@ TypeMasterAI is a high-performance, full-stack typing test web application desig
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
-## Recent Changes (December 2025)
-
-### Fixed "New Paragraph" Button Repetition Issue (December 10, 2025 - COMPLETED)
-- **Issue**: Clicking "New Paragraph" button returned repeated paragraphs from database instead of generating fresh AI content
-- **Root Cause**: The `resetTest` function was checking paragraph queue first and using database paragraphs when available. Since the queue was filled with batch requests, it never triggered AI generation.
-- **Solution Implemented**:
-  1. Added `forceNewParagraph` parameter to `resetTest(forceNewParagraph = false)` function
-  2. When `forceNewParagraph = true`, the function **skips the queue entirely** and **always requests AI generation**
-  3. Updated "New Paragraph" button to call `resetTest(true)` to force fresh AI content generation
-  4. Other buttons (Restart Test, Next Test, Close) call `resetTest()` for normal queue-based behavior
-  5. Each click now generates a **unique, diverse** paragraph using random subtopics from the 15-subtopic pool
-- **Files Modified**: `client/src/components/typing-test.tsx` (added forceNewParagraph parameter, updated all onClick handlers)
-- **Testing**: E2E test verified "New Paragraph" button generates 4 consecutive unique paragraphs with AI generation confirmed in server logs
-- **Result**: Clicking "New Paragraph" now **always** generates fresh, diverse AI content - no more repeated paragraphs
-
-### AI Paragraph Content Diversity Fix (December 10, 2025 - COMPLETED)
-- **Issue**: AI was generating paragraphs ABOUT typing/keyboards/practice instead of focusing on actual topics (travel, technology, food, etc.)
-- **Root Cause**: Prompt template said "Generate a typing practice paragraph about X", causing AI to relate all content back to typing
-- **Solution Implemented**:
-  1. **Removed "typing practice" from prompts**: Changed from "Generate a typing practice paragraph" to "Write a paragraph"
-  2. **Added explicit instruction**: "Write ONLY about [topic] - do NOT mention typing, keyboards, or practice"
-  3. **Applied to both templates**: Custom prompts and standard mode-based prompts
-- **Expected Behavior**: AI now generates content about the actual topics (e.g., "travel destinations", "AI applications", "healthy recipes") without mentioning typing
-- **Files Modified**: `server/ai-paragraph-generator.ts`
-- **Note**: Old database paragraphs may still contain typing references (created before fix); new AI generations will be diverse
-
-### AI Paragraph Diversity System (December 10, 2025 - COMPLETED)
-- **Enhancement**: Implemented 15-subtopic diversity system for all paragraph modes
-- **Details**: Each mode (general, entertainment, technical, quotes, programming, news, stories, business) now has exactly 15 unique subtopics
-- **Examples**: Technical mode rotates through AI/ML, cloud computing, cybersecurity, IoT, blockchain, 5G, quantum computing, renewable energy tech, biotech, space tech, robotics, AR/VR, edge computing, nanotech, 3D printing
-- **Database Optimization**: Upgraded all paragraph queries to use `ORDER BY RANDOM() LIMIT 1` for better performance
-- **Files Modified**: `server/ai-paragraph-generator.ts`, `server/storage.ts`
-
-### Multi-Layer Content Hygiene System (December 10, 2025 - COMPLETED)
-- **Issue**: Need to ensure AI generates content about actual topics (travel, tech, food) without typing/keyboard/practice references
-- **Solution**: Implemented comprehensive 3-layer defense system
-- **Implementation Details**:
-  1. **Expert System Prompt** (`server/ai-paragraph-generator.ts`):
-     - Added content curator system prompt: "You are a content curator that creates engaging paragraphs... Never mention typing, keyboards, or practice"
-     - Explicit instruction in all prompts: "Write ONLY about [topic] - do NOT mention typing, keyboards, or practice"
-     - Applied to both custom prompts and standard mode-based prompts
-  2. **Post-Generation Validation** (`server/ai-paragraph-generator.ts`):
-     - Content validation layer rejects AI outputs containing banned keywords before saving
-     - Banned keywords: typing, keyboard, practice, WPM, keystroke
-     - Prevents contaminated content from entering database
-  3. **Database Content Filtering** (`shared/schema.ts`, `server/storage.ts`):
-     - Added `isTypingRelated` boolean column to `typingParagraphs` table (default: false)
-     - Marked 85 legacy typing-focused paragraphs with `isTypingRelated=true` via SQL UPDATE
-     - Updated all paragraph queries to exclude flagged content:
-       - `getExactParagraph()` - exact language/mode/difficulty match
-       - `getRandomParagraph()` - all 3 fallback branches (mode, language, English)
-       - `getRandomParagraphs()` - batch fetch with all fallback branches
-- **Testing**: E2E test verified 4 consecutive unique paragraphs with NO banned keywords
-- **Result**: Complete content hygiene - AI generates diverse topics without typing references, database never serves legacy typing-focused content
-- **Files Modified**: `server/ai-paragraph-generator.ts`, `server/storage.ts`, `shared/schema.ts`
-
 ## System Architecture
 
 ### UI/UX Decisions
@@ -70,7 +14,7 @@ The frontend uses React 18 with TypeScript and Vite, styled with Shadcn UI (New 
 ### Technical Implementations
 - **Network Resilience**: Global network disconnection handling with multi-layer detection, connection state machine, pending action queue with localStorage persistence, exponential backoff with jitter, and comprehensive toast notifications.
 - **Frontend**: State management uses TanStack Query v5 for server state and React Context API for authentication. The typing input system supports multi-language input (23+ languages). An advanced analytics dashboard features comprehensive visualizations using Recharts, including interactive keyboard heatmaps and AI-powered insights. The application is a Progressive Web App (PWA) with offline support and push notifications. SEO is optimized with a dynamic `useSEO()` hook and 8 SEO-optimized landing pages.
-- **Backend**: Built with Express.js on Node.js with TypeScript. Real-time communication for multiplayer racing is handled by a WebSocket server. An AI Ghost Racer system populates race rooms with intelligent bots using OpenAI GPT-4o-mini. Authentication is managed with Passport.js, bcryptjs, and Express session with PostgreSQL store. The RESTful API supports authentication, test results, leaderboards, multi-language content, multiplayer race management, code typing features, push notification management, achievement, and challenge systems. AI code snippet generation utilizes OpenAI GPT-4o-mini. A production-ready job-based smart notification scheduler handles timezone-aware daily reminders. An achievement engine and challenge system provide gamification. The AI chat assistant uses GPT-4o with OpenAI native web search (`gpt-4o-search-preview`) as the primary search provider, with Azure AI Foundry Bing Grounding as fallback.
+- **Backend**: Built with Express.js on Node.js with TypeScript. Real-time communication for multiplayer racing is handled by a WebSocket server. An AI Ghost Racer system populates race rooms with intelligent bots. Authentication is managed with Passport.js, bcryptjs, and Express session with PostgreSQL store. The RESTful API supports authentication, test results, leaderboards, multi-language content, multiplayer race management, code typing features, push notification management, achievement, and challenge systems. AI code snippet generation and chat assistance are integrated. A production-ready job-based smart notification scheduler handles timezone-aware daily reminders. An achievement engine and challenge system provide gamification.
 - **Scalability Infrastructure**: Designed for massive concurrent user loads with features like a Race Cache System, WebSocket Rate Limiter, Race Cleanup Scheduler, Graceful Degradation (circuit breaker, load shedding), Room Sharding, Heartbeat Monitoring, Metrics Collector, Health Check System, Graceful Shutdown, and Database Optimization (composite indexes, chunked batch updates).
 - **Competitive Multiplayer Features**: Includes an ELO Rating System with skill-based matchmaking, Anti-Cheat Validation, Race Replays, In-Race Chat, Spectator Mode, Match History, and a Rating Leaderboard.
 - **Private Room System**: Comprehensive production hardening with Host Failover, Reconnection Support, Double-Action Prevention for countdowns, Countdown Cancellation, Rate Limiting per command, Typed Error Codes, Timer Cleanup, and `isBot` propagation.
