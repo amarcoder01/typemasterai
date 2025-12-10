@@ -556,12 +556,20 @@ export default function TypingTest() {
     
     // Only fetch new paragraph if not in freestyle mode
     if (!freestyleMode) {
-      // Use fetchParagraph with forceGenerate to centralize counter logic
-      await fetchParagraph(false, true);
+      // Try to get from queue first for instant loading, otherwise fetch from database
+      // No need to force-generate - use existing content or fetch from database
+      const queuedParagraph = getNextFromQueue();
+      if (queuedParagraph) {
+        setText(queuedParagraph);
+        setOriginalText(queuedParagraph);
+      } else {
+        // Fetch from database without force-generating (more efficient)
+        await fetchParagraph(false, false);
+      }
     }
     
     setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 100);
-  }, [mode, fetchParagraph, freestyleMode]);
+  }, [mode, fetchParagraph, freestyleMode, getNextFromQueue]);
 
   const createShareLink = async () => {
     if (!lastResultId) {

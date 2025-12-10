@@ -6,6 +6,121 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
 });
 
+// Diverse subtopics for each mode to ensure variety
+const MODE_SUBTOPICS: Record<string, string[]> = {
+  general: [
+    "daily routines and habits",
+    "hobbies and leisure activities", 
+    "travel and exploration",
+    "food and cooking",
+    "health and fitness",
+    "education and learning",
+    "nature and environment",
+    "art and creativity",
+    "friendship and relationships",
+    "home and lifestyle",
+    "sports and recreation",
+    "music and dance",
+    "books and reading",
+    "community and volunteering",
+    "celebrations and traditions"
+  ],
+  entertainment: [
+    "streaming services and binge-watching",
+    "video games and esports",
+    "movies and cinema",
+    "music festivals and concerts",
+    "social media trends",
+    "podcasts and audio content",
+    "comedy and standup",
+    "theater and performing arts",
+    "celebrity culture",
+    "animation and cartoons",
+    "fan communities",
+    "virtual reality entertainment"
+  ],
+  technical: [
+    "artificial intelligence and machine learning",
+    "cloud computing and services",
+    "cybersecurity and privacy",
+    "internet of things (IoT)",
+    "blockchain and cryptocurrency",
+    "5G networks and connectivity",
+    "quantum computing",
+    "renewable energy technology",
+    "biotechnology innovations",
+    "space exploration technology",
+    "robotics and automation",
+    "augmented and virtual reality"
+  ],
+  quotes: [
+    "perseverance and determination",
+    "creativity and innovation",
+    "kindness and compassion",
+    "courage and bravery",
+    "wisdom and knowledge",
+    "success and achievement",
+    "happiness and joy",
+    "leadership and influence",
+    "mindfulness and peace",
+    "change and growth"
+  ],
+  programming: [
+    "web development frameworks",
+    "mobile app development",
+    "database design and optimization",
+    "API design and REST principles",
+    "version control and Git",
+    "testing and quality assurance",
+    "agile and scrum methodologies",
+    "DevOps and CI/CD",
+    "clean code principles",
+    "design patterns",
+    "microservices architecture",
+    "software security best practices"
+  ],
+  news: [
+    "climate change initiatives",
+    "technological breakthroughs",
+    "global health developments",
+    "economic trends",
+    "education reform",
+    "renewable energy progress",
+    "space exploration milestones",
+    "wildlife conservation",
+    "urban development",
+    "scientific discoveries",
+    "transportation innovations",
+    "social movements"
+  ],
+  stories: [
+    "a mysterious discovery",
+    "an unexpected journey",
+    "overcoming a challenge",
+    "a heartwarming encounter",
+    "a lesson learned",
+    "childhood memories",
+    "an adventure in nature",
+    "meeting a mentor",
+    "solving a puzzle",
+    "a day that changed everything"
+  ],
+  business: [
+    "remote work and hybrid models",
+    "startup entrepreneurship",
+    "digital marketing strategies",
+    "customer experience",
+    "sustainable business practices",
+    "leadership development",
+    "project management",
+    "workplace diversity and inclusion",
+    "business ethics",
+    "innovation and disruption",
+    "supply chain management",
+    "data-driven decision making"
+  ]
+};
+
 export async function generateTypingParagraph(
   language: string,
   mode: string,
@@ -40,6 +155,10 @@ export async function generateTypingParagraph(
 
   const languageName = languageNames[language] || language;
   const wordCount = difficulty === "easy" ? "25-35" : difficulty === "medium" ? "35-50" : "50-70";
+  
+  // Select a random subtopic for variety
+  const subtopics = MODE_SUBTOPICS[mode] || MODE_SUBTOPICS["general"];
+  const randomSubtopic = subtopics[Math.floor(Math.random() * subtopics.length)];
 
   let prompt: string;
   
@@ -58,33 +177,28 @@ Requirements:
 
 Return ONLY the paragraph text, no explanations or meta-commentary.`;
   } else {
-    // Standard mode-based content
+    // Standard mode-based content with random subtopic for variety
     const scriptNote = language !== 'en' ? ` Use appropriate script (Devanagari for Hindi/Marathi, Arabic script for Arabic, etc.).` : '';
     
-    prompt = `Generate a ${difficulty}-level typing practice paragraph in ${languageName} about the topic: "${mode}".
+    prompt = `Generate a ${difficulty}-level typing practice paragraph in ${languageName} about "${randomSubtopic}" (${mode} category).
 
 Requirements:
 1. Write ${wordCount} words
 2. Use proper grammar and natural sentence structure
-3. Make it engaging and educational${scriptNote}
+3. Make it engaging, informative, and educational about "${randomSubtopic}"${scriptNote}
 4. Make it suitable for typing practice (clear, well-structured sentences)
-5. For technical/programming modes, include relevant terminology
-
-Topic context:
-- general: everyday life, culture, or common knowledge
-- entertainment: movies, music, games, pop culture
-- technical: technology, science, innovation
-- quotes: inspirational sayings or wisdom
-- programming: coding concepts, software development
-- news: current events style content
-- stories: narrative or storytelling
-- business: professional, commerce, workplace topics
+5. Focus specifically on the subtopic "${randomSubtopic}" - provide interesting facts, insights, or perspectives
+6. Avoid generic content - make it specific and engaging about this particular subtopic
+7. Do NOT write about typing itself - write about the actual topic
 
 Return ONLY the paragraph text, no explanations or meta-commentary.`;
   }
 
   try {
-    console.log(`📝 Prompt for ${languageName}/${mode}:`, prompt.substring(0, 200) + "...");
+    if (!customPrompt) {
+      console.log(`📝 Generating ${languageName}/${mode} paragraph about: "${randomSubtopic}"`);
+    }
+    console.log(`📝 Prompt:`, prompt.substring(0, 200) + "...");
     
     const response = await openai.chat.completions.create({
       model: "gpt-4o", // Using gpt-4o which is well-supported by Replit AI Integrations
