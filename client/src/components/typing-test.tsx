@@ -296,21 +296,27 @@ export default function TypingTest() {
       
       // Calculate initial text size - cap at ~500 words for performance
       // The queue system will extend text dynamically as user types
-      const MAX_INITIAL_WORDS = 500; // ~10 minutes of typing at 50 WPM
-      const wordsNeeded = Math.min(Math.ceil((mode / 60) * 50), MAX_INITIAL_WORDS);
-      const currentWords = paragraphText.split(/\s+/).length;
-      
-      // Build initial text, ensuring we don't exceed the word cap
+      // IMPORTANT: Skip extension for explicitly generated paragraphs to respect difficulty word counts
       let extendedText = paragraphText;
-      if (currentWords < wordsNeeded) {
-        const repetitionsNeeded = Math.ceil(wordsNeeded / currentWords);
-        extendedText = Array(repetitionsNeeded).fill(paragraphText).join(" ");
-      }
       
-      // Strictly enforce word cap by slicing to exact limit
-      const words = extendedText.split(/\s+/);
-      if (words.length > MAX_INITIAL_WORDS) {
-        extendedText = words.slice(0, MAX_INITIAL_WORDS).join(" ");
+      if (!forceGenerate) {
+        // Only extend text for database-fetched paragraphs, not explicit AI generations
+        // This ensures difficulty-based word counts are respected for "New Paragraph" button
+        const MAX_INITIAL_WORDS = 500; // ~10 minutes of typing at 50 WPM
+        const wordsNeeded = Math.min(Math.ceil((mode / 60) * 50), MAX_INITIAL_WORDS);
+        const currentWords = paragraphText.split(/\s+/).length;
+        
+        // Build initial text, ensuring we don't exceed the word cap
+        if (currentWords < wordsNeeded) {
+          const repetitionsNeeded = Math.ceil(wordsNeeded / currentWords);
+          extendedText = Array(repetitionsNeeded).fill(paragraphText).join(" ");
+        }
+        
+        // Strictly enforce word cap by slicing to exact limit
+        const words = extendedText.split(/\s+/);
+        if (words.length > MAX_INITIAL_WORDS) {
+          extendedText = words.slice(0, MAX_INITIAL_WORDS).join(" ");
+        }
       }
       
       // Only update state if this is still the latest request (ignore stale responses)

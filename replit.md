@@ -6,6 +6,37 @@ TypeMasterAI is a high-performance, full-stack typing test web application desig
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (December 2025)
+
+### Enhanced AI Difficulty System with Word Count Validation (December 10, 2025 - COMPLETED)
+- **Issue**: AI-generated paragraphs needed to respect difficulty levels (Easy, Medium, Hard) with appropriate vocabulary complexity, sentence structure, AND strict word count ranges
+- **Solution**: Implemented comprehensive difficulty system with server-side validation and smart text extension logic
+- **Implementation Details**:
+  1. **Difficulty Guidelines** (`server/ai-paragraph-generator.ts`):
+     - **Easy (25-35 words)**: Simple vocabulary, short sentences (8-12 words), basic concepts, everyday language
+     - **Medium (35-50 words)**: Moderate vocabulary, medium sentences (10-15 words), intermediate concepts, occasional specialized terms
+     - **Hard (50-70 words)**: Advanced vocabulary, complex sentences (12-20 words), nuanced concepts, specialized terminology
+  2. **Strict Word Count Enforcement** (`server/ai-paragraph-generator.ts`):
+     - Added `countWords()` helper function for accurate word counting
+     - Added `parseWordCountRange()` to extract min/max from difficulty ranges
+     - Implemented retry loop (max 3 attempts) with post-generation validation
+     - Content rejected and regenerated if word count falls outside min-max range
+     - Prompts clarified: "Write between X and Y words (inclusive). This is mandatory."
+  3. **Server-Side Validation**:
+     - Each AI generation is validated for word count before being saved/returned
+     - Detailed logging shows attempt numbers, word counts, and validation status
+     - Failed validations trigger automatic retry with fresh generation
+     - Success logged only when content passes ALL validations (word count + no banned terms)
+  4. **Smart Text Extension Logic** (`client/src/components/typing-test.tsx`):
+     - **When user clicks "New Paragraph"** (`forceGenerate=true`): NO extension - respects difficulty word counts exactly (Easy: 25-35, Medium: 35-50, Hard: 50-70)
+     - **When loading from database/queue** (`forceGenerate=false`): Text MAY be extended to fill timed test duration
+     - This ensures difficulty ranges are strictly respected for explicit AI generations while still supporting longer timed tests
+     - `data-original-paragraph` attribute exposes the base AI-generated paragraph for testing/validation
+     - `data-paragraph-text` attribute contains the actual typing test text (may include extensions for database paragraphs)
+- **Testing Infrastructure**: Added `data-testid="text-paragraph"` and `data-original-paragraph` for automated testing
+- **Result**: AI now generates content with appropriate difficulty, strictly enforced word counts on server, and smart client-side extension that respects explicit user requests for difficulty-focused paragraphs
+- **Files Modified**: `server/ai-paragraph-generator.ts`, `client/src/components/typing-test.tsx`
+
 ## System Architecture
 
 ### UI/UX Decisions
