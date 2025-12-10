@@ -386,6 +386,7 @@ export const typingParagraphs = pgTable("typing_paragraphs", {
   difficulty: text("difficulty").notNull().default("medium"),
   content: text("content").notNull(),
   wordCount: integer("word_count").notNull(),
+  isTypingRelated: boolean("is_typing_related").default(false).notNull(), // Flag to exclude typing-focused paragraphs
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   languageIdx: index("paragraph_language_idx").on(table.language),

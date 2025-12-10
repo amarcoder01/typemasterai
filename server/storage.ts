@@ -2387,9 +2387,11 @@ export class DatabaseStorage implements IStorage {
 
   async getExactParagraph(language: string, mode: string, difficulty?: string): Promise<TypingParagraph | undefined> {
     // Get ONLY exact language + mode + difficulty match using SQL RANDOM() for better distribution
+    // Exclude typing-related paragraphs
     const conditions = [
       eq(typingParagraphs.language, language),
-      eq(typingParagraphs.mode, mode)
+      eq(typingParagraphs.mode, mode),
+      eq(typingParagraphs.isTypingRelated, false)
     ];
     
     if (difficulty) {
@@ -2408,10 +2410,12 @@ export class DatabaseStorage implements IStorage {
 
   async getRandomParagraph(language: string, mode?: string, difficulty?: string): Promise<TypingParagraph | undefined> {
     // Try with language, mode, and difficulty using SQL RANDOM() for better distribution
+    // Always exclude typing-related paragraphs
     if (mode) {
       const conditions = [
         eq(typingParagraphs.language, language),
-        eq(typingParagraphs.mode, mode)
+        eq(typingParagraphs.mode, mode),
+        eq(typingParagraphs.isTypingRelated, false)
       ];
       
       if (difficulty) {
@@ -2434,7 +2438,10 @@ export class DatabaseStorage implements IStorage {
     const [languageParagraph] = await db
       .select()
       .from(typingParagraphs)
-      .where(eq(typingParagraphs.language, language))
+      .where(and(
+        eq(typingParagraphs.language, language),
+        eq(typingParagraphs.isTypingRelated, false)
+      ))
       .orderBy(sql`RANDOM()`)
       .limit(1);
     
@@ -2446,7 +2453,10 @@ export class DatabaseStorage implements IStorage {
     const [englishParagraph] = await db
       .select()
       .from(typingParagraphs)
-      .where(eq(typingParagraphs.language, 'en'))
+      .where(and(
+        eq(typingParagraphs.language, 'en'),
+        eq(typingParagraphs.isTypingRelated, false)
+      ))
       .orderBy(sql`RANDOM()`)
       .limit(1);
     
@@ -2454,8 +2464,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRandomParagraphs(language: string, count: number, mode?: string, difficulty?: string): Promise<TypingParagraph[]> {
-    // Build conditions for the query
-    const conditions = [eq(typingParagraphs.language, language)];
+    // Build conditions for the query - always exclude typing-related paragraphs
+    const conditions = [
+      eq(typingParagraphs.language, language),
+      eq(typingParagraphs.isTypingRelated, false)
+    ];
     
     if (mode) {
       conditions.push(eq(typingParagraphs.mode, mode));
@@ -2477,11 +2490,14 @@ export class DatabaseStorage implements IStorage {
       return paragraphs;
     }
     
-    // Fallback to any paragraph in the requested language
+    // Fallback to any paragraph in the requested language (exclude typing-related)
     const languageParagraphs = await db
       .select()
       .from(typingParagraphs)
-      .where(eq(typingParagraphs.language, language))
+      .where(and(
+        eq(typingParagraphs.language, language),
+        eq(typingParagraphs.isTypingRelated, false)
+      ))
       .orderBy(sql`RANDOM()`)
       .limit(count);
     
@@ -2489,11 +2505,14 @@ export class DatabaseStorage implements IStorage {
       return languageParagraphs;
     }
     
-    // Final fallback to English paragraphs
+    // Final fallback to English paragraphs (exclude typing-related)
     const englishParagraphs = await db
       .select()
       .from(typingParagraphs)
-      .where(eq(typingParagraphs.language, 'en'))
+      .where(and(
+        eq(typingParagraphs.language, 'en'),
+        eq(typingParagraphs.isTypingRelated, false)
+      ))
       .orderBy(sql`RANDOM()`)
       .limit(count);
     

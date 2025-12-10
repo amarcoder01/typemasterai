@@ -226,9 +226,26 @@ Return ONLY the paragraph text, no explanations or meta-commentary.`;
     }
     console.log(`📝 Prompt:`, prompt.substring(0, 200) + "...");
     
+    // Expert system prompt to prevent typing-related content
+    const systemPrompt = `You are an expert content writer specialized in creating diverse, engaging educational paragraphs.
+
+CRITICAL RULES:
+1. NEVER mention typing, keyboards, typing practice, typing speed, accuracy, or any typing-related concepts
+2. Focus ONLY on the specified topic - write informative, educational content about that topic
+3. Write naturally as if creating general knowledge content, NOT practice material
+4. Use proper grammar and clear sentences suitable for reading
+5. Make content engaging and factual about the actual subject matter
+
+FORBIDDEN WORDS (never use these): typing, keyboard, type, practice, speed, accuracy, WPM, keys, keystroke
+
+Your role is to educate readers about interesting topics, not to create typing practice material.`;
+
     const response = await openai.chat.completions.create({
-      model: "gpt-4o", // Using gpt-4o which is well-supported by Replit AI Integrations
-      messages: [{ role: "user", content: prompt }],
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt }
+      ],
       max_tokens: 500,
       temperature: 0.9,
     });
@@ -242,7 +259,19 @@ Return ONLY the paragraph text, no explanations or meta-commentary.`;
       throw new Error("AI generated empty content");
     }
 
+    // Validate content doesn't contain typing-related terms
+    const forbiddenTerms = ['typing', 'keyboard', 'type', 'practice', ' wpm', 'keystroke', 'accuracy', 'speed test'];
+    const lowerContent = content.toLowerCase();
+    const foundTerms = forbiddenTerms.filter(term => lowerContent.includes(term));
+    
+    if (foundTerms.length > 0) {
+      console.error(`❌ AI generated content with forbidden terms: ${foundTerms.join(', ')}`);
+      console.error(`Content: ${content.substring(0, 200)}...`);
+      throw new Error(`Generated content contains typing-related terms: ${foundTerms.join(', ')}`);
+    }
+
     console.log(`✅ Generated ${content.split(/\s+/).length} words for ${languageName}/${mode}`);
+    console.log(`✅ Content validated - no typing-related terms found`);
     return content;
   } catch (error: any) {
     console.error("❌ AI paragraph generation error:", error.message || error);
