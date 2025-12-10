@@ -9,16 +9,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { BookOpen, Trophy, Zap, Target, ArrowLeft, ArrowRight, Loader2, RefreshCw, AlertCircle, WifiOff } from "lucide-react";
+import { BookOpen, Trophy, Zap, Target, ArrowLeft, ArrowRight, Loader2, RefreshCw, AlertCircle, WifiOff, Share2, Award } from "lucide-react";
 import confetti from "canvas-confetti";
 import type { Book, BookParagraph, InsertBookTypingTest } from "@shared/schema";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
+import { BookCertificate } from "@/components/BookCertificate";
 
 interface CachedChapterData {
   book: Book;
@@ -316,6 +318,19 @@ export default function ChapterTyping() {
   const [cachedData, setCachedData] = useState<CachedChapterData | null>(null);
   const [saveRetryCount, setSaveRetryCount] = useState(0);
   const [pendingResult, setPendingResult] = useState<Omit<InsertBookTypingTest, 'userId'> | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [lastResultSnapshot, setLastResultSnapshot] = useState<{
+    wpm: number;
+    accuracy: number;
+    duration: number;
+    consistency: number;
+    bookTitle: string;
+    author: string;
+    chapter: number;
+    chapterTitle: string;
+    paragraphsCompleted: number;
+    wordsTyped: number;
+  } | null>(null);
   
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -635,7 +650,7 @@ export default function ChapterTyping() {
   }, [isActive, startTime]);
 
   const finishTest = useCallback(() => {
-    if (!chapterText || !startTime || paragraphs.length === 0) return;
+    if (!chapterText || !startTime || paragraphs.length === 0 || !displayBook) return;
 
     const chars = userInput.length;
     const errorCount = userInput.split("").filter((char, i) => char !== chapterText[i]).length;
@@ -646,6 +661,10 @@ export default function ChapterTyping() {
     const finalWpm = calculateWPM(correctChars, elapsedSeconds);
     const finalAccuracy = calculateAccuracy(correctChars, chars);
     const finalErrors = errorCount;
+    const consistency = Math.max(0, Math.min(100, Math.round(100 - (errorCount / chars) * 100)));
+    const currentChapterTitle = paragraphs[0]?.chapterTitle || `Chapter ${chapterNum}`;
+    const words = chapterText.split(/\s+/).length;
+    const wordsTyped = Math.min(words, Math.floor(userInput.split(/\s+/).length));
 
     setIsActive(false);
     setIsFinished(true);
@@ -659,6 +678,19 @@ export default function ChapterTyping() {
       wpm: finalWpm,
       accuracy: finalAccuracy,
       errors: finalErrors,
+    });
+    
+    setLastResultSnapshot({
+      wpm: finalWpm,
+      accuracy: finalAccuracy,
+      duration,
+      consistency,
+      bookTitle: displayBook.title,
+      author: displayBook.author,
+      chapter: chapterNum,
+      chapterTitle: currentChapterTitle,
+      paragraphsCompleted: paragraphs.length,
+      wordsTyped,
     });
     
     confetti({
@@ -680,7 +712,7 @@ export default function ChapterTyping() {
       setPendingResult(result);
       saveTestMutation.mutate(result);
     }
-  }, [chapterText, startTime, paragraphs, userInput, user, saveTestMutation]);
+  }, [chapterText, startTime, paragraphs, userInput, user, saveTestMutation, displayBook, chapterNum]);
 
   useEffect(() => {
     if (isActive && userInput === chapterText && chapterText) {
@@ -1307,6 +1339,27 @@ export default function ChapterTyping() {
                 </div>
               )}
               
+              {lastResultSnapshot && (
+                <div className="flex justify-center mb-3">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => setShareDialogOpen(true)}
+                        variant="outline"
+                        className="gap-2"
+                        data-testid="button-share-chapter-results"
+                      >
+                        <Share2 className="w-4 h-4" />
+                        Share Certificate
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="text-xs">Share your chapter typing achievement with certificate</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              )}
+              
               <div className="flex gap-3">
                 {chapterNum < displayBook.totalChapters && (
                   <Button
@@ -1337,6 +1390,55 @@ export default function ChapterTyping() {
                 </Button>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Dialog with Certificate */}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="w-5 h-5" />
+              Share Your Chapter Result
+            </DialogTitle>
+            <DialogDescription>
+              Share your chapter typing achievement with others!
+            </DialogDescription>
+          </DialogHeader>
+          
+          {lastResultSnapshot && (
+            <Tabs defaultValue="certificate" className="w-full">
+              <TabsList className="grid w-full grid-cols-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger value="certificate" className="gap-2" data-testid="tab-chapter-certificate">
+                      <Award className="w-4 h-4" />
+                      Certificate
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Professional 1200×675 certificate with verification ID</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TabsList>
+              
+              <TabsContent value="certificate" className="mt-4">
+                <BookCertificate
+                  wpm={lastResultSnapshot.wpm}
+                  accuracy={lastResultSnapshot.accuracy}
+                  consistency={lastResultSnapshot.consistency}
+                  duration={lastResultSnapshot.duration}
+                  bookTitle={lastResultSnapshot.bookTitle}
+                  author={lastResultSnapshot.author}
+                  chapter={lastResultSnapshot.chapter}
+                  chapterTitle={lastResultSnapshot.chapterTitle}
+                  paragraphsCompleted={lastResultSnapshot.paragraphsCompleted}
+                  wordsTyped={lastResultSnapshot.wordsTyped}
+                  username={user?.username}
+                />
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>
