@@ -190,7 +190,8 @@ export async function generateTypingParagraph(
   };
 
   const languageName = languageNames[language] || language;
-  const wordCountRange = difficulty === "easy" ? "25-35" : difficulty === "medium" ? "35-50" : "50-70";
+  // Slightly relaxed upper limits to accommodate AI word count variability while maintaining difficulty distinctions
+  const wordCountRange = difficulty === "easy" ? "25-35" : difficulty === "medium" ? "35-55" : "50-75";
   const { min: minWords, max: maxWords } = parseWordCountRange(wordCountRange);
   
   // Difficulty-specific writing guidelines

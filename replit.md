@@ -14,8 +14,9 @@ Preferred communication style: Simple, everyday language.
 - **Implementation Details**:
   1. **Difficulty Guidelines** (`server/ai-paragraph-generator.ts`):
      - **Easy (25-35 words)**: Simple vocabulary, short sentences (8-12 words), basic concepts, everyday language
-     - **Medium (35-50 words)**: Moderate vocabulary, medium sentences (10-15 words), intermediate concepts, occasional specialized terms
-     - **Hard (50-70 words)**: Advanced vocabulary, complex sentences (12-20 words), nuanced concepts, specialized terminology
+     - **Medium (35-55 words)**: Moderate vocabulary, medium sentences (10-15 words), intermediate concepts, occasional specialized terms
+     - **Hard (50-75 words)**: Advanced vocabulary, complex sentences (12-20 words), nuanced concepts, specialized terminology
+     - *Note*: Upper limits slightly relaxed (+5 words for Medium/Hard) to accommodate AI word count variability while maintaining meaningful difficulty distinctions
   2. **Strict Word Count Enforcement** (`server/ai-paragraph-generator.ts`):
      - Added `countWords()` helper function for accurate word counting
      - Added `parseWordCountRange()` to extract min/max from difficulty ranges
@@ -28,7 +29,7 @@ Preferred communication style: Simple, everyday language.
      - Failed validations trigger automatic retry with fresh generation
      - Success logged only when content passes ALL validations (word count + no banned terms)
   4. **Smart Text Extension Logic** (`client/src/components/typing-test.tsx`):
-     - **When user clicks "New Paragraph"** (`forceGenerate=true`): NO extension - respects difficulty word counts exactly (Easy: 25-35, Medium: 35-50, Hard: 50-70)
+     - **When user clicks "New Paragraph"** (`forceGenerate=true`): NO extension - respects difficulty word counts exactly (Easy: 25-35, Medium: 35-55, Hard: 50-75)
      - **When loading from database/queue** (`forceGenerate=false`): Text MAY be extended to fill timed test duration
      - This ensures difficulty ranges are strictly respected for explicit AI generations while still supporting longer timed tests
      - `data-original-paragraph` attribute exposes the base AI-generated paragraph for testing/validation
