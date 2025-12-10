@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-type Theme = "focus" | "light" | "cyber" | "retro";
+type Theme = "focus" | "light" | "ocean" | "forest" | "dracula" | "minimal" | "sunset" | "retro" | "cyber";
 
 interface ThemeContextType {
   theme: Theme;
@@ -17,7 +17,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove("focus", "light", "cyber", "retro");
+    root.classList.remove("focus", "light", "ocean", "forest", "dracula", "minimal", "sunset", "retro", "cyber");
     root.classList.add(theme);
     localStorage.setItem("typemasterai-theme", theme);
   }, [theme]);

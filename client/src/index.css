@@ -121,6 +121,146 @@
   --chart-5: 0 100% 60%;
 }
 
+/* Ocean Theme - Nordic inspired with cool blues */
+:root.ocean {
+  --background: 215 25% 12%;
+  --foreground: 215 20% 92%;
+  --card: 215 25% 15%;
+  --card-foreground: 215 20% 92%;
+  --popover: 215 25% 15%;
+  --popover-foreground: 215 20% 92%;
+  --primary: 195 85% 55%;
+  --primary-foreground: 215 25% 12%;
+  --secondary: 215 20% 20%;
+  --secondary-foreground: 215 20% 92%;
+  --muted: 215 20% 20%;
+  --muted-foreground: 215 15% 65%;
+  --accent: 195 70% 25%;
+  --accent-foreground: 195 85% 55%;
+  --destructive: 0 85% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 215 20% 22%;
+  --input: 215 20% 22%;
+  --ring: 195 85% 55%;
+  --chart-1: 195 85% 55%;
+  --chart-2: 165 75% 50%;
+  --chart-3: 235 70% 60%;
+  --chart-4: 280 65% 55%;
+  --chart-5: 145 80% 50%;
+}
+
+/* Forest Theme - Natural greens and earth tones */
+:root.forest {
+  --background: 140 20% 11%;
+  --foreground: 140 15% 90%;
+  --card: 140 20% 14%;
+  --card-foreground: 140 15% 90%;
+  --popover: 140 20% 14%;
+  --popover-foreground: 140 15% 90%;
+  --primary: 140 60% 50%;
+  --primary-foreground: 140 20% 11%;
+  --secondary: 140 15% 19%;
+  --secondary-foreground: 140 15% 90%;
+  --muted: 140 15% 19%;
+  --muted-foreground: 140 12% 62%;
+  --accent: 140 40% 24%;
+  --accent-foreground: 140 60% 50%;
+  --destructive: 0 85% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 140 15% 21%;
+  --input: 140 15% 21%;
+  --ring: 140 60% 50%;
+  --chart-1: 140 60% 50%;
+  --chart-2: 170 65% 45%;
+  --chart-3: 100 70% 50%;
+  --chart-4: 45 80% 55%;
+  --chart-5: 190 75% 50%;
+}
+
+/* Dracula Theme - Dark purple with vibrant accents */
+:root.dracula {
+  --background: 265 20% 13%;
+  --foreground: 265 10% 92%;
+  --card: 265 20% 16%;
+  --card-foreground: 265 10% 92%;
+  --popover: 265 20% 16%;
+  --popover-foreground: 265 10% 92%;
+  --primary: 330 85% 70%;
+  --primary-foreground: 265 20% 13%;
+  --secondary: 265 15% 21%;
+  --secondary-foreground: 265 10% 92%;
+  --muted: 265 15% 21%;
+  --muted-foreground: 265 10% 65%;
+  --accent: 265 30% 26%;
+  --accent-foreground: 330 85% 70%;
+  --destructive: 0 100% 67%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 265 15% 23%;
+  --input: 265 15% 23%;
+  --ring: 330 85% 70%;
+  --chart-1: 330 85% 70%;
+  --chart-2: 195 80% 65%;
+  --chart-3: 135 75% 60%;
+  --chart-4: 265 85% 75%;
+  --chart-5: 50 90% 65%;
+}
+
+/* Minimal Theme - Clean monochromatic */
+:root.minimal {
+  --background: 0 0% 8%;
+  --foreground: 0 0% 95%;
+  --card: 0 0% 11%;
+  --card-foreground: 0 0% 95%;
+  --popover: 0 0% 11%;
+  --popover-foreground: 0 0% 95%;
+  --primary: 0 0% 85%;
+  --primary-foreground: 0 0% 10%;
+  --secondary: 0 0% 16%;
+  --secondary-foreground: 0 0% 95%;
+  --muted: 0 0% 16%;
+  --muted-foreground: 0 0% 60%;
+  --accent: 0 0% 21%;
+  --accent-foreground: 0 0% 95%;
+  --destructive: 0 85% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 18%;
+  --input: 0 0% 18%;
+  --ring: 0 0% 85%;
+  --chart-1: 0 0% 75%;
+  --chart-2: 0 0% 65%;
+  --chart-3: 0 0% 55%;
+  --chart-4: 0 0% 45%;
+  --chart-5: 0 0% 35%;
+}
+
+/* Sunset Theme - Warm orange and pink tones */
+:root.sunset {
+  --background: 15 25% 12%;
+  --foreground: 30 15% 92%;
+  --card: 15 25% 15%;
+  --card-foreground: 30 15% 92%;
+  --popover: 15 25% 15%;
+  --popover-foreground: 30 15% 92%;
+  --primary: 25 90% 60%;
+  --primary-foreground: 15 25% 12%;
+  --secondary: 15 20% 20%;
+  --secondary-foreground: 30 15% 92%;
+  --muted: 15 20% 20%;
+  --muted-foreground: 30 12% 65%;
+  --accent: 340 70% 55%;
+  --accent-foreground: 15 25% 12%;
+  --destructive: 0 85% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 15 20% 22%;
+  --input: 15 20% 22%;
+  --ring: 25 90% 60%;
+  --chart-1: 25 90% 60%;
+  --chart-2: 340 80% 60%;
+  --chart-3: 10 85% 58%;
+  --chart-4: 350 75% 55%;
+  --chart-5: 35 85% 55%;
+}
+
 /* Retro Theme */
 :root.retro {
   --background: 30 20% 15%;
