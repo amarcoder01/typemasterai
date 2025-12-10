@@ -1353,6 +1353,18 @@ Can you beat my score? Try it here: `,
   
   // Handle Delete key (forward delete) explicitly
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Block Ctrl+A (select all) - anti-cheat measure
+    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+      e.preventDefault();
+      return;
+    }
+    
+    // Block other keyboard shortcuts for copying
+    if ((e.ctrlKey || e.metaKey) && ['c', 'x', 'v'].includes(e.key.toLowerCase())) {
+      e.preventDefault();
+      return;
+    }
+    
     // Capture selection before any key press
     if (inputRef.current) {
       selectionRangeRef.current = {
@@ -2543,8 +2555,15 @@ Can you beat my score? Try it here: `,
             onCompositionEnd={handleCompositionEnd}
             onPaste={handlePaste}
             onCut={handleCut}
+            onDragStart={(e) => e.preventDefault()}
+            onDrop={(e) => e.preventDefault()}
+            onContextMenu={(e) => e.preventDefault()}
             className="absolute opacity-0 w-full h-full cursor-default z-0"
             autoFocus
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
             disabled={!!paragraphError && !text}
           />
         )}
@@ -2559,13 +2578,15 @@ Can you beat my score? Try it here: `,
             data-paragraph-text={text}
             data-original-paragraph={originalText}
             className={cn(
-              "w-full h-full max-h-[300px] md:max-h-[400px] overflow-y-auto p-4 md:p-8 text-lg sm:text-xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300 scroll-smooth",
+              "w-full h-full max-h-[300px] md:max-h-[400px] overflow-y-auto p-4 md:p-8 text-lg sm:text-xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300 scroll-smooth select-none",
               !isActive && !isFinished && !hasInteracted && "blur-[2px] opacity-60 group-hover:blur-0 group-hover:opacity-100"
             )}
             onClick={() => {
               setHasInteracted(true);
               inputRef.current?.focus({ preventScroll: true });
             }}
+            onMouseDown={(e) => e.preventDefault()}
+            onContextMenu={(e) => e.preventDefault()}
           >
             {characters.map((char, index) => {
               // MONKEYTYPE-STYLE VALIDATION: Use persistent character states
