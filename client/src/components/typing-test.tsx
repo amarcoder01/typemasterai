@@ -1370,6 +1370,13 @@ Can you beat my score? Try it here: `,
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isComposing) return;
     processInput(e.target.value);
+    
+    // CRITICAL: Lock cursor at end of input to prevent jumping
+    // Force cursor to always be at the end of userInput
+    if (inputRef.current) {
+      const cursorPos = e.target.value.length;
+      inputRef.current.setSelectionRange(cursorPos, cursorPos);
+    }
   };
 
   const handleCompositionStart = () => {
@@ -1383,6 +1390,11 @@ Can you beat my score? Try it here: `,
       inputRef.current.value = newValue;
       setTimeout(() => {
         processInput(newValue);
+        // Lock cursor at end after composition
+        if (inputRef.current) {
+          const cursorPos = newValue.length;
+          inputRef.current.setSelectionRange(cursorPos, cursorPos);
+        }
       }, 0);
     }
   };
@@ -2634,6 +2646,13 @@ Can you beat my score? Try it here: `,
             onDragStart={(e) => e.preventDefault()}
             onDrop={(e) => e.preventDefault()}
             onContextMenu={(e) => e.preventDefault()}
+            onSelect={(e) => {
+              // Force cursor to end if user tries to select
+              if (inputRef.current) {
+                const pos = userInput.length;
+                inputRef.current.setSelectionRange(pos, pos);
+              }
+            }}
             className="absolute opacity-0 w-full h-full cursor-default z-0"
             autoFocus
             autoComplete="off"
