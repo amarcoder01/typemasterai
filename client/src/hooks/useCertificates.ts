@@ -63,7 +63,7 @@ export function useUserCertificates(userId?: string, certificateType?: string) {
         params.append("type", certificateType);
       }
 
-      const response = await fetch(`/api/certificates/user?${params.toString()}`, {
+      const response = await fetch(`/api/certificates?${params.toString()}`, {
         credentials: "include",
       });
 
