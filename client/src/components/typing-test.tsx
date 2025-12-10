@@ -31,16 +31,20 @@ const CharSpan = forwardRef<HTMLSpanElement, {
   char: string; 
   index: number; 
   state: 'pending' | 'correct' | 'incorrect';
-}>(({ char, index, state }, ref) => {
+  typedChar?: string;
+}>(({ char, index, state, typedChar }, ref) => {
   const className = state === 'pending' 
     ? "relative text-muted-foreground/40"
     : state === 'correct' 
       ? "relative text-green-500" 
       : "relative text-destructive";
   
+  // Show typed character when incorrect, expected character otherwise
+  const displayChar = state === 'incorrect' && typedChar ? typedChar : char;
+  
   return (
     <span ref={ref} data-char-index={index} className={className}>
-      {char}
+      {displayChar}
     </span>
   );
 });
@@ -2366,6 +2370,7 @@ Can you beat my score? Try it here: `,
                   : userInput[index] === text[index] 
                     ? 'correct' 
                     : 'incorrect';
+              const typedChar = index < userInput.length ? userInput[index] : undefined;
               return (
                 <CharSpan 
                   key={`${text.length}-${index}`}
@@ -2375,6 +2380,7 @@ Can you beat my score? Try it here: `,
                   char={char}
                   index={index}
                   state={state}
+                  typedChar={typedChar}
                 />
               );
             })}
