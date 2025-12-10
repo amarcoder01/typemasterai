@@ -9,21 +9,47 @@ const openai = new OpenAI({
 // Diverse subtopics for each mode to ensure variety
 const MODE_SUBTOPICS: Record<string, string[]> = {
   general: [
-    "daily routines and habits",
-    "hobbies and leisure activities", 
-    "travel and exploration",
-    "food and cooking",
-    "health and fitness",
-    "education and learning",
-    "nature and environment",
-    "art and creativity",
-    "friendship and relationships",
-    "home and lifestyle",
-    "sports and recreation",
-    "music and dance",
-    "books and reading",
-    "community and volunteering",
-    "celebrations and traditions"
+    // Technology & Learning
+    "how smartphones changed communication",
+    "basics of internet and websites",
+    "social media and digital connections",
+    "learning new skills online",
+    "technology in everyday life",
+    
+    // Friendship & Relationships
+    "building strong friendships",
+    "effective communication skills",
+    "trust and honesty in relationships",
+    "helping friends in difficult times",
+    "celebrating together and creating memories",
+    
+    // Personal Growth
+    "developing good habits",
+    "time management and productivity",
+    "setting and achieving goals",
+    "overcoming fear and challenges",
+    "learning from mistakes",
+    
+    // Interesting Topics & Knowledge
+    "fascinating facts about space",
+    "how languages evolved",
+    "the science behind everyday things",
+    "amazing animal behaviors",
+    "historical discoveries that changed the world",
+    
+    // Life Skills
+    "financial literacy basics",
+    "healthy eating and nutrition",
+    "mental health and well-being",
+    "environmental conservation",
+    "creative problem solving",
+    
+    // Culture & Society
+    "different cultures and traditions",
+    "the power of kindness",
+    "volunteering and helping others",
+    "music and its impact on emotions",
+    "art and creative expression"
   ],
   entertainment: [
     "streaming services and binge-watching",
@@ -233,15 +259,25 @@ Return ONLY the paragraph text, no explanations or meta-commentary.`;
     // Standard mode-based content with random subtopic for variety
     const scriptNote = language !== 'en' ? ` Use appropriate script (Devanagari for Hindi/Marathi, Arabic script for Arabic, etc.).` : '';
     
+    // Extra guidance for general mode to make content educational and engaging
+    const generalModeGuidance = mode === "general" ? `
+
+EDUCATIONAL FOCUS (Important for General Mode):
+- Help the reader LEARN something valuable about this topic
+- Include practical insights, interesting facts, or useful knowledge
+- Make the content relatable and applicable to real life
+- Inspire curiosity or provide actionable takeaways
+- Write as if teaching a friend something interesting and useful` : '';
+    
     prompt = `Write a ${difficulty}-level paragraph in ${languageName} about "${randomSubtopic}" (${mode} category).
 
 CRITICAL REQUIREMENTS:
 1. Use proper grammar and natural sentence structure appropriate for ${difficulty} level
 2. Make it engaging, informative, and educational about "${randomSubtopic}"${scriptNote}
-3. Focus specifically on the subtopic "${randomSubtopic}" - provide interesting facts, insights, or perspectives
-4. Avoid generic content - make it specific and engaging about this particular subtopic
+3. Focus specifically on the subtopic "${randomSubtopic}" - provide interesting facts, insights, or perspectives that help users LEARN
+4. Avoid generic content - make it specific, engaging, and valuable about this particular subtopic
 5. Write ONLY about "${randomSubtopic}" - do NOT mention typing, keyboards, or practice
-6. Write a complete paragraph with natural length based on the content and difficulty level
+6. Write a complete paragraph with natural length based on the content and difficulty level${generalModeGuidance}
 
 ${difficulty.toUpperCase()} DIFFICULTY GUIDELINES:
 ${difficultyGuidelines[difficulty]}
@@ -249,19 +285,26 @@ ${difficultyGuidelines[difficulty]}
 Return ONLY the paragraph text, no explanations or meta-commentary.`;
   }
 
-  // Expert system prompt to prevent typing-related content
-  const systemPrompt = `You are an expert content writer specialized in creating diverse, engaging educational paragraphs.
+  // Expert system prompt to prevent typing-related content and emphasize educational value
+  const systemPrompt = `You are an expert educator and content writer who creates engaging, valuable paragraphs that help people LEARN while they read.
+
+YOUR MISSION:
+- Every paragraph should teach the reader something useful, interesting, or valuable
+- Write as if explaining fascinating topics to a curious friend
+- Include practical insights, surprising facts, or actionable knowledge
+- Make learning enjoyable and relatable to real life
 
 CRITICAL RULES:
 1. NEVER mention typing, keyboards, typing practice, typing speed, accuracy, or any typing-related concepts
-2. Focus ONLY on the specified topic - write informative, educational content about that topic
+2. Focus ONLY on the specified topic - write informative, educational content that helps users learn
 3. Write naturally as if creating general knowledge content, NOT practice material
 4. Use proper grammar and clear sentences suitable for reading
-5. Make content engaging and factual about the actual subject matter
+5. Make content engaging, factual, and EDUCATIONAL about the actual subject matter
+6. Help readers gain knowledge, insights, or practical understanding
 
 FORBIDDEN WORDS (never use these): typing, keyboard, type, practice, speed, accuracy, WPM, keys, keystroke
 
-Your role is to educate readers about interesting topics, not to create typing practice material.`;
+Your role is to educate and engage readers with interesting, valuable content about meaningful topics.`;
 
   const maxRetries = 3;
   let attempt = 0;

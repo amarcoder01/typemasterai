@@ -8,6 +8,17 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (December 2025)
 
+### Educational & Engaging General Mode Content (December 10, 2025 - LATEST)
+- **Enhancement**: Updated General Mode to generate educational, engaging content that helps users learn while typing
+- **Implementation**:
+  - **Enhanced Subtopics**: 30+ new engaging topics across Technology & Learning, Friendship & Relationships, Personal Growth, Interesting Topics & Knowledge, Life Skills, and Culture & Society
+  - **Educational Focus**: AI now generates content that teaches valuable lessons, interesting facts, and practical insights
+  - **Topics Include**: Technology basics, building friendships, personal development, fascinating science, life skills, cultural knowledge
+  - **User Engagement**: Content written as if teaching a friend - relatable, practical, and inspiring curiosity
+  - **Real-World Value**: Every paragraph helps users gain knowledge, insights, or actionable understanding
+- **Result**: General mode now provides educational value beyond typing practice, engaging users with meaningful, learning-focused content
+- **Files Modified**: `server/ai-paragraph-generator.ts`
+
 ### Enhanced AI Difficulty System Based on Content Complexity (December 10, 2025 - COMPLETED)
 - **Issue**: AI-generated paragraphs needed to respect difficulty levels (Easy, Medium, Hard) through appropriate vocabulary complexity, sentence structure, and content depth
 - **Solution**: Implemented comprehensive difficulty system that maintains difficulty through content complexity without word count constraints
