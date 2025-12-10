@@ -3519,11 +3519,11 @@ export class DatabaseStorage implements IStorage {
     return inserted[0];
   }
 
-  async getDictationTestById(testId: number): Promise<DictationTest | undefined> {
+  async getDictationTestById(id: number): Promise<DictationTest | undefined> {
     const result = await db
       .select()
       .from(dictationTests)
-      .where(eq(dictationTests.id, testId))
+      .where(eq(dictationTests.id, id))
       .limit(1);
     return result[0];
   }
@@ -5609,15 +5609,6 @@ export class DatabaseStorage implements IStorage {
         eq(raceParticipants.raceId, raceId),
         eq(raceParticipants.userId, userId)
       ))
-      .limit(1);
-    return result[0];
-  }
-
-  async getDictationTestById(id: number): Promise<DictationTest | undefined> {
-    const result = await db
-      .select()
-      .from(dictationTests)
-      .where(eq(dictationTests.id, id))
       .limit(1);
     return result[0];
   }
