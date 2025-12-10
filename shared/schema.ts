@@ -839,6 +839,85 @@ export const insertSharedCodeResultSchema = createInsertSchema(sharedCodeResults
 export type InsertSharedCodeResult = z.infer<typeof insertSharedCodeResultSchema>;
 export type SharedCodeResult = typeof sharedCodeResults.$inferSelect;
 
+// Certificates - Achievement certificates for all typing modes
+export const certificates = pgTable("certificates", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  certificateType: varchar("certificate_type", { length: 20 }).notNull(), // standard, code, book, race
+  
+  // Test result references (based on type)
+  testResultId: integer("test_result_id").references(() => testResults.id, { onDelete: "cascade" }),
+  codeTestId: integer("code_test_id").references(() => codeTypingTests.id, { onDelete: "cascade" }),
+  bookTestId: integer("book_test_id").references(() => bookTypingTests.id, { onDelete: "cascade" }),
+  raceId: integer("race_id").references(() => races.id, { onDelete: "cascade" }),
+  
+  // Performance metrics (denormalized for quick display)
+  wpm: integer("wpm").notNull(),
+  accuracy: real("accuracy").notNull(),
+  consistency: integer("consistency").notNull(), // 0-100
+  duration: integer("duration").notNull(), // in seconds
+  
+  // Certificate metadata (varies by type)
+  metadata: jsonb("metadata").$type<{
+    // Common
+    tier?: string;
+    username?: string;
+    
+    // Standard test
+    mode?: number;
+    characters?: number;
+    errors?: number;
+    
+    // Code test
+    programmingLanguage?: string;
+    framework?: string;
+    difficulty?: string;
+    testMode?: string;
+    syntaxErrors?: number;
+    
+    // Book test
+    bookTitle?: string;
+    author?: string;
+    chapter?: number;
+    chapterTitle?: string;
+    paragraphsCompleted?: number;
+    wordsTyped?: number;
+    
+    // Race
+    placement?: number;
+    totalParticipants?: number;
+    raceId?: string;
+  }>(),
+  
+  // Sharing
+  shareId: varchar("share_id", { length: 12 }).unique(),
+  viewCount: integer("view_count").default(0).notNull(),
+  isPublic: boolean("is_public").default(false).notNull(),
+  
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  userIdIdx: index("certificates_user_id_idx").on(table.userId),
+  typeIdx: index("certificates_type_idx").on(table.certificateType),
+  shareIdIdx: index("certificates_share_id_idx").on(table.shareId),
+  createdAtIdx: index("certificates_created_at_idx").on(table.createdAt),
+  userTypeIdx: index("certificates_user_type_idx").on(table.userId, table.certificateType),
+}));
+
+export const insertCertificateSchema = createInsertSchema(certificates, {
+  certificateType: z.enum(["standard", "code", "book", "race"]),
+  wpm: z.number().int().min(0).max(500),
+  accuracy: z.number().min(0).max(100),
+  consistency: z.number().int().min(0).max(100),
+  duration: z.number().int().positive(),
+  metadata: z.record(z.any()).optional(),
+  shareId: z.string().length(12).nullable().optional(),
+  viewCount: z.number().int().min(0).optional(),
+  isPublic: z.boolean().optional(),
+}).omit({ id: true, createdAt: true });
+
+export type InsertCertificate = z.infer<typeof insertCertificateSchema>;
+export type Certificate = typeof certificates.$inferSelect;
+
 // Books metadata for Book Library
 export const books = pgTable("books", {
   id: integer("id").primaryKey(), // Gutendex book ID
