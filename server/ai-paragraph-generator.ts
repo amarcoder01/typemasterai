@@ -181,6 +181,27 @@ export async function generateTypingParagraph(
   const languageName = languageNames[language] || language;
   const wordCount = difficulty === "easy" ? "25-35" : difficulty === "medium" ? "35-50" : "50-70";
   
+  // Difficulty-specific writing guidelines
+  const difficultyGuidelines: Record<string, string> = {
+    easy: `- Use simple, common vocabulary that's easy to understand
+- Write short, clear sentences (8-12 words per sentence)
+- Focus on basic concepts and straightforward ideas
+- Use everyday language without technical jargon
+- Structure should be simple: introduce topic, explain briefly, conclude`,
+    
+    medium: `- Use moderate vocabulary with some varied word choices
+- Mix short and medium-length sentences (10-15 words average)
+- Include intermediate concepts and some detail
+- Occasional specialized terms are okay but explain them
+- Structure should be clear: introduce topic, develop ideas, provide examples`,
+    
+    hard: `- Use advanced, sophisticated vocabulary and precise terminology
+- Write complex sentences with varied structure (12-20 words average)
+- Include nuanced concepts, technical details, and deeper insights
+- Use specialized terminology appropriate to the subject
+- Structure should be sophisticated: introduce complex ideas, analyze deeply, draw connections`
+  };
+  
   // Select a random subtopic for variety
   const subtopics = MODE_SUBTOPICS[mode] || MODE_SUBTOPICS["general"];
   const randomSubtopic = subtopics[Math.floor(Math.random() * subtopics.length)];
@@ -195,11 +216,13 @@ export async function generateTypingParagraph(
 
 Requirements:
 1. Write ${wordCount} words in ${languageName}
-2. Use proper grammar and natural sentence structure
+2. Use proper grammar and natural sentence structure appropriate for ${difficulty} level
 3. Make it engaging and educational about the topic: "${customPrompt}"${scriptNote}
-4. Write in clear, well-structured sentences
-5. Focus specifically on the user's requested topic: "${customPrompt}"
-6. Write ONLY about "${customPrompt}" - do NOT mention typing, keyboards, or practice
+4. Focus specifically on the user's requested topic: "${customPrompt}"
+5. Write ONLY about "${customPrompt}" - do NOT mention typing, keyboards, or practice
+
+${difficulty.toUpperCase()} DIFFICULTY GUIDELINES:
+${difficultyGuidelines[difficulty]}
 
 Return ONLY the paragraph text, no explanations or meta-commentary.`;
   } else {
@@ -209,13 +232,15 @@ Return ONLY the paragraph text, no explanations or meta-commentary.`;
     prompt = `Write a ${difficulty}-level paragraph in ${languageName} about "${randomSubtopic}" (${mode} category).
 
 Requirements:
-1. Write ${wordCount} words
-2. Use proper grammar and natural sentence structure
+1. Write ${wordCount} words in ${languageName}
+2. Use proper grammar and natural sentence structure appropriate for ${difficulty} level
 3. Make it engaging, informative, and educational about "${randomSubtopic}"${scriptNote}
-4. Write in clear, well-structured sentences
-5. Focus specifically on the subtopic "${randomSubtopic}" - provide interesting facts, insights, or perspectives
-6. Avoid generic content - make it specific and engaging about this particular subtopic
-7. Write ONLY about "${randomSubtopic}" - do NOT mention typing, keyboards, or practice
+4. Focus specifically on the subtopic "${randomSubtopic}" - provide interesting facts, insights, or perspectives
+5. Avoid generic content - make it specific and engaging about this particular subtopic
+6. Write ONLY about "${randomSubtopic}" - do NOT mention typing, keyboards, or practice
+
+${difficulty.toUpperCase()} DIFFICULTY GUIDELINES:
+${difficultyGuidelines[difficulty]}
 
 Return ONLY the paragraph text, no explanations or meta-commentary.`;
   }
