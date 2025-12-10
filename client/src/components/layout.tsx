@@ -119,24 +119,25 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               );
             })}
             
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      type="button"
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all duration-200 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent whitespace-nowrap"
-                      data-testid="nav-theme-toggle"
-                    >
-                      <Palette className="w-4 h-4" />
-                      <span>Theme</span>
-                    </button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="bg-card border-border">
-                  <p className="text-sm">Change color theme</p>
-                </TooltipContent>
-              </Tooltip>
+            {location !== "/" && (
+              <DropdownMenu>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all duration-200 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent whitespace-nowrap"
+                        data-testid="nav-theme-toggle"
+                      >
+                        <Palette className="w-4 h-4" />
+                        <span>Theme</span>
+                      </button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="bg-card border-border">
+                    <p className="text-sm">Change color theme</p>
+                  </TooltipContent>
+                </Tooltip>
               <DropdownMenuContent align="center" className="w-56">
                 <DropdownMenuLabel>Choose Theme</DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -232,6 +233,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
           </nav>
 
           <div className="flex items-center gap-1.5 shrink-0">
