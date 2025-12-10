@@ -1149,32 +1149,19 @@ Can you beat my score? Try it here: `,
     if (isFinished) return;
     if (!text) return;
     
-    // ANTI-CHEAT: Prevent typing beyond text length (overflow protection)
+    // Safety check - should not happen due to handleBeforeInput validation
     if (value.length > text.length) {
       if (inputRef.current) inputRef.current.value = userInput;
       return;
     }
     
-    // ANTI-CHEAT: Block any text selection manipulation
-    // If user somehow selected text (despite our prevention), restore previous value
-    const { start: selectionStart, end: selectionEnd } = selectionRangeRef.current;
-    const hadSelection = selectionStart !== selectionEnd;
-    if (hadSelection && value.length !== userInput.length - (selectionEnd - selectionStart)) {
-      // Selection-based deletion or replacement detected - block it
-      if (inputRef.current) inputRef.current.value = userInput;
-      toast({
-        title: "Selection Disabled",
-        description: "Please type character-by-character for accurate results",
-        variant: "default",
-      });
-      return;
-    }
-    
     const previousLength = userInput.length;
     const now = Date.now();
+    const isForwardTyping = value.length > previousLength;
+    const isBackspace = value.length < previousLength;
     
     // Track typing speed to disable smooth animation during fast typing
-    if (value.length > previousLength) {
+    if (isForwardTyping) {
       const timeSinceLastKeystroke = now - lastKeystrokeTimeRef.current;
       lastKeystrokeTimeRef.current = now;
       
@@ -1183,10 +1170,8 @@ Can you beat my score? Try it here: `,
       } else {
         setIsTypingFast(false);
       }
-    }
-    
-    // Play keyboard sound on keystroke (only when adding characters)
-    if (value.length > previousLength) {
+      
+      // Play keyboard sound
       import('@/lib/keyboard-sounds')
         .then((module) => {
           if (module.keyboardSound && typeof module.keyboardSound.play === 'function') {
@@ -1206,23 +1191,25 @@ Can you beat my score? Try it here: `,
     }
 
     // PRODUCTION-READY CHARACTER VALIDATION
-    // Simple, robust approach like Monkeytype - no complex diff algorithms
-    // Validate every character in the current input against expected text
+    // All strict rules enforced in handleBeforeInput
+    // This function just updates character states
     
     const newStates: CharState[] = [];
     let newErrorCount = 0;
     
-    // Validate each position in the input
+    // Process each position
     for (let i = 0; i < text.length; i++) {
-      const typedChar = value[i];
       const expectedChar = text[i];
       
       if (i < value.length) {
-        // User has typed this position
+        // User has typed this position - validate it
+        const typedChar = value[i];
         const isCorrect = typedChar === expectedChar;
         
         // Track new errors (only increment on first mistake at this position)
-        const wasIncorrect = charStates[i]?.state === 'incorrect';
+        const previousState = charStates[i];
+        const wasIncorrect = previousState?.state === 'incorrect';
+        
         if (!isCorrect && !wasIncorrect) {
           newErrorCount++;
         }
@@ -1234,10 +1221,14 @@ Can you beat my score? Try it here: `,
         };
       } else {
         // User hasn't typed this position yet
-        // CRITICAL: Keep incorrect state if already marked (Monkeytype persistence)
-        if (charStates[i]?.state === 'incorrect') {
-          newStates[i] = charStates[i];
+        // CRITICAL: Preserve incorrect state for Monkeytype-style error persistence
+        // This ensures red characters stay red even after backspace
+        const previousState = charStates[i];
+        if (previousState?.state === 'incorrect') {
+          // Keep the incorrect state with the wrong character visible
+          newStates[i] = previousState;
         } else {
+          // Position not yet typed and no previous error
           newStates[i] = {
             expected: expectedChar,
             typed: '',
@@ -1255,7 +1246,7 @@ Can you beat my score? Try it here: `,
     setCursorIndex(value.length);
     setUserInput(value);
 
-    // If approaching end of text and time still remaining, extend with queued content
+    // Extend text if approaching end
     if (value.length >= text.length - 100 && timeLeft > 5) {
       const nextParagraph = getNextFromQueue();
       if (nextParagraph) {
@@ -1278,13 +1269,101 @@ Can you beat my score? Try it here: `,
     }
   };
 
-  // Capture selection BEFORE browser collapses it
+  // PRODUCTION-READY INPUT VALIDATION - Block invalid inputs BEFORE they happen
   const handleBeforeInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const nativeEvent = e.nativeEvent as InputEvent;
+    
+    // Capture selection for anti-cheat detection
     if (inputRef.current) {
       selectionRangeRef.current = {
         start: inputRef.current.selectionStart ?? 0,
         end: inputRef.current.selectionEnd ?? 0
       };
+    }
+    
+    // Block any selection-based manipulation
+    const { start: selectionStart, end: selectionEnd } = selectionRangeRef.current;
+    if (selectionStart !== selectionEnd) {
+      e.preventDefault();
+      toast({
+        title: "Selection Disabled",
+        description: "Please type character-by-character for accurate results",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!text || isFinished) return;
+    
+    const currentPosition = userInput.length;
+    const inputData = nativeEvent.data;
+    
+    // Handle deletion (backspace)
+    if (nativeEvent.inputType === 'deleteContentBackward') {
+      // STRICT RULE: Block backspace at position 0
+      if (currentPosition === 0) {
+        e.preventDefault();
+        toast({
+          title: "Cannot Backspace",
+          description: "Already at the beginning",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Allow backspace otherwise
+      return;
+    }
+    
+    // Handle character input
+    if (inputData && inputData.length > 0) {
+      const typedChar = inputData[0];
+      const expectedChar = text[currentPosition];
+      
+      if (!expectedChar) {
+        // Already at end of text
+        e.preventDefault();
+        return;
+      }
+      
+      // STRICT RULE: Check if there are any uncorrected errors before this position
+      const hasUncorrectedErrors = charStates.slice(0, currentPosition).some(
+        state => state?.state === 'incorrect'
+      );
+      
+      if (hasUncorrectedErrors) {
+        // STOP-ON-ERROR: Must backspace to fix errors before continuing
+        e.preventDefault();
+        toast({
+          title: "Fix Errors First",
+          description: "Backspace to correct mistakes before continuing",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // STRICT RULE: If expected character is space, must type space
+      if (expectedChar === ' ' && typedChar !== ' ') {
+        e.preventDefault();
+        toast({
+          title: "Space Required",
+          description: "You must type a space here",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // STRICT RULE: If expected is NOT space, cannot type space
+      if (expectedChar !== ' ' && typedChar === ' ') {
+        e.preventDefault();
+        toast({
+          title: "No Space Allowed",
+          description: `Expected character: "${expectedChar}"`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Character input is valid - will be processed in onChange
     }
   };
 
