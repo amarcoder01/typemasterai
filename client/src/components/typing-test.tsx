@@ -179,7 +179,7 @@ export default function TypingTest() {
   const [fetchRetryCount, setFetchRetryCount] = useState(0);
   const MAX_RETRY_ATTEMPTS = 3;
   
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const charRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const keystrokeTrackerRef = useRef<KeystrokeTracker | null>(null);
@@ -1274,7 +1274,7 @@ Can you beat my score? Try it here: `,
   };
 
   // PRODUCTION-READY INPUT VALIDATION - Block invalid inputs BEFORE they happen
-  const handleBeforeInput = (e: React.FormEvent<HTMLInputElement>) => {
+  const handleBeforeInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
     const nativeEvent = e.nativeEvent as InputEvent;
     
     // Capture selection for anti-cheat detection
@@ -1371,7 +1371,7 @@ Can you beat my score? Try it here: `,
     }
   };
 
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (isComposing) return;
     processInput(e.target.value);
     
@@ -1387,7 +1387,7 @@ Can you beat my score? Try it here: `,
     setIsComposing(true);
   };
 
-  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
     setIsComposing(false);
     if (e.data && inputRef.current) {
       const newValue = userInput + e.data;
@@ -1404,7 +1404,7 @@ Can you beat my score? Try it here: `,
   };
   
   // Handle keyboard events with strict validation
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Block Ctrl+A (select all) - anti-cheat measure
     if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
       e.preventDefault();
@@ -1456,7 +1456,7 @@ Can you beat my score? Try it here: `,
     }
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
     toast({
       title: "Paste Disabled",
@@ -1465,7 +1465,7 @@ Can you beat my score? Try it here: `,
     });
   };
 
-  const handleCut = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handleCut = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
   };
 
@@ -2636,11 +2636,10 @@ Can you beat my score? Try it here: `,
           </div>
         )}
 
-        {/* Hidden Input */}
+        {/* Hidden Textarea */}
         {!freestyleMode && (
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
             value={userInput}
             onBeforeInput={handleBeforeInput}
             onChange={handleInput}
@@ -2659,13 +2658,14 @@ Can you beat my score? Try it here: `,
                 inputRef.current.setSelectionRange(pos, pos);
               }
             }}
-            className="absolute opacity-0 w-full h-full cursor-default z-0"
+            className="absolute opacity-0 w-0 h-0 top-0 left-0 resize-none cursor-default z-0"
             autoFocus
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
-            spellCheck="false"
+            spellCheck={false}
             disabled={!!paragraphError && !text}
+            aria-label="Typing input area"
           />
         )}
 
