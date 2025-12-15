@@ -18,6 +18,8 @@ interface BookCertificateProps {
   username?: string;
   date?: Date;
   difficulty?: string;
+  characters?: number;
+  errors?: number;
 }
 
 interface TierVisuals {

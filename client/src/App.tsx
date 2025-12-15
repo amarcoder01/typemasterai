@@ -38,6 +38,7 @@ import DictationTest from "@/pages/dictation-test";
 import StressTest from "@/pages/stress-test";
 import StressLeaderboard from "@/pages/stress-leaderboard";
 import SharedResult from "@/pages/shared-result";
+import Result from "@/pages/result";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import TermsOfService from "@/pages/terms-of-service";
 import CookiePolicy from "@/pages/cookie-policy";
@@ -65,6 +66,7 @@ function Router() {
       <Route path="/reset-password" component={ResetPassword} />
       <Route path="/verify-email" component={VerifyEmail} />
       <Route path="/share/:shareId" component={SharedResult} />
+      <Route path="/result/:shareToken" component={Result} />
       <Route>
         <Layout>
           <Switch>

@@ -696,6 +696,11 @@ export default function BookMode() {
     const wordsTyped = Math.min(words, Math.floor(userInput.split(/\s+/).length));
     const consistency = Math.max(0, Math.min(100, Math.round(100 - (errorCount / chars) * 100)));
     
+    const src = currentParagraph.source || "";
+    const byIdx = src.lastIndexOf(" by ");
+    const parsedTitle = byIdx >= 0 ? src.slice(0, byIdx) : src;
+    const parsedAuthor = byIdx >= 0 ? src.slice(byIdx + 4) : "";
+
     setLastResultSnapshot({
       wpm: finalWpm,
       accuracy: finalAccuracy,
@@ -703,10 +708,10 @@ export default function BookMode() {
       errors: errorCount,
       duration,
       consistency,
-      bookTitle: currentParagraph.bookTitle,
-      author: currentParagraph.author,
-      chapter: currentParagraph.chapter,
-      chapterTitle: currentParagraph.chapterTitle,
+      bookTitle: parsedTitle,
+      author: parsedAuthor,
+      chapter: currentParagraph.chapter ?? undefined,
+      chapterTitle: currentParagraph.chapterTitle ?? undefined,
       paragraphsCompleted: 1,
       wordsTyped,
       difficulty: filters.difficulty,

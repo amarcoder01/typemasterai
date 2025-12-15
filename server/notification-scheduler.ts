@@ -177,7 +177,7 @@ export class NotificationScheduler {
           sendAtUtc: nextJobTime,
           status: 'pending',
           attemptCount: 0,
-          payloadMeta: job.payloadMeta,
+          payloadMeta: job.payloadMeta as any,
         }]);
       }
     } catch (error) {

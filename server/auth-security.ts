@@ -213,6 +213,7 @@ const authRateLimits: Record<string, RateLimitConfig> = {
   oauth: { windowMs: 15 * 60 * 1000, maxAttempts: 10, blockDurationMs: 15 * 60 * 1000 },
   passwordChange: { windowMs: 60 * 60 * 1000, maxAttempts: 3, blockDurationMs: 60 * 60 * 1000 },
   unlink: { windowMs: 60 * 60 * 1000, maxAttempts: 5, blockDurationMs: 60 * 60 * 1000 },
+  share: { windowMs: 60 * 1000, maxAttempts: 10, blockDurationMs: 5 * 60 * 1000 },
 };
 
 export function checkRateLimit(

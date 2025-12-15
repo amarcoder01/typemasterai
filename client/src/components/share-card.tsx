@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Share2, Copy, Check, Twitter, Facebook, MessageCircle, Mail, Send, Image, Clipboard } from "lucide-react";
+import { Download, Share2, Copy, Check, Twitter, Facebook, MessageCircle, Mail, Send, Image, Clipboard, Linkedin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ShareCardProps {
@@ -324,6 +324,11 @@ Think you can beat my score? Try it now! 🎯
     onShareTracked?.('visual_card_whatsapp');
   };
 
+  const shareToLinkedIn = () => {
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
+    onShareTracked?.('visual_card_linkedin');
+  };
+
   const shareToReddit = () => {
     const title = encodeURIComponent(`I scored ${wpm} WPM on TypeMasterAI!`);
     window.open(`https://www.reddit.com/submit?url=${encodeURIComponent('https://typemasterai.com')}&title=${title}`, '_blank', 'width=600,height=600');
@@ -404,7 +409,7 @@ Think you can beat my score? Try it now! 🎯
             data-testid="button-visual-share-twitter"
           >
             <Twitter className="w-4 h-4 text-[#1DA1F2]" />
-            <span className="text-xs font-medium">Twitter</span>
+            <span className="text-xs font-medium">X (Twitter)</span>
           </button>
           <button
             onClick={shareToFacebook}
@@ -413,6 +418,14 @@ Think you can beat my score? Try it now! 🎯
           >
             <Facebook className="w-4 h-4 text-[#1877F2]" />
             <span className="text-xs font-medium">Facebook</span>
+          </button>
+          <button
+            onClick={shareToLinkedIn}
+            className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all"
+            data-testid="button-visual-share-linkedin"
+          >
+            <Linkedin className="w-4 h-4 text-[#0A66C2]" />
+            <span className="text-xs font-medium">LinkedIn</span>
           </button>
           <button
             onClick={shareToWhatsApp}

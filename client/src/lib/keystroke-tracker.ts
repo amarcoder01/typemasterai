@@ -270,13 +270,22 @@ export class KeystrokeTracker {
     }
   }
 
-  onKeyUp(key: string, keyCode: string, timestamp: number, isCorrect: boolean) {
+  onKeyUp(
+    key: string,
+    keyCode: string,
+    timestamp: number,
+    isCorrect: boolean,
+    expectedKeyOverride?: string | null,
+    positionOverride?: number
+  ) {
     const pressTime = this.pressedKeys.get(key);
     if (!pressTime) return;
 
     const dwellTime = timestamp - pressTime;
     const flightTime = this.lastReleaseTime ? pressTime - this.lastReleaseTime : null;
-    const expectedKey = this.expectedText[this.currentPosition] || null;
+    const expectedKey = (typeof expectedKeyOverride !== 'undefined')
+      ? (expectedKeyOverride === null ? null : expectedKeyOverride)
+      : (this.expectedText[this.currentPosition] || null);
     
     const fingerInfo = getFingerInfo(key, keyCode);
 
@@ -289,7 +298,7 @@ export class KeystrokeTracker {
       flightTime,
       isCorrect,
       expectedKey,
-      position: this.currentPosition,
+      position: typeof positionOverride === 'number' ? positionOverride : this.currentPosition,
       ...fingerInfo,
     };
 

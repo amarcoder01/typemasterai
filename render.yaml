@@ -1,0 +1,82 @@
+# Render Blueprint - TypeMasterAI Deployment Configuration
+# https://render.com/docs/blueprint-spec
+
+services:
+  # Web Service - Full-stack Node.js application
+  - type: web
+    name: typemasterai
+    runtime: node
+    region: oregon # Options: oregon, frankfurt, ohio, singapore
+    plan: free # Options: free, starter, standard, pro
+    
+    # Build configuration
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    
+    # Health check
+    healthCheckPath: /api/health
+    
+    # Environment variables
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000 # Render's default port
+      - key: DATABASE_URL
+        fromDatabase:
+          name: typemasterai-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: APP_URL
+        sync: false # Set manually after deployment to your Render URL
+      
+      # OpenAI Configuration (Required for AI features)
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: AI_INTEGRATIONS_OPENAI_API_KEY
+        sync: false
+      - key: AI_INTEGRATIONS_OPENAI_BASE_URL
+        sync: false
+      
+      # OAuth Configuration (Optional)
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+      
+      # Push Notifications (Optional)
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      
+      # Email Service (Optional)
+      - key: MAILGUN_API_KEY
+        sync: false
+      - key: MAILGUN_DOMAIN
+        sync: false
+      - key: MAILGUN_FROM_EMAIL
+        sync: false
+      - key: MAILGUN_FROM_NAME
+        sync: false
+
+databases:
+  # PostgreSQL Database
+  - name: typemasterai-db
+    databaseName: typemasterai
+    user: typemasterai
+    region: oregon
+    plan: free # Options: free, starter, standard, pro
+    postgresMajorVersion: 16
+

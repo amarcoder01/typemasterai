@@ -1,8 +1,8 @@
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const aiApiKey = process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+const aiBaseUrl = process.env.OPENAI_BASE_URL || process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+const openai = aiApiKey ? new OpenAI({ apiKey: aiApiKey, baseURL: aiBaseUrl }) : null as unknown as OpenAI;
 
 const POOL_SIZE = 100;
 const REFRESH_THRESHOLD = 20;
@@ -26,10 +26,15 @@ class BotNamePool {
     const allNames: string[] = [];
     const batchSize = 20;
     
+    if (!openai) {
+      // No AI credentials available; use fallback names immediately
+      return this.generateFallbackNames(count);
+    }
+
     for (let i = 0; i < count; i += batchSize) {
       const remaining = Math.min(batchSize, count - i);
       try {
-        const response = await openai.chat.completions.create({
+        const response = await (openai as any).chat.completions.create({
           model: "gpt-4o-mini",
           messages: [
             {
@@ -55,8 +60,8 @@ Mix styles randomly. Keep them 5-15 characters. Make them feel authentic like re
         const names = response.choices[0].message.content
           ?.trim()
           .split("\n")
-          .map(name => name.trim().replace(/[^a-zA-Z0-9_-]/g, ''))
-          .filter(name => name.length >= 4 && name.length <= 16);
+          .map((name: string) => name.trim().replace(/[^a-zA-Z0-9_-]/g, ''))
+          .filter((name: string) => name.length >= 4 && name.length <= 16);
 
         if (names) {
           allNames.push(...names);

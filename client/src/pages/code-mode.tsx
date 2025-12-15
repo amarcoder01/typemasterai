@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -174,6 +175,13 @@ export default function CodeMode() {
   const [focusMode, setFocusMode] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(() => keyboardSound.getSettings().enabled);
   
+  // Confirmation dialog state for setting changes during active typing
+  const [showChangeConfirm, setShowChangeConfirm] = useState(false);
+  const [changeTitle, setChangeTitle] = useState("");
+  const [changeDescription, setChangeDescription] = useState("");
+  const [changeConfirmLabel, setChangeConfirmLabel] = useState("Change & Reset");
+  const pendingChangeRef = useRef<(() => void) | null>(null);
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const codeDisplayRef = useRef<HTMLDivElement>(null);
@@ -181,6 +189,53 @@ export default function CodeMode() {
   const timerRef = useRef<number | null>(null);
   const wpmHistoryRef = useRef<number[]>([]);
   const infiniteAbortRef = useRef<AbortController | null>(null);
+  const pendingInputValueRef = useRef<string | null>(null);
+  const pendingInputRafRef = useRef<number | null>(null);
+  const lastCodeScrollTsRef = useRef<number>(0);
+  const startTimeRef = useRef<number | null>(null);
+  const lastElapsedSecondRef = useRef<number>(-1);
+  const statsLastUpdateRef = useRef<number>(0);
+  const userInputRef = useRef<string>("");
+  const codeSnippetRef = useRef<string>("");
+  const timeLimitRef = useRef<number>(timeLimit);
+  const timerRafRef = useRef<number | null>(null);
+  const finishTestRef = useRef<() => void>(() => {});
+
+  // Guard function to prevent setting changes during active typing
+  const confirmOrRun = useCallback((title: string, description: string, onConfirm: () => void, confirmLabel = "Change & Reset") => {
+    const hasTyped = userInput.length > 0;
+    const timerStarted = startTime !== null;
+    const typingInProgress = isActive && !isFinished && !isFailed && (hasTyped || timerStarted);
+    
+    if (typingInProgress) {
+      pendingChangeRef.current = onConfirm;
+      setChangeTitle(title);
+      setChangeDescription(description);
+      setChangeConfirmLabel(confirmLabel);
+      setShowChangeConfirm(true);
+      
+      toast({
+        title: "⚠️ Test in Progress",
+        description: "You have an active typing session. Confirm to reset and apply changes.",
+        variant: "destructive",
+      });
+    } else {
+      onConfirm();
+    }
+  }, [isActive, isFinished, isFailed, userInput.length, startTime, toast]);
+
+  const handleConfirmChange = useCallback(() => {
+    const fn = pendingChangeRef.current;
+    setShowChangeConfirm(false);
+    pendingChangeRef.current = null;
+    if (fn) {
+      fn();
+      toast({
+        title: "✓ Settings Updated",
+        description: "Your changes have been applied and the test has been reset.",
+      });
+    }
+  }, [toast]);
 
   const fetchCodeSnippet = useCallback(async (forceNew = true, isRetry = false) => {
     if (abortControllerRef.current) {
@@ -320,6 +375,15 @@ export default function CodeMode() {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      if (timerRafRef.current != null) {
+        cancelAnimationFrame(timerRafRef.current);
+        timerRafRef.current = null;
+      }
+      if (pendingInputRafRef.current != null) {
+        cancelAnimationFrame(pendingInputRafRef.current);
+        pendingInputRafRef.current = null;
+        pendingInputValueRef.current = null;
+      }
     };
   }, []);
 
@@ -330,72 +394,66 @@ export default function CodeMode() {
   }, [mode, codeSnippet, isLoading, fetchCodeSnippet]);
 
   useEffect(() => {
-    if (isActive && startTime && !isFinished) {
-      timerRef.current = window.setInterval(() => {
-        const now = Date.now();
-        const elapsedMs = now - startTime;
-        const elapsed = Math.floor(elapsedMs / 1000);
-        setElapsedTime(elapsed);
-        
-        // Check if time limit reached
-        if (timeLimit > 0 && elapsed >= timeLimit) {
-          finishTest();
-          return;
-        }
-        
-        // Calculate real-time stats using industry-standard formulas
-        const minutes = elapsedMs / 60000; // Use milliseconds for precision
-        if (minutes > 0 && userInput.length > 0) {
-          // Count correct and incorrect characters
+    if (!isActive || !startTime || isFinished) return;
+    startTimeRef.current = startTime;
+
+    let rafId: number;
+    const tick = () => {
+      const st = startTimeRef.current;
+      if (!st) {
+        rafId = requestAnimationFrame(tick);
+        timerRafRef.current = rafId;
+        return;
+      }
+      const now = Date.now();
+      const elapsedMs = now - st;
+      const elapsedSec = Math.floor(elapsedMs / 1000);
+
+      if (elapsedSec !== lastElapsedSecondRef.current) {
+        lastElapsedSecondRef.current = elapsedSec;
+        setElapsedTime(elapsedSec);
+      }
+
+      const tl = timeLimitRef.current;
+      if (tl > 0 && elapsedSec >= tl) {
+        if (finishTestRef.current) finishTestRef.current();
+        return; // stop loop
+      }
+
+      if (now - statsLastUpdateRef.current >= 80) {
+        statsLastUpdateRef.current = now;
+        const ui = userInputRef.current;
+        const code = codeSnippetRef.current;
+        const minutes = elapsedMs / 60000;
+        if (minutes > 0 && ui.length > 0) {
           let correctChars = 0;
-          let errorChars = 0;
-          for (let i = 0; i < userInput.length; i++) {
-            if (userInput[i] === codeSnippet[i]) {
-              correctChars++;
-            } else {
-              errorChars++;
-            }
+          for (let i = 0; i < ui.length; i++) {
+            if (ui[i] === code[i]) correctChars++;
           }
-          
-          // Raw WPM (Gross WPM) = (Total Characters / 5) / Minutes
-          // Industry standard: 1 word = 5 characters
-          const currentRawWpm = Math.round((userInput.length / 5) / minutes);
-          
-          // Net WPM = (Correct Characters / 5) / Minutes
-          // This is the effective typing speed accounting for errors
+          const currentRawWpm = Math.round((ui.length / 5) / minutes);
           const currentWpm = Math.round((correctChars / 5) / minutes);
-          
           setWpm(Math.max(0, currentWpm));
           setRawWpm(Math.max(0, currentRawWpm));
-          
-          // Accuracy = (Correct Characters / Total Characters) × 100
-          const currentAccuracy = Math.round((correctChars / userInput.length) * 100);
+          const currentAccuracy = Math.round((correctChars / ui.length) * 100);
           setAccuracy(currentAccuracy);
-          
-          // Track Net WPM history for consistency calculation (more accurate than Raw WPM)
-          // Sample every 500ms for better granularity
+
+          // Sample every 500ms
           const sampleIndex = Math.floor(elapsedMs / 500);
           if (wpmHistoryRef.current.length < sampleIndex && currentWpm > 0) {
             wpmHistoryRef.current.push(currentWpm);
           }
-          
-          // Consistency = based on Coefficient of Variation (CV)
-          // CV = (Standard Deviation / Mean) × 100
-          // Consistency Score = 100 - CV (higher is more consistent)
-          // Skip first 2 samples (first second) for warm-up period
+
           if (wpmHistoryRef.current.length >= 4) {
-            const samples = wpmHistoryRef.current.slice(2); // Skip warm-up
+            const samples = wpmHistoryRef.current.slice(2);
             const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
             if (mean > 0) {
               const variance = samples.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / samples.length;
               const stdDev = Math.sqrt(variance);
-              const cv = (stdDev / mean) * 100; // Coefficient of variation
-              // Scale CV to be more meaningful - typical typing CV is 10-30%
+              const cv = (stdDev / mean) * 100;
               const consistencyScore = Math.max(0, Math.min(100, 100 - (cv * 1.5)));
               setConsistency(Math.round(consistencyScore));
             }
           } else if (wpmHistoryRef.current.length >= 2) {
-            // Fallback for shorter tests
             const samples = wpmHistoryRef.current;
             const mean = samples.reduce((a, b) => a + b, 0) / samples.length;
             if (mean > 0) {
@@ -407,13 +465,24 @@ export default function CodeMode() {
             }
           }
         }
-      }, 100); // 100ms intervals for smooth updates
-      
-      return () => {
-        if (timerRef.current) clearInterval(timerRef.current);
-      };
-    }
-  }, [isActive, startTime, isFinished, userInput, codeSnippet, timeLimit]);
+      }
+
+      rafId = requestAnimationFrame(tick);
+      timerRafRef.current = rafId;
+    };
+
+    lastElapsedSecondRef.current = -1;
+    rafId = requestAnimationFrame(tick);
+    timerRafRef.current = rafId;
+    
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (timerRafRef.current != null) {
+        cancelAnimationFrame(timerRafRef.current);
+        timerRafRef.current = null;
+      }
+    };
+  }, [isActive, startTime, isFinished]);
 
   // Completion logic:
   // - For timed tests (timeLimit > 0): ONLY finish when timer expires (handled in timer effect)
@@ -463,9 +532,13 @@ export default function CodeMode() {
 
   const finishTest = () => {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (timerRafRef.current != null) {
+      cancelAnimationFrame(timerRafRef.current);
+      timerRafRef.current = null;
+    }
     
     // Use precise milliseconds for accurate calculation
-    const durationMs = startTime ? Date.now() - startTime : 0;
+    const durationMs = (startTimeRef.current ?? startTime) ? Date.now() - (startTimeRef.current ?? (startTime as number)) : 0;
     const duration = Math.floor(durationMs / 1000);
     const minutes = durationMs / 60000; // Use milliseconds for precision
     
@@ -549,7 +622,17 @@ export default function CodeMode() {
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (isComposing) return;
-    processInput(e.target.value);
+    const value = e.target.value;
+    // Coalesce rapid input changes (e.g., held key) into a single rAF tick to avoid update storms
+    pendingInputValueRef.current = value;
+    if (pendingInputRafRef.current == null) {
+      pendingInputRafRef.current = requestAnimationFrame(() => {
+        const v = pendingInputValueRef.current ?? "";
+        pendingInputValueRef.current = null;
+        pendingInputRafRef.current = null;
+        processInput(v);
+      });
+    }
   };
 
   const handleCompositionStart = () => {
@@ -580,8 +663,12 @@ export default function CodeMode() {
     
     if (!isActive && value.length > 0) {
       setIsActive(true);
-      setStartTime(Date.now());
+      const now = Date.now();
+      startTimeRef.current = now;
+      setStartTime(now);
       wpmHistoryRef.current = [];
+      lastElapsedSecondRef.current = -1;
+      statsLastUpdateRef.current = 0;
     }
     
     if (testMode === "master") {
@@ -640,7 +727,9 @@ export default function CodeMode() {
         setUserInput(newValue);
         if (!isActive) {
           setIsActive(true);
-          setStartTime(Date.now());
+          const now = Date.now();
+          startTimeRef.current = now;
+          setStartTime(now);
         }
       }
     }
@@ -655,6 +744,7 @@ export default function CodeMode() {
     setCompletionDialogOpen(false);
     setUserInput("");
     setStartTime(null);
+    startTimeRef.current = null;
     setIsActive(false);
     setIsFinished(false);
     setIsFailed(false);
@@ -665,6 +755,8 @@ export default function CodeMode() {
     setErrors(0);
     setElapsedTime(0);
     wpmHistoryRef.current = [];
+    lastElapsedSecondRef.current = -1;
+    statsLastUpdateRef.current = 0;
     
     if (mode === "ai") {
       fetchCodeSnippet(true); // Force new snippet
@@ -675,6 +767,27 @@ export default function CodeMode() {
     
     setTimeout(() => textareaRef.current?.focus(), 0);
   }, [mode, customCode, fetchCodeSnippet]);
+
+  // Keep refs synced for rAF timer loop
+  useEffect(() => { userInputRef.current = userInput; }, [userInput]);
+  useEffect(() => { codeSnippetRef.current = codeSnippet; }, [codeSnippet]);
+  useEffect(() => { timeLimitRef.current = timeLimit; }, [timeLimit]);
+  useEffect(() => { finishTestRef.current = finishTest; }, [finishTest]);
+  useEffect(() => { if (startTime != null) startTimeRef.current = startTime; }, [startTime]);
+  
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const typingInProgress = isActive && !isFinished && !isFailed && userInput.length > 0;
+      if (typingInProgress) {
+        e.preventDefault();
+        e.returnValue = 'You have an active typing test. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isActive, isFinished, isFailed, userInput.length]);
   
   // Global keyboard shortcuts - respects test state
   useEffect(() => {
@@ -721,16 +834,28 @@ export default function CodeMode() {
 
   const handleModeSwitch = (newMode: "ai" | "custom") => {
     if (newMode === mode) return;
-    setMode(newMode);
-    setCodeSnippet("");
-    setUserInput("");
-    setIsActive(false);
-    setIsFinished(false);
-    setErrorState({ type: null, message: '', canRetry: false });
-    setRetryCount(0);
-    if (newMode === "ai") {
-      fetchCodeSnippet(true);
-    }
+    
+    confirmOrRun(
+      "Switch Mode?",
+      `Changing from ${mode === "ai" ? "AI Generated" : "Custom Code"} to ${newMode === "ai" ? "AI Generated" : "Custom Code"} will reset your current test and clear progress.`,
+      () => {
+        setMode(newMode);
+        setCodeSnippet("");
+        setUserInput("");
+        setIsActive(false);
+        setIsFinished(false);
+        setErrorState({ type: null, message: '', canRetry: false });
+        setRetryCount(0);
+        if (newMode === "ai") {
+          fetchCodeSnippet(true);
+        }
+        toast({
+          title: "Mode Changed",
+          description: `Switched to ${newMode === "ai" ? "AI Generated" : "Custom Code"} mode.`,
+        });
+      },
+      "Switch Mode"
+    );
   };
   
   // Reset error state when language or difficulty changes
@@ -799,6 +924,10 @@ export default function CodeMode() {
   // Auto-scroll to keep current line visible
   useEffect(() => {
     if (!codeDisplayRef.current || !codeSnippet) return;
+    // Throttle auto-scroll during rapid input to avoid layout thrash
+    const now = performance.now();
+    if (now - lastCodeScrollTsRef.current < 32) return; // ~30 FPS
+    lastCodeScrollTsRef.current = now;
     
     // Calculate which line the cursor is on
     const textBeforeCursor = codeSnippet.substring(0, userInput.length);
@@ -820,12 +949,30 @@ export default function CodeMode() {
       });
       return;
     }
-    setCodeSnippet(normalizeCodeSnippet(customCode));
-    setSnippetId(null);
-    setUserInput("");
-    setIsActive(false);
-    setIsFinished(false);
-    setTimeout(() => textareaRef.current?.focus(), 0);
+    
+    const applyCode = () => {
+      setCodeSnippet(normalizeCodeSnippet(customCode));
+      setSnippetId(null);
+      setUserInput("");
+      setIsActive(false);
+      setIsFinished(false);
+      toast({
+        title: "Custom Code Loaded",
+        description: `${customCode.trim().split('\n').length} lines ready for typing practice.`,
+      });
+      setTimeout(() => textareaRef.current?.focus(), 0);
+    };
+    
+    if (isActive && !isFinished && userInput.length > 0) {
+      confirmOrRun(
+        "Load Custom Code?",
+        "Loading new custom code will reset your current typing test and discard progress.",
+        applyCode,
+        "Load Code"
+      );
+    } else {
+      applyCode();
+    }
   };
 
   const handleContainerClick = () => {
@@ -1109,7 +1256,17 @@ export default function CodeMode() {
                       <Button
                         variant={mode === "ai" ? "default" : "ghost"}
                         className="rounded-none text-xs px-3 h-8"
-                        onClick={() => handleModeSwitch("ai")}
+                        onClick={() => {
+                          if (isActive) {
+                            toast({
+                              title: "Test in Progress",
+                              description: "Finish or reset your current test before switching modes.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          handleModeSwitch("ai");
+                        }}
                         disabled={isActive}
                         data-testid="button-mode-ai"
                       >
@@ -1125,7 +1282,17 @@ export default function CodeMode() {
                       <Button
                         variant={mode === "custom" ? "default" : "ghost"}
                         className="rounded-none text-xs px-3 h-8"
-                        onClick={() => handleModeSwitch("custom")}
+                        onClick={() => {
+                          if (isActive) {
+                            toast({
+                              title: "Test in Progress",
+                              description: "Finish or reset your current test before switching modes.",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          handleModeSwitch("custom");
+                        }}
                         disabled={isActive}
                         data-testid="button-mode-custom"
                       >
@@ -1154,7 +1321,20 @@ export default function CodeMode() {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Select value={language} onValueChange={setLanguage} disabled={isActive || mode === "custom"}>
+                <Select value={language} onValueChange={(val) => {
+                  if (val === language) return;
+                  confirmOrRun(
+                    "Change Language?",
+                    `Switching from ${PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language} to ${PROGRAMMING_LANGUAGES[val as keyof typeof PROGRAMMING_LANGUAGES]?.name || val} will reset your current test and load new code.`,
+                    () => {
+                      setLanguage(val);
+                      toast({
+                        title: "Language Changed",
+                        description: `Now using ${PROGRAMMING_LANGUAGES[val as keyof typeof PROGRAMMING_LANGUAGES]?.name || val}.`,
+                      });
+                    }
+                  );
+                }} disabled={isActive || mode === "custom"}>
                   <SelectTrigger className="w-[140px] h-8 text-xs" data-testid="select-language">
                     <SelectValue />
                   </SelectTrigger>
@@ -1198,7 +1378,20 @@ export default function CodeMode() {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Select value={difficulty} onValueChange={(val) => setDifficulty(val as any)} disabled={isActive || mode === "custom"}>
+                <Select value={difficulty} onValueChange={(val) => {
+                  if (val === difficulty) return;
+                  confirmOrRun(
+                    "Change Difficulty?",
+                    `Switching from ${difficulty} to ${val} difficulty will reset your current test and load new code with different complexity.`,
+                    () => {
+                      setDifficulty(val as any);
+                      toast({
+                        title: "Difficulty Changed",
+                        description: `Now using ${val} difficulty level.`,
+                      });
+                    }
+                  );
+                }} disabled={isActive || mode === "custom"}>
                   <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-difficulty">
                     <SelectValue />
                   </SelectTrigger>
@@ -1229,7 +1422,20 @@ export default function CodeMode() {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Select value={testMode} onValueChange={(val) => setTestMode(val as any)} disabled={isActive}>
+                <Select value={testMode} onValueChange={(val) => {
+                  if (val === testMode) return;
+                  confirmOrRun(
+                    "Change Test Mode?",
+                    `Switching from ${testMode} to ${val} mode will reset your current test. Different modes have different error tolerance rules.`,
+                    () => {
+                      setTestMode(val as any);
+                      toast({
+                        title: "Test Mode Changed",
+                        description: `Now using ${val} mode.`,
+                      });
+                    }
+                  );
+                }} disabled={isActive}>
                   <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-test-mode">
                     <SelectValue />
                   </SelectTrigger>
@@ -1256,7 +1462,21 @@ export default function CodeMode() {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Select value={timeLimit.toString()} onValueChange={(val) => setTimeLimit(parseInt(val))} disabled={isActive}>
+                <Select value={timeLimit.toString()} onValueChange={(val) => {
+                  const newTimeLimit = parseInt(val);
+                  if (newTimeLimit === timeLimit) return;
+                  confirmOrRun(
+                    "Change Time Limit?",
+                    `Switching from ${timeLimit === 0 ? "No Limit" : `${timeLimit}s`} to ${newTimeLimit === 0 ? "No Limit" : `${newTimeLimit}s`} will reset your current test.`,
+                    () => {
+                      setTimeLimit(newTimeLimit);
+                      toast({
+                        title: "Time Limit Changed",
+                        description: `Now using ${newTimeLimit === 0 ? "No Limit" : `${newTimeLimit} seconds`}.`,
+                      });
+                    }
+                  );
+                }} disabled={isActive}>
                   <SelectTrigger className="w-[90px] h-8 text-xs" data-testid="select-time">
                     <SelectValue />
                   </SelectTrigger>
@@ -1273,7 +1493,18 @@ export default function CodeMode() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={resetTest}
+                    onClick={() => {
+                      if (isActive && !isFinished && userInput.length > 0) {
+                        confirmOrRun(
+                          "Reset Test?",
+                          "Resetting will discard your current progress and start a fresh test.",
+                          resetTest,
+                          "Reset Test"
+                        );
+                      } else {
+                        resetTest();
+                      }
+                    }}
                     disabled={isLoading}
                     data-testid="button-restart"
                   >
@@ -2443,6 +2674,42 @@ export default function CodeMode() {
             </Tabs>
           </DialogContent>
         </Dialog>
+
+        {/* Confirmation Dialog for Setting Changes During Active Typing */}
+        <AlertDialog open={showChangeConfirm} onOpenChange={setShowChangeConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{changeTitle}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {changeDescription}
+                <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-md">
+                  <p className="text-sm text-foreground font-medium flex items-center gap-2">
+                    <span className="text-yellow-500">⚠️</span>
+                    Warning: Your current progress will be lost
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    You have typed {userInput.length} characters. This action will reset the test and you'll need to start over.
+                  </p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setShowChangeConfirm(false);
+                pendingChangeRef.current = null;
+                toast({
+                  title: "Change Cancelled",
+                  description: "Your typing session continues. No changes were made.",
+                });
+              }}>
+                Cancel & Continue Typing
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmChange} className="bg-primary">
+                {changeConfirmLabel}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   );

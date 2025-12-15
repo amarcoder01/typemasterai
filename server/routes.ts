@@ -1,6 +1,8 @@
 import type { Express } from "express";
+import crypto from "node:crypto";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { checkRateLimit } from "./auth-security";
 import { leaderboardCache } from "./leaderboard-cache";
 import { streamChatCompletionWithSearch, shouldPerformWebSearch, generateConversationTitle, type ChatMessage, type StreamEvent } from "./chat-service";
 import { generateTypingParagraph } from "./ai-paragraph-generator";
@@ -2031,9 +2033,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/chat", isAuthenticated, chatLimiter, async (req, res) => {
+  app.post("/api/chat", chatLimiter, async (req, res) => {
     try {
       const { messages: requestMessages, conversationId } = req.body;
+      const isAuthenticated = !!req.user;
 
       if (!requestMessages || !Array.isArray(requestMessages)) {
         return res.status(400).json({ message: "Invalid request: messages array required" });
@@ -2056,32 +2059,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let convId = conversationId;
       let isNewConversation = false;
       
-      if (!convId) {
-        // Create conversation with temporary title
-        const conversation = await storage.createConversation({
-          userId: req.user!.id,
-          title: "New Chat",
-          isPinned: 0,
-        });
-        convId = conversation.id;
-        isNewConversation = true;
-      } else {
-        const conversation = await storage.getConversation(convId, req.user!.id);
-        if (!conversation) {
-          return res.status(404).json({ message: "Conversation not found" });
-        }
-        // Check if this is the first message in an existing "New Chat" conversation
-        const existingMessages = await storage.getConversationMessages(convId);
-        if (existingMessages.length === 0 && conversation.title === "New Chat") {
+      // Only create/manage conversations for authenticated users
+      if (isAuthenticated) {
+        if (!convId) {
+          // Create conversation with temporary title
+          const conversation = await storage.createConversation({
+            userId: req.user!.id,
+            title: "New Chat",
+            isPinned: 0,
+          });
+          convId = conversation.id;
           isNewConversation = true;
+        } else {
+          const conversation = await storage.getConversation(convId, req.user!.id);
+          if (!conversation) {
+            return res.status(404).json({ message: "Conversation not found" });
+          }
+          // Check if this is the first message in an existing "New Chat" conversation
+          const existingMessages = await storage.getConversationMessages(convId);
+          if (existingMessages.length === 0 && conversation.title === "New Chat") {
+            isNewConversation = true;
+          }
         }
-      }
 
-      await storage.createMessage({
-        conversationId: convId,
-        role: "user",
-        content: lastUserMessage.content,
-      });
+        await storage.createMessage({
+          conversationId: convId,
+          role: "user",
+          content: lastUserMessage.content,
+        });
+      }
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
@@ -2125,25 +2131,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         
-        await storage.createMessage({
-          conversationId: convId,
-          role: "assistant",
-          content: assistantResponse,
-        });
+        // Only save messages for authenticated users
+        if (isAuthenticated && convId) {
+          await storage.createMessage({
+            conversationId: convId,
+            role: "assistant",
+            content: assistantResponse,
+          });
 
-        if (isNewConversation) {
-          generateConversationTitle(lastUserMessage.content)
-            .then(async (title) => {
-              try {
-                await storage.updateConversation(convId!, req.user!.id, { title });
-                console.log(`[Chat] Generated title for conversation ${convId}: "${title}"`);
-              } catch (err) {
-                console.error(`[Chat] Failed to update conversation title:`, err);
-              }
-            })
-            .catch((err) => {
-              console.error(`[Chat] Title generation failed:`, err);
-            });
+          if (isNewConversation) {
+            generateConversationTitle(lastUserMessage.content)
+              .then(async (title) => {
+                try {
+                  await storage.updateConversation(convId!, req.user!.id, { title });
+                  console.log(`[Chat] Generated title for conversation ${convId}: "${title}"`);
+                } catch (err) {
+                  console.error(`[Chat] Failed to update conversation title:`, err);
+                }
+              })
+              .catch((err) => {
+                console.error(`[Chat] Title generation failed:`, err);
+              });
+          }
+        } else {
+          // For anonymous users, send a reminder to login to save conversations
+          res.write(`data: ${JSON.stringify({ 
+            type: "login_reminder", 
+            message: "Login to save your conversations" 
+          })}\n\n`);
         }
 
         res.write("data: [DONE]\n\n");
@@ -3871,6 +3886,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { insertSharedResultSchema } = await import("@shared/schema");
       const { mode, resultId, isAnonymous } = req.body;
 
+      // Basic abuse protection: rate limit share creation per user/IP
+      const rateId = (req.user?.id || req.ip || "anonymous").toString();
+      const rl = checkRateLimit(rateId, "share");
+      if (!rl.allowed) {
+        return res.status(429).json({ message: "Too many share attempts. Please try again later.", retryAfterMs: rl.retryAfterMs });
+      }
+
       // Validate input
       if (!mode || !resultId) {
         return res.status(400).json({ message: "Mode and resultId are required" });
@@ -3896,12 +3918,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             errors: dictationTest.errors,
             duration: dictationTest.duration,
             characters: dictationTest.actualSentence.length,
-            metadata: {
-              speedLevel: dictationTest.speedLevel,
-              difficulty: 'medium', // Default difficulty
-              replayCount: dictationTest.replayCount,
-              hintUsed: dictationTest.hintUsed,
-            }
           };
           break;
 
@@ -3934,10 +3950,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             errors: testResult.errors,
             duration: 60, // Standard test duration fallback
             characters: testResult.characters,
-            metadata: {
-              mode: storedMode,
-              testType: 'typing'
-            }
           };
           break;
 
@@ -3961,13 +3973,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid stats detected" });
       }
 
-      // Generate unique share token (12 chars)
-      const shareToken = Math.random().toString(36).substring(2, 14);
+      // Generate unique share token (exactly 12 URL-safe chars)
+      let shareToken = crypto.randomBytes(9).toString("base64url").slice(0, 12);
+      if (shareToken.length < 12) {
+        // extremely rare fallback to guarantee length
+        shareToken = (shareToken + crypto.randomBytes(9).toString("base64url")).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 12);
+      }
       
       const shareData = {
         shareToken,
         userId: req.user?.id || null,
-        username: isAnonymous ? null : username,
+        username: isAnonymous ? undefined : username || undefined,
         mode,
         ...statsData,
         isAnonymous: isAnonymous || false,
@@ -3981,11 +3997,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const sharedResult = await storage.createSharedResult(parsed.data);
+      // Insert with collision retry on unique share_token constraint (extremely rare)
+      let sharedResult;
+      let dataToInsert = { ...parsed.data };
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          sharedResult = await storage.createSharedResult(dataToInsert);
+          break;
+        } catch (err: any) {
+          // Postgres unique_violation
+          if (err && (err.code === '23505' || /unique/i.test(String(err.message)))) {
+            // regenerate token and try again
+            let newToken = crypto.randomBytes(9).toString("base64url").slice(0, 12);
+            if (newToken.length < 12) {
+              newToken = (newToken + crypto.randomBytes(9).toString("base64url")).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 12);
+            }
+            dataToInsert.shareToken = newToken;
+            continue;
+          }
+          throw err;
+        }
+      }
+
+      // Resolve canonical base URL
+      const forwardedProto = req.get('x-forwarded-proto');
+      const forwardedHost = req.get('x-forwarded-host');
+      const host = forwardedHost || req.get('host');
+      const proto = forwardedProto || req.protocol;
+      const baseUrlRaw = process.env.APP_URL || `${proto}://${host}`;
+      const baseUrl = baseUrlRaw.replace(/\/+$/, '');
+
       res.status(201).json({ 
         message: "Result shared successfully",
         shareToken: sharedResult.shareToken,
-        shareUrl: `${req.protocol}://${req.get('host')}/result/${sharedResult.shareToken}`
+        shareUrl: `${baseUrl}/result/${sharedResult.shareToken}`
       });
     } catch (error: any) {
       console.error("Create shared result error:", error);

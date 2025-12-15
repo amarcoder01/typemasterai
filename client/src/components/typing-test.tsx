@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo, memo, forwardRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo, forwardRef, useTransition, useDeferredValue, startTransition } from "react";
 import { generateText, calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { RefreshCw, Zap, Target, Clock, Globe, BookOpen, Sparkles, Award, Share2, Twitter, Facebook, MessageCircle, Copy, Check, Link2, Linkedin, Mail, Send, AlertCircle, Loader2, HelpCircle, Timer, BarChart3, Eye, EyeOff, PenLine, Info } from "lucide-react";
@@ -13,6 +13,7 @@ import { SearchableSelect } from "@/components/searchable-select";
 import { CertificateGenerator } from "@/components/certificate-generator";
 import { ShareCard } from "@/components/share-card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader as UIAlertDialogHeader, AlertDialogTitle as UIAlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
@@ -25,6 +26,26 @@ import { useAchievementCelebration, type UnlockedAchievement, preWarmAudioContex
 
 type TestMode = 15 | 30 | 45 | 60 | 90 | 120 | 180 | number;
 
+// Unicode-aware grapheme splitter using Intl.Segmenter with a safe fallback
+function getGraphemes(str: string): string[] {
+  let normalized = str;
+  try {
+    if (typeof (str as any).normalize === 'function') {
+      normalized = str.normalize('NFC');
+    }
+  } catch {}
+  try {
+    const AnyIntl: any = Intl as any;
+    if (AnyIntl && typeof AnyIntl.Segmenter === 'function') {
+      const segmenter = new AnyIntl.Segmenter(undefined, { granularity: 'grapheme' });
+      const segments = segmenter.segment(normalized);
+      return Array.from(segments, (s: any) => s.segment);
+    }
+  } catch {}
+  // Fallback to code point splitting (handles surrogate pairs but not complex clusters)
+  return Array.from(normalized);
+}
+
 // Character component with forwardRef for cursor positioning
 // Removed memo() to ensure refs stay synchronized with text changes
 const CharSpan = forwardRef<HTMLSpanElement, { 
@@ -33,18 +54,20 @@ const CharSpan = forwardRef<HTMLSpanElement, {
   state: 'pending' | 'correct' | 'incorrect';
   typedChar?: string;
 }>(({ char, index, state, typedChar }, ref) => {
-  const className = state === 'pending' 
-    ? "relative text-muted-foreground/40"
-    : state === 'correct' 
-      ? "relative text-green-500" 
-      : "relative text-destructive";
+  const isSpace = char === ' ' || /\s/.test(char);
+  const isIncorrectSpace = state === 'incorrect' && isSpace;
   
-  // Show typed character when incorrect, expected character otherwise
-  const displayChar = state === 'incorrect' && typedChar ? typedChar : char;
+  const className = state === 'pending' 
+    ? "relative inline-block text-muted-foreground/40"
+    : state === 'correct' 
+      ? "relative inline-block text-foreground" 
+      : isIncorrectSpace
+        ? "relative inline-block text-muted-foreground/40 bg-destructive/30 rounded-sm"
+        : "relative inline-block text-destructive";
   
   return (
     <span ref={ref} data-char-index={index} className={className}>
-      {displayChar}
+      {char}
     </span>
   );
 });
@@ -108,6 +131,18 @@ export default function TypingTest() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { celebrateMultiple } = useAchievementCelebration();
+  
+  // Toast debouncing to prevent spam - track last toast time per action type
+  const lastToastTimeRef = useRef<Record<string, number>>({});
+  const showDebouncedToast = useCallback((key: string, title: string, description: string, variant: "default" | "destructive" = "destructive", debounceMs = 2000) => {
+    const now = Date.now();
+    const lastTime = lastToastTimeRef.current[key] || 0;
+    if (now - lastTime > debounceMs) {
+      lastToastTimeRef.current[key] = now;
+      toast({ title, description, variant });
+    }
+  }, [toast]);
+  
   const [mode, setMode] = useState<TestMode>(60);
   const [customTime, setCustomTime] = useState<string>("");
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -132,6 +167,24 @@ export default function TypingTest() {
   const [accuracy, setAccuracy] = useState(100);
   const [errors, setErrors] = useState(0);
   const wpmHistoryRef = useRef<number[]>([]);
+  const lastSampleSecondRef = useRef<number>(-1);
+  const userInputRef = useRef<string>("");
+  const charStatesRef = useRef<CharState[]>([]);
+  const freestyleTextRef = useRef<string>("");
+  const startTimeRef = useRef<number | null>(null);
+  const lastTimeSecondRef = useRef<number>(-1);
+  const expectedGRef = useRef<string[]>([]);
+  const keyboardLoadedRef = useRef(false);
+  const keyboardSoundRef = useRef<{ play: () => void } | null>(null);
+  const statsLastUpdateRef = useRef(0);
+  const lastCursorUpdateRef = useRef(0);
+  const pendingInputValueRef = useRef<string | null>(null);
+  const pendingInputRafRef = useRef<number | null>(null);
+  const [showChangeConfirm, setShowChangeConfirm] = useState(false);
+  const [changeTitle, setChangeTitle] = useState("");
+  const [changeDescription, setChangeDescription] = useState("");
+  const [changeConfirmLabel, setChangeConfirmLabel] = useState("Change & Reset");
+  const pendingChangeRef = useRef<(() => void) | null>(null);
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showCertificate, setShowCertificate] = useState(false);
@@ -159,7 +212,6 @@ export default function TypingTest() {
     mode: number;
     completionDate: string; // ISO string to avoid Date serialization issues
   } | null>(null);
-  const [cursorPosition, setCursorPosition] = useState({ left: 0, top: 0, height: 40 });
   const [isTypingFast, setIsTypingFast] = useState(false);
   const lastKeystrokeTimeRef = useRef<number>(0);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -173,6 +225,53 @@ export default function TypingTest() {
     mediaQuery.addEventListener('change', handler);
     return () => mediaQuery.removeEventListener('change', handler);
   }, []);
+
+  useEffect(() => {
+    if (!isActive && !isFinished) {
+      setTimeLeft(mode);
+    }
+  }, [mode, isActive, isFinished]);
+
+  // Guard setting changes while a test is in progress
+  const confirmOrRun = useCallback((title: string, description: string, onConfirm: () => void, confirmLabel = "Change & Reset") => {
+    const hasTyped = (userInputRef.current?.length ?? 0) > 0;
+    const timerStarted = startTimeRef.current !== null && timeLeft < mode;
+    const typingInProgress = isActive && !isFinished && (hasTyped || timerStarted);
+    if (typingInProgress) {
+      pendingChangeRef.current = onConfirm;
+      setChangeTitle(title);
+      setChangeDescription(description);
+      setChangeConfirmLabel(confirmLabel);
+      setShowChangeConfirm(true);
+    } else {
+      onConfirm();
+    }
+  }, [isActive, isFinished, mode, timeLeft]);
+
+  const handleConfirmChange = useCallback(() => {
+    const fn = pendingChangeRef.current;
+    setShowChangeConfirm(false);
+    pendingChangeRef.current = null;
+    if (fn) fn();
+  }, []);
+  
+  // Sync refs with state for finishTest to avoid recreating callback
+  useEffect(() => {
+    userInputRef.current = userInput;
+  }, [userInput]);
+  
+  useEffect(() => {
+    charStatesRef.current = charStates;
+  }, [charStates]);
+  
+  useEffect(() => {
+    freestyleTextRef.current = freestyleText;
+  }, [freestyleText]);
+  
+  useEffect(() => {
+    startTimeRef.current = startTime;
+  }, [startTime]);
+  
   const [isComposing, setIsComposing] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [paragraphError, setParagraphError] = useState<string | null>(null);
@@ -182,6 +281,8 @@ export default function TypingTest() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const charRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const caretRef = useRef<HTMLDivElement>(null);
+  const caretPosRef = useRef({ left: 0, top: 0, height: 40 });
   const keystrokeTrackerRef = useRef<KeystrokeTracker | null>(null);
   const pendingFetchesRef = useRef(0);
   const latestRequestIdRef = useRef(0);
@@ -290,7 +391,7 @@ export default function TypingTest() {
         });
       } else if (forceGenerate) {
         toast({
-          title: "🤖 Generating New Paragraph...",
+          title: "🤖 Processing New Paragraph...",
           description: "AI is creating fresh content for you",
         });
       }
@@ -553,7 +654,6 @@ export default function TypingTest() {
   }, [pendingResult, saveResultMutation]);
 
   const resetTest = useCallback(async (forceNewParagraph = false) => {
-    // Reset test state first
     setUserInput("");
     setFreestyleText("");
     setStartTime(null);
@@ -564,46 +664,37 @@ export default function TypingTest() {
     setRawWpm(0);
     setConsistency(100);
     setAccuracy(100);
+    setErrors(0);
     setShowAuthPrompt(false);
     setShowShareModal(false);
     setShareUrl("");
     setLastResultId(null);
     setHasInteracted(false);
-    
-    // Reset Monkeytype-style character tracking
     setCursorIndex(0);
     setCharStates([]);
     
-    // NOTE: certificateMetrics intentionally NOT cleared here
-    // This allows users to view their certificate even after quick restart
-    // Metrics will be updated when the next test completes
-    
-    // Clear keystroke tracker and WPM history to start fresh
     keystrokeTrackerRef.current = null;
     wpmHistoryRef.current = [];
-    
-    // Reset freestyle last keystroke time
+    lastSampleSecondRef.current = -1;
     freestyleLastKeystrokeRef.current = 0;
+    lastKeystrokeTimeRef.current = 0;
+    setIsTypingFast(false);
     
-    // Only fetch new paragraph if not in freestyle mode
     if (!freestyleMode) {
       if (forceNewParagraph) {
-        // User explicitly requested a new paragraph - always use AI generation for diversity
         await fetchParagraph(false, true);
       } else {
-        // Normal restart - try queue first for instant loading
         const queuedParagraph = getNextFromQueue();
         if (queuedParagraph) {
           setText(queuedParagraph);
           setOriginalText(queuedParagraph);
         } else {
-          // Queue empty - fetch from database
           await fetchParagraph(false, false);
         }
       }
     }
     
-    setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 100);
+    requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
   }, [mode, fetchParagraph, freestyleMode, getNextFromQueue]);
 
   const createShareLink = async () => {
@@ -623,7 +714,7 @@ export default function TypingTest() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          mode: 'typing-test',
+          mode: 'typing',
           resultId: lastResultId,
           isAnonymous: false
         }),
@@ -672,6 +763,17 @@ export default function TypingTest() {
       });
     }
   };
+
+  // Cleanup any scheduled rAF on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingInputRafRef.current != null) {
+        cancelAnimationFrame(pendingInputRafRef.current);
+        pendingInputRafRef.current = null;
+        pendingInputValueRef.current = null;
+      }
+    };
+  }, []);
 
   const getPerformanceRating = () => {
     if (wpm >= 100 && accuracy >= 98) return { emoji: "🏆", title: "Legendary Typist", badge: "Diamond" };
@@ -855,185 +957,34 @@ Can you beat my score? Try it here: `,
     }
   };
 
-  // Initialize character states when text changes (Monkeytype-style validation)
-  useEffect(() => {
-    if (text) {
-      setCharStates(prevStates => {
-        const newLength = text.length;
-        const prevLength = prevStates.length;
-        
-        // Text extended during test (continuous typing) - preserve existing states
-        if (newLength > prevLength && prevLength > 0) {
-          // Keep all existing character states (including errors!)
-          // Only append new pending states for the new characters
-          const newChars = text.slice(prevLength);
-          const appendedStates: CharState[] = newChars.split('').map(char => ({
-            expected: char,
-            typed: null,
-            state: 'pending' as const
-          }));
-          return [...prevStates, ...appendedStates];
-        } else {
-          // New paragraph or reset - replace all states
-          const initialStates: CharState[] = text.split('').map(char => ({
-            expected: char,
-            typed: null,
-            state: 'pending' as const
-          }));
-          // Only reset cursor on full replacement, not extension
-          setCursorIndex(0);
-          return initialStates;
-        }
-      });
-    }
-  }, [text]);
-
-  // Initial setup and when time mode changes
-  useEffect(() => {
-    fetchParagraph();
-    setUserInput("");
-    setOriginalText("");
-    setStartTime(null);
-    setTimeLeft(mode);
-    setIsActive(false);
-    setIsFinished(false);
-    setWpm(0);
-    setRawWpm(0);
-    setConsistency(100);
-    setAccuracy(100);
-    // Clear keystroke tracker and WPM history for new test
-    keystrokeTrackerRef.current = null;
-    wpmHistoryRef.current = [];
-    // charRefs cleanup handled automatically by useMemo when text changes
-    // Reset paragraph queue (will be filled after fetchParagraph returns with ID)
-    paragraphQueueRef.current = [];
-    usedParagraphIdsRef.current = new Set();
-    // Reset cursor index
-    setCursorIndex(0);
-    setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 0);
-  }, [mode]);
-
-  // Fetch new paragraph when language, paragraph mode, or difficulty changes
-  useEffect(() => {
-    if (text) {
-      fetchParagraph();
-      setUserInput("");
-      setOriginalText("");
-      setStartTime(null);
-      setIsActive(false);
-      setIsFinished(false);
-      setWpm(0);
-      setRawWpm(0);
-      setConsistency(100);
-      setAccuracy(100);
-      // Clear keystroke tracker and WPM history for new test
-      keystrokeTrackerRef.current = null;
-      wpmHistoryRef.current = [];
-      // charRefs cleanup handled automatically by useMemo when text changes
-      // Reset queue (will be filled after fetchParagraph returns with ID)
-      paragraphQueueRef.current = [];
-      usedParagraphIdsRef.current = new Set();
-      // Reset cursor index
-      setCursorIndex(0);
-    }
-  }, [language, paragraphMode, difficulty]);
-
-  // Timer logic
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (timeLeft === 0 && isActive) {
-      finishTest();
-    }
-    return () => clearInterval(interval);
-  }, [isActive, timeLeft]);
-
-  // Calculate live stats with Raw WPM and Consistency tracking
-  useEffect(() => {
-    if (isActive && startTime) {
-      const chars = userInput.length;
-      const errorCount = userInput.split("").filter((char, i) => char !== text[i]).length;
-      const correctChars = chars - errorCount;
-      const timeElapsed = (Date.now() - startTime) / 1000;
-      
-      // Net WPM (adjusted for errors) - standard metric
-      const netWpm = calculateWPM(correctChars, timeElapsed);
-      // Raw WPM (pure speed, no error penalty)
-      const rawWpmValue = calculateWPM(chars, timeElapsed);
-      
-      setWpm(netWpm);
-      setRawWpm(rawWpmValue);
-      setAccuracy(calculateAccuracy(correctChars, chars));
-      setErrors(errorCount);
-      
-      // Track WPM history for consistency calculation (sample every ~1 second)
-      if (timeElapsed > 1 && Math.floor(timeElapsed) !== Math.floor((Date.now() - startTime - 100) / 1000)) {
-        wpmHistoryRef.current.push(netWpm);
-        
-        // Calculate consistency (lower standard deviation = higher consistency)
-        if (wpmHistoryRef.current.length >= 3) {
-          const avg = wpmHistoryRef.current.reduce((a, b) => a + b, 0) / wpmHistoryRef.current.length;
-          const variance = wpmHistoryRef.current.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / wpmHistoryRef.current.length;
-          const stdDev = Math.sqrt(variance);
-          // Convert to 0-100% scale (lower deviation = higher consistency)
-          // Using formula: 100 - (stdDev / avg * 100), clamped to 0-100
-          const consistencyScore = avg > 0 ? Math.max(0, Math.min(100, Math.round(100 - (stdDev / avg * 100)))) : 100;
-          setConsistency(consistencyScore);
-        }
-      }
-      
-      // Adaptive cursor: detect fast typing (>80 WPM or <150ms between keystrokes)
-      const now = Date.now();
-      if (lastKeystrokeTimeRef.current > 0) {
-        const timeSinceLastKeystroke = now - lastKeystrokeTimeRef.current;
-        setIsTypingFast(timeSinceLastKeystroke < 150 || rawWpmValue > 80);
-      }
-      lastKeystrokeTimeRef.current = now;
-    }
-  }, [userInput, isActive, startTime, text]);
-
-  const finishTest = (completedNaturally = true) => {
+  const finishTest = useCallback((completedNaturally = true) => {
     setIsActive(false);
     setIsFinished(true);
     setTestCompletionDate(new Date());
     
-    // Calculate elapsed time with idle time handling for Freestyle mode
     let elapsedSeconds: number;
     
     if (completedNaturally) {
-      // Timer expired naturally - use mode duration
       elapsedSeconds = mode;
-    } else if (freestyleMode && startTime && freestyleLastKeystrokeRef.current > 0) {
-      // Freestyle mode with manual finish (Shift+Enter) - use time until last keystroke
-      // This ignores idle time between last keystroke and test finish
-      elapsedSeconds = (freestyleLastKeystrokeRef.current - startTime) / 1000;
+    } else if (freestyleMode && startTimeRef.current && freestyleLastKeystrokeRef.current > 0) {
+      elapsedSeconds = (freestyleLastKeystrokeRef.current - startTimeRef.current) / 1000;
     } else {
-      // Standard mode or fallback - use actual elapsed time
-      elapsedSeconds = startTime ? (Date.now() - startTime) / 1000 : mode;
+      elapsedSeconds = startTimeRef.current ? (Date.now() - startTimeRef.current) / 1000 : mode;
     }
     
-    // Handle Freestyle mode differently - no reference text to compare
-    const typedText = freestyleMode ? freestyleText : userInput;
-    const chars = typedText.length;
+    const typedText = freestyleMode ? freestyleTextRef.current : userInputRef.current;
+    const chars = getGraphemes(typedText).length;
     
-    // Calculate word count based on mode
-    // Freestyle: actual word count (space-separated, matching UI display)
-    // Standard: chars / 5 estimate (matching WPM calculation)
     const wordCount = freestyleMode
       ? typedText.trim().split(/\s+/).filter(w => w.length > 0).length
       : Math.floor(chars / 5);
     
-    // Edge case: no characters typed
     if (chars === 0) {
       setWpm(0);
       setRawWpm(0);
       setAccuracy(freestyleMode ? 100 : 0);
       setErrors(0);
       
-      // Show appropriate message
       if (freestyleMode) {
         toast({
           title: "No Text Typed",
@@ -1048,37 +999,30 @@ Can you beat my score? Try it here: `,
     let correctChars = chars;
     
     if (!freestyleMode) {
-      errorCount = userInput.split("").filter((char, i) => char !== text[i]).length;
+      errorCount = charStatesRef.current.slice(0, chars).filter((s) => s?.state === 'incorrect').length;
       correctChars = chars - errorCount;
     }
     
-    // Edge case: prevent division by zero and handle minimum time threshold
-    // At least 1 second to prevent unrealistic WPM values
     const safeElapsedSeconds = Math.max(elapsedSeconds, 1);
     
-    // Calculate final WPM with cap to prevent unrealistic values
     const rawFinalWpm = calculateWPM(correctChars, safeElapsedSeconds);
-    const finalWpm = Math.min(Math.max(rawFinalWpm, 0), 300); // Cap at 0-300 WPM range
+    const finalWpm = Math.min(Math.max(rawFinalWpm, 0), 300);
     const finalAccuracy = freestyleMode ? 100 : calculateAccuracy(correctChars, chars);
     const finalErrors = errorCount;
     
-    // Calculate final consistency from WPM history (works for both standard and freestyle modes)
-    let finalConsistency = 100; // Default if no samples
+    let finalConsistency = 100;
     if (wpmHistoryRef.current.length >= 3) {
       const avg = wpmHistoryRef.current.reduce((a, b) => a + b, 0) / wpmHistoryRef.current.length;
       const variance = wpmHistoryRef.current.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / wpmHistoryRef.current.length;
       const stdDev = Math.sqrt(variance);
-      // Convert to 0-100% scale (lower deviation = higher consistency)
       finalConsistency = avg > 0 ? Math.max(0, Math.min(100, Math.round(100 - (stdDev / avg * 100)))) : 100;
     }
     
-    // Update state with precise final values
     setWpm(finalWpm);
     setAccuracy(finalAccuracy);
     setErrors(finalErrors);
-    setConsistency(finalConsistency); // Use calculated consistency, not reset to 100
+    setConsistency(finalConsistency);
     
-    // Create immutable snapshot for certificate (never cleared, only updated on new test completion)
     setLastResultSnapshot({
       wpm: finalWpm,
       accuracy: finalAccuracy,
@@ -1091,7 +1035,6 @@ Can you beat my score? Try it here: `,
       completionDate: new Date().toISOString(),
     });
     
-    // Safe confetti call with error handling
     try {
       if (typeof confetti === 'function') {
         confetti({
@@ -1118,7 +1061,6 @@ Can you beat my score? Try it here: `,
       
       saveResultMutation.mutate(testData);
       
-      // Save keystroke analytics if tracking is enabled (skip for free type mode)
       if (!freestyleMode && trackingEnabled && keystrokeTrackerRef.current) {
         try {
           const rawWpm = calculateWPM(chars, elapsedSeconds);
@@ -1130,7 +1072,6 @@ Can you beat my score? Try it here: `,
             null
           );
           
-          // Save analytics to backend
           fetch('/api/analytics/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1147,22 +1088,197 @@ Can you beat my score? Try it here: `,
     } else {
       setShowAuthPrompt(true);
     }
-  };
+  }, [user, saveResultMutation, mode, freestyleMode, toast, language, trackingEnabled]);
+
+  // Initialize character states when text changes (Monkeytype-style validation)
+  useEffect(() => {
+    if (text) {
+      setCharStates(prevStates => {
+        const newG = getGraphemes(text);
+        expectedGRef.current = newG;
+        const prevLength = prevStates.length;
+        
+        // Text extended during test (continuous typing) - preserve existing states
+        if (newG.length > prevLength && prevLength > 0) {
+          // Keep all existing character states (including errors!)
+          // Only append new pending states for the new characters
+          const appendedStates: CharState[] = newG.slice(prevLength).map((char: string) => ({
+            expected: char,
+            typed: null,
+            state: 'pending' as const
+          }));
+          return [...prevStates, ...appendedStates];
+        } else {
+          // New paragraph or reset - replace all states
+          const initialStates: CharState[] = newG.map((char: string) => ({
+            expected: char,
+            typed: null,
+            state: 'pending' as const
+          }));
+          // Only reset cursor on full replacement, not extension
+          setCursorIndex(0);
+          return initialStates;
+        }
+      });
+    }
+  }, [text]);
+
+  useEffect(() => {
+    fetchParagraph();
+    setUserInput("");
+    setOriginalText("");
+    setStartTime(null);
+    setTimeLeft(mode);
+    setIsActive(false);
+    setIsFinished(false);
+    setWpm(0);
+    setRawWpm(0);
+    setConsistency(100);
+    setAccuracy(100);
+    setErrors(0);
+    keystrokeTrackerRef.current = null;
+    wpmHistoryRef.current = [];
+    lastSampleSecondRef.current = -1;
+    paragraphQueueRef.current = [];
+    usedParagraphIdsRef.current = new Set();
+    setCursorIndex(0);
+    lastKeystrokeTimeRef.current = 0;
+    setIsTypingFast(false);
+    freestyleLastKeystrokeRef.current = 0;
+    
+    const focusTimer = setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 0);
+    return () => clearTimeout(focusTimer);
+  }, [mode]);
+
+  useEffect(() => {
+    if (text) {
+      fetchParagraph();
+      setUserInput("");
+      setOriginalText("");
+      setStartTime(null);
+      setIsActive(false);
+      setIsFinished(false);
+      setWpm(0);
+      setRawWpm(0);
+      setConsistency(100);
+      setAccuracy(100);
+      setErrors(0);
+      keystrokeTrackerRef.current = null;
+      wpmHistoryRef.current = [];
+      lastSampleSecondRef.current = -1;
+      paragraphQueueRef.current = [];
+      usedParagraphIdsRef.current = new Set();
+      setCursorIndex(0);
+      lastKeystrokeTimeRef.current = 0;
+      setIsTypingFast(false);
+      freestyleLastKeystrokeRef.current = 0;
+    }
+  }, [language, paragraphMode, difficulty]);
+
+  useEffect(() => {
+    // Animation-frame based timer tied to startTime; only update when the displayed second changes
+    if (!isActive || isFinished) return;
+
+    let rafId: number;
+    const tick = () => {
+      const st = startTimeRef.current;
+      if (st) {
+        const elapsedSec = Math.floor((Date.now() - st) / 1000);
+        const remaining = Math.max(0, mode - elapsedSec);
+        if (lastTimeSecondRef.current !== remaining) {
+          lastTimeSecondRef.current = remaining;
+          setTimeLeft(remaining);
+          if (remaining <= 0) {
+            finishTest();
+            return; // stop loop
+          }
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+
+    // Initialize
+    lastTimeSecondRef.current = -1;
+    tick();
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [isActive, isFinished, mode, finishTest]);
+
+  // Calculate live stats with Raw WPM and Consistency tracking
+  useEffect(() => {
+    if (isActive && startTime) {
+      // Throttle heavy stats work to ~12 FPS to avoid UI stalls during extreme bursts
+      const nowMs = Date.now();
+      if (nowMs - statsLastUpdateRef.current < 80) return;
+      statsLastUpdateRef.current = nowMs;
+      const chars = getGraphemes(userInput).length;
+      // Use persistent charStates for correctness to avoid drift with backspaces
+      const errorCount = charStates.slice(0, chars).filter((s: CharState) => s?.state === 'incorrect').length;
+      const correctChars = chars - errorCount;
+      const timeElapsed = (Date.now() - startTime) / 1000;
+      
+      // Net WPM (adjusted for errors) - standard metric
+      const netWpm = calculateWPM(correctChars, timeElapsed);
+      // Raw WPM (pure speed, no error penalty)
+      const rawWpmValue = calculateWPM(chars, timeElapsed);
+      
+      setWpm(netWpm);
+      setRawWpm(rawWpmValue);
+      setAccuracy(calculateAccuracy(correctChars, chars));
+      setErrors(errorCount);
+      
+      // Track WPM history for consistency calculation (sample once per second)
+      const currentSecond = Math.floor(timeElapsed);
+      if (currentSecond > 0 && currentSecond !== lastSampleSecondRef.current) {
+        lastSampleSecondRef.current = currentSecond;
+        wpmHistoryRef.current.push(netWpm);
+        
+        // Calculate consistency (lower standard deviation = higher consistency)
+        if (wpmHistoryRef.current.length >= 3) {
+          const avg = wpmHistoryRef.current.reduce((a: number, b: number) => a + b, 0) / wpmHistoryRef.current.length;
+          const variance = wpmHistoryRef.current.reduce((sum: number, val: number) => sum + Math.pow(val - avg, 2), 0) / wpmHistoryRef.current.length;
+          const stdDev = Math.sqrt(variance);
+          // Coefficient of Variation (CV) converted to consistency percentage
+          // Lower CV = higher consistency. Formula: 100 - (CV * 100)
+          const consistencyScore = avg > 0 ? Math.max(0, Math.min(100, Math.round(100 - (stdDev / avg * 100)))) : 100;
+          setConsistency(consistencyScore);
+        }
+      }
+      
+      // Adaptive cursor: detect fast typing (>80 WPM or <150ms between keystrokes)
+      const now = Date.now();
+      if (lastKeystrokeTimeRef.current > 0) {
+        const timeSinceLastKeystroke = now - lastKeystrokeTimeRef.current;
+        setIsTypingFast(timeSinceLastKeystroke < 150 || rawWpmValue > 80);
+      }
+      lastKeystrokeTimeRef.current = now;
+    }
+  }, [userInput, isActive, startTime, text, charStates]);
 
   const processInput = (value: string) => {
-    if (isFinished) return;
-    if (!text) return;
+    if (isFinished) {
+      showDebouncedToast('test-finished', 'Test Already Complete', 'Press Tab or Escape to restart');
+      return;
+    }
+    if (!text) {
+      showDebouncedToast('no-text', 'No Text Available', 'Waiting for paragraph to load...');
+      return;
+    }
+    if (typeof value !== 'string') return;
     
-    // Safety check - should not happen due to handleBeforeInput validation
-    if (value.length > text.length) {
+    const typedG = getGraphemes(value);
+    const expectedG = expectedGRef.current.length ? expectedGRef.current : getGraphemes(text);
+    
+    if (typedG.length > expectedG.length) {
       if (inputRef.current) inputRef.current.value = userInput;
       return;
     }
     
-    const previousLength = userInput.length;
+    const previousLength = getGraphemes(userInput).length;
     const now = Date.now();
-    const isForwardTyping = value.length > previousLength;
-    const isBackspace = value.length < previousLength;
+    const isForwardTyping = typedG.length > previousLength;
     
     // Track typing speed to disable smooth animation during fast typing
     if (isForwardTyping) {
@@ -1175,48 +1291,42 @@ Can you beat my score? Try it here: `,
         setIsTypingFast(false);
       }
       
-      // Play keyboard sound
-      import('@/lib/keyboard-sounds')
-        .then((module) => {
-          if (module.keyboardSound && typeof module.keyboardSound.play === 'function') {
-            module.keyboardSound.play();
-          }
-        })
-        .catch((error) => {
-          console.warn('Keyboard sound failed to load:', error);
-        });
+      // Play keyboard sound (load once, then reuse to avoid micro-stalls)
+      if (!keyboardLoadedRef.current) {
+        keyboardLoadedRef.current = true;
+        import('@/lib/keyboard-sounds')
+          .then((module) => {
+            if (module.keyboardSound && typeof module.keyboardSound.play === 'function') {
+              keyboardSoundRef.current = module.keyboardSound;
+              module.keyboardSound.play();
+            }
+          })
+          .catch((error) => {
+            console.warn('Keyboard sound failed to load:', error);
+          });
+      } else {
+        try {
+          keyboardSoundRef.current?.play?.();
+        } catch {}
+      }
     }
     
-    // Start timer on first keystroke
-    if (!isActive && value.length === 1) {
+    // Start timer on first input (supports IME/composition inserting multiple graphemes)
+    if (!isActive && typedG.length > 0) {
       setIsActive(true);
+      startTimeRef.current = now; // ensure timer reads immediately
       setStartTime(now);
       preWarmAudioContext();
     }
 
-    // PRODUCTION-READY CHARACTER VALIDATION
-    // All strict rules enforced in handleBeforeInput
-    // This function just updates character states
-    
     const newStates: CharState[] = [];
-    let newErrorCount = 0;
     
-    // Process each position
-    for (let i = 0; i < text.length; i++) {
-      const expectedChar = text[i];
+    for (let i = 0; i < expectedG.length; i++) {
+      const expectedChar = expectedG[i];
       
-      if (i < value.length) {
-        // User has typed this position - validate it
-        const typedChar = value[i];
+      if (i < typedG.length) {
+        const typedChar = typedG[i];
         const isCorrect = typedChar === expectedChar;
-        
-        // Track new errors (only increment on first mistake at this position)
-        const previousState = charStates[i];
-        const wasIncorrect = previousState?.state === 'incorrect';
-        
-        if (!isCorrect && !wasIncorrect) {
-          newErrorCount++;
-        }
         
         newStates[i] = {
           expected: expectedChar,
@@ -1224,34 +1334,21 @@ Can you beat my score? Try it here: `,
           state: isCorrect ? 'correct' : 'incorrect'
         };
       } else {
-        // User hasn't typed this position yet
-        // CRITICAL: Preserve incorrect state for Monkeytype-style error persistence
-        // This ensures red characters stay red even after backspace
-        const previousState = charStates[i];
-        if (previousState?.state === 'incorrect') {
-          // Keep the incorrect state with the wrong character visible
-          newStates[i] = previousState;
-        } else {
-          // Position not yet typed and no previous error
-          newStates[i] = {
-            expected: expectedChar,
-            typed: '',
-            state: 'pending'
-          };
-        }
+        newStates[i] = {
+          expected: expectedChar,
+          typed: '',
+          state: 'pending'
+        };
       }
     }
     
-    // Single atomic state update - prevents race conditions
-    setCharStates(newStates);
-    if (newErrorCount > 0) {
-      setErrors(prev => prev + newErrorCount);
-    }
-    setCursorIndex(value.length);
+    startTransition(() => {
+      setCharStates(newStates);
+    });
+    setCursorIndex(typedG.length);
     setUserInput(value);
 
-    // Extend text if approaching end
-    if (value.length >= text.length - 100 && timeLeft > 5) {
+    if (!freestyleMode && timeLeft > 0 && typedG.length >= expectedG.length - 100 && timeLeft > 5) {
       const nextParagraph = getNextFromQueue();
       if (nextParagraph) {
         setText(prevText => {
@@ -1275,7 +1372,13 @@ Can you beat my score? Try it here: `,
 
   // PRODUCTION-READY INPUT VALIDATION - Block invalid inputs BEFORE they happen
   const handleBeforeInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    if (isComposing) return;
     const nativeEvent = e.nativeEvent as InputEvent;
+    if (nativeEvent.inputType === 'insertLineBreak' || (nativeEvent as any).inputType === 'insertParagraph') {
+      e.preventDefault();
+      showDebouncedToast('line-break', 'Line Breaks Disabled', 'Type continuously without pressing Enter');
+      return;
+    }
     
     // Capture selection for anti-cheat detection
     if (inputRef.current) {
@@ -1299,12 +1402,10 @@ Can you beat my score? Try it here: `,
     
     if (!text || isFinished) return;
     
-    const currentPosition = userInput.length;
+    const currentPosition = getGraphemes(userInput).length;
     const inputData = nativeEvent.data;
     
-    // Handle deletion (backspace)
     if (nativeEvent.inputType === 'deleteContentBackward') {
-      // STRICT RULE: Block backspace at position 0
       if (currentPosition === 0) {
         e.preventDefault();
         toast({
@@ -1314,72 +1415,48 @@ Can you beat my score? Try it here: `,
         });
         return;
       }
-      // Allow backspace otherwise
       return;
     }
     
-    // Handle character input
+    if (nativeEvent.inputType === 'deleteContentForward') {
+      e.preventDefault();
+      showDebouncedToast('delete-forward', 'Forward Delete Disabled', 'Use Backspace to correct mistakes');
+      return;
+    }
+    
+    // Handle character input: allow any character to be entered so errors can be marked red and typing can continue
     if (inputData && inputData.length > 0) {
-      const typedChar = inputData[0];
-      const expectedChar = text[currentPosition];
-      
+      const expectedG = getGraphemes(text);
+      const expectedChar = expectedG[currentPosition];
       if (!expectedChar) {
-        // Already at end of text
+        // Already at end of text - block to prevent overflow beyond available text
         e.preventDefault();
+        showDebouncedToast('text-overflow', 'End of Text Reached', 'You\'ve typed all available characters');
         return;
       }
-      
-      // STRICT RULE: Check if there are any uncorrected errors before this position
-      const hasUncorrectedErrors = charStates.slice(0, currentPosition).some(
-        state => state?.state === 'incorrect'
-      );
-      
-      if (hasUncorrectedErrors) {
-        // STOP-ON-ERROR: Must backspace to fix errors before continuing
-        e.preventDefault();
-        toast({
-          title: "Fix Errors First",
-          description: "Backspace to correct mistakes before continuing",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // STRICT RULE: If expected character is space, must type space
-      if (expectedChar === ' ' && typedChar !== ' ') {
-        e.preventDefault();
-        toast({
-          title: "Space Required",
-          description: "You must type a space here",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // STRICT RULE: If expected is NOT space, cannot type space
-      if (expectedChar !== ' ' && typedChar === ' ') {
-        e.preventDefault();
-        toast({
-          title: "No Space Allowed",
-          description: `Expected character: "${expectedChar}"`,
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Character input is valid - will be processed in onChange
+      // Do not block spaces or advance-on-error; we intentionally allow typing ahead
+      // Validation and error marking is handled in processInput
     }
   };
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (isComposing) return;
-    processInput(e.target.value);
-    
-    // CRITICAL: Lock cursor at end of input to prevent jumping
-    // Force cursor to always be at the end of userInput
-    if (inputRef.current) {
-      const cursorPos = e.target.value.length;
-      inputRef.current.setSelectionRange(cursorPos, cursorPos);
+    const value = e.target.value;
+    if (typeof value !== 'string') return;
+
+    // Coalesce rapid key repeats (e.g., holding a key) into a single rAF tick
+    pendingInputValueRef.current = value;
+    if (pendingInputRafRef.current == null) {
+      pendingInputRafRef.current = requestAnimationFrame(() => {
+        const v = pendingInputValueRef.current ?? '';
+        pendingInputValueRef.current = null;
+        pendingInputRafRef.current = null;
+        processInput(v);
+        if (inputRef.current && v.length >= 0) {
+          const cursorPos = Math.min(v.length, v.length);
+          inputRef.current.setSelectionRange(cursorPos, cursorPos);
+        }
+      });
     }
   };
 
@@ -1389,49 +1466,72 @@ Can you beat my score? Try it here: `,
 
   const handleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
     setIsComposing(false);
-    if (e.data && inputRef.current) {
+    if (isFinished || !text) return;
+    
+    if (e.data && inputRef.current && typeof e.data === 'string') {
+      const composedGraphemes = getGraphemes(e.data);
+      const currentGraphemes = getGraphemes(userInput);
+      const expectedGraphemes = getGraphemes(text);
+      
+      if (currentGraphemes.length + composedGraphemes.length > expectedGraphemes.length) {
+        return;
+      }
+      
       const newValue = userInput + e.data;
       inputRef.current.value = newValue;
-      setTimeout(() => {
+      
+      requestAnimationFrame(() => {
         processInput(newValue);
-        // Lock cursor at end after composition
         if (inputRef.current) {
           const cursorPos = newValue.length;
           inputRef.current.setSelectionRange(cursorPos, cursorPos);
         }
-      }, 0);
+      });
     }
   };
   
   // Handle keyboard events with strict validation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // CRITICAL: Skip IME composition events (keyCode 229)
+    // Per MDN: compositionstart may fire after keydown, compositionend may fire before keydown
+    // keyCode 229 indicates IME is processing - must check even when isComposing is false
+    if (e.nativeEvent.isComposing || (e.nativeEvent as any).keyCode === 229) {
+      return;
+    }
+    
     // Block Ctrl+A (select all) - anti-cheat measure
     if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
       e.preventDefault();
+      showDebouncedToast('ctrl-a', 'Select All Disabled', 'Type character-by-character for accurate results');
       return;
     }
     
     // Block other keyboard shortcuts for copying
     if ((e.ctrlKey || e.metaKey) && ['c', 'x', 'v'].includes(e.key.toLowerCase())) {
       e.preventDefault();
+      const action = e.key.toLowerCase() === 'c' ? 'Copy' : e.key.toLowerCase() === 'x' ? 'Cut' : 'Paste';
+      showDebouncedToast('copy-shortcuts', `${action} Disabled`, 'Type manually for accurate results');
       return;
     }
     
     // STRICT VALIDATION: Block arrow keys (prevent cursor manipulation)
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
       e.preventDefault();
+      showDebouncedToast('arrow-keys', 'Arrow Keys Disabled', 'Use Backspace to correct mistakes, not arrow keys');
       return;
     }
     
     // STRICT VALIDATION: Block Home, End, PageUp, PageDown (prevent jumping)
     if (['Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
       e.preventDefault();
+      showDebouncedToast('navigation-keys', 'Navigation Keys Disabled', 'Type from your current position only');
       return;
     }
     
     // STRICT VALIDATION: Block Delete key (forward delete not allowed)
     if (e.key === 'Delete') {
       e.preventDefault();
+      showDebouncedToast('delete-key', 'Delete Key Disabled', 'Use Backspace to correct mistakes');
       return;
     }
     
@@ -1454,6 +1554,18 @@ Can you beat my score? Try it here: `,
         end: inputRef.current.selectionEnd ?? 0
       };
     }
+
+    // Robust timer start: start on first valid keydown as well (handles cases where onChange is delayed)
+    if (!isActive && !isFinished && text) {
+      const isCharacterKey = (e.key && e.key.length === 1) || e.code === 'Space' || e.key === ' ';
+      if (isCharacterKey) {
+        const nowTs = Date.now();
+        startTimeRef.current = nowTs;
+        setStartTime(nowTs);
+        setIsActive(true);
+        preWarmAudioContext();
+      }
+    }
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
@@ -1467,6 +1579,7 @@ Can you beat my score? Try it here: `,
 
   const handleCut = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     e.preventDefault();
+    showDebouncedToast('cut-disabled', 'Cut Disabled', 'Type manually for accurate results');
   };
 
   // Load typing behavior settings on mount
@@ -1495,87 +1608,97 @@ Can you beat my score? Try it here: `,
   
   // Update cursor position based on typing progress and layout changes
   const updateCursorPosition = useCallback((fromKeystroke = false) => {
+    // Throttle during very fast typing to avoid layout thrashing
+    if (fromKeystroke && isTypingFast) {
+      const now = performance.now();
+      if (now - lastCursorUpdateRef.current < 32) return; // ~30 FPS cap during bursts
+      lastCursorUpdateRef.current = now;
+    }
+
     // Use requestAnimationFrame to ensure DOM has updated before measuring
     requestAnimationFrame(() => {
       const container = containerRef.current;
-      if (!container) return;
-      
+      const caretEl = caretRef.current;
+      if (!container || !caretEl) return;
+
       // Find the character element at current position using refs
-      const targetIndex = userInput.length;
-      const charElement = charRefs.current[targetIndex];
-      
-      if (charElement) {
-        const charRect = charElement.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-        const scrollTop = container.scrollTop;
-        
-        // Calculate position in CONTENT COORDINATES (includes scrollTop)
-        // This makes cursor position absolute within content, not viewport
-        const relativeLeft = charRect.left - containerRect.left;
-        const relativeTop = charRect.top - containerRect.top + scrollTop;
-        const height = charRect.height || 40;
-        
-        // Only update if position actually changed (prevents unnecessary re-renders)
-        setCursorPosition(prev => {
-          if (prev.left === relativeLeft && prev.top === relativeTop && prev.height === height) {
-            return prev;
-          }
-          return { left: relativeLeft, top: relativeTop, height };
-        });
-        
-        // Auto-scroll: ONLY on keystroke-driven changes, NOT during manual scroll or resize
-        // This prevents cursor from jumping during user-initiated scrolling
-        if (fromKeystroke && !isUserScrollingRef.current) {
-          const cursorTopRelative = charRect.top - containerRect.top;
-          const containerHeight = container.clientHeight;
-          const idealCursorPosition = containerHeight * 0.3; // Keep cursor at 30% from top
-          
-          // If cursor is below the ideal position, scroll to bring it up
-          if (cursorTopRelative > idealCursorPosition) {
-            const scrollAmount = cursorTopRelative - idealCursorPosition;
-            container.scrollTop = scrollTop + scrollAmount;
-          }
-          // If cursor is above view (e.g., using backspace), scroll up
-          else if (cursorTopRelative < 0) {
-            container.scrollTop = scrollTop + cursorTopRelative - 20; // Small padding at top
-          }
+      const targetIndex = lastCursorIndexRef.current;
+      let charEl = charRefs.current[targetIndex] || null;
+
+      let left = 0;
+      let top = 0;
+      let height = 40;
+      const rtl = language === 'ar' || language === 'he';
+
+      // Compute using precise geometry relative to the scrollable container
+      const containerRect = container.getBoundingClientRect();
+
+      // Fallback when at index 0 but ref not yet populated
+      if (!charEl && targetIndex === 0 && charRefs.current[0]) {
+        charEl = charRefs.current[0];
+      }
+
+      if (!charEl && targetIndex > 0) {
+        const prevEl = charRefs.current[targetIndex - 1];
+        if (prevEl) {
+          const prevRect = prevEl.getBoundingClientRect();
+          top = (prevRect.top - containerRect.top);
+          left = rtl
+            ? (prevRect.left - containerRect.left)
+            : (prevRect.right - containerRect.left);
+          height = Math.max(1, prevRect.height);
         }
+      } else if (charEl) {
+        const rect = charEl.getBoundingClientRect();
+        top = (rect.top - containerRect.top);
+        left = rtl
+          ? (rect.right - containerRect.left)
+          : (rect.left - containerRect.left);
+        height = Math.max(1, rect.height);
       } else {
-        // Fallback: position at start (first character using ref)
-        const firstChar = charRefs.current[0];
-        if (firstChar) {
-          const containerRect = container.getBoundingClientRect();
-          const charRect = firstChar.getBoundingClientRect();
-          const scrollTop = container.scrollTop;
-          const relativeLeft = charRect.left - containerRect.left;
-          const relativeTop = charRect.top - containerRect.top + scrollTop;
-          const height = charRect.height || 40;
-          setCursorPosition(prev => {
-            if (prev.left === relativeLeft && prev.top === relativeTop && prev.height === height) return prev;
-            return { left: relativeLeft, top: relativeTop, height };
-          });
-        } else {
-          // No characters rendered yet - use container origin
-          setCursorPosition(prev => {
-            if (prev.left === 0 && prev.top === 0 && prev.height === 40) return prev;
-            return { left: 0, top: 0, height: 40 };
-          });
+        // No characters rendered yet
+        top = 0;
+        left = 0;
+        height = 40;
+      }
+
+      // Only mutate DOM if changed (rounded to whole pixels for crispness)
+      const last = caretPosRef.current;
+      const rLeft = Math.round(left);
+      const rTop = Math.round(top);
+      if (last.left !== rLeft || last.top !== rTop) {
+        caretEl.style.transform = `translate3d(${rLeft}px, ${rTop}px, 0)`;
+        caretPosRef.current = { left: rLeft, top: rTop, height };
+      }
+      // Ensure height is up-to-date
+      if (parseFloat(caretEl.style.height || '0') !== height) {
+        caretEl.style.height = `${height}px`;
+      }
+
+      // Auto-scroll using container metrics only when triggered by keystroke and not during manual scroll
+      if (fromKeystroke && !isUserScrollingRef.current) {
+        const cursorTopRelative = top - container.scrollTop;
+        const containerHeight = container.clientHeight;
+        const idealCursorPosition = containerHeight * 0.3; // Keep cursor at 30% from top
+        if (cursorTopRelative > idealCursorPosition) {
+          const delta = cursorTopRelative - idealCursorPosition;
+          container.scrollTop = container.scrollTop + delta;
+        } else if (cursorTopRelative < 0) {
+          container.scrollTop = container.scrollTop + cursorTopRelative - 20; // Small padding at top
         }
-        // Reset scroll to top when starting fresh
-        container.scrollTop = 0;
       }
     });
-  }, [userInput.length, text]);
+  }, [text, language, isTypingFast]);
 
   // Only update cursor position on keystroke changes (not on every layout change)
   useEffect(() => {
-    const cursorIndex = userInput.length;
+    const cursorIndex = getGraphemes(userInput).length;
     const wasKeystroke = cursorIndex !== lastCursorIndexRef.current;
     lastCursorIndexRef.current = cursorIndex;
     
     // Pass fromKeystroke=true only when cursor actually moved from typing
     updateCursorPosition(wasKeystroke);
-  }, [userInput.length, updateCursorPosition]);
+  }, [userInput, updateCursorPosition]);
 
   // Recalculate cursor position on resize/layout changes (but don't auto-scroll)
   useEffect(() => {
@@ -1588,6 +1711,30 @@ Can you beat my score? Try it here: `,
     resizeObserver.observe(containerRef.current);
     return () => resizeObserver.disconnect();
   }, [updateCursorPosition]);
+
+  // Re-position caret on window resize and zoom changes
+  useEffect(() => {
+    const onResize = () => updateCursorPosition(false);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [updateCursorPosition]);
+
+  // Position caret when text loads or changes (initial render and paragraph switches)
+  useEffect(() => {
+    if (!text) return;
+    updateCursorPosition(false);
+  }, [text, updateCursorPosition]);
+
+  // Apply GPU-accelerated transform transitions to caret and respect motion preferences
+  useEffect(() => {
+    const el = caretRef.current;
+    if (!el) return;
+    const duration = (prefersReducedMotion || caretSpeed === 'off' || isTypingFast)
+      ? 0
+      : (caretSpeed === 'smooth' ? 120 : caretSpeed === 'fast' ? 40 : 80);
+    el.style.willChange = 'transform';
+    el.style.transition = duration ? `transform ${duration}ms ease-out` : 'none';
+  }, [prefersReducedMotion, isTypingFast, caretSpeed]);
 
   // Initialize keystroke tracker when test is ready (before first keystroke)
   useEffect(() => {
@@ -1626,12 +1773,13 @@ Can you beat my score? Try it here: `,
         return;
       }
       
-      // Get the current tracker position (what we're about to type)
+      // Grapheme-aware expected key and position
+      const expectedG = getGraphemes(text);
       const currentPos = keystrokeTrackerRef.current.currentPosition;
-      const expectedKey = text[currentPos] || null;
+      const expectedKey = expectedG[currentPos] || null;
       const isCorrect = key === expectedKey;
       
-      keystrokeTrackerRef.current.onKeyUp(key, e.code, timestamp, isCorrect);
+      keystrokeTrackerRef.current.onKeyUp(key, e.code, timestamp, isCorrect, expectedKey, currentPos);
       
       // Always increment position after tracking the keystroke
       keystrokeTrackerRef.current.currentPosition++;
@@ -1646,13 +1794,11 @@ Can you beat my score? Try it here: `,
     };
   }, [trackingEnabled, text]);
 
-  // Keyboard shortcuts for typing test (Code Mode-style)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeElement = document.activeElement;
       const isTypingInputFocused = activeElement === inputRef.current;
       
-      // Tab key - restart test (only when quick restart enabled and input focused)
       if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && quickRestart) {
         if (isTypingInputFocused) {
           e.preventDefault();
@@ -1660,17 +1806,15 @@ Can you beat my score? Try it here: `,
         }
       }
       
-      // Escape key - reset/restart test anytime
       if (e.key === 'Escape') {
         e.preventDefault();
         resetTest();
       }
       
-      // Shift+Enter - finish test early (like Monkeytype and Code Mode)
       if (e.shiftKey && e.key === 'Enter') {
         e.preventDefault();
         if (isActive && userInput.length > 0 && !isFinished) {
-          finishTest(false); // false = manual finish
+          finishTest(false);
           toast({
             title: "Test Finished",
             description: "You ended the test early with Shift+Enter.",
@@ -1710,8 +1854,9 @@ Can you beat my score? Try it here: `,
   // Memoize the characters array to avoid recreating on every render
   const characters = useMemo(() => {
     // Ensure charRefs array length matches text length to prevent stale refs
-    charRefs.current.length = text.length;
-    return text.split("");
+    const g = getGraphemes(text);
+    charRefs.current.length = g.length;
+    return g;
   }, [text]);
   
   const availableLanguages = languagesData?.languages || ["en"];
@@ -1765,7 +1910,15 @@ Can you beat my score? Try it here: `,
                   <div className="relative">
                     <SearchableSelect
                       value={language}
-                      onValueChange={setLanguage}
+                      onValueChange={(val) => {
+                        const newVal = val as string;
+                        if (newVal === language) return;
+                        confirmOrRun(
+                          "Change Language?",
+                          "Switching language will reset your current test and load language-specific content.",
+                          () => setLanguage(newVal)
+                        );
+                      }}
                       options={availableLanguages.map((lang: string) => ({
                         value: lang,
                         label: LANGUAGE_NAMES[lang] || lang,
@@ -1804,7 +1957,15 @@ Can you beat my score? Try it here: `,
                   <div className="relative">
                     <SearchableSelect
                       value={paragraphMode}
-                      onValueChange={setParagraphMode}
+                      onValueChange={(val) => {
+                        const newVal = val as string;
+                        if (newVal === paragraphMode) return;
+                        confirmOrRun(
+                          "Change Topic?",
+                          "Switching content topic will reset the current test and fetch new paragraphs.",
+                          () => setParagraphMode(newVal)
+                        );
+                      }}
                       options={availableModes.map((m: string) => ({
                         value: m,
                         label: MODE_NAMES[m] || m,
@@ -1848,7 +2009,15 @@ Can you beat my score? Try it here: `,
                   <div>
                     <SearchableSelect
                       value={difficulty}
-                      onValueChange={(val) => setDifficulty(val as "easy" | "medium" | "hard")}
+                      onValueChange={(val) => {
+                        const newVal = val as "easy" | "medium" | "hard";
+                        if (newVal === difficulty) return;
+                        confirmOrRun(
+                          "Change Difficulty?",
+                          "Switching difficulty will reset your current test and adjust text complexity.",
+                          () => setDifficulty(newVal)
+                        );
+                      }}
                       options={[
                         { value: "easy", label: "Easy" },
                         { value: "medium", label: "Medium" },
@@ -1905,10 +2074,19 @@ Can you beat my score? Try it here: `,
               <Tooltip key={preset.value}>
                 <TooltipTrigger asChild>
                   <button
-                    onClick={() => {
-                      setMode(preset.value);
-                      setShowCustomInput(false);
-                    }}
+                    onClick={() =>
+                      confirmOrRun(
+                        "Change Duration?",
+                        `Switching to ${preset.label} will reset the current test.`,
+                        () => {
+                          setMode(preset.value);
+                          setShowCustomInput(false);
+                          // Fully reset first, then apply the new timeLeft so it can't be overwritten by resetTest's internal setTimeLeft(mode)
+                          resetTest();
+                          setTimeLeft(preset.value);
+                        }
+                      )
+                    }
                     className={cn(
                       "px-2.5 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium transition-all",
                       mode === preset.value && !showCustomInput
@@ -1948,7 +2126,14 @@ Can you beat my score? Try it here: `,
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={() => resetTest(true)}
+                  onClick={() =>
+                    confirmOrRun(
+                      "New Paragraph?",
+                      "This will reset your current test and load a fresh paragraph.",
+                      () => resetTest(true),
+                      "New Paragraph"
+                    )
+                  }
                   disabled={isGenerating || freestyleMode}
                   className={cn(
                     "px-2.5 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium transition-all flex items-center gap-1.5 md:gap-2",
@@ -1961,38 +2146,56 @@ Can you beat my score? Try it here: `,
                   data-testid="button-new-paragraph"
                 >
                   <RefreshCw className={cn("w-3.5 h-3.5 md:w-4 md:h-4", isGenerating && "animate-spin")} />
-                  <span className="hidden sm:inline">{isGenerating ? "Generating..." : "New Paragraph"}</span>
+                  <span className="hidden sm:inline">{isGenerating ? "Processing..." : "New Paragraph"}</span>
                   <span className="sm:hidden">{isGenerating ? "..." : "New"}</span>
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{freestyleMode ? "Disabled in Freestyle mode" : isGenerating ? "AI is generating fresh content..." : "Get a fresh paragraph without changing settings"}</p>
+                <p>{freestyleMode ? "Disabled in Freestyle mode" : isGenerating ? "AI is processing fresh content..." : "Get a fresh paragraph without changing settings"}</p>
               </TooltipContent>
             </Tooltip>
             
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={() => {
-                    const newValue = !freestyleMode;
-                    setFreestyleMode(newValue);
-                    setFreestyleText("");
-                    setUserInput("");
-                    setIsActive(false);
-                    setIsFinished(false);
-                    setTimeLeft(mode);
-                    setWpm(0);
-                    setRawWpm(0);
-                    setAccuracy(100);
-                    setErrors(0);
-                    setStartTime(null);
-                    toast({
-                      title: newValue ? "Freestyle Mode" : "Standard Mode",
-                      description: newValue 
-                        ? "Type anything you want! WPM will be tracked." 
-                        : "Switched back to standard typing test.",
-                    });
-                  }}
+                  onClick={() =>
+                    confirmOrRun(
+                      freestyleMode ? "Exit Freestyle?" : "Enable Freestyle?",
+                      freestyleMode
+                        ? "Exiting will reset your current test and switch back to standard mode."
+                        : "Enabling Freestyle will reset your current test and let you type anything.",
+                      () => {
+                        const newValue = !freestyleMode;
+                        setFreestyleMode(newValue);
+                        setFreestyleText("");
+                        setUserInput("");
+                        setIsActive(false);
+                        setIsFinished(false);
+                        setTimeLeft(mode);
+                        setWpm(0);
+                        setRawWpm(0);
+                        setAccuracy(100);
+                        setErrors(0);
+                        setConsistency(100);
+                        setStartTime(null);
+                        setCursorIndex(0);
+                        setCharStates([]);
+                        keystrokeTrackerRef.current = null;
+                        wpmHistoryRef.current = [];
+                        lastSampleSecondRef.current = -1;
+                        lastKeystrokeTimeRef.current = 0;
+                        freestyleLastKeystrokeRef.current = 0;
+                        setIsTypingFast(false);
+                        toast({
+                          title: newValue ? "Freestyle Mode" : "Standard Mode",
+                          description: newValue
+                            ? "Type anything you want! WPM will be tracked."
+                            : "Switched back to standard typing test.",
+                        });
+                      },
+                      freestyleMode ? "Exit & Reset" : "Enable & Reset"
+                    )
+                  }
                   className={cn(
                     "px-2.5 py-1.5 md:px-4 md:py-2 rounded-full text-xs md:text-sm font-medium transition-all flex items-center gap-1.5 md:gap-2",
                     freestyleMode
@@ -2044,15 +2247,22 @@ Can you beat my score? Try it here: `,
                 ].map((preset) => (
                   <button
                     key={preset.value}
-                    onClick={() => {
-                      setMode(preset.value);
-                      setCustomTime(preset.value.toString());
-                      setShowCustomInput(false);
-                      toast({
-                        title: "Duration set",
-                        description: `Test duration: ${preset.label}`,
-                      });
-                    }}
+                    onClick={() =>
+                      confirmOrRun(
+                        "Change Duration?",
+                        `Test duration: ${preset.label}. This will reset your current test.`,
+                        () => {
+                          setMode(preset.value);
+                          setCustomTime(preset.value.toString());
+                          setShowCustomInput(false);
+                          // Fully reset first, then apply the new timeLeft so it can't be overwritten by resetTest's internal setTimeLeft(mode)
+                          resetTest();
+                          setTimeLeft(preset.value);
+                          toast({ title: "Duration set", description: `Test duration: ${preset.label}` });
+                        },
+                        "Change & Reset"
+                      )
+                    }
                     className={cn(
                       "px-3 py-1.5 rounded-full text-xs font-medium transition-all",
                       mode === preset.value
@@ -2095,8 +2305,6 @@ Can you beat my score? Try it here: `,
                   onClick={() => {
                     const time = parseInt(customTime);
                     if (time >= 5 && time <= 14400) {
-                      setMode(time);
-                      setShowCustomInput(false);
                       const hours = Math.floor(time / 3600);
                       const mins = Math.floor((time % 3600) / 60);
                       const secs = time % 60;
@@ -2110,10 +2318,18 @@ Can you beat my score? Try it here: `,
                       } else {
                         formatted = `${secs} seconds`;
                       }
-                      toast({
-                        title: "Custom time set",
-                        description: `Test duration: ${formatted}`,
-                      });
+                      confirmOrRun(
+                        "Change Duration?",
+                        `Test duration: ${formatted}. This will reset your current test.`,
+                        () => {
+                          setMode(time);
+                          setShowCustomInput(false);
+                          // Fully reset first, then apply the new timeLeft so it can't be overwritten by resetTest's internal setTimeLeft(mode)
+                          resetTest();
+                          setTimeLeft(time);
+                          toast({ title: "Custom time set", description: `Test duration: ${formatted}` });
+                        }
+                      );
                     } else {
                       toast({
                         title: "Invalid time",
@@ -2184,8 +2400,14 @@ Can you beat my score? Try it here: `,
                       setRawWpm(0);
                       setConsistency(100);
                       setAccuracy(100);
+                      setErrors(0);
+                      setCursorIndex(0);
+                      setCharStates([]);
                       keystrokeTrackerRef.current = null;
                       wpmHistoryRef.current = [];
+                      lastKeystrokeTimeRef.current = 0;
+                      setIsTypingFast(false);
+                      freestyleLastKeystrokeRef.current = 0;
                     }
                   }}
                 />
@@ -2202,8 +2424,15 @@ Can you beat my score? Try it here: `,
                       setRawWpm(0);
                       setConsistency(100);
                       setAccuracy(100);
+                      setErrors(0);
+                      setCursorIndex(0);
+                      setCharStates([]);
                       keystrokeTrackerRef.current = null;
                       wpmHistoryRef.current = [];
+                      lastSampleSecondRef.current = -1;
+                      lastKeystrokeTimeRef.current = 0;
+                      setIsTypingFast(false);
+                      freestyleLastKeystrokeRef.current = 0;
                     } else {
                       toast({
                         title: "Empty prompt",
@@ -2222,7 +2451,7 @@ Can you beat my score? Try it here: `,
                   data-testid="button-generate-custom"
                 >
                   <Sparkles className={cn("w-4 h-4", isGenerating && "animate-spin")} />
-                  {isGenerating ? "Generating..." : "Generate"}
+                  {isGenerating ? "Processing..." : "Generate"}
                 </button>
               </div>
               <p className="text-xs text-muted-foreground text-center">
@@ -2367,6 +2596,47 @@ Can you beat my score? Try it here: `,
           <p className="text-xs text-purple-300">
             <span className="font-medium">Practice Mode:</span> Freestyle test results are excluded from all leaderboards and competitive statistics.
           </p>
+          <div className="ml-auto">
+            <button
+              onClick={() =>
+                confirmOrRun(
+                  "Exit Freestyle?",
+                  "Exiting will reset your current test and switch back to standard mode.",
+                  () => {
+                    setFreestyleMode(false);
+                    setFreestyleText("");
+                    setUserInput("");
+                    setIsActive(false);
+                    setIsFinished(false);
+                    setTimeLeft(mode);
+                    setWpm(0);
+                    setRawWpm(0);
+                    setAccuracy(100);
+                    setErrors(0);
+                    setConsistency(100);
+                    setStartTime(null);
+                    setCursorIndex(0);
+                    setCharStates([]);
+                    keystrokeTrackerRef.current = null;
+                    wpmHistoryRef.current = [];
+                    lastSampleSecondRef.current = -1;
+                    lastKeystrokeTimeRef.current = 0;
+                    freestyleLastKeystrokeRef.current = 0;
+                    setIsTypingFast(false);
+                    toast({
+                      title: "Exited Freestyle Mode",
+                      description: "Switched back to standard typing test.",
+                    });
+                  },
+                  "Exit & Reset"
+                )
+              }
+              className="px-2 py-1 text-xs rounded-md border border-purple-500/30 text-purple-300 hover:bg-purple-500/10 transition-colors"
+              data-testid="button-exit-freestyle"
+            >
+              Exit Freestyle
+            </button>
+          </div>
         </div>
       )}
 
@@ -2378,6 +2648,16 @@ Can you beat my score? Try it here: `,
           <div className="w-full h-full min-h-[200px] md:min-h-[300px] flex flex-col relative">
             <textarea
               value={freestyleText}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              inputMode="text"
+              data-gramm="false"
+              data-gramm_editor="false"
+              data-enable-grammarly="false"
+              data-1p-ignore
+              data-lpignore="true"
               onChange={(e) => {
                 const newText = e.target.value;
                 
@@ -2413,8 +2693,10 @@ Can you beat my score? Try it here: `,
                     setWpm(cappedWpm);
                     setRawWpm(cappedWpm);
                     
-                    // Track WPM history for consistency calculation (sample every ~1 second)
-                    if (elapsedSeconds > 1 && Math.floor(elapsedSeconds) !== Math.floor((elapsedSeconds - 0.1))) {
+                    // Track WPM history for consistency calculation (sample once per second)
+                    const currentSecond = Math.floor(elapsedSeconds);
+                    if (currentSecond > 0 && currentSecond !== lastSampleSecondRef.current) {
+                      lastSampleSecondRef.current = currentSecond;
                       wpmHistoryRef.current.push(cappedWpm);
                       
                       // Calculate consistency (lower standard deviation = higher consistency)
@@ -2422,7 +2704,8 @@ Can you beat my score? Try it here: `,
                         const avg = wpmHistoryRef.current.reduce((a, b) => a + b, 0) / wpmHistoryRef.current.length;
                         const variance = wpmHistoryRef.current.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / wpmHistoryRef.current.length;
                         const stdDev = Math.sqrt(variance);
-                        // Convert to 0-100% scale (lower deviation = higher consistency)
+                        // Coefficient of Variation (CV) converted to consistency percentage
+                        // Lower CV = higher consistency. Formula: 100 - (CV * 100)
                         const consistencyScore = avg > 0 ? Math.max(0, Math.min(100, Math.round(100 - (stdDev / avg * 100)))) : 100;
                         setConsistency(consistencyScore);
                       }
@@ -2476,6 +2759,7 @@ Can you beat my score? Try it here: `,
               onCut={(e) => {
                 // Prevent cutting text
                 e.preventDefault();
+                showDebouncedToast('cut-disabled', 'Cut Disabled', 'Type manually for accurate results');
               }}
               onDrop={(e) => {
                 // Prevent drag-and-drop text
@@ -2504,10 +2788,6 @@ Can you beat my score? Try it here: `,
               placeholder="Start typing anything you want... Your WPM will be tracked in real-time!"
               disabled={isFinished}
               autoFocus
-              spellCheck={false}
-              autoCorrect="off"
-              autoCapitalize="off"
-              autoComplete="off"
               aria-label="Free type text area - type anything you want"
               aria-describedby="freestyle-instructions"
               className={cn(
@@ -2611,6 +2891,23 @@ Can you beat my score? Try it here: `,
                   setOriginalText(fallbackText);
                   setParagraphError(null);
                   setFetchRetryCount(0);
+                  setUserInput("");
+                  setStartTime(null);
+                  setIsActive(false);
+                  setIsFinished(false);
+                  setWpm(0);
+                  setRawWpm(0);
+                  setConsistency(100);
+                  setAccuracy(100);
+                  setErrors(0);
+                  setCursorIndex(0);
+                  setCharStates([]);
+                  keystrokeTrackerRef.current = null;
+                  wpmHistoryRef.current = [];
+                  lastSampleSecondRef.current = -1;
+                  lastKeystrokeTimeRef.current = 0;
+                  setIsTypingFast(false);
+                  freestyleLastKeystrokeRef.current = 0;
                 }}
                 data-testid="button-use-practice-text"
               >
@@ -2624,7 +2921,7 @@ Can you beat my score? Try it here: `,
         {!freestyleMode && isGenerating && !text && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10">
             <Loader2 className="w-12 h-12 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground">Generating content...</p>
+            <p className="text-muted-foreground">Processing content...</p>
           </div>
         )}
         
@@ -2648,11 +2945,19 @@ Can you beat my score? Try it here: `,
             onCompositionEnd={handleCompositionEnd}
             onPaste={handlePaste}
             onCut={handleCut}
-            onDragStart={(e) => e.preventDefault()}
-            onDrop={(e) => e.preventDefault()}
-            onContextMenu={(e) => e.preventDefault()}
+            onDragStart={(e) => {
+              e.preventDefault();
+              showDebouncedToast('drag-disabled', 'Drag Disabled', 'Type manually for accurate results');
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              showDebouncedToast('drop-disabled', 'Drop Disabled', 'Type manually for accurate results');
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              showDebouncedToast('context-menu', 'Right-Click Disabled', 'Focus on typing to improve your speed');
+            }}
             onSelect={(e) => {
-              // Force cursor to end if user tries to select
               if (inputRef.current) {
                 const pos = userInput.length;
                 inputRef.current.setSelectionRange(pos, pos);
@@ -2664,8 +2969,17 @@ Can you beat my score? Try it here: `,
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
+            inputMode="text"
+            enterKeyHint="done"
+            data-gramm="false"
+            data-gramm_editor="false"
+            data-enable-grammarly="false"
+            data-1p-ignore
+            data-lpignore="true"
             disabled={!!paragraphError && !text}
             aria-label="Typing input area"
+            role="textbox"
+            aria-multiline="false"
           />
         )}
 
@@ -2679,7 +2993,7 @@ Can you beat my score? Try it here: `,
             data-paragraph-text={text}
             data-original-paragraph={originalText}
             className={cn(
-              "w-full h-full max-h-[300px] md:max-h-[400px] overflow-y-auto p-4 md:p-8 text-lg sm:text-xl md:text-3xl font-mono leading-relaxed break-words outline-none transition-all duration-300 scroll-smooth select-none",
+              "relative w-full h-full max-h-[300px] md:max-h-[400px] overflow-y-auto p-4 md:p-8 text-lg sm:text-xl md:text-3xl font-mono leading-relaxed whitespace-pre-wrap break-words outline-none transition-all duration-300 scroll-smooth select-none",
               !isActive && !isFinished && !hasInteracted && "blur-[2px] opacity-60 group-hover:blur-0 group-hover:opacity-100"
             )}
             onClick={() => {
@@ -2707,7 +3021,7 @@ Can you beat my score? Try it here: `,
               }, 150);
             }}
           >
-            {characters.map((char, index) => {
+            {characters.map((char: string, index: number) => {
               // MONKEYTYPE-STYLE VALIDATION: Use persistent character states
               // Characters remain in 'incorrect' (red) state even after backspace
               const charState = charStates[index];
@@ -2716,7 +3030,7 @@ Can you beat my score? Try it here: `,
               
               return (
                 <CharSpan 
-                  key={`${text.length}-${index}`}
+                  key={index}
                   ref={(el) => {
                     charRefs.current[index] = el;
                   }}
@@ -2728,16 +3042,14 @@ Can you beat my score? Try it here: `,
               );
             })}
             
-            {/* Blinking cursor */}
+            {/* GPU-accelerated caret */}
             {!isFinished && (
               <div
-                className="absolute w-0.5 bg-primary animate-pulse"
-                style={{
-                  left: `${cursorPosition.left}px`,
-                  top: `${cursorPosition.top}px`,
-                  height: `${cursorPosition.height}px`,
-                  transition: prefersReducedMotion || isTypingFast ? 'none' : 'left 0.1s ease-out, top 0.1s ease-out',
-                }}
+                ref={caretRef}
+                className={cn(
+                  "absolute left-0 top-0 w-0.5 bg-primary pointer-events-none z-10",
+                  !isTypingFast && "animate-pulse"
+                )}
                 aria-hidden="true"
               />
             )}
@@ -2767,7 +3079,14 @@ Can you beat my score? Try it here: `,
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => resetTest()}
+                onClick={() =>
+                  confirmOrRun(
+                    "Restart Test?",
+                    "This will reset your current progress and restart the test.",
+                    () => resetTest(),
+                    "Restart"
+                  )
+                }
                 className="flex items-center gap-1.5 md:gap-2 px-4 md:px-8 py-2 md:py-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors text-secondary-foreground font-medium text-sm md:text-base"
                 data-testid="button-restart-test"
               >
@@ -2855,6 +3174,18 @@ Can you beat my score? Try it here: `,
                   <span>Raw WPM</span>
                   <span className="font-mono text-foreground">{wpm + Math.round((100 - accuracy) / 2)}</span>
                 </div>
+                {!freestyleMode && (
+                  <>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Errors</span>
+                      <span className="font-mono text-foreground">{errors}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Consistency</span>
+                      <span className="font-mono text-foreground">{consistency}%</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Characters</span>
                   <span className="font-mono text-foreground">{freestyleMode ? freestyleText.length : userInput.length}</span>
@@ -2865,71 +3196,50 @@ Can you beat my score? Try it here: `,
                 </div>
               </div>
 
-              {/* Celebratory Share Prompt - appears for good performances */}
-              {wpm >= 40 && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.5, duration: 0.4 }}
-                  className="mb-4 p-4 bg-gradient-to-r from-yellow-500/10 via-orange-500/10 to-pink-500/10 rounded-xl border border-yellow-500/30 text-center"
+              {/* Celebratory Share Prompt - always visible */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5, duration: 0.4 }}
+                className="mb-4 p-4 bg-gradient-to-r from-yellow-500/10 via-orange-500/10 to-pink-500/10 rounded-xl border border-yellow-500/30 text-center"
+              >
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="text-2xl">{wpm >= 80 ? "🔥" : wpm >= 60 ? "⚡" : wpm >= 40 ? "🎉" : "🌟"}</span>
+                  <span className="font-bold text-lg">
+                    {wpm >= 80 ? "Amazing Performance!" : wpm >= 60 ? "Great Job!" : wpm >= 40 ? "Nice Work!" : "Test Complete!"}
+                  </span>
+                  <span className="text-2xl">{wpm >= 80 ? "🔥" : wpm >= 60 ? "⚡" : wpm >= 40 ? "🎉" : "🌟"}</span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {wpm >= 80 
+                    ? "You're faster than 95% of typists! Share your achievement!" 
+                    : wpm >= 60 
+                    ? "You're faster than 75% of typists! Challenge your friends!" 
+                    : wpm >= 40
+                    ? "You're above average! Share and see if your friends can beat you!"
+                    : "Share your results and challenge your friends to beat your score!"}
+                </p>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowShareModal(true)}
+                  className="px-6 py-2 bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 text-white font-bold rounded-lg shadow-lg animate-pulse hover:animate-none"
+                  data-testid="button-share-celebration"
                 >
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <span className="text-2xl">{wpm >= 80 ? "🔥" : wpm >= 60 ? "⚡" : "🎉"}</span>
-                    <span className="font-bold text-lg">
-                      {wpm >= 80 ? "Amazing Performance!" : wpm >= 60 ? "Great Job!" : "Nice Work!"}
-                    </span>
-                    <span className="text-2xl">{wpm >= 80 ? "🔥" : wpm >= 60 ? "⚡" : "🎉"}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {wpm >= 80 
-                      ? "You're faster than 95% of typists! Share your achievement!" 
-                      : wpm >= 60 
-                      ? "You're faster than 75% of typists! Challenge your friends!" 
-                      : "You're above average! Share and see if your friends can beat you!"}
-                  </p>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowShareModal(true)}
-                    className="px-6 py-2 bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 text-white font-bold rounded-lg shadow-lg animate-pulse hover:animate-none"
-                    data-testid="button-share-celebration"
-                  >
-                    <Share2 className="w-4 h-4 inline mr-2" />
-                    Share & Earn 5 XP
-                  </motion.button>
-                </motion.div>
-              )}
+                  <Share2 className="w-4 h-4 inline mr-2" />
+                  Share & Earn 5 XP
+                </motion.button>
+              </motion.div>
 
               <div className="mt-4 flex flex-col gap-3">
                 {user && (
-                  <>
-                    <button
-                      onClick={() => setShowCertificate(true)}
-                      className="w-full py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-                      data-testid="button-view-certificate"
-                    >
-                      <Award className="w-5 h-5" />
-                      Get Certificate
-                    </button>
-                    <button
-                      onClick={() => setShowShareModal(true)}
-                      disabled={isCreatingShare}
-                      className="w-full py-3 bg-gradient-to-r from-blue-500 to-green-500 text-white font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-                      data-testid="button-share-result"
-                    >
-                      <Share2 className="w-5 h-5" />
-                      {isCreatingShare ? "Creating..." : "Share Result"}
-                    </button>
-                  </>
-                )}
-                {!user && (
                   <button
-                    onClick={() => setShowShareModal(true)}
-                    className="w-full py-3 bg-gradient-to-r from-blue-500 to-green-500 text-white font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-                    data-testid="button-share-result"
+                    onClick={() => setShowCertificate(true)}
+                    className="w-full py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    data-testid="button-view-certificate"
                   >
-                    <Share2 className="w-5 h-5" />
-                    Share Result
+                    <Award className="w-5 h-5" />
+                    Get Certificate
                   </button>
                 )}
                 <div className="flex gap-3">
@@ -3053,38 +3363,82 @@ Can you beat my score? Try it here: `,
               <p className="text-xs font-medium text-center text-muted-foreground uppercase tracking-wide">
                 Click to Share Instantly
               </p>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => shareToSocial('twitter')}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 hover:border-[#1DA1F2]/40 transition-all group"
+                  className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all group"
                   data-testid="button-share-twitter"
                 >
-                  <Twitter className="w-6 h-6 text-[#1DA1F2]" />
-                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">Twitter</span>
+                  <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                  <span className="text-xs font-medium">X (Twitter)</span>
                 </button>
                 <button
                   onClick={() => shareToSocial('facebook')}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 hover:border-[#1877F2]/40 transition-all group"
+                  className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all group"
                   data-testid="button-share-facebook"
                 >
-                  <Facebook className="w-6 h-6 text-[#1877F2]" />
-                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">Facebook</span>
+                  <Facebook className="w-4 h-4 text-[#1877F2]" />
+                  <span className="text-xs font-medium">Facebook</span>
                 </button>
                 <button
                   onClick={() => shareToSocial('linkedin')}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 hover:border-[#0A66C2]/40 transition-all group"
+                  className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all group"
                   data-testid="button-share-linkedin"
                 >
-                  <Linkedin className="w-6 h-6 text-[#0A66C2]" />
-                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">LinkedIn</span>
+                  <Linkedin className="w-4 h-4 text-[#0A66C2]" />
+                  <span className="text-xs font-medium">LinkedIn</span>
                 </button>
                 <button
                   onClick={() => shareToSocial('whatsapp')}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 hover:border-[#25D366]/40 transition-all group"
+                  className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all group"
                   data-testid="button-share-whatsapp"
                 >
-                  <MessageCircle className="w-6 h-6 text-[#25D366]" />
-                  <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">WhatsApp</span>
+                  <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                  <span className="text-xs font-medium">WhatsApp</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const rating = getPerformanceRating();
+                    const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                    const title = encodeURIComponent(`I scored ${wpm} WPM on TypeMasterAI!`);
+                    window.open(`https://www.reddit.com/submit?url=${encodeURIComponent('https://typemasterai.com')}&title=${title}`, '_blank', 'width=600,height=600');
+                    trackShare('quick_reddit');
+                  }}
+                  className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#FF4500]/10 hover:bg-[#FF4500]/25 border border-[#FF4500]/20 transition-all group"
+                  data-testid="button-share-reddit"
+                >
+                  <svg className="w-4 h-4 text-[#FF4500]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/>
+                  </svg>
+                  <span className="text-xs font-medium">Reddit</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const rating = getPerformanceRating();
+                    const text = `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!`;
+                    window.open(`https://t.me/share/url?url=${encodeURIComponent('https://typemasterai.com')}&text=${encodeURIComponent(text)}`, '_blank', 'width=600,height=400');
+                    trackShare('quick_telegram');
+                  }}
+                  className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 transition-all group"
+                  data-testid="button-share-telegram"
+                >
+                  <Send className="w-4 h-4 text-[#0088cc]" />
+                  <span className="text-xs font-medium">Telegram</span>
+                </button>
+                <button
+                  onClick={() => {
+                    const rating = getPerformanceRating();
+                    const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                    const subject = encodeURIComponent(`Check out my ${wpm} WPM typing score!`);
+                    const body = encodeURIComponent(`${rating.emoji} I just scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!\n\n⌨️ ${wpm} WPM | ✨ ${accuracy}% Accuracy\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} typing test\n\nThink you can beat my score? Try it now!\n\n🔗 https://typemasterai.com`);
+                    window.open(`mailto:?subject=${subject}&body=${body}`);
+                    trackShare('quick_email');
+                  }}
+                  className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-500/10 hover:bg-gray-500/25 border border-gray-500/20 transition-all group"
+                  data-testid="button-share-email"
+                >
+                  <Mail className="w-4 h-4 text-gray-400" />
+                  <span className="text-xs font-medium">Email</span>
                 </button>
               </div>
             </div>
@@ -3160,7 +3514,7 @@ Can you beat my score? Try it here: `,
                     data-testid="button-share-cert-twitter"
                   >
                     <Twitter className="w-5 h-5 text-[#1DA1F2]" />
-                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground">Twitter</span>
+                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground">X</span>
                   </button>
                   <button
                     onClick={() => {
@@ -3293,7 +3647,7 @@ Can you beat my score? Try it here: `,
                     data-testid="button-challenge-twitter"
                   >
                     <Twitter className="w-4 h-4 text-[#1DA1F2]" />
-                    <span className="text-xs font-medium">Twitter</span>
+                    <span className="text-xs font-medium">X (Twitter)</span>
                   </button>
                   <button
                     onClick={() => {
@@ -3307,6 +3661,19 @@ Can you beat my score? Try it here: `,
                   >
                     <Facebook className="w-4 h-4 text-[#1877F2]" />
                     <span className="text-xs font-medium">Facebook</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const rating = getPerformanceRating();
+                      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
+                      trackShare('challenge_linkedin');
+                    }}
+                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all"
+                    data-testid="button-challenge-linkedin"
+                  >
+                    <Linkedin className="w-4 h-4 text-[#0A66C2]" />
+                    <span className="text-xs font-medium">LinkedIn</span>
                   </button>
                   <button
                     onClick={() => {
@@ -3397,6 +3764,22 @@ Can you beat my score? Try it here: `,
           </Tabs>
         </DialogContent>
       </Dialog>
+      
+      {/* Change Confirmation Dialog */}
+      <AlertDialog open={showChangeConfirm} onOpenChange={setShowChangeConfirm}>
+        <AlertDialogContent>
+          <UIAlertDialogHeader>
+            <UIAlertDialogTitle>{changeTitle}</UIAlertDialogTitle>
+            <AlertDialogDescription>
+              {changeDescription}
+            </AlertDialogDescription>
+          </UIAlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmChange}>{changeConfirmLabel}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       </div>
     </TooltipProvider>
   );
