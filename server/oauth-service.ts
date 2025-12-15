@@ -230,6 +230,10 @@ function getBaseUrl(): string {
   if (process.env.APP_URL) {
     return process.env.APP_URL;
   }
+  // Render default external URL
+  if (process.env.RENDER_EXTERNAL_URL) {
+    return process.env.RENDER_EXTERNAL_URL;
+  }
   // Fallback to Replit domains for development if APP_URL not set
   if (process.env.REPLIT_DEV_DOMAIN) {
     return `https://${process.env.REPLIT_DEV_DOMAIN}`;

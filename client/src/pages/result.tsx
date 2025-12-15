@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useRoute } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Zap, Target, Clock, AlertCircle, TrendingUp } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Zap, Target, Clock, AlertCircle, TrendingUp, Share2, Copy, Twitter, MessageCircle, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface SharedResult {
@@ -30,6 +31,8 @@ export default function Result() {
   const [result, setResult] = useState<SharedResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string>("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const fetchSharedResult = async () => {
@@ -39,29 +42,86 @@ export default function Result() {
         return;
       }
 
-      try {
-        const response = await fetch(`/api/share/${shareToken}`);
-        if (!response.ok) {
-          if (response.status === 404) {
-            setError("This shared result was not found. It may have been deleted.");
-          } else {
-            setError("Failed to load shared result");
+      const maxRetries = 3;
+      let lastError: Error | null = null;
+
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+          const response = await fetch(`/api/share/${shareToken}`, {
+            signal: controller.signal,
+            headers: {
+              'Accept': 'application/json',
+            },
+          });
+          
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            if (response.status === 404) {
+              setError("This shared result was not found. It may have been deleted.");
+              setIsLoading(false);
+              return;
+            } else if (response.status === 400) {
+              setError("Invalid share link format.");
+              setIsLoading(false);
+              return;
+            } else if (response.status === 503 || response.status === 504) {
+              if (attempt < maxRetries - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+                continue;
+              }
+              setError("Service temporarily unavailable. Please try again later.");
+            } else if (response.status === 500) {
+              const errorData = await response.json().catch(() => ({}));
+              setError(errorData.message || "Failed to load shared result");
+            } else {
+              setError(`Error: ${response.status} - ${response.statusText}`);
+            }
+            setIsLoading(false);
+            return;
           }
+          
+          const data = await response.json();
+          
+          if (!data.result || typeof data.result !== 'object') {
+            setError("Invalid response from server");
+            setIsLoading(false);
+            return;
+          }
+          
+          setResult(data.result);
           setIsLoading(false);
           return;
+        } catch (err: any) {
+          lastError = err;
+          console.error(`Fetch attempt ${attempt + 1} failed:`, err);
+          
+          if (err.name === 'AbortError') {
+            if (attempt < maxRetries - 1) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              continue;
+            }
+            setError("Request timed out. Please check your connection and try again.");
+            setIsLoading(false);
+            return;
+          }
+          
+          if (attempt < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            continue;
+          }
         }
-        
-        const data = await response.json();
-        setResult(data.result);
-      } catch (err) {
-        console.error("Error fetching shared result:", err);
-        setError("Failed to load shared result");
-      } finally {
-        setIsLoading(false);
       }
+
+      setError(lastError?.message || "Failed to load shared result. Please try again.");
+      setIsLoading(false);
     };
 
     fetchSharedResult();
+    setShareUrl(window.location.href);
   }, [shareToken]);
 
   const formatDuration = (seconds: number | null): string => {
@@ -81,6 +141,67 @@ export default function Result() {
       dictation: "Dictation Mode",
     };
     return labels[mode] || mode;
+  };
+
+  const handleCopy = async () => {
+    if (!shareUrl) {
+      toast({ title: "Error", description: "No share URL available", variant: "destructive" });
+      return;
+    }
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+        toast({ title: "Copied!", description: "Link copied to clipboard" });
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        
+        try {
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textArea);
+          
+          if (successful) {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+            toast({ title: "Copied!", description: "Link copied to clipboard" });
+          } else {
+            throw new Error('Copy command failed');
+          }
+        } catch (err) {
+          document.body.removeChild(textArea);
+          throw err;
+        }
+      }
+    } catch (err) {
+      console.error('Copy failed:', err);
+      toast({ 
+        title: "Copy Failed", 
+        description: "Please manually copy the link", 
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const shareToTwitter = () => {
+    if (!shareUrl || !result) return;
+    const text = `I scored ${result.wpm} WPM with ${result.accuracy.toFixed(1)}% accuracy on TypeMasterAI!`;
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
+    window.open(url, "_blank", "width=550,height=420");
+  };
+
+  const shareToWhatsApp = () => {
+    if (!shareUrl || !result) return;
+    const text = `I scored ${result.wpm} WPM with ${result.accuracy.toFixed(1)}% accuracy on TypeMasterAI! ${shareUrl}`;
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
   };
 
   if (isLoading) {
@@ -153,6 +274,24 @@ export default function Result() {
               </div>
               <div className="text-5xl font-bold">{formatDuration(result.duration)}</div>
             </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><Share2 className="w-5 h-5" /> Share this result</h3>
+          <div className="flex items-center gap-2 mb-3">
+            <Input value={shareUrl} readOnly className="flex-1" />
+            <Button onClick={handleCopy} variant="outline" size="icon">
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={shareToTwitter} variant="secondary">
+              <Twitter className="w-4 h-4 mr-2" /> Twitter
+            </Button>
+            <Button onClick={shareToWhatsApp} variant="secondary">
+              <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
+            </Button>
           </div>
         </Card>
 

@@ -41,7 +41,6 @@ import {
   logAuthEvent,
   extractDeviceInfo,
   regenerateSession,
-  checkRateLimit,
 } from "./oauth-service";
 import { securityHeaders, csrfProtection } from "./auth-security";
 import {
@@ -3180,20 +3179,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/code/share/:shareId", async (req, res) => {
     try {
       const { shareId } = req.params;
-      const sharedResult = await storage.getSharedCodeResult(shareId);
+      
+      // Validate shareId format
+      if (!shareId || typeof shareId !== 'string') {
+        return res.status(400).json({ message: "Invalid share link format" });
+      }
+      
+      const sanitizedShareId = shareId.trim().toUpperCase();
+      if (!/^[A-Z0-9]{10}$/.test(sanitizedShareId)) {
+        return res.status(400).json({ message: "Invalid share link" });
+      }
+      
+      // Fetch with timeout protection
+      const sharedResult = await Promise.race([
+        storage.getSharedCodeResult(sanitizedShareId),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database query timeout')), 10000)
+        )
+      ]) as any;
       
       if (!sharedResult) {
         return res.status(404).json({ message: "Shared result not found" });
       }
       
-      const certificate = await storage.getCertificateByCodeTestId(sharedResult.id);
+      // Validate required fields
+      if (!sharedResult.codeContent || sharedResult.wpm == null || sharedResult.accuracy == null) {
+        console.error(`[Share] Incomplete code share data for ${sanitizedShareId}`);
+        return res.status(500).json({ message: "Shared result data is incomplete" });
+      }
       
+      // Fetch certificate (non-critical)
+      let certificate = null;
+      try {
+        certificate = await storage.getCertificateByCodeTestId(sharedResult.id);
+      } catch (certErr) {
+        console.error(`[Share] Failed to fetch certificate for code test ${sharedResult.id}:`, certErr);
+      }
+      
+      // Sanitize code content (defense in depth)
+      const safeCodeContent = DOMPurify.sanitize(sharedResult.codeContent, {
+        ALLOWED_TAGS: [],
+        ALLOWED_ATTR: [],
+      });
+      
+      // Validate sanitization didn't completely strip content
+      if (!safeCodeContent || safeCodeContent.trim().length === 0) {
+        console.error(`[Share] Code content was completely sanitized for ${sanitizedShareId}`);
+        return res.status(500).json({ message: "Unable to display code content safely" });
+      }
+      
+      res.set('Cache-Control', 'public, max-age=60');
+      res.set('X-Content-Type-Options', 'nosniff');
       res.json({
-        ...sharedResult,
+        id: sharedResult.id,
+        shareId: sharedResult.shareId,
+        username: sharedResult.username || 'Anonymous',
+        programmingLanguage: sharedResult.programmingLanguage || 'unknown',
+        framework: sharedResult.framework || null,
+        difficulty: sharedResult.difficulty || 'medium',
+        testMode: sharedResult.testMode || 'normal',
+        wpm: Math.max(0, Math.min(300, sharedResult.wpm)),
+        accuracy: Math.max(0, Math.min(100, sharedResult.accuracy)),
+        errors: Math.max(0, sharedResult.errors || 0),
+        syntaxErrors: Math.max(0, sharedResult.syntaxErrors || 0),
+        duration: Math.max(0, sharedResult.duration || 0),
+        codeContent: safeCodeContent,
+        createdAt: sharedResult.createdAt,
         certificate: certificate || null,
       });
     } catch (error: any) {
-      console.error("Get shared result error:", error);
+      console.error("[Share] Get shared code result error:", error);
+      
+      if (error.message === 'Database query timeout') {
+        return res.status(504).json({ message: "Request timed out. Please try again." });
+      }
+      
+      if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+        return res.status(503).json({ message: "Service temporarily unavailable" });
+      }
+      
       res.status(500).json({ message: "Failed to fetch shared result" });
     }
   });
@@ -3893,31 +3957,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(429).json({ message: "Too many share attempts. Please try again later.", retryAfterMs: rl.retryAfterMs });
       }
 
-      // Validate input
-      if (!mode || !resultId) {
-        return res.status(400).json({ message: "Mode and resultId are required" });
+      // Validate input with type checking
+      if (!mode || typeof mode !== 'string' || mode.trim().length === 0) {
+        return res.status(400).json({ message: "Valid mode is required" });
+      }
+      if (!resultId) {
+        return res.status(400).json({ message: "Result ID is required" });
+      }
+      
+      // Validate resultId is a valid number
+      const parsedResultId = parseInt(resultId);
+      if (isNaN(parsedResultId) || parsedResultId <= 0) {
+        return res.status(400).json({ message: "Invalid result ID format" });
+      }
+
+      // Sanitize mode input
+      const sanitizedMode = mode.trim().toLowerCase();
+      if (sanitizedMode.length > 50) {
+        return res.status(400).json({ message: "Mode value too long" });
       }
 
       let statsData;
       let username = req.user?.username || null;
 
       // Fetch verified stats from database based on mode
-      switch (mode) {
+      switch (sanitizedMode) {
         case 'dictation':
-          const dictationTest = await storage.getDictationTestById(resultId);
+          const dictationTest = await storage.getDictationTestById(parsedResultId);
           if (!dictationTest) {
             return res.status(404).json({ message: "Test result not found" });
           }
           if (!req.user || dictationTest.userId !== req.user.id) {
-            return res.status(403).json({ message: "Unauthorized" });
+            return res.status(403).json({ message: "Unauthorized: cannot share another user's result" });
+          }
+          
+          // Validate dictation test has required fields
+          if (dictationTest.wpm == null || dictationTest.accuracy == null || dictationTest.errors == null) {
+            return res.status(400).json({ message: "Incomplete test result data" });
           }
           
           statsData = {
-            wpm: dictationTest.wpm,
-            accuracy: dictationTest.accuracy,
-            errors: dictationTest.errors,
-            duration: dictationTest.duration,
-            characters: dictationTest.actualSentence.length,
+            wpm: Math.max(0, Math.min(300, dictationTest.wpm)),
+            accuracy: Math.max(0, Math.min(100, dictationTest.accuracy)),
+            errors: Math.max(0, dictationTest.errors),
+            duration: dictationTest.duration || 0,
+            characters: dictationTest.actualSentence?.length || 0,
           };
           break;
 
@@ -3926,12 +4010,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         case 'practice':
         case 'challenge':
         case 'typing':
-          const testResult = await storage.getTestResultById(resultId);
+          const testResult = await storage.getTestResultById(parsedResultId);
           if (!testResult) {
             return res.status(404).json({ message: "Test result not found" });
           }
           if (!req.user || testResult.userId !== req.user.id) {
-            return res.status(403).json({ message: "Unauthorized" });
+            return res.status(403).json({ message: "Unauthorized: cannot share another user's result" });
+          }
+          
+          // Validate test result has required fields
+          if (testResult.wpm == null || testResult.accuracy == null || testResult.errors == null) {
+            return res.status(400).json({ message: "Incomplete test result data" });
           }
           
           // Map integer mode to string (best-effort)
@@ -3945,11 +4034,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const storedMode = modeMap[testResult.mode] || 'typing';
           
           statsData = {
-            wpm: testResult.wpm,
-            accuracy: testResult.accuracy,
-            errors: testResult.errors,
-            duration: 60, // Standard test duration fallback
-            characters: testResult.characters,
+            wpm: Math.max(0, Math.min(300, testResult.wpm)),
+            accuracy: Math.max(0, Math.min(100, testResult.accuracy)),
+            errors: Math.max(0, testResult.errors),
+            duration: 60,
+            characters: testResult.characters || 0,
           };
           break;
 
@@ -3962,15 +4051,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
         default:
-          return res.status(400).json({ message: `Unsupported mode: ${mode}` });
+          return res.status(400).json({ message: `Unsupported mode: ${sanitizedMode}` });
       }
 
-      // Validate stats are plausible
+      // Validate stats are plausible (double-check after mapping)
+      if (!statsData || typeof statsData !== 'object') {
+        return res.status(500).json({ message: "Failed to process test statistics" });
+      }
+      
       if (statsData.wpm < 0 || statsData.wpm > 300 ||
           statsData.accuracy < 0 || statsData.accuracy > 100 ||
           statsData.errors < 0 ||
-          (statsData.duration && statsData.duration < 0)) {
-        return res.status(400).json({ message: "Invalid stats detected" });
+          (statsData.duration && statsData.duration < 0) ||
+          (statsData.characters && statsData.characters < 0)) {
+        console.error(`[Share] Invalid stats detected:`, statsData);
+        return res.status(400).json({ message: "Invalid statistics detected" });
+      }
+      
+      // Additional sanity checks
+      if (statsData.wpm === 0 && statsData.accuracy === 0 && statsData.errors === 0) {
+        return res.status(400).json({ message: "Cannot share empty test result" });
       }
 
       // Generate unique share token (exactly 12 URL-safe chars)
@@ -3983,10 +4083,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const shareData = {
         shareToken,
         userId: req.user?.id || null,
-        username: isAnonymous ? undefined : username || undefined,
-        mode,
+        username: isAnonymous ? undefined : (username?.trim() || undefined),
+        mode: sanitizedMode,
         ...statsData,
-        isAnonymous: isAnonymous || false,
+        isAnonymous: Boolean(isAnonymous),
       };
 
       const parsed = insertSharedResultSchema.safeParse(shareData);
@@ -4000,13 +4100,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Insert with collision retry on unique share_token constraint (extremely rare)
       let sharedResult;
       let dataToInsert = { ...parsed.data };
-      for (let attempt = 0; attempt < 3; attempt++) {
+      const maxRetries = 3;
+      
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
           sharedResult = await storage.createSharedResult(dataToInsert);
           break;
         } catch (err: any) {
           // Postgres unique_violation
           if (err && (err.code === '23505' || /unique/i.test(String(err.message)))) {
+            if (attempt === maxRetries - 1) {
+              console.error(`[Share] Failed to generate unique token after ${maxRetries} attempts`);
+              return res.status(500).json({ message: "Failed to create share link. Please try again." });
+            }
             // regenerate token and try again
             let newToken = crypto.randomBytes(9).toString("base64url").slice(0, 12);
             if (newToken.length < 12) {
@@ -4015,17 +4121,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
             dataToInsert.shareToken = newToken;
             continue;
           }
+          // Database or other unexpected error
+          console.error(`[Share] Database error on attempt ${attempt + 1}:`, err);
           throw err;
         }
       }
+      
+      // If we exhausted retries without success
+      if (!sharedResult) {
+        console.error(`[Share] Failed to create shared result after ${maxRetries} attempts`);
+        return res.status(500).json({ message: "Failed to create share link. Please try again." });
+      }
 
-      // Resolve canonical base URL
+      // Resolve canonical base URL (prefer configured URL in production)
       const forwardedProto = req.get('x-forwarded-proto');
       const forwardedHost = req.get('x-forwarded-host');
       const host = forwardedHost || req.get('host');
       const proto = forwardedProto || req.protocol;
-      const baseUrlRaw = process.env.APP_URL || `${proto}://${host}`;
+      let baseUrlRaw = '';
+      
+      if (process.env.NODE_ENV === "production") {
+        baseUrlRaw = (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '').toString();
+        if (!baseUrlRaw) {
+          if (!host) {
+            console.error('[Share] Unable to determine host in production');
+            baseUrlRaw = 'https://typemasterai.com'; // fallback
+          } else {
+            baseUrlRaw = `${proto}://${host}`;
+          }
+        }
+      } else {
+        baseUrlRaw = `${proto}://${host || 'localhost:5000'}`;
+      }
+      
       const baseUrl = baseUrlRaw.replace(/\/+$/, '');
+      
+      // Validate base URL is well-formed
+      if (!baseUrl || !/^https?:\/\/.+/.test(baseUrl)) {
+        console.error(`[Share] Invalid base URL generated: ${baseUrl}`);
+        return res.status(500).json({ message: "Failed to generate share URL" });
+      }
 
       res.status(201).json({ 
         message: "Result shared successfully",
@@ -4033,8 +4168,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shareUrl: `${baseUrl}/result/${sharedResult.shareToken}`
       });
     } catch (error: any) {
-      console.error("Create shared result error:", error);
-      res.status(500).json({ message: "Failed to create shared result" });
+      console.error("[Share] Create shared result error:", error);
+      
+      // Categorize errors for better user feedback
+      if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+        return res.status(503).json({ message: "Database connection error. Please try again." });
+      }
+      
+      if (error.name === 'ValidationError') {
+        return res.status(400).json({ message: "Invalid data format" });
+      }
+      
+      // Generic error
+      res.status(500).json({ message: "Failed to create share link. Please try again later." });
     }
   });
 
@@ -4042,17 +4188,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { shareToken } = req.params;
       
-      const sharedResult = await storage.getSharedResult(shareToken);
+      // Validate token format strictly
+      if (!shareToken || typeof shareToken !== 'string') {
+        return res.status(400).json({ message: "Invalid share link format" });
+      }
+      
+      // Sanitize and validate token
+      const sanitizedToken = shareToken.trim();
+      if (!/^[A-Za-z0-9_-]{12}$/.test(sanitizedToken)) {
+        return res.status(400).json({ message: "Invalid share link" });
+      }
+      
+      // Fetch shared result with timeout protection
+      const sharedResult = await Promise.race([
+        storage.getSharedResult(sanitizedToken),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database query timeout')), 10000)
+        )
+      ]) as any;
+      
       if (!sharedResult) {
         return res.status(404).json({ message: "Shared result not found" });
       }
 
-      // Increment view count
-      await storage.incrementShareViewCount(shareToken);
+      // Validate data integrity
+      if (sharedResult.wpm == null || sharedResult.accuracy == null) {
+        console.error(`[Share] Corrupted data for token ${sanitizedToken}`);
+        return res.status(500).json({ message: "Shared result data is corrupted" });
+      }
 
-      res.json({ result: sharedResult });
+      // Increment view count (non-blocking, don't fail if this fails)
+      try {
+        await storage.incrementShareViewCount(sanitizedToken);
+      } catch (viewCountErr) {
+        console.error(`[Share] Failed to increment view count for ${sanitizedToken}:`, viewCountErr);
+      }
+
+      // Return only safe, validated fields
+      const safe = {
+        shareToken: sharedResult.shareToken,
+        username: sharedResult.isAnonymous ? null : (sharedResult.username || null),
+        mode: sharedResult.mode || 'unknown',
+        wpm: Math.max(0, Math.min(300, sharedResult.wpm || 0)),
+        accuracy: Math.max(0, Math.min(100, sharedResult.accuracy || 0)),
+        errors: Math.max(0, sharedResult.errors || 0),
+        duration: sharedResult.duration || null,
+        characters: sharedResult.characters || null,
+        freestyle: Boolean(sharedResult.freestyle),
+        isAnonymous: Boolean(sharedResult.isAnonymous),
+        viewCount: Math.max(0, (sharedResult.viewCount || 0) + 1),
+        createdAt: sharedResult.createdAt,
+      } as const;
+      
+      res.set('Cache-Control', 'public, max-age=60');
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.json({ result: safe });
     } catch (error: any) {
-      console.error("Get shared result error:", error);
+      console.error("[Share] Get shared result error:", error);
+      
+      if (error.message === 'Database query timeout') {
+        return res.status(504).json({ message: "Request timed out. Please try again." });
+      }
+      
+      if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+        return res.status(503).json({ message: "Service temporarily unavailable" });
+      }
+      
       res.status(500).json({ message: "Failed to fetch shared result" });
     }
   });
