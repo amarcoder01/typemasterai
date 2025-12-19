@@ -22,13 +22,13 @@ export async function generateVerificationQRCode(
   if (!verificationId || typeof verificationId !== 'string') {
     throw new Error('Invalid verification ID: must be a non-empty string');
   }
-  
+
   if (size < 50 || size > 500) {
     console.warn(`QR code size ${size} outside recommended range (50-500), may affect scannability`);
   }
-  
+
   const verificationUrl = getVerificationUrl(verificationId);
-  
+
   try {
     return await QRCode.toDataURL(verificationUrl, {
       width: size,
@@ -64,14 +64,14 @@ export async function drawQRCodeOnCanvas(
   backgroundColor: string = '#ffffff'
 ): Promise<void> {
   const qrDataUrl = await generateVerificationQRCode(verificationId, size);
-  
+
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       // Draw white background
       ctx.fillStyle = backgroundColor;
       ctx.fillRect(x - size / 2 - 4, y - size / 2 - 4, size + 8, size + 8);
-      
+
       // Draw QR code
       ctx.drawImage(img, x - size / 2, y - size / 2, size, size);
       resolve();
@@ -88,11 +88,11 @@ export async function drawQRCodeOnCanvas(
  * @returns Full verification URL
  */
 export function getVerificationUrl(verificationId: string): string {
-  // Use the production URL for certificates (they should work everywhere)
-  const baseUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+  // Use the current origin for certificates (works for both dev and prod)
+  const baseUrl = typeof window !== 'undefined'
     ? window.location.origin
     : 'https://typemasterai.com';
-  
+
   return `${baseUrl}/verify/${verificationId}`;
 }
 
@@ -107,15 +107,15 @@ export function isValidVerificationId(verificationId: string): boolean {
   if (!verificationId || typeof verificationId !== 'string') {
     return false;
   }
-  
+
   const id = verificationId.toUpperCase().trim();
-  
+
   // New format: TM-XXXX-XXXX-XXXX (3 groups)
   const newPattern = /^TM-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-  
+
   // Legacy format: TM-XXXX-XXXX (2 groups)
   const legacyPattern = /^TM-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-  
+
   return newPattern.test(id) || legacyPattern.test(id);
 }
 
