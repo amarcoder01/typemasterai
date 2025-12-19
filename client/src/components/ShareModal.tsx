@@ -105,22 +105,33 @@ export function ShareModal({
   const shareToTwitter = () => {
     if (!shareUrl || !stats) return;
     
-    const text = `I just scored ${stats.wpm} WPM with ${stats.accuracy}% accuracy on TypeMasterAI! Can you beat me? 🚀`;
+    const text = `Just hit ${stats.wpm} WPM with ${stats.accuracy}% accuracy! 🎯
+
+Can you beat this?
+
+#TypeMasterAI #Typing`;
     const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
     window.open(url, '_blank', 'width=550,height=420');
   };
 
   const shareToFacebook = () => {
-    if (!shareUrl) return;
+    if (!shareUrl || !stats) return;
     
-    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+    const text = `🎯 Just crushed my typing test!
+
+I hit ${stats.wpm} WPM with ${stats.accuracy}% accuracy on TypeMasterAI! This feels amazing!
+
+Honestly, I never thought I'd get this fast. If you've ever wondered how quick you type, this is your sign to test yourself!
+
+Think you can beat my score? I dare you to try! 😏🚀`;
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(text)}`;
     window.open(url, '_blank', 'width=550,height=420');
   };
 
   const shareToWhatsApp = () => {
     if (!shareUrl || !stats) return;
-    
-    const text = `I just scored ${stats.wpm} WPM with ${stats.accuracy}% accuracy on TypeMasterAI! Can you beat me? ${shareUrl}`;
+    // ASCII-safe, multi-line WhatsApp message with bold markers
+    const text = `*TypeMasterAI Result*\n\nSpeed: *${stats.wpm} WPM*\nAccuracy: *${stats.accuracy}%*\n\nTry it: ${shareUrl}`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -132,7 +143,7 @@ export function ShareModal({
       try {
         await navigator.share({
           title: 'TypeMasterAI - My Typing Result',
-          text: `I just scored ${stats.wpm} WPM with ${stats.accuracy}% accuracy!`,
+          text: `Just hit ${stats.wpm} WPM with ${stats.accuracy}% accuracy! 🎯\n\nCan you beat this?`,
           url: shareUrl,
         });
       } catch (error) {

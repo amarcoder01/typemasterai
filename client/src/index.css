@@ -420,3 +420,101 @@
   animation: shimmer 2s linear infinite;
   background-size: 200% 100%;
 }
+
+/* ============================================================================
+   PRINT STYLES - Certificate Verification Page
+   ============================================================================ */
+@media print {
+  /* Hide non-essential elements */
+  header,
+  footer,
+  nav,
+  .no-print,
+  button:not(.print-show),
+  [data-testid="input-verification-id"],
+  [data-testid="button-verify"] {
+    display: none !important;
+  }
+  
+  /* Reset backgrounds for printing */
+  body,
+  [data-testid="page-verify"] {
+    background: white !important;
+    color: black !important;
+  }
+  
+  /* Card styling for print */
+  .card,
+  [class*="Card"] {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    background: white !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  
+  /* Text colors for print */
+  h1, h2, h3, h4, h5, h6,
+  p, span, div {
+    color: black !important;
+  }
+  
+  /* Badge styling for print */
+  .badge,
+  [class*="Badge"] {
+    border: 1px solid #999 !important;
+    background: #f5f5f5 !important;
+    color: #333 !important;
+  }
+  
+  /* Status colors - keep some color for verification status */
+  .text-green-500, .text-green-600 {
+    color: #16a34a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  .text-red-500, .text-red-600, .text-destructive {
+    color: #dc2626 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  .text-yellow-500, .text-yellow-600 {
+    color: #ca8a04 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  .text-orange-500, .text-orange-600 {
+    color: #ea580c !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  /* Ensure icons print with color */
+  svg.text-green-500,
+  svg.text-red-500,
+  svg.text-primary {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  /* Print header/footer */
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+  
+  /* Show verification URL for print */
+  [data-testid="page-verify"]::after {
+    content: "Verified at: typemasterai.com/verify";
+    display: block;
+    text-align: center;
+    font-size: 10pt;
+    color: #666;
+    margin-top: 20px;
+    padding-top: 10px;
+    border-top: 1px solid #ddd;
+  }
+}

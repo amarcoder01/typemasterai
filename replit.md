@@ -19,7 +19,7 @@ The frontend utilizes React 18 with TypeScript and Vite, styled with Shadcn UI (
 - **Private Room System**: Features Host Failover, Reconnection Support, Countdown Management, and Rate Limiting.
 - **Leaderboard System**: Leaderboard Caching Service, Cursor-Based Pagination, Time-Based Leaderboards, "Around Me" Rankings, and Multi-Type Support across various typing modes.
 - **Legal & Compliance Infrastructure**: AI Transparency Notice, Accessibility Statement, Cookie Consent Banner, CCPA Compliance, Privacy Policy, and Terms of Service.
-- **Certificate System**: Expert-level certificates across 7 typing modes with mode-specific visuals and metrics, share functionality, and tiered achievement levels.
+- **Certificate System**: Expert-level certificates across 7 typing modes with mode-specific visuals and metrics, share functionality, tiered achievement levels, and a cryptographically secure verification system with HMAC-SHA256 signatures, QR codes, public verification portal, and audit logging.
 - **AI-Powered Content Generation**: Enhanced difficulty system for AI-generated paragraphs (Easy, Medium, Hard) based on vocabulary, sentence structure, and content depth, with multi-language and cultural adaptation for 95 educational topics.
 
 ### System Design Choices
@@ -44,3 +44,18 @@ The frontend utilizes React 18 with TypeScript and Vite, styled with Shadcn UI (
 - **Data & Forms**: `@tanstack/react-query`, `react-hook-form`, `zod`, `drizzle-zod`.
 - **Backend**: `express`, `express-session`, `passport`, `bcryptjs`, `drizzle-orm`, `@neondatabase/serverless`, `ws`, `openai`, `web-push`, `@azure/ai-projects`, `@azure/identity`, `mailgun.js`, `form-data`.
 - **Development Tools**: `vite`, `typescript`, `esbuild`, `drizzle-kit`.
+- **Certificate Verification**: `qrcode` for QR code generation.
+
+## Environment Variables
+
+### Required for Production
+- `DATABASE_URL`: PostgreSQL connection string (Neon Serverless)
+- `SESSION_SECRET`: Express session secret (32+ characters)
+- `CERTIFICATE_SECRET`: HMAC signing secret for certificate verification (32+ characters, required in production)
+- `MAILGUN_API_KEY`: Mailgun API key for email service
+- `OPENAI_API_KEY`: OpenAI API key for AI features
+
+### Optional
+- `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`: For push notifications
+- `AZURE_AI_PROJECT_CONNECTION_STRING`: For Azure AI Foundry fallback
+- `NODE_ENV`: Set to `production` for production builds

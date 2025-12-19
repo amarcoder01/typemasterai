@@ -1,9 +1,9 @@
-import { useRef, useEffect, useMemo } from "react";
-import { useState } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Share2, Check, Clipboard, Award, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getCodePerformanceRating, getLanguageIcon, triggerCelebration } from "@/lib/share-utils";
+import { generateVerificationQRCode } from "@/lib/qr-code-utils";
 
 interface CodeCertificateProps {
   wpm: number;
@@ -18,6 +18,7 @@ interface CodeCertificateProps {
   time: string;
   username?: string;
   date?: Date;
+  verificationId?: string; // Server-generated verification ID
 }
 
 interface TierVisuals {
@@ -79,35 +80,68 @@ export function CodeCertificate({
   time,
   username,
   date = new Date(),
+  verificationId: serverVerificationId,
 }: CodeCertificateProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [imageCopied, setImageCopied] = useState(false);
+  const [qrCodeImage, setQrCodeImage] = useState<HTMLImageElement | null>(null);
   const { toast } = useToast();
 
   const rating = getCodePerformanceRating(wpm, accuracy);
   const tierVisuals = TIER_VISUALS[rating.badge] || TIER_VISUALS.Bronze;
 
+  // Use server-generated ID if available, otherwise generate a fallback
   const certificateId = useMemo(() => {
+    if (serverVerificationId) {
+      return serverVerificationId;
+    }
+    // Fallback: Generate client-side hash with proper 3-group format
     const data = `${wpm}-${accuracy}-${consistency}-${language}-${characters}-${errors}-${time}`;
-    let hash = 0;
+    let hash1 = 0;
+    let hash2 = 0;
     for (let i = 0; i < data.length; i++) {
       const char = data.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
+      hash1 = ((hash1 << 5) - hash1) + char;
+      hash1 = hash1 & hash1;
+      hash2 = ((hash2 << 3) + hash2) ^ char;
+      hash2 = hash2 & hash2;
     }
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const absHash1 = Math.abs(hash1);
+    const absHash2 = Math.abs(hash2);
     let id = "TM-";
-    const absHash = Math.abs(hash);
-    for (let i = 0; i < 8; i++) {
-      id += chars[(absHash >> (i * 4)) % chars.length];
+    for (let i = 0; i < 4; i++) {
+      id += chars[(absHash1 >> (i * 4)) % chars.length];
+    }
+    id += "-";
+    for (let i = 0; i < 4; i++) {
+      id += chars[(absHash1 >> ((i + 4) * 4)) % chars.length];
+    }
+    id += "-";
+    for (let i = 0; i < 4; i++) {
+      id += chars[(absHash2 >> (i * 4)) % chars.length];
     }
     return id;
-  }, [wpm, accuracy, consistency, language, characters, errors, time]);
+  }, [serverVerificationId, wpm, accuracy, consistency, language, characters, errors, time]);
+
+  // Load QR code image for any verification ID
+  useEffect(() => {
+    if (certificateId) {
+      generateVerificationQRCode(certificateId, 80)
+        .then(dataUrl => {
+          const img = new Image();
+          img.onload = () => setQrCodeImage(img);
+          img.onerror = () => console.error('Failed to load QR code image');
+          img.src = dataUrl;
+        })
+        .catch(err => console.error('Failed to generate QR code:', err));
+    }
+  }, [certificateId]);
 
   useEffect(() => {
     generateCertificate();
-  }, [wpm, rawWpm, accuracy, consistency, language, languageName, difficulty, characters, errors, time, username]);
+  }, [wpm, rawWpm, accuracy, consistency, language, languageName, difficulty, characters, errors, time, username, qrCodeImage, serverVerificationId]);
 
   const generateCertificate = () => {
     const canvas = canvasRef.current;
@@ -153,7 +187,7 @@ export function CodeCertificate({
     borderGradient.addColorStop(0, tierVisuals.borderGradient[0]);
     borderGradient.addColorStop(0.5, tierVisuals.borderGradient[1]);
     borderGradient.addColorStop(1, tierVisuals.borderGradient[2]);
-    
+
     ctx.strokeStyle = borderGradient;
     ctx.lineWidth = borderWidth;
     ctx.strokeRect(borderWidth / 2, borderWidth / 2, canvas.width - borderWidth, canvas.height - borderWidth);
@@ -168,28 +202,28 @@ export function CodeCertificate({
     const cornerOffset = 15;
     ctx.strokeStyle = tierVisuals.primaryColor;
     ctx.lineWidth = 2;
-    
+
     // Top-left
     ctx.beginPath();
     ctx.moveTo(cornerOffset, cornerOffset + cornerSize);
     ctx.lineTo(cornerOffset, cornerOffset);
     ctx.lineTo(cornerOffset + cornerSize, cornerOffset);
     ctx.stroke();
-    
+
     // Top-right
     ctx.beginPath();
     ctx.moveTo(canvas.width - cornerOffset - cornerSize, cornerOffset);
     ctx.lineTo(canvas.width - cornerOffset, cornerOffset);
     ctx.lineTo(canvas.width - cornerOffset, cornerOffset + cornerSize);
     ctx.stroke();
-    
+
     // Bottom-left
     ctx.beginPath();
     ctx.moveTo(cornerOffset, canvas.height - cornerOffset - cornerSize);
     ctx.lineTo(cornerOffset, canvas.height - cornerOffset);
     ctx.lineTo(cornerOffset + cornerSize, canvas.height - cornerOffset);
     ctx.stroke();
-    
+
     // Bottom-right
     ctx.beginPath();
     ctx.moveTo(canvas.width - cornerOffset - cornerSize, canvas.height - cornerOffset);
@@ -202,7 +236,7 @@ export function CodeCertificate({
     ctx.font = "bold 16px 'JetBrains Mono', monospace";
     ctx.textAlign = "center";
     ctx.fillText("</>", canvas.width / 2 - 180, 65);
-    
+
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 28px 'DM Sans', system-ui, sans-serif";
     ctx.fillText("CODE TYPING CERTIFICATE", canvas.width / 2 + 20, 68);
@@ -219,7 +253,7 @@ export function CodeCertificate({
     lineGradient.addColorStop(0.5, tierVisuals.secondaryColor);
     lineGradient.addColorStop(0.8, tierVisuals.primaryColor);
     lineGradient.addColorStop(1, "transparent");
-    
+
     ctx.strokeStyle = lineGradient;
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -262,12 +296,12 @@ export function CodeCertificate({
     const statsBoxY = 320;
     const statsBoxWidth = 800;
     const statsBoxHeight = 100;
-    
+
     ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
     ctx.beginPath();
     ctx.roundRect(statsBoxX, statsBoxY, statsBoxWidth, statsBoxHeight, 12);
     ctx.fill();
-    
+
     ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -328,28 +362,28 @@ export function CodeCertificate({
     const badgeX = canvas.width - 120;
     const badgeY = statsBoxY + statsBoxHeight / 2;
     const badgeRadius = 35;
-    
+
     ctx.save();
     ctx.shadowColor = tierVisuals.glowColor;
     ctx.shadowBlur = 15;
-    
+
     const badgeGradient = ctx.createRadialGradient(badgeX, badgeY, 0, badgeX, badgeY, badgeRadius);
     badgeGradient.addColorStop(0, tierVisuals.secondaryColor);
     badgeGradient.addColorStop(0.7, tierVisuals.primaryColor);
     badgeGradient.addColorStop(1, tierVisuals.borderGradient[0]);
-    
+
     ctx.fillStyle = badgeGradient;
     ctx.beginPath();
     ctx.arc(badgeX, badgeY, badgeRadius, 0, Math.PI * 2);
     ctx.fill();
-    
+
     ctx.fillStyle = "#1a1a2e";
     ctx.beginPath();
     ctx.arc(badgeX, badgeY, badgeRadius - 6, 0, Math.PI * 2);
     ctx.fill();
-    
+
     ctx.restore();
-    
+
     ctx.fillStyle = tierVisuals.primaryColor;
     ctx.font = "bold 12px 'DM Sans', system-ui, sans-serif";
     ctx.textAlign = "center";
@@ -359,10 +393,10 @@ export function CodeCertificate({
     ctx.fillText("TIER", badgeX, badgeY + 12);
 
     // Earned on date
-    const formattedDate = date.toLocaleDateString('en-GB', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric' 
+    const formattedDate = date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
     });
     ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
     ctx.font = "16px 'DM Sans', system-ui, sans-serif";
@@ -381,7 +415,7 @@ export function CodeCertificate({
 
     // Signature section
     const sigY = 595;
-    
+
     // Signature line
     ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
     ctx.lineWidth = 1;
@@ -394,24 +428,48 @@ export function CodeCertificate({
     ctx.fillStyle = tierVisuals.primaryColor;
     ctx.font = "italic 18px 'DM Sans', system-ui, sans-serif";
     ctx.fillText("TypeMasterAI Coach", canvas.width / 2, sigY - 10);
-    
+
     ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
     ctx.font = "11px 'DM Sans', system-ui, sans-serif";
     ctx.fillText("AI Typing Coach & Certification Authority", canvas.width / 2, sigY + 18);
 
-    // Footer with certificate ID and URL
-    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-    ctx.font = "10px 'JetBrains Mono', monospace";
-    ctx.textAlign = "left";
-    ctx.fillText(`ID: ${certificateId}`, 50, canvas.height - 25);
+    // Footer with certificate ID, QR code, and URL
+    const footerY = canvas.height - 25;
+    
+    // Draw QR code if available (positioned on the left)
+    if (qrCodeImage) {
+      const qrSize = 50;
+      const qrX = 50;
+      const qrY = footerY - qrSize - 5;
+      
+      // QR code background
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(qrX - 3, qrY - 3, qrSize + 6, qrSize + 6);
+      
+      // Draw QR code
+      ctx.drawImage(qrCodeImage, qrX, qrY, qrSize, qrSize);
+      
+      // Certificate ID next to QR
+      ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+      ctx.font = "10px 'JetBrains Mono', monospace";
+      ctx.textAlign = "left";
+      ctx.fillText(`ID: ${certificateId}`, qrX + qrSize + 10, footerY);
+    } else {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+      ctx.font = "10px 'JetBrains Mono', monospace";
+      ctx.textAlign = "left";
+      ctx.fillText(`ID: ${certificateId}`, 50, footerY);
+    }
 
     ctx.textAlign = "center";
-    ctx.fillText("typemasterai.com/code-mode", canvas.width / 2, canvas.height - 25);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.font = "10px 'JetBrains Mono', monospace";
+    ctx.fillText(serverVerificationId ? "typemasterai.com/verify" : "typemasterai.com/code-mode", canvas.width / 2, footerY);
 
     ctx.textAlign = "right";
     ctx.fillStyle = tierVisuals.primaryColor;
     ctx.font = "bold 10px 'JetBrains Mono', monospace";
-    ctx.fillText(`${rating.emoji} ${rating.badge} CERTIFIED`, canvas.width - 50, canvas.height - 25);
+    ctx.fillText(`${rating.emoji} ${rating.badge} CERTIFIED`, canvas.width - 50, footerY);
   };
 
   const downloadCertificate = () => {
@@ -422,9 +480,9 @@ export function CodeCertificate({
     link.download = `TypeMasterAI_Certificate_${languageName}_${wpm}WPM_${certificateId}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
-    
+
     triggerCelebration('medium');
-    
+
     toast({
       title: "Certificate Downloaded!",
       description: "Share your achievement on social media!",
@@ -484,11 +542,11 @@ export function CodeCertificate({
       await navigator.clipboard.write([
         new ClipboardItem({ "image/png": blob })
       ]);
-      
+
       setImageCopied(true);
       setTimeout(() => setImageCopied(false), 2000);
       triggerCelebration('small');
-      
+
       toast({
         title: "Certificate Copied!",
         description: "Paste directly into Twitter, Discord, or LinkedIn!",
@@ -518,7 +576,7 @@ export function CodeCertificate({
           </span>
         </div>
       </div>
-      
+
       <div className="w-full space-y-3">
         <div className="p-4 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 rounded-xl border border-zinc-700">
           <div className="flex items-center justify-center gap-2 mb-3">
@@ -553,7 +611,7 @@ export function CodeCertificate({
             onClick={shareCertificate}
             disabled={isSharing}
             className="w-full gap-2 h-11 text-white font-semibold"
-            style={{ 
+            style={{
               background: `linear-gradient(135deg, ${tierVisuals.borderGradient[0]}, ${tierVisuals.primaryColor}, ${tierVisuals.borderGradient[2]})`,
             }}
             data-testid="button-share-certificate"
@@ -562,7 +620,7 @@ export function CodeCertificate({
             {isSharing ? "Sharing..." : "Share Certificate"}
           </Button>
         )}
-        
+
         <p className="text-[10px] text-center text-zinc-500" data-testid="text-certificate-id">
           Certificate ID: <span className="font-mono" style={{ color: tierVisuals.primaryColor }}>{certificateId}</span>
         </p>

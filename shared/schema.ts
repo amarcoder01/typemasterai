@@ -909,6 +909,17 @@ export const certificates = pgTable("certificates", {
   viewCount: integer("view_count").default(0).notNull(),
   isPublic: boolean("is_public").default(false).notNull(),
   
+  // Verification System (Cryptographically Secure)
+  verificationId: varchar("verification_id", { length: 20 }).unique(), // Format: TM-XXXX-XXXX-XXXX
+  signatureHash: varchar("signature_hash", { length: 64 }), // HMAC-SHA256 signature
+  issuedAt: timestamp("issued_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Optional expiration
+  revokedAt: timestamp("revoked_at"), // Null if not revoked
+  revokedReason: text("revoked_reason"),
+  verificationCount: integer("verification_count").default(0).notNull(),
+  lastVerifiedAt: timestamp("last_verified_at"),
+  issuerVersion: varchar("issuer_version", { length: 10 }).default("1.0"),
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => ({
   userIdIdx: index("certificates_user_id_idx").on(table.userId),
@@ -916,6 +927,7 @@ export const certificates = pgTable("certificates", {
   shareIdIdx: index("certificates_share_id_idx").on(table.shareId),
   createdAtIdx: index("certificates_created_at_idx").on(table.createdAt),
   userTypeIdx: index("certificates_user_type_idx").on(table.userId, table.certificateType),
+  verificationIdIdx: index("certificates_verification_id_idx").on(table.verificationId),
 }));
 
 export const insertCertificateSchema = createInsertSchema(certificates, {
@@ -928,10 +940,72 @@ export const insertCertificateSchema = createInsertSchema(certificates, {
   shareId: z.string().length(12).nullable().optional(),
   viewCount: z.number().int().min(0).optional(),
   isPublic: z.boolean().optional(),
+  verificationId: z.string().max(20).nullable().optional(),
+  signatureHash: z.string().max(64).nullable().optional(),
+  issuerVersion: z.string().max(10).optional(),
 }).omit({ id: true, createdAt: true });
 
 export type InsertCertificate = z.infer<typeof insertCertificateSchema>;
 export type Certificate = typeof certificates.$inferSelect;
+
+// Certificate Verification Audit Logs
+export const certificateVerificationLogs = pgTable("certificate_verification_logs", {
+  id: serial("id").primaryKey(),
+  certificateId: integer("certificate_id").references(() => certificates.id, { onDelete: "set null" }),
+  verificationId: varchar("verification_id", { length: 20 }),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  success: boolean("success").notNull(),
+  failureReason: varchar("failure_reason", { length: 100 }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => ({
+  certificateIdIdx: index("cert_verify_logs_certificate_id_idx").on(table.certificateId),
+  verificationIdIdx: index("cert_verify_logs_verification_id_idx").on(table.verificationId),
+  createdAtIdx: index("cert_verify_logs_created_at_idx").on(table.createdAt),
+  successIdx: index("cert_verify_logs_success_idx").on(table.success),
+}));
+
+export const insertCertificateVerificationLogSchema = createInsertSchema(certificateVerificationLogs, {
+  verificationId: z.string().max(20),
+  ipAddress: z.string().max(45).nullable().optional(),
+  userAgent: z.string().nullable().optional(),
+  success: z.boolean(),
+  failureReason: z.string().max(100).nullable().optional(),
+}).omit({ id: true, createdAt: true });
+
+export type InsertCertificateVerificationLog = z.infer<typeof insertCertificateVerificationLogSchema>;
+export type CertificateVerificationLog = typeof certificateVerificationLogs.$inferSelect;
+
+// Verification Response Schema (for API responses)
+export const verificationResponseSchema = z.object({
+  verified: z.boolean(),
+  certificate: z.object({
+    verificationId: z.string(),
+    type: z.string(),
+    username: z.string().nullable(),
+    wpm: z.number(),
+    accuracy: z.number(),
+    consistency: z.number(),
+    duration: z.number(),
+    issuedAt: z.string(),
+    tier: z.string().nullable(),
+    metadata: z.record(z.any()).nullable(),
+  }).nullable(),
+  verificationStatus: z.object({
+    isValid: z.boolean(),
+    signatureVerified: z.boolean(),
+    notExpired: z.boolean(),
+    notRevoked: z.boolean(),
+  }),
+  verificationCount: z.number(),
+  issuer: z.object({
+    name: z.string(),
+    version: z.string(),
+    url: z.string(),
+  }),
+});
+
+export type VerificationResponse = z.infer<typeof verificationResponseSchema>;
 
 // Books metadata for Book Library
 export const books = pgTable("books", {

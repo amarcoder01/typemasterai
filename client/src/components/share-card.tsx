@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Share2, Copy, Check, Twitter, Facebook, MessageCircle, Mail, Send, Image, Clipboard, Linkedin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { drawQRCodeOnCanvas, getVerificationUrl } from "@/lib/qr-code-utils";
 
 interface ShareCardProps {
   wpm: number;
@@ -13,11 +14,12 @@ interface ShareCardProps {
   consistency?: number;
   words?: number;
   characters?: number;
+  verificationId?: string;
   onClose?: () => void;
   onShareTracked?: (platform: string) => void;
 }
 
-export function ShareCard({ wpm, accuracy, mode, language, username, freestyle = false, consistency = 100, words = 0, characters = 0, onClose, onShareTracked }: ShareCardProps) {
+export function ShareCard({ wpm, accuracy, mode, language, username, freestyle = false, consistency = 100, words = 0, characters = 0, verificationId, onClose, onShareTracked }: ShareCardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -40,11 +42,78 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
     return { emoji: "🎯", title: "Rising Star", badge: "Bronze", color: "#cd7f32", bgGradient: ["#0f172a", "#3d2a1a", "#0f172a"] };
   };
 
-  useEffect(() => {
-    generateCard();
-  }, [wpm, accuracy, mode, language, username, freestyle, consistency, words, characters]);
+  // Create a PNG blob from the current canvas
+  const createCardBlob = async (): Promise<Blob> => {
+    const canvas = canvasRef.current;
+    if (!canvas) throw new Error("Canvas not ready");
+    return await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Failed to create blob"));
+      }, "image/png");
+    });
+  };
 
-  const generateCard = () => {
+  // Try sharing the image via the Web Share API with file attachments
+  const tryShareWithImage = async (text: string): Promise<boolean> => {
+    try {
+      const blob = await createCardBlob();
+      const file = new File([blob], `TypeMasterAI_${wpm}WPM.png`, { type: "image/png" });
+      if ('share' in navigator && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: `TypeMasterAI - ${wpm} WPM`,
+          text,
+          files: [file],
+        });
+        toast({ title: "Shared Image", description: "Your visual card was shared with the selected app." });
+        return true;
+      }
+    } catch {
+      // ignore and fallback
+    }
+    return false;
+  };
+
+
+
+  // Web-first share: open the platform web composer (text-only sharing)
+  const shareWebComposerWithClipboard = async (platform: string, text: string, composerUrl: string) => {
+    try {
+      const win = window.open(composerUrl, '_blank', 'noopener,noreferrer,width=600,height=400');
+      if (!win) {
+        toast({ title: 'Popup Blocked', description: 'Please allow popups for this site or click again to open the composer.', variant: 'destructive' });
+        try {
+          await navigator.clipboard.writeText(text);
+          toast({ title: 'Share Text Copied', description: 'Open the site manually and paste the text.' });
+        } catch { }
+        return;
+      }
+      onShareTracked?.(`visual_card_${platform}_web`);
+    } catch {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast({ title: 'Share Text Copied', description: 'Open the site manually and paste the text.' });
+      } catch { }
+    }
+  };
+
+  useEffect(() => {
+    void generateCard();
+  }, [wpm, accuracy, mode, language, username, freestyle, consistency, words, characters, verificationId]);
+
+  // Generate a compact verification ID for the share card
+  const generateCompactVerificationId = () => {
+    const data = `${username || 'anon'}-${wpm}-${accuracy}-${mode}-${Date.now()}`;
+    let hash = 0;
+    for (let i = 0; i < data.length; i++) {
+      const char = data.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(16).toUpperCase().slice(0, 6);
+  };
+
+  const generateCard = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -53,6 +122,9 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
 
     const rating = getPerformanceRating();
     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)}min` : `${mode}s`;
+    const fallbackId = generateCompactVerificationId();
+    const finalVerificationId = verificationId ? verificationId.toUpperCase() : `TM-${fallbackId}`;
+    const verificationUrl = getVerificationUrl(finalVerificationId);
 
     canvas.width = 600;
     canvas.height = 400;
@@ -150,21 +222,75 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
       ctx.fillText("Language", canvas.width - 140, statsY + 25);
     }
 
+    // ========== MINIMAL FOOTER ==========
+    // Canvas height: 400, inner border bottom: 375 (400-25)
+    // Keep all content within Y=25 to Y=375
+    
+    // Username (if available)
     if (username) {
       ctx.fillStyle = "#94a3b8";
-      ctx.font = "14px 'DM Sans', sans-serif";
+      ctx.font = "13px 'DM Sans', sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(`@${username}`, canvas.width / 2, 340);
+      ctx.fillText(`@${username}`, canvas.width / 2, 330);
     }
 
-    ctx.fillStyle = "#a855f7";
-    ctx.font = "bold 14px 'DM Sans', sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("typemasterai.com", canvas.width / 2, 375);
-
+    // Minimal verification line + QR
+    const footerY = username ? 350 : 340;
+    
+    // Left block: issuer + ID
+    const checkX = canvas.width / 2 - 120;
+    ctx.beginPath();
+    ctx.arc(checkX, footerY, 5, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(34, 197, 94, 0.2)";
+    ctx.fill();
+    ctx.strokeStyle = "#22c55e";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    ctx.save();
+    ctx.strokeStyle = "#22c55e";
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(checkX - 2, footerY);
+    ctx.lineTo(checkX - 0.5, footerY + 2);
+    ctx.lineTo(checkX + 2.5, footerY - 1.5);
+    ctx.stroke();
+    ctx.restore();
+    
     ctx.fillStyle = "#64748b";
-    ctx.font = "10px 'DM Sans', sans-serif";
-    ctx.fillText("Can you beat my score? 🎯", canvas.width / 2, 390);
+    ctx.font = "9px 'DM Sans', sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("Verified by TypeMasterAI", checkX + 10, footerY + 3);
+    
+    const verifiedTextWidth = ctx.measureText("Verified by TypeMasterAI").width;
+    ctx.fillStyle = "#475569";
+    ctx.fillText("•", checkX + 10 + verifiedTextWidth + 5, footerY + 3);
+    ctx.fillStyle = "#a855f7";
+    ctx.font = "9px 'JetBrains Mono', monospace";
+    ctx.fillText(finalVerificationId, checkX + 10 + verifiedTextWidth + 10, footerY + 3);
+    
+    // QR code on the right
+    try {
+      await drawQRCodeOnCanvas(ctx as any, finalVerificationId, canvas.width - 70, footerY - 5, 60, "#0f172a");
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "9px 'DM Sans', sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Scan to verify", canvas.width - 70, footerY + 38);
+    } catch {
+      // If QR fails, fallback text
+      ctx.fillStyle = "#ef4444";
+      ctx.font = "9px 'DM Sans', sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("QR unavailable", canvas.width - 70, footerY + 10);
+    }
+    
+    // Website URL
+    ctx.fillStyle = "#a855f7";
+    ctx.font = "bold 11px 'DM Sans', sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("typemasterai.com/verify", canvas.width / 2, footerY + 18);
   };
 
   const downloadCard = () => {
@@ -175,9 +301,9 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
     link.download = `TypeMasterAI_${wpm}WPM_${accuracy}acc.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
-    
+
     onShareTracked?.('visual_card_download');
-    
+
     toast({
       title: "Card Downloaded!",
       description: "Share it on social media to challenge your friends!",
@@ -244,7 +370,7 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
       await navigator.clipboard.write([
         new ClipboardItem({ "image/png": blob })
       ]);
-      
+
       setImageCopied(true);
       setTimeout(() => setImageCopied(false), 2000);
       onShareTracked?.('visual_card_copy_image');
@@ -264,7 +390,7 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
   const copyShareText = () => {
     const rating = getPerformanceRating();
     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-    const text = freestyle 
+    const text = freestyle
       ? `${rating.emoji} I just scored ${wpm} WPM in Freestyle mode on TypeMasterAI!
 
 ⌨️ ${wpm} WPM | 📈 ${consistency}% Consistency
@@ -303,47 +429,90 @@ Think you can beat my score? Try it now! 🎯
     const rating = getPerformanceRating();
     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
     return freestyle
-      ? `${rating.emoji} I scored ${wpm} WPM with ${consistency}% consistency in Freestyle mode on TypeMasterAI! ${rating.badge} Badge - ${modeDisplay} session. Can you beat me?`
-      : `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! ${rating.badge} Badge - ${modeDisplay} test. Can you beat me?`;
+      ? `${rating.emoji} ${wpm} WPM with ${consistency}% consistency in Freestyle! ${rating.badge} Badge earned 🎯
+
+Can you beat this?
+
+#TypeMasterAI #Typing`
+      : `${rating.emoji} Just hit ${wpm} WPM with ${accuracy}% accuracy! ${rating.badge} Badge 🎯
+
+Can you beat this?
+
+#TypeMasterAI #Typing`;
   };
 
-  const shareToTwitter = () => {
-    const text = encodeURIComponent(getShareText());
-    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
-    onShareTracked?.('visual_card_twitter');
+  const getFacebookText = () => {
+    const rating = getPerformanceRating();
+    const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+    return freestyle
+      ? `${rating.emoji} Just finished my typing test in Freestyle mode!
+
+Scored ${wpm} WPM with ${consistency}% consistency! This feels incredible! 🎯
+
+✨ What I achieved:
+• ${rating.title} performance level
+• ${rating.badge} Badge earned
+• ${modeDisplay} of pure flow
+
+Freestyle mode lets you type naturally without prompts - it's surprisingly challenging! If you've never tested your natural typing rhythm, you should try this.
+
+Think you can beat my score? 😏🚀`
+      : `${rating.emoji} Just crushed my typing test!
+
+Hit ${wpm} WPM with ${accuracy}% accuracy! This feels amazing! 🎯
+
+✨ What I achieved:
+• ${rating.title} performance level
+• ${rating.badge} Badge earned
+• Completed ${modeDisplay} test
+
+Honestly, I never thought I'd get this fast. If you've ever wondered how quick you type, this is your sign to test yourself!
+
+Think you can beat my score? I dare you to try! 😏🚀`;
   };
 
-  const shareToFacebook = () => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://typemasterai.com')}&quote=${encodeURIComponent(getShareText())}`, '_blank', 'width=600,height=400');
-    onShareTracked?.('visual_card_facebook');
+  const shareToTwitter = async () => {
+    const rawText = getShareText();
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(rawText)}&url=${encodeURIComponent('https://typemasterai.com')}`;
+    await shareWebComposerWithClipboard('twitter', rawText, url);
   };
 
-  const shareToWhatsApp = () => {
-    const fullText = getShareText() + '\n\n🔗 https://typemasterai.com';
-    window.open(`https://wa.me/?text=${encodeURIComponent(fullText)}`, '_blank', 'width=600,height=400');
-    onShareTracked?.('visual_card_whatsapp');
+  const shareToFacebook = async () => {
+    const rawText = getFacebookText();
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://typemasterai.com')}&quote=${encodeURIComponent(rawText)}`;
+    await shareWebComposerWithClipboard('facebook', rawText, url);
   };
 
-  const shareToLinkedIn = () => {
-    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
-    onShareTracked?.('visual_card_linkedin');
+  const shareToWhatsApp = async () => {
+    // ASCII-safe WA text for web share
+    const waText = `*TypeMasterAI Result*\n\nSpeed: *${wpm} WPM*\nAccuracy: *${accuracy}%*\n\nTry it: https://typemasterai.com`;
+    const url = `https://wa.me/?text=${encodeURIComponent(waText)}`;
+    await shareWebComposerWithClipboard('whatsapp', waText, url);
   };
 
-  const shareToReddit = () => {
+  const shareToLinkedIn = async () => {
+    const rawText = getShareText();
+    const url = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://typemasterai.com')}`;
+    await shareWebComposerWithClipboard('linkedin', rawText, url);
+  };
+
+  const shareToReddit = async () => {
+    const rawText = getShareText();
     const title = encodeURIComponent(`I scored ${wpm} WPM on TypeMasterAI!`);
-    window.open(`https://www.reddit.com/submit?url=${encodeURIComponent('https://typemasterai.com')}&title=${title}`, '_blank', 'width=600,height=600');
-    onShareTracked?.('visual_card_reddit');
+    const url = `https://www.reddit.com/submit?url=${encodeURIComponent('https://typemasterai.com')}&title=${title}`;
+    await shareWebComposerWithClipboard('reddit', rawText, url);
   };
 
-  const shareToTelegram = () => {
-    const text = getShareText();
-    window.open(`https://t.me/share/url?url=${encodeURIComponent('https://typemasterai.com')}&text=${encodeURIComponent(text)}`, '_blank', 'width=600,height=400');
-    onShareTracked?.('visual_card_telegram');
+  const shareToTelegram = async () => {
+    const rawText = getShareText();
+    const url = `https://t.me/share/url?url=${encodeURIComponent('https://typemasterai.com')}&text=${encodeURIComponent(rawText)}`;
+    await shareWebComposerWithClipboard('telegram', rawText, url);
   };
 
-  const shareViaEmail = () => {
+  const shareViaEmail = async () => {
     const subject = encodeURIComponent(`I scored ${wpm} WPM on TypeMasterAI!`);
-    const body = encodeURIComponent(`${getShareText()}\n\nTry it yourself: https://typemasterai.com`);
+    const rawText = `${getShareText()}\n\nTry it yourself: https://typemasterai.com`;
+    const body = encodeURIComponent(rawText);
     window.open(`mailto:?subject=${subject}&body=${body}`);
     onShareTracked?.('visual_card_email');
   };
@@ -355,7 +524,7 @@ Think you can beat my score? Try it now! 🎯
         className="rounded-xl shadow-2xl max-w-full h-auto border border-primary/20"
         style={{ maxWidth: "100%", height: "auto" }}
       />
-      
+
       {/* Image Sharing Section */}
       <div className="w-full space-y-3">
         <div className="p-3 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-xl border border-purple-500/20">
@@ -441,7 +610,7 @@ Think you can beat my score? Try it now! 🎯
             data-testid="button-visual-share-reddit"
           >
             <svg className="w-4 h-4 text-[#FF4500]" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/>
+              <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
             </svg>
             <span className="text-xs font-medium">Reddit</span>
           </button>
@@ -462,7 +631,7 @@ Think you can beat my score? Try it now! 🎯
             <span className="text-xs font-medium">Email</span>
           </button>
         </div>
-        
+
         {/* Copy Text Button */}
         <button
           onClick={copyShareText}

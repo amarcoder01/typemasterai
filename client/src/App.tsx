@@ -44,6 +44,7 @@ import TermsOfService from "@/pages/terms-of-service";
 import CookiePolicy from "@/pages/cookie-policy";
 import About from "@/pages/about";
 import Contact from "@/pages/contact";
+import Verify from "@/pages/verify";
 import NotificationSettings from "@/pages/NotificationSettings";
 import TypingTest1Min from "@/pages/typing-test-1-min";
 import TypingTest3Min from "@/pages/typing-test-3-min";
@@ -101,6 +102,8 @@ function Router() {
             <Route path="/cookie-policy" component={CookiePolicy} />
             <Route path="/about" component={About} />
             <Route path="/contact" component={Contact} />
+            <Route path="/verify" component={Verify} />
+            <Route path="/verify/:verificationId" component={Verify} />
             <Route path="/learn" component={Learn} />
             <Route path="/ai-transparency" component={AITransparency} />
             <Route path="/accessibility" component={AccessibilityStatement} />

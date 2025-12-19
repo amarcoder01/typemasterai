@@ -176,6 +176,9 @@ import {
   certificates,
   type Certificate,
   type InsertCertificate,
+  certificateVerificationLogs,
+  type CertificateVerificationLog,
+  type InsertCertificateVerificationLog,
 } from "@shared/schema";
 import { eq, desc, sql, and, notInArray, or, isNull } from "drizzle-orm";
 
@@ -773,6 +776,26 @@ export interface IStorage {
   getCertificateByCodeTestId(codeTestId: number): Promise<Certificate | undefined>;
   updateCertificateViewCount(id: number): Promise<void>;
   deleteCertificate(id: number): Promise<void>;
+  
+  // Certificate Verification System
+  getCertificateByVerificationId(verificationId: string): Promise<Certificate | undefined>;
+  updateCertificateVerification(id: number, data: {
+    verificationId: string;
+    signatureHash: string;
+    issuedAt: Date;
+    issuerVersion: string;
+  }): Promise<void>;
+  incrementVerificationCount(id: number): Promise<void>;
+  revokeCertificate(id: number, reason: string): Promise<void>;
+  unrevokeCertificate(id: number): Promise<void>;
+  logVerificationAttempt(log: InsertCertificateVerificationLog): Promise<CertificateVerificationLog>;
+  getVerificationLogs(verificationId: string, limit?: number): Promise<CertificateVerificationLog[]>;
+  getVerificationStats(): Promise<{
+    totalCertificates: number;
+    totalVerifications: number;
+    successfulVerifications: number;
+    failedVerifications: number;
+  }>;
   getCodeTypingTestById(id: number): Promise<CodeTypingTest | undefined>;
   getBookTypingTestById(id: number): Promise<BookTypingTest | undefined>;
   getRaceParticipationByRaceAndUser(raceId: number, userId: string): Promise<RaceParticipant | undefined>;
@@ -5690,6 +5713,112 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(certificates)
       .where(eq(certificates.id, id));
+  }
+
+  // ============================================================================
+  // CERTIFICATE VERIFICATION SYSTEM
+  // ============================================================================
+
+  async getCertificateByVerificationId(verificationId: string): Promise<Certificate | undefined> {
+    const result = await db
+      .select()
+      .from(certificates)
+      .where(eq(certificates.verificationId, verificationId))
+      .limit(1);
+    return result[0];
+  }
+
+  async updateCertificateVerification(id: number, data: {
+    verificationId: string;
+    signatureHash: string;
+    issuedAt: Date;
+    issuerVersion: string;
+  }): Promise<void> {
+    await db
+      .update(certificates)
+      .set({
+        verificationId: data.verificationId,
+        signatureHash: data.signatureHash,
+        issuedAt: data.issuedAt,
+        issuerVersion: data.issuerVersion,
+      })
+      .where(eq(certificates.id, id));
+  }
+
+  async incrementVerificationCount(id: number): Promise<void> {
+    await db
+      .update(certificates)
+      .set({
+        verificationCount: sql`${certificates.verificationCount} + 1`,
+        lastVerifiedAt: new Date(),
+      })
+      .where(eq(certificates.id, id));
+  }
+
+  async revokeCertificate(id: number, reason: string): Promise<void> {
+    await db
+      .update(certificates)
+      .set({
+        revokedAt: new Date(),
+        revokedReason: reason,
+      })
+      .where(eq(certificates.id, id));
+  }
+
+  async unrevokeCertificate(id: number): Promise<void> {
+    await db
+      .update(certificates)
+      .set({
+        revokedAt: null,
+        revokedReason: null,
+      })
+      .where(eq(certificates.id, id));
+  }
+
+  async logVerificationAttempt(log: InsertCertificateVerificationLog): Promise<CertificateVerificationLog> {
+    const result = await db
+      .insert(certificateVerificationLogs)
+      .values(log)
+      .returning();
+    return result[0];
+  }
+
+  async getVerificationLogs(verificationId: string, limit: number = 50): Promise<CertificateVerificationLog[]> {
+    return await db
+      .select()
+      .from(certificateVerificationLogs)
+      .where(eq(certificateVerificationLogs.verificationId, verificationId))
+      .orderBy(desc(certificateVerificationLogs.createdAt))
+      .limit(limit);
+  }
+
+  async getVerificationStats(): Promise<{
+    totalCertificates: number;
+    totalVerifications: number;
+    successfulVerifications: number;
+    failedVerifications: number;
+  }> {
+    // Get total certificates with verification IDs
+    const certResult = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(certificates)
+      .where(sql`${certificates.verificationId} IS NOT NULL`);
+
+    // Get verification log stats
+    const logsResult = await db
+      .select({
+        total: sql<number>`count(*)::int`,
+        successful: sql<number>`count(*) FILTER (WHERE ${certificateVerificationLogs.success} = true)::int`,
+        failed: sql<number>`count(*) FILTER (WHERE ${certificateVerificationLogs.success} = false)::int`,
+      })
+      .from(certificateVerificationLogs);
+
+    return {
+      totalCertificates: certResult[0]?.count || 0,
+      totalVerifications: logsResult[0]?.total || 0,
+      successfulVerifications: logsResult[0]?.successful || 0,
+      failedVerifications: logsResult[0]?.failed || 0,
+    };
   }
 }
 

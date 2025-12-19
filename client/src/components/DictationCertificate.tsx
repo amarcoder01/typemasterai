@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Share2, Check, Clipboard, Mic } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getTypingPerformanceRating, triggerCelebration } from "@/lib/share-utils";
+import { generateVerificationQRCode } from "@/lib/qr-code-utils";
 
 interface DictationCertificateProps {
   wpm: number;
@@ -14,6 +15,7 @@ interface DictationCertificateProps {
   duration: number;
   username?: string;
   date?: Date;
+  verificationId?: string; // Server-generated verification ID
 }
 
 interface TierVisuals {
@@ -72,31 +74,62 @@ export function DictationCertificate({
   duration,
   username,
   date = new Date(),
+  verificationId: serverVerificationId,
 }: DictationCertificateProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [imageCopied, setImageCopied] = useState(false);
+  const [qrCodeImage, setQrCodeImage] = useState<HTMLImageElement | null>(null);
   const { toast } = useToast();
 
   const rating = getTypingPerformanceRating(wpm, accuracy);
   const tierVisuals = TIER_VISUALS[rating.badge] || TIER_VISUALS.Bronze;
 
+  // Generate certificate ID (server or fallback)
   const certificateId = useMemo(() => {
+    if (serverVerificationId) return serverVerificationId;
+    // Fallback: Generate client-side hash with proper 3-group format
     const data = `${wpm}-${accuracy}-${consistency}-${speedLevel}-${totalWords}-${duration}`;
-    let hash = 0;
+    let hash1 = 0;
+    let hash2 = 0;
     for (let i = 0; i < data.length; i++) {
       const char = data.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
+      hash1 = ((hash1 << 5) - hash1) + char;
+      hash1 = hash1 & hash1;
+      hash2 = ((hash2 << 3) + hash2) ^ char;
+      hash2 = hash2 & hash2;
     }
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let id = "TM-DICT-";
-    const absHash = Math.abs(hash);
-    for (let i = 0; i < 8; i++) {
-      id += chars[(absHash >> (i * 4)) % chars.length];
+    const absHash1 = Math.abs(hash1);
+    const absHash2 = Math.abs(hash2);
+    let id = "TM-";
+    for (let i = 0; i < 4; i++) {
+      id += chars[(absHash1 >> (i * 4)) % chars.length];
+    }
+    id += "-";
+    for (let i = 0; i < 4; i++) {
+      id += chars[(absHash1 >> ((i + 4) * 4)) % chars.length];
+    }
+    id += "-";
+    for (let i = 0; i < 4; i++) {
+      id += chars[(absHash2 >> (i * 4)) % chars.length];
     }
     return id;
-  }, [wpm, accuracy, consistency, speedLevel, totalWords, duration]);
+  }, [serverVerificationId, wpm, accuracy, consistency, speedLevel, totalWords, duration]);
+
+  // Load QR code image for any verification ID
+  useEffect(() => {
+    if (certificateId) {
+      generateVerificationQRCode(certificateId, 80)
+        .then(dataUrl => {
+          const img = new Image();
+          img.onload = () => setQrCodeImage(img);
+          img.onerror = () => console.error('Failed to load QR code image');
+          img.src = dataUrl;
+        })
+        .catch(err => console.error('Failed to generate QR code:', err));
+    }
+  }, [certificateId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -137,7 +170,7 @@ export function DictationCertificate({
       const iconSize = 80;
       const iconX = (width - iconSize) / 2;
       const iconY = 190;
-      
+
       ctx.save();
       ctx.translate(iconX + iconSize / 2, iconY + iconSize / 2);
       ctx.strokeStyle = tierVisuals.primaryColor;

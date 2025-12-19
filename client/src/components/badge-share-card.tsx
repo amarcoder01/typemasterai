@@ -289,7 +289,11 @@ export function BadgeShareCard({ badge, username, unlockedAt, isOpen, onClose, o
   };
 
   const getShareText = () => {
-    return `${tierEmoji} I just unlocked the "${badge.name}" badge on TypeMasterAI!\n\n${categoryEmoji} ${badge.description}\n🏅 ${badge.tier.charAt(0).toUpperCase() + badge.tier.slice(1)} Tier • +${badge.points} XP\n\nCan you unlock this badge too? 🎯`;
+    return `${tierEmoji} Just unlocked "${badge.name}" badge! +${badge.points} XP 🎯\n\nCan you unlock it too?\n\n#TypeMasterAI #Badge`;
+  };
+
+  const getFacebookText = () => {
+    return `${tierEmoji} Achievement Unlocked!\n\nI just earned the "${badge.name}" badge on TypeMasterAI! This feels so rewarding! 🎯\n\n${categoryEmoji} What it means:\n${badge.description}\n\n🏅 Badge Details:\n• Tier: ${badge.tier.charAt(0).toUpperCase() + badge.tier.slice(1)}\n• XP Earned: +${badge.points}\n\nHonestly, I didn't think I'd get this one! If you're into typing challenges and unlocking achievements, you should check this out.\n\nThink you can earn this badge too? 😏🚀`;
   };
 
   const copyShareText = () => {
@@ -312,12 +316,12 @@ export function BadgeShareCard({ badge, username, unlockedAt, isOpen, onClose, o
   };
 
   const shareToFacebook = () => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://typemasterai.com')}&quote=${encodeURIComponent(getShareText())}`, '_blank', 'width=600,height=400');
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://typemasterai.com')}&quote=${encodeURIComponent(getFacebookText())}`, '_blank', 'width=600,height=400');
     onShareTracked?.('badge_facebook');
   };
 
   const shareToWhatsApp = () => {
-    const fullText = getShareText() + '\n\n🔗 https://typemasterai.com';
+    const fullText = `*TypeMasterAI Badge*\n\nBadge: *${badge.name}*\nTier: *${badge.tier.charAt(0).toUpperCase() + badge.tier.slice(1)}*\nXP: +${badge.points}\n\nTry it: https://typemasterai.com`;
     window.open(`https://wa.me/?text=${encodeURIComponent(fullText)}`, '_blank', 'width=600,height=400');
     onShareTracked?.('badge_whatsapp');
   };

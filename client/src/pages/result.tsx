@@ -199,7 +199,7 @@ export default function Result() {
 
   const shareToWhatsApp = () => {
     if (!shareUrl || !result) return;
-    const text = `I scored ${result.wpm} WPM with ${result.accuracy.toFixed(1)}% accuracy on TypeMasterAI! ${shareUrl}`;
+    const text = `*TypeMasterAI Result*\n\nSpeed: *${result.wpm} WPM*\nAccuracy: *${result.accuracy.toFixed(1)}%*\n\nTry it: ${shareUrl}`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
   };

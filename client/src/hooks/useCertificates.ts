@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import type { Certificate } from "@shared/schema";
+import type { Certificate, VerificationResponse } from "@shared/schema";
 
 interface CreateCertificateData {
   certificateType: "standard" | "code" | "book" | "race" | "dictation" | "stress";
@@ -148,5 +148,134 @@ export function useDeleteCertificate() {
         variant: "destructive",
       });
     },
+  });
+}
+
+// ============================================================================
+// CERTIFICATE VERIFICATION HOOKS
+// ============================================================================
+
+/**
+ * Hook to verify a certificate by its verification ID
+ */
+export function useVerifyCertificate(verificationId: string | null) {
+  return useQuery<VerificationResponse>({
+    queryKey: ["verify", verificationId],
+    queryFn: async () => {
+      if (!verificationId) {
+        throw new Error("Verification ID is required");
+      }
+
+      const response = await fetch(`/api/verify/${encodeURIComponent(verificationId)}`);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Verification failed");
+      }
+
+      return response.json();
+    },
+    enabled: !!verificationId,
+    retry: false,
+    staleTime: 30000,
+  });
+}
+
+/**
+ * Hook to revoke a certificate
+ */
+export function useRevokeCertificate() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, reason }: { id: number; reason: string }) => {
+      const response = await fetch(`/api/certificates/${id}/revoke`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reason }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to revoke certificate");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["certificates"] });
+      queryClient.invalidateQueries({ queryKey: ["verify"] });
+      toast({
+        title: "Certificate Revoked",
+        description: `Certificate ${data.verificationId} has been revoked.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Revocation Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+/**
+ * Hook to unrevoke (restore) a certificate
+ */
+export function useUnrevokeCertificate() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`/api/certificates/${id}/unrevoke`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to restore certificate");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["certificates"] });
+      queryClient.invalidateQueries({ queryKey: ["verify"] });
+      toast({
+        title: "Certificate Restored",
+        description: `Certificate ${data.verificationId} has been restored.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Restore Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
+/**
+ * Hook to fetch verification statistics
+ */
+export function useVerificationStats() {
+  return useQuery({
+    queryKey: ["verification", "stats"],
+    queryFn: async () => {
+      const response = await fetch("/api/verification/stats");
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch verification stats");
+      }
+
+      return response.json();
+    },
+    staleTime: 60000,
   });
 }

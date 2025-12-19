@@ -191,6 +191,9 @@ export default function TypingTest() {
   const [testCompletionDate, setTestCompletionDate] = useState<Date>(new Date());
   const [showShareModal, setShowShareModal] = useState(false);
   const [lastResultId, setLastResultId] = useState<number | null>(null);
+  const certificateCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isSharingCertificate, setIsSharingCertificate] = useState(false);
+  const [certificateImageCopied, setCertificateImageCopied] = useState(false);
   const [shareUrl, setShareUrl] = useState<string>("");
   const [isCreatingShare, setIsCreatingShare] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -211,6 +214,7 @@ export default function TypingTest() {
     freestyle: boolean;
     mode: number;
     completionDate: string; // ISO string to avoid Date serialization issues
+    verificationId?: string; // Server-generated certificate verification ID
   } | null>(null);
   const [isTypingFast, setIsTypingFast] = useState(false);
   const lastKeystrokeTimeRef = useRef<number>(0);
@@ -549,6 +553,15 @@ export default function TypingTest() {
       if (data?.id) {
         setLastResultId(data.id);
       }
+      
+      // Update snapshot with server-generated verification ID from auto-created certificate
+      if (data?.certificate?.verificationId) {
+        setLastResultSnapshot(prev => prev ? {
+          ...prev,
+          verificationId: data.certificate.verificationId,
+        } : null);
+      }
+      
       setPendingResult(null);
       toast({
         title: "Test Saved!",
@@ -657,6 +670,7 @@ export default function TypingTest() {
     setUserInput("");
     setFreestyleText("");
     setStartTime(null);
+    startTimeRef.current = null;
     setTimeLeft(mode);
     setIsActive(false);
     setIsFinished(false);
@@ -783,6 +797,115 @@ export default function TypingTest() {
     return { emoji: "🎯", title: "Rising Star", badge: "Bronze" };
   };
 
+  const getCertificateCanvas = (): HTMLCanvasElement | null => {
+    // Try to get the canvas from the CertificateGenerator component
+    const canvasElements = document.querySelectorAll('canvas');
+    for (const canvas of canvasElements) {
+      // Check if it's the certificate canvas (it has specific dimensions)
+      if (canvas.width === 1200 && canvas.height === 800) {
+        return canvas as HTMLCanvasElement;
+      }
+    }
+    return null;
+  };
+
+  const shareCertificateWithImage = async () => {
+    const canvas = getCertificateCanvas();
+    if (!canvas) {
+      toast({
+        title: "Certificate Not Ready",
+        description: "Please view your certificate first, then try sharing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSharingCertificate(true);
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Failed to create blob"));
+        }, "image/png");
+      });
+
+      const rating = getPerformanceRating();
+      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+      const file = new File([blob], `TypeMasterAI_Certificate_${wpm}WPM.png`, { type: "image/png" });
+
+      if ('share' in navigator && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          title: `My TypeMasterAI Certificate | ${wpm} WPM Achievement`,
+          text: `🎓 CERTIFICATE EARNED!\n\n⚡ ${wpm} WPM | ✨ ${accuracy}% Accuracy\n🏆 ${rating.title}\n🎯 ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nProve your typing skills! Get certified at typemasterai.com 🚀`,
+          files: [file],
+        });
+        trackShare('certificate_image');
+        toast({
+          title: "Certificate Shared!",
+          description: "Your certificate image has been shared successfully!",
+        });
+      } else {
+        // Fallback: download the certificate
+        const link = document.createElement("a");
+        link.download = `TypeMasterAI_Certificate_${wpm}WPM.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        toast({
+          title: "Download Started",
+          description: "Your browser doesn't support sharing. Certificate downloaded instead.",
+        });
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        toast({
+          title: "Share Cancelled",
+          description: "You can still download your certificate.",
+        });
+      }
+    } finally {
+      setIsSharingCertificate(false);
+    }
+  };
+
+  const copyCertificateToClipboard = async () => {
+    const canvas = getCertificateCanvas();
+    if (!canvas) {
+      toast({
+        title: "Certificate Not Ready",
+        description: "Please view your certificate first, then try copying.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("Failed to create blob"));
+        }, "image/png");
+      });
+
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob })
+      ]);
+      
+      setCertificateImageCopied(true);
+      setTimeout(() => setCertificateImageCopied(false), 2000);
+      
+      toast({
+        title: "Certificate Image Copied!",
+        description: "Paste directly into Twitter, Discord, LinkedIn, or any social media!",
+      });
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Your browser doesn't support image copying. Please download instead.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const trackShare = async (platform: string) => {
     if (!user) return;
     
@@ -826,54 +949,63 @@ export default function TypingTest() {
     const siteUrl = "https://typemasterai.com";
     
     const shareTexts: Record<string, string> = {
-      twitter: `${rating.emoji} Just achieved ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!
+      twitter: `${rating.emoji} Just hit ${wpm} WPM with ${accuracy}% accuracy! ${rating.badge} Badge unlocked 🎯
 
-⌨️ ${rating.title} | ${rating.badge} Badge
+Can you beat this?
+
+#TypeMasterAI #TypingSpeed`,
+      
+      facebook: `${rating.emoji} Just crushed my typing test!
+
+I hit ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! This feels amazing! 🎯
+
+✨ What I unlocked:
+• ${rating.title} performance level
+• ${rating.badge} Badge
+• Completed ${modeDisplay} in ${LANGUAGE_NAMES[language]}
+
+Honestly, I never thought I'd get this fast. If you've ever wondered how quick you type, this is your sign to test yourself!
+
+Think you can beat my score? I dare you to try! 😏🚀`,
+      
+      linkedin: `Achieved ${wpm} WPM | ${accuracy}% Accuracy
+
+Just completed a typing assessment on TypeMasterAI that highlights the importance of efficient communication skills in today's digital workspace.
+
+Results:
+▸ Typing Speed: ${wpm} Words Per Minute
+▸ Accuracy Rate: ${accuracy}%
+▸ Performance Level: ${rating.title} (${rating.badge})
+▸ Assessment Duration: ${modeDisplay}
+▸ Language: ${LANGUAGE_NAMES[language]}
+
+In our fast-paced work environment, typing efficiency directly impacts productivity. Small improvements in foundational skills like typing can compound into significant time savings.
+
+What's your typing speed? Worth measuring!
+
+#ProfessionalDevelopment #Productivity`,
+      
+      whatsapp: `${rating.emoji} *TypeMasterAI Result*
+
+⚡ *${wpm} WPM* | ✨ *${accuracy}% Accurate*
+🏆 ${rating.title}
+🎯 ${rating.badge} Badge
 ⏱️ ${modeDisplay} test
-🌐 ${LANGUAGE_NAMES[language]}
 
-Think you can beat me? 🎮
-
-#TypingTest #TypeMasterAI #WPM`,
-      
-      facebook: `${rating.emoji} I just achieved ${wpm} Words Per Minute with ${accuracy}% accuracy on TypeMasterAI!
-
-🏅 ${rating.title} - ${rating.badge} Badge Earned!
-⏱️ ${modeDisplay} typing test
-🌐 Language: ${LANGUAGE_NAMES[language]}
-
-Challenge yourself and see how fast you can type! 🚀`,
-      
-      linkedin: `Excited to share my typing achievement! ${rating.emoji}
-
-📊 Performance Stats:
-• Speed: ${wpm} Words Per Minute
-• Accuracy: ${accuracy}%
-• Duration: ${modeDisplay} test
-• Rating: ${rating.title} (${rating.badge})
-
-Continuous improvement in professional skills matters. TypeMasterAI helps track and improve typing efficiency.
-
-#ProfessionalDevelopment #Productivity #TypingSkills #TypeMasterAI`,
-      
-      whatsapp: `${rating.emoji} Check out my typing score on TypeMasterAI!
-
-⌨️ *${wpm} WPM* | *${accuracy}% Accuracy*
-🏅 ${rating.title} - ${rating.badge} Badge
-⏱️ ${modeDisplay} test
-
-Can you beat my score? Try it here: `,
+Think you can beat this? 😏
+Test yourself: `,
     };
     
     const shareText = shareTexts[platform] || shareTexts.twitter;
     const encodedText = encodeURIComponent(shareText);
     const encodedUrl = encodeURIComponent(siteUrl);
+    const whatsappText = `*TypeMasterAI Result*\n\nSpeed: *${wpm} WPM*\nAccuracy: *${accuracy}%*\nPerformance: ${rating.title}\nBadge: ${rating.badge}\nDuration: ${modeDisplay} test\n\nTry it: ${siteUrl}`;
     
     const urls: Record<string, string> = {
       twitter: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`,
       linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
-      whatsapp: `https://wa.me/?text=${encodedText}${encodedUrl}`,
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(whatsappText)}`,
     };
     
     if (urls[platform]) {
@@ -885,7 +1017,7 @@ Can you beat my score? Try it here: `,
   const handleNativeShare = async () => {
     const rating = getPerformanceRating();
     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-    const shareText = `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!\n\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nCan you beat my score?`;
+    const shareText = `${rating.emoji} Just hit ${wpm} WPM with ${accuracy}% accuracy! ${rating.badge} Badge unlocked 🎯\n\nCan you beat this?`;
     const shareUrl = 'https://typemasterai.com';
     
     if ('share' in navigator && typeof navigator.canShare === 'function') {
@@ -1128,6 +1260,7 @@ Can you beat my score? Try it here: `,
     setUserInput("");
     setOriginalText("");
     setStartTime(null);
+    startTimeRef.current = null;
     setTimeLeft(mode);
     setIsActive(false);
     setIsFinished(false);
@@ -1156,6 +1289,7 @@ Can you beat my score? Try it here: `,
       setUserInput("");
       setOriginalText("");
       setStartTime(null);
+      startTimeRef.current = null;
       setIsActive(false);
       setIsFinished(false);
       setWpm(0);
@@ -1259,7 +1393,6 @@ Can you beat my score? Try it here: `,
 
   const processInput = (value: string) => {
     if (isFinished) {
-      showDebouncedToast('test-finished', 'Test Already Complete', 'Press Tab or Escape to restart');
       return;
     }
     if (!text) {
@@ -2186,6 +2319,10 @@ Can you beat my score? Try it here: `,
                         lastKeystrokeTimeRef.current = 0;
                         freestyleLastKeystrokeRef.current = 0;
                         setIsTypingFast(false);
+                        // Close custom prompt when entering freestyle mode
+                        if (newValue && showCustomPrompt) {
+                          setShowCustomPrompt(false);
+                        }
                         toast({
                           title: newValue ? "Freestyle Mode" : "Standard Mode",
                           description: newValue
@@ -2355,12 +2492,15 @@ Can you beat my score? Try it here: `,
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
-                  onClick={() => setShowCustomPrompt(!showCustomPrompt)}
+                  onClick={() => !freestyleMode && setShowCustomPrompt(!showCustomPrompt)}
+                  disabled={freestyleMode}
                   className={cn(
                     "px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2",
-                    showCustomPrompt
-                      ? "bg-primary text-primary-foreground" 
-                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                    freestyleMode
+                      ? "bg-secondary/50 text-muted-foreground/50 cursor-not-allowed"
+                      : showCustomPrompt
+                        ? "bg-primary text-primary-foreground" 
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
                   )}
                   data-testid="button-toggle-custom-prompt"
                 >
@@ -2369,12 +2509,12 @@ Can you beat my score? Try it here: `,
                 </button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Tell AI what kind of paragraph you want (e.g., "about space exploration")</p>
+                <p>{freestyleMode ? "Disabled in Freestyle mode - you type your own content" : "Tell AI what kind of paragraph you want (e.g., \"about space exploration\")"}</p>
               </TooltipContent>
             </Tooltip>
           </div>
           
-          {showCustomPrompt && (
+          {showCustomPrompt && !freestyleMode && (
             <div className="flex flex-col items-center justify-center gap-2 max-w-2xl mx-auto">
               <div className="flex items-center w-full gap-2">
                 <input
@@ -2382,14 +2522,14 @@ Can you beat my score? Try it here: `,
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   placeholder="E.g., 'about artificial intelligence and future technology'"
-                  disabled={isGenerating}
+                  disabled={isGenerating || freestyleMode}
                   className={cn(
                     "flex-1 px-4 py-2 rounded-lg text-foreground placeholder:text-muted-foreground border border-border focus:outline-none focus:ring-2 focus:ring-primary",
-                    isGenerating ? "bg-secondary/50 cursor-not-allowed" : "bg-secondary"
+                    isGenerating || freestyleMode ? "bg-secondary/50 cursor-not-allowed" : "bg-secondary"
                   )}
                   data-testid="input-custom-prompt"
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && customPrompt.trim() && !isGenerating) {
+                    if (e.key === 'Enter' && customPrompt.trim() && !isGenerating && !freestyleMode) {
                       fetchParagraph(true);
                       setUserInput("");
                       setOriginalText("");
@@ -2441,10 +2581,10 @@ Can you beat my score? Try it here: `,
                       });
                     }
                   }}
-                  disabled={isGenerating || !customPrompt.trim()}
+                  disabled={isGenerating || !customPrompt.trim() || freestyleMode}
                   className={cn(
                     "px-6 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all",
-                    isGenerating || !customPrompt.trim()
+                    isGenerating || !customPrompt.trim() || freestyleMode
                       ? "bg-primary/50 text-primary-foreground cursor-not-allowed"
                       : "bg-primary text-primary-foreground hover:bg-primary/90"
                   )}
@@ -3220,14 +3360,15 @@ Can you beat my score? Try it here: `,
                     : "Share your results and challenge your friends to beat your score!"}
                 </p>
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
+                  whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => setShowShareModal(true)}
-                  className="px-6 py-2 bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 text-white font-bold rounded-lg shadow-lg animate-pulse hover:animate-none"
+                  className="group inline-flex items-center gap-2 px-6 py-2 rounded-full bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 text-white font-semibold shadow-lg hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 transition-all"
+                  aria-label="Share your result and earn 5 XP"
                   data-testid="button-share-celebration"
                 >
-                  <Share2 className="w-4 h-4 inline mr-2" />
-                  Share & Earn 5 XP
+                  <Share2 className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  Share Result • +5 XP
                 </motion.button>
               </motion.div>
 
@@ -3289,6 +3430,7 @@ Can you beat my score? Try it here: `,
               characters={lastResultSnapshot.characters}
               words={lastResultSnapshot.words}
               consistency={lastResultSnapshot.consistency}
+              verificationId={lastResultSnapshot.verificationId}
             />
           )}
         </DialogContent>
@@ -3305,9 +3447,10 @@ Can you beat my score? Try it here: `,
           </DialogHeader>
           
           <Tabs defaultValue="quick" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsList className="grid w-full grid-cols-4 mb-4">
               <TabsTrigger value="quick" data-testid="tab-quick-share">Quick Share</TabsTrigger>
               <TabsTrigger value="card" data-testid="tab-visual-card">Visual Card</TabsTrigger>
+              {user && <TabsTrigger value="certificate" data-testid="tab-certificate">Certificate</TabsTrigger>}
               <TabsTrigger value="challenge" data-testid="tab-challenge">Challenge</TabsTrigger>
             </TabsList>
             
@@ -3321,25 +3464,34 @@ Can you beat my score? Try it here: `,
                 <div className="p-4 bg-gradient-to-br from-slate-900/50 to-slate-800/50 rounded-xl border border-primary/20 text-sm leading-relaxed">
                   <div className="space-y-2">
                     <p className="text-base font-medium">
-                      {getPerformanceRating().emoji} I just scored <span className="text-primary font-bold">{wpm} WPM</span> on TypeMasterAI!
+                      {getPerformanceRating().emoji} New Record: <span className="text-primary font-bold">{wpm} WPM</span>!
                     </p>
                     <p className="text-muted-foreground">
-                      ⌨️ <span className="text-foreground">{wpm} WPM</span> | ✨ <span className="text-foreground">{accuracy}% Accuracy</span>
+                      ⚡ Speed: <span className="text-foreground font-semibold">{wpm} Words Per Minute</span>
                     </p>
                     <p className="text-muted-foreground">
-                      🏅 <span className="text-yellow-400">{getPerformanceRating().title}</span> - {getPerformanceRating().badge} Badge
+                      ✨ Accuracy: <span className="text-foreground font-semibold">{accuracy}%</span>
                     </p>
                     <p className="text-muted-foreground">
-                      ⏱️ {mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`} typing test
+                      🏆 Level: <span className="text-yellow-400 font-semibold">{getPerformanceRating().title}</span>
                     </p>
-                    <p className="text-primary/80 text-xs mt-3">
-                      Think you can beat my score? Try it now! 🎯
+                    <p className="text-muted-foreground">
+                      🎯 Badge: <span className="text-foreground font-semibold">{getPerformanceRating().badge}</span>
+                    </p>
+                    <p className="text-muted-foreground">
+                      ⏱️ Time: <span className="text-foreground font-semibold">{mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`}</span>
+                    </p>
+                    <p className="text-muted-foreground">
+                      🌐 Language: <span className="text-foreground font-semibold">{LANGUAGE_NAMES[language]}</span>
+                    </p>
+                    <p className="text-primary/80 text-xs mt-3 font-medium">
+                      Can you beat this score? Take the challenge! 🚀
                     </p>
                     <p className="text-xs text-primary mt-2 font-medium">
-                      🔗 typemasterai.com
+                      👉 https://typemasterai.com
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      #TypingTest #TypeMasterAI #WPM
+                      #TypingSpeed #TypeMasterAI #ProductivitySkills #WPM
                     </p>
                   </div>
                 </div>
@@ -3347,7 +3499,7 @@ Can you beat my score? Try it here: `,
                   onClick={() => {
                     const rating = getPerformanceRating();
                     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-                    const text = `${rating.emoji} I just scored ${wpm} WPM on TypeMasterAI!\n\n⌨️ ${wpm} WPM | ✨ ${accuracy}% Accuracy\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} typing test\n\nThink you can beat my score? Try it now! 🎯\n\n🔗 https://typemasterai.com\n\n#TypingTest #TypeMasterAI #WPM`;
+                    const text = `${rating.emoji} New Record: ${wpm} WPM!\n\n⚡ Speed: ${wpm} Words Per Minute\n✨ Accuracy: ${accuracy}%\n🏆 Level: ${rating.title}\n🎯 Badge: ${rating.badge}\n⏱️ Time: ${modeDisplay}\n🌐 Language: ${LANGUAGE_NAMES[language]}\n\nCan you beat this score? Take the challenge! 🚀\n\n👉 https://typemasterai.com\n\n#TypingSpeed #TypeMasterAI #ProductivitySkills #WPM`;
                     navigator.clipboard.writeText(text);
                     toast({ title: "Message Copied!", description: "Share message copied to clipboard" });
                   }}
@@ -3400,7 +3552,7 @@ Can you beat my score? Try it here: `,
                   onClick={() => {
                     const rating = getPerformanceRating();
                     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-                    const title = encodeURIComponent(`I scored ${wpm} WPM on TypeMasterAI!`);
+                    const title = encodeURIComponent(`${rating.emoji} Hit ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI - What's your typing speed?`);
                     window.open(`https://www.reddit.com/submit?url=${encodeURIComponent('https://typemasterai.com')}&title=${title}`, '_blank', 'width=600,height=600');
                     trackShare('quick_reddit');
                   }}
@@ -3415,7 +3567,7 @@ Can you beat my score? Try it here: `,
                 <button
                   onClick={() => {
                     const rating = getPerformanceRating();
-                    const text = `${rating.emoji} I scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!`;
+                    const text = `${rating.emoji} Just hit ${wpm} WPM (${accuracy}% accuracy) on TypeMasterAI!\n\n🏆 ${rating.title} | ${rating.badge} Badge\n\nCan you beat it? 🎯`;
                     window.open(`https://t.me/share/url?url=${encodeURIComponent('https://typemasterai.com')}&text=${encodeURIComponent(text)}`, '_blank', 'width=600,height=400');
                     trackShare('quick_telegram');
                   }}
@@ -3429,8 +3581,8 @@ Can you beat my score? Try it here: `,
                   onClick={() => {
                     const rating = getPerformanceRating();
                     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-                    const subject = encodeURIComponent(`Check out my ${wpm} WPM typing score!`);
-                    const body = encodeURIComponent(`${rating.emoji} I just scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI!\n\n⌨️ ${wpm} WPM | ✨ ${accuracy}% Accuracy\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} typing test\n\nThink you can beat my score? Try it now!\n\n🔗 https://typemasterai.com`);
+                    const subject = encodeURIComponent(`${rating.emoji} My TypeMasterAI Result: ${wpm} WPM!`);
+                    const body = encodeURIComponent(`Hi there!\n\nI just completed a typing test on TypeMasterAI and wanted to share my results with you:\n\n📊 MY RESULTS:\n━━━━━━━━━━━━━━━\n⚡ Typing Speed: ${wpm} Words Per Minute\n✨ Accuracy: ${accuracy}%\n🏆 Performance Level: ${rating.title}\n🎯 Badge Earned: ${rating.badge}\n⏱️ Test Duration: ${modeDisplay}\n🌐 Language: ${LANGUAGE_NAMES[language]}\n\nWant to test your typing speed? It's fun and you might be surprised by your results!\n\n👉 Try it here: https://typemasterai.com\n\nCheers!`);
                     window.open(`mailto:?subject=${subject}&body=${body}`);
                     trackShare('quick_email');
                   }}
@@ -3480,89 +3632,6 @@ Can you beat my score? Try it here: `,
               </div>
             )}
 
-            {/* Share Certificate Section - Only for logged in users */}
-            {user && (
-              <div className="space-y-3 pt-2 border-t">
-                <div className="flex items-center gap-2 justify-center">
-                  <Award className="w-4 h-4 text-yellow-400" />
-                  <p className="text-xs font-medium text-center text-muted-foreground uppercase tracking-wide">
-                    Share Your Certificate
-                  </p>
-                  <Award className="w-4 h-4 text-yellow-400" />
-                </div>
-                
-                {/* Certificate Share Message */}
-                <div className="p-3 bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-lg border border-yellow-500/20">
-                  <p className="text-sm text-center text-foreground">
-                    🎓 <span className="font-medium">Show off your official TypeMasterAI certificate!</span>
-                  </p>
-                  <p className="text-xs text-center text-muted-foreground mt-1">
-                    Share your {wpm} WPM achievement with friends and colleagues
-                  </p>
-                </div>
-
-                {/* Certificate Social Share Buttons */}
-                <div className="grid grid-cols-4 gap-2">
-                  <button
-                    onClick={() => {
-                      const rating = getPerformanceRating();
-                      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-                      const text = encodeURIComponent(`🎓 I just earned my TypeMasterAI Certificate!\n\n⌨️ ${wpm} WPM | ${accuracy}% Accuracy\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} typing test\n\nGet your certificate too!\n\n#TypeMasterAI #TypingCertificate`);
-                      window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
-                    }}
-                    className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all group"
-                    data-testid="button-share-cert-twitter"
-                  >
-                    <Twitter className="w-5 h-5 text-[#1DA1F2]" />
-                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground">X</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      const rating = getPerformanceRating();
-                      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-                      const text = encodeURIComponent(`🎓 I just earned my TypeMasterAI Certificate!\n\n🏆 ${wpm} Words Per Minute\n✨ ${accuracy}% Accuracy\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nTest your typing skills and get certified!`);
-                      window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://typemasterai.com')}&quote=${text}`, '_blank', 'width=600,height=400');
-                    }}
-                    className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all group"
-                    data-testid="button-share-cert-facebook"
-                  >
-                    <Facebook className="w-5 h-5 text-[#1877F2]" />
-                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground">Facebook</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      const rating = getPerformanceRating();
-                      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-                      const text = encodeURIComponent(`Proud to share my TypeMasterAI Certificate of Achievement! 🎓\n\n📜 Certification Details:\n• Typing Speed: ${wpm} Words Per Minute\n• Accuracy: ${accuracy}%\n• Performance Rating: ${rating.title} (${rating.badge})\n• Test Duration: ${modeDisplay}\n\nContinuous skill development is key to professional growth.\n\n#Certificate #TypeMasterAI #ProfessionalDevelopment`);
-                      window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
-                    }}
-                    className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all group"
-                    data-testid="button-share-cert-linkedin"
-                  >
-                    <Linkedin className="w-5 h-5 text-[#0A66C2]" />
-                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground">LinkedIn</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      const rating = getPerformanceRating();
-                      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-                      const text = encodeURIComponent(`🎓 Check out my TypeMasterAI Certificate!\n\n📜 *Certificate of Achievement*\n⌨️ *${wpm} WPM* | *${accuracy}% Accuracy*\n🏅 ${rating.title} - ${rating.badge} Badge\n⏱️ ${modeDisplay} test\n\nGet your certificate: `);
-                      window.open(`https://wa.me/?text=${text}${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
-                    }}
-                    className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all group"
-                    data-testid="button-share-cert-whatsapp"
-                  >
-                    <MessageCircle className="w-5 h-5 text-[#25D366]" />
-                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground">WhatsApp</span>
-                  </button>
-                </div>
-                
-                <p className="text-xs text-center text-muted-foreground">
-                  💡 Tip: View your certificate to download it, then attach it to your post!
-                </p>
-              </div>
-            )}
-
               {/* Native Share - More Options */}
               {'share' in navigator && (
                 <button
@@ -3576,13 +3645,291 @@ Can you beat my score? Try it here: `,
               )}
             </TabsContent>
 
+            {/* Certificate Tab - Only for logged in users */}
+            {user && (
+              <TabsContent value="certificate" className="space-y-4">
+                <div className="text-center space-y-2 mb-4">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/30 mb-2">
+                    <Award className="w-8 h-8 text-yellow-400" />
+                  </div>
+                  <h3 className="text-lg font-bold">Share Your Certificate</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Show off your official TypeMasterAI Certificate of Achievement!
+                  </p>
+                </div>
+
+                {/* Certificate Stats Preview */}
+                <div className="p-4 bg-gradient-to-br from-yellow-500/10 via-orange-500/10 to-purple-500/10 rounded-xl border border-yellow-500/20">
+                  <div className="grid grid-cols-2 gap-3 text-center">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Typing Speed</p>
+                      <p className="text-2xl font-bold text-primary">{wpm} WPM</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
+                      <p className="text-2xl font-bold text-green-400">{accuracy}%</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Performance</p>
+                      <p className="text-sm font-bold text-yellow-400">{getPerformanceRating().badge}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Duration</p>
+                      <p className="text-sm font-bold">{mode >= 60 ? `${Math.floor(mode / 60)} min` : `${mode}s`}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hidden pre-rendered certificate to enable sharing without viewing */}
+                {user && lastResultSnapshot && (
+                  <div className="absolute -z-50 w-0 h-0 overflow-hidden opacity-0 pointer-events-none" aria-hidden="true">
+                    <CertificateGenerator
+                      username={user.username}
+                      wpm={lastResultSnapshot.wpm}
+                      accuracy={lastResultSnapshot.accuracy}
+                      mode={lastResultSnapshot.mode}
+                      date={new Date(lastResultSnapshot.completionDate)}
+                      freestyle={lastResultSnapshot.freestyle}
+                      characters={lastResultSnapshot.characters}
+                      words={lastResultSnapshot.words}
+                      consistency={lastResultSnapshot.consistency}
+                      verificationId={lastResultSnapshot.verificationId}
+                    />
+                  </div>
+                )}
+
+                {/* View & Share Certificate Buttons */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setShowCertificate(true)}
+                    className="py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25"
+                    data-testid="button-view-certificate-share"
+                  >
+                    <Award className="w-5 h-5" />
+                    View Certificate
+                  </button>
+                  <button
+                    onClick={copyCertificateToClipboard}
+                    className="py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-green-500/25"
+                    data-testid="button-copy-certificate-image"
+                  >
+                    {certificateImageCopied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                    {certificateImageCopied ? "Copied!" : "Copy Image"}
+                  </button>
+                </div>
+
+                {/* Share Certificate with Image Button */}
+                {'share' in navigator && (
+                  <button
+                    onClick={shareCertificateWithImage}
+                    disabled={isSharingCertificate}
+                    className="w-full py-4 bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    data-testid="button-share-certificate-with-image"
+                  >
+                    <Share2 className="w-5 h-5" />
+                    {isSharingCertificate ? "Preparing..." : "Share Certificate with Image"}
+                  </button>
+                )}
+
+                {/* Certificate Share Message Preview */}
+                <div className="relative">
+                  <div className="absolute -top-2 left-3 px-2 bg-background text-xs font-medium text-muted-foreground">
+                    Certificate Share Message
+                  </div>
+                  <div className="p-4 bg-gradient-to-br from-slate-900/50 to-slate-800/50 rounded-xl border border-yellow-500/20 text-sm leading-relaxed">
+                    <div className="space-y-2">
+                      <p className="text-base font-medium">
+                        🎓 <span className="text-yellow-400 font-bold">CERTIFIED: {wpm} WPM Achievement!</span>
+                      </p>
+                      <p className="text-muted-foreground">
+                        ⚡ Speed: <span className="text-foreground font-semibold">{wpm} WPM</span>
+                      </p>
+                      <p className="text-muted-foreground">
+                        ✨ Accuracy: <span className="text-foreground font-semibold">{accuracy}%</span>
+                      </p>
+                      <p className="text-muted-foreground">
+                        🏆 Level: <span className="text-yellow-400 font-semibold">{getPerformanceRating().title}</span>
+                      </p>
+                      <p className="text-muted-foreground">
+                        🎯 Badge: <span className="text-foreground font-semibold">{getPerformanceRating().badge}</span>
+                      </p>
+                      <p className="text-muted-foreground">
+                        ⏱️ Test: <span className="text-foreground font-semibold">{mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`}</span>
+                      </p>
+                      <p className="text-primary/80 text-xs mt-3 font-medium">
+                        Official typing certificate earned! Get yours 👇
+                      </p>
+                      <p className="text-xs text-primary mt-2 font-medium">
+                        🔗 https://typemasterai.com
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        #TypeMasterAI #TypingCertificate #DigitalSkills #Certified
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const rating = getPerformanceRating();
+                      const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                      const text = `🎓 Just earned my TypeMasterAI Certificate! ${wpm} WPM with ${accuracy}% accuracy 🎯
+
+Official certificate unlocked!
+
+🔗 https://typemasterai.com
+
+#TypeMasterAI #Certified`;
+                      navigator.clipboard.writeText(text);
+                      toast({ title: "Certificate Message Copied!", description: "Paste into your social media post" });
+                    }}
+                    className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
+                    data-testid="button-copy-cert-message"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                </div>
+
+                {/* Certificate Social Share Buttons */}
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-center text-muted-foreground uppercase tracking-wide">
+                    Share Certificate On
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => {
+                        const rating = getPerformanceRating();
+                        const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                        const text = encodeURIComponent(`🎓 Just earned my TypeMasterAI Certificate! ${wpm} WPM with ${accuracy}% accuracy 🎯
+
+Official certificate unlocked!
+
+#TypeMasterAI #Certified`);
+                        window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
+                        trackShare('certificate_twitter');
+                      }}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all"
+                      data-testid="button-cert-share-twitter"
+                    >
+                      <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                      <span className="text-xs font-medium">X (Twitter)</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const rating = getPerformanceRating();
+                        const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                        const text = encodeURIComponent(`🎓 I just earned my official TypeMasterAI Certificate!
+
+Achieved ${wpm} WPM with ${accuracy}% accuracy! This is such a proud moment. 🎯
+
+📜 What I certified:
+• ${rating.title} performance level
+• ${rating.badge} Badge earned
+• Completed ${modeDisplay} assessment
+
+I never thought I'd get an official certificate for typing, but here we are! If you've been putting off testing your skills, this is your sign to try it.
+
+Ready to earn yours? 🚀`);
+                        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://typemasterai.com')}&quote=${text}`, '_blank', 'width=600,height=400');
+                        trackShare('certificate_facebook');
+                      }}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all"
+                      data-testid="button-cert-share-facebook"
+                    >
+                      <Facebook className="w-4 h-4 text-[#1877F2]" />
+                      <span className="text-xs font-medium">Facebook</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const rating = getPerformanceRating();
+                        const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                        const text = encodeURIComponent(`Professional Typing Certification Achieved
+
+Excited to share that I've earned an official TypeMasterAI Certificate of Achievement, validating my typing proficiency and digital communication skills.
+
+Certification Metrics:
+▸ Typing Speed: ${wpm} Words Per Minute
+▸ Accuracy Rate: ${accuracy}%
+▸ Performance Level: ${rating.title}
+▸ Achievement Badge: ${rating.badge}
+▸ Assessment Duration: ${modeDisplay}
+▸ Certification Date: ${new Date().toLocaleDateString()}
+
+In today's digital workplace, typing efficiency is a foundational productivity skill. This certification demonstrates measurable proficiency in written communication speed and accuracy—skills that directly impact daily work effectiveness.
+
+Investing time in foundational skills often yields the highest returns in productivity gains.
+
+#ProfessionalDevelopment #Productivity`);
+                        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
+                        trackShare('certificate_linkedin');
+                      }}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all"
+                      data-testid="button-cert-share-linkedin"
+                    >
+                      <Linkedin className="w-4 h-4 text-[#0A66C2]" />
+                      <span className="text-xs font-medium">LinkedIn</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const rating = getPerformanceRating();
+                        const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                        const waText = `*TypeMasterAI Certificate*\n\nSpeed: *${wpm} WPM*\nAccuracy: *${accuracy}%*\nLevel: ${rating.title}\nBadge: ${rating.badge}\nDuration: ${modeDisplay} test\n\nGet yours: https://typemasterai.com`;
+                        window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank', 'width=600,height=400');
+                        trackShare('certificate_whatsapp');
+                      }}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"
+                      data-testid="button-cert-share-whatsapp"
+                    >
+                      <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                      <span className="text-xs font-medium">WhatsApp</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const rating = getPerformanceRating();
+                        const text = `🎓 CERTIFIED!\n\n⚡ ${wpm} WPM | ✨ ${accuracy}% Accuracy\n🏆 ${rating.title} | 🎯 ${rating.badge} Badge\n\nJust earned my official TypeMasterAI Certificate! Can you beat it? 😎`;
+                        window.open(`https://t.me/share/url?url=${encodeURIComponent('https://typemasterai.com')}&text=${encodeURIComponent(text)}`, '_blank', 'width=600,height=400');
+                        trackShare('certificate_telegram');
+                      }}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 transition-all"
+                      data-testid="button-cert-share-telegram"
+                    >
+                      <Send className="w-4 h-4 text-[#0088cc]" />
+                      <span className="text-xs font-medium">Telegram</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        const rating = getPerformanceRating();
+                        const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                        const subject = encodeURIComponent(`🎓 TypeMasterAI Certificate Earned | ${wpm} WPM Achievement`);
+                        const body = encodeURIComponent(`Hello!\n\nI'm excited to share that I've earned an official TypeMasterAI Certificate of Achievement!\n\n📜 CERTIFICATE DETAILS:\n━━━━━━━━━━━━━━━━━━━━\n⚡ Typing Speed: ${wpm} Words Per Minute\n✨ Accuracy Rate: ${accuracy}%\n🏆 Performance Level: ${rating.title}\n🎯 Badge Earned: ${rating.badge}\n⏱️ Test Duration: ${modeDisplay}\n📅 Date: ${new Date().toLocaleDateString()}\n\nThis certification validates my typing proficiency and demonstrates measurable skill development. TypeMasterAI provides comprehensive typing assessments with official certificates for achieved milestones.\n\nInterested in testing your own typing speed? You might be surprised by your results!\n\n👉 Get certified: https://typemasterai.com\n\nBest regards!`);
+                        window.open(`mailto:?subject=${subject}&body=${body}`);
+                        trackShare('certificate_email');
+                      }}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-500/10 hover:bg-gray-500/25 border border-gray-500/20 transition-all"
+                      data-testid="button-cert-share-email"
+                    >
+                      <Mail className="w-4 h-4 text-gray-400" />
+                      <span className="text-xs font-medium">Email</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Certificate Sharing Tips */}
+                <div className="space-y-2">
+                  <div className="p-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg border border-blue-500/20">
+                    <p className="text-xs text-center text-muted-foreground">
+                      📱 <span className="font-medium text-foreground">Mobile:</span> Use "Share Certificate with Image" to attach the certificate directly!
+                    </p>
+                  </div>
+                  <div className="p-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/20">
+                    <p className="text-xs text-center text-muted-foreground">
+                      💻 <span className="font-medium text-foreground">Desktop:</span> Use "Copy Image" then paste directly into Twitter, LinkedIn, Discord, or any social media!
+                    </p>
+                  </div>
+                </div>
+              </TabsContent>
+            )}
+
             {/* Visual Card Tab */}
             <TabsContent value="card" className="space-y-4">
-              <div className="text-center mb-4">
-                <p className="text-sm text-muted-foreground">
-                  Create a beautiful visual card to share on social media
-                </p>
-              </div>
               {isFinished && lastResultSnapshot && (
                 <ShareCard
                   wpm={lastResultSnapshot.wpm}
@@ -3594,6 +3941,7 @@ Can you beat my score? Try it here: `,
                   consistency={lastResultSnapshot.consistency}
                   words={lastResultSnapshot.words}
                   characters={lastResultSnapshot.characters}
+                  verificationId={lastResultSnapshot.verificationId}
                   onShareTracked={trackShare}
                 />
               )}
@@ -3639,7 +3987,11 @@ Can you beat my score? Try it here: `,
                     onClick={() => {
                       const rating = getPerformanceRating();
                       const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-                      const text = encodeURIComponent(`🎯 I CHALLENGE YOU!\n\n${rating.emoji} Can you beat my ${wpm} WPM with ${accuracy}% accuracy?\n\n⏱️ ${modeDisplay} typing test\n🏅 Try to claim my ${rating.badge} Badge!\n\nAccept the challenge now:\n`);
+                      const text = encodeURIComponent(`${rating.emoji} I just hit ${wpm} WPM! Can you beat my score? 🎯
+
+Challenge accepted?
+
+#TypeMasterAI #Challenge`);
                       window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
                       trackShare('challenge_twitter');
                     }}
@@ -3652,7 +4004,13 @@ Can you beat my score? Try it here: `,
                   <button
                     onClick={() => {
                       const rating = getPerformanceRating();
-                      const text = encodeURIComponent(`🎯 TYPING CHALLENGE! Can you beat my ${wpm} WPM with ${accuracy}% accuracy? ${rating.emoji}`);
+                      const text = encodeURIComponent(`🎯 Typing Challenge Alert!
+
+I just scored ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! ${rating.emoji}
+
+I'm challenging YOU! Think you can type faster than me? There's only one way to find out...
+
+Do you accept the challenge? 😏🔥`);
                       window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://typemasterai.com')}&quote=${text}`, '_blank', 'width=600,height=400');
                       trackShare('challenge_facebook');
                     }}
@@ -3666,6 +4024,15 @@ Can you beat my score? Try it here: `,
                     onClick={() => {
                       const rating = getPerformanceRating();
                       const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
+                      const text = encodeURIComponent(`Typing Speed Benchmark Challenge
+
+I recently completed a typing assessment achieving ${wpm} WPM with ${accuracy}% accuracy (${rating.title} level).
+
+Interested in comparing your typing speed? This quick assessment provides objective metrics on typing efficiency—a useful baseline for anyone looking to improve their digital communication productivity.
+
+Test duration: ${modeDisplay}
+
+#ProfessionalDevelopment #Productivity`);
                       window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://typemasterai.com')}`, '_blank', 'width=600,height=400');
                       trackShare('challenge_linkedin');
                     }}
@@ -3679,8 +4046,8 @@ Can you beat my score? Try it here: `,
                     onClick={() => {
                       const rating = getPerformanceRating();
                       const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)} minute` : `${mode} second`;
-                      const fullText = `🎯 *TYPING CHALLENGE*\n\nCan you beat me?\n\n${rating.emoji} *My Score: ${wpm} WPM*\n✨ *Accuracy: ${accuracy}%*\n⏱️ ${modeDisplay} test\n\n🔥 Accept the challenge: https://typemasterai.com`;
-                      window.open(`https://wa.me/?text=${encodeURIComponent(fullText)}`, '_blank', 'width=600,height=400');
+                      const waChallenge = `*TypeMasterAI Challenge*\n\nMy Score: *${wpm} WPM*\nAccuracy: *${accuracy}%*\nDuration: ${modeDisplay} test\nBadge: ${rating.badge}\n\nBeat my score: https://typemasterai.com`;
+                      window.open(`https://wa.me/?text=${encodeURIComponent(waChallenge)}`, '_blank', 'width=600,height=400');
                       trackShare('challenge_whatsapp');
                     }}
                     className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"

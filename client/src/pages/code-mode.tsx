@@ -1151,22 +1151,53 @@ export default function CodeMode() {
 
   const shareToSocial = (platform: string) => {
     const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
-    const text = `🚀 I just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! 💻 ${codeSnippet.length} characters. Can you code faster?`;
+    const twitterText = `🚀 Just coded ${langName} at ${wpm} WPM! ${codeSnippet.length} chars with ${accuracy}% accuracy 💻
+
+Can you beat it?
+
+#TypeMasterAI #Code`;
+    const facebookText = `🚀 I just finished a coding speed test!
+
+Typed ${codeSnippet.length} characters of ${langName} code at ${wpm} WPM with ${accuracy}% accuracy! This feels amazing! 💻🔥
+
+Honestly, I didn't realize how fast (or slow) I typed code until now. It's wild seeing the actual numbers!
+
+If you've ever wondered about your coding speed, TypeMasterAI has a Code Mode that's pretty eye-opening.
+
+Think you can code faster? 😏`;
+    const linkedinText = `Code Typing Assessment: ${wpm} WPM in ${langName}
+
+Completed a specialized typing assessment focused on programming syntax and code structure.
+
+Results:
+▸ Language: ${langName}
+▸ Typing Speed: ${wpm} Words Per Minute
+▸ Accuracy: ${accuracy}%
+▸ Characters Typed: ${codeSnippet.length}
+
+For developers, typing speed in actual code (not prose) is a distinct skill. Code involves more special characters, indentation, and syntax patterns that differ from natural language typing.
+
+Understanding your baseline code typing speed can help identify opportunities for workflow optimization.
+
+#SoftwareDevelopment #Productivity`;
     const url = window.location.origin + "/code-mode";
     const title = `I typed ${langName} code at ${wpm} WPM on TypeMasterAI!`;
     
+    // WhatsApp: use ASCII-safe multi-line template to avoid replacement characters and preserve formatting
+    const waText = `*TypeMasterAI Code Result*\n\nLanguage: ${langName}\nSpeed: *${wpm} WPM*\nAccuracy: *${accuracy}%*\nCharacters: ${codeSnippet.length}\n\nTry it: ${url}`;
+
     const urls: Record<string, string> = {
-      twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(text)}`,
-      linkedin: `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(`Code Typing: ${wpm} WPM in ${langName}`)}&summary=${encodeURIComponent(text)}`,
-      whatsapp: `https://wa.me/?text=${encodeURIComponent(text + "\n\n" + url)}`,
-      telegram: `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`,
+      twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(twitterText)}&url=${encodeURIComponent(url)}`,
+      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}&quote=${encodeURIComponent(facebookText)}`,
+      linkedin: `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(`Code Typing: ${wpm} WPM in ${langName}`)}&summary=${encodeURIComponent(linkedinText)}`,
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(waText)}`,
+      telegram: `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(twitterText)}`,
       reddit: `https://www.reddit.com/submit?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`,
-      email: `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(text + "\n\nTry it yourself: " + url)}`,
+      email: `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(facebookText + "\n\nTry it yourself: " + url)}`,
     };
     
     if (platform === 'discord') {
-      navigator.clipboard.writeText(`${text}\n\n🔗 ${url}`);
+      navigator.clipboard.writeText(`${twitterText}\n\n🔗 ${url}`);
       toast({
         title: "Copied for Discord!",
         description: "Paste in any Discord channel or DM to share your achievement!",
@@ -1185,7 +1216,7 @@ export default function CodeMode() {
   
   const handleNativeShare = async () => {
     const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
-    const text = `🚀 I just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy on TypeMasterAI! 💻 ${codeSnippet.length} characters. Can you code faster?`;
+    const text = `🚀 Just coded ${langName} at ${wpm} WPM! ${codeSnippet.length} chars with ${accuracy}% accuracy 💻\n\nCan you beat it?`;
     const url = window.location.origin + "/code-mode";
     
     if (navigator.share) {

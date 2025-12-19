@@ -731,6 +731,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-muted-foreground/40">·</span>
             <Link href="/accessibility" className="hover:text-primary transition-colors" data-testid="link-footer-accessibility">Accessibility</Link>
             <span className="text-muted-foreground/40">·</span>
+            <Link href="/verify" className="hover:text-primary transition-colors" data-testid="link-footer-verify">Verify Certificate</Link>
+            <span className="text-muted-foreground/40">·</span>
             <span>© {new Date().getFullYear()} TypeMasterAI</span>
             <span className="text-muted-foreground/40">·</span>
             <a href="mailto:support@typemasterai.com" className="hover:text-primary transition-colors" data-testid="link-footer-support-email">support@typemasterai.com</a>

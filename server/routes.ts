@@ -826,10 +826,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await storage.createTestResult(parsed.data);
-      
+
       // Update user streak after completing a test
       await storage.updateUserStreak(req.user!.id);
-      
+
+      // Auto-create a verified certificate for this test result
+      let certificate = null;
+      try {
+        const { generateVerificationData } = await import("./certificate-verification-service");
+        const user = await storage.getUser(req.user!.id);
+        
+        // Note: mode IS the duration (15, 30, 60, etc. seconds)
+        // Use a default consistency of 100 since test_results doesn't track it
+        const testDuration = result.mode; // mode represents duration in seconds
+        const testConsistency = 100; // Default consistency
+        
+        const verificationData = generateVerificationData({
+          userId: req.user!.id,
+          certificateType: "standard",
+          wpm: result.wpm,
+          accuracy: result.accuracy,
+          consistency: testConsistency,
+          duration: testDuration,
+          testResultId: result.id,
+          metadata: {
+            username: user?.username || "Typing Expert",
+            mode: result.mode,
+            language: result.language,
+            freestyle: result.freestyle,
+          },
+        });
+
+        certificate = await storage.createCertificate({
+          certificateType: "standard",
+          testResultId: result.id,
+          wpm: result.wpm,
+          accuracy: result.accuracy,
+          consistency: testConsistency,
+          duration: testDuration,
+          userId: req.user!.id,
+          metadata: {
+            username: user?.username || "Typing Expert",
+            mode: result.mode,
+            language: result.language,
+            freestyle: result.freestyle,
+          },
+          ...verificationData,
+        });
+
+        console.log(`[Certificate] Auto-created verified certificate ${verificationData.verificationId} for test result ${result.id}`);
+      } catch (certError) {
+        console.error("[Certificate] Auto-creation failed:", certError);
+        // Don't fail the request if certificate creation fails
+      }
+
       // Check for achievement unlocks and return newly unlocked achievements
       let newAchievements: Array<{
         key: string;
@@ -840,7 +890,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         icon: string;
         category: string;
       }> = [];
-      
+
       let nearCompletionAchievements: Array<{
         key: string;
         name: string;
@@ -854,7 +904,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currentValue: number;
         targetValue: number;
       }> = [];
-      
+
       try {
         const unlocked = await achievementService.checkAchievements(req.user!.id, result);
         newAchievements = unlocked.map(a => ({
@@ -866,20 +916,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           icon: a.icon,
           category: a.category,
         }));
-        
+
         // Get achievements at 80%+ progress for "Almost There" notifications
         // Pass the result to include fresh data from the just-completed test
         nearCompletionAchievements = await achievementService.getNearCompletionAchievements(req.user!.id, 80, result);
       } catch (error) {
         console.error("Achievement check error:", error);
       }
-      
-      res.status(201).json({ 
-        message: "Test result saved", 
-        result, 
-        id: result.id, 
+
+      res.status(201).json({
+        message: "Test result saved",
+        result,
+        id: result.id,
+        certificate, // Include the auto-created certificate with verificationId
         newAchievements,
-        nearCompletionAchievements 
+        nearCompletionAchievements
       });
     } catch (error: any) {
       console.error("Save test result error:", error);
@@ -4930,11 +4981,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Generate verification data (cryptographically secure)
+      const { generateVerificationData } = await import("./certificate-verification-service");
+      const verificationData = generateVerificationData({
+        userId,
+        certificateType: certificateData.certificateType,
+        wpm: certificateData.wpm,
+        accuracy: certificateData.accuracy,
+        consistency: certificateData.consistency,
+        duration: certificateData.duration,
+        testResultId: certificateData.testResultId,
+        codeTestId: certificateData.codeTestId,
+        bookTestId: certificateData.bookTestId,
+        raceId: certificateData.raceId,
+        dictationTestId: certificateData.dictationTestId,
+        stressTestId: certificateData.stressTestId,
+        metadata: certificateData.metadata,
+      });
+
       const certificate = await storage.createCertificate({
         ...certificateData,
         userId,
+        ...verificationData, // Add verification ID, signature, issuedAt, issuerVersion
       });
-      
+
+      console.log(`[Certificate] Created verified certificate ${verificationData.verificationId} for user ${userId}`);
+
       res.json(certificate);
     } catch (error: any) {
       console.error("Create certificate error:", error);
@@ -5026,6 +5098,276 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Delete certificate error:", error);
       res.status(500).json({ message: "Failed to delete certificate" });
+    }
+  });
+
+  // ============================================================================
+  // CERTIFICATE VERIFICATION SYSTEM
+  // ============================================================================
+
+  // Public endpoint: Verify a certificate by verification ID
+  app.get("/api/verify/:verificationId", async (req, res) => {
+    // Generate unique request ID for tracking/debugging
+    const requestId = `VRF-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`.toUpperCase();
+    const requestTimestamp = new Date().toISOString();
+    
+    try {
+      const { verificationId: rawVerificationId } = req.params;
+      const clientIp = req.ip || req.socket.remoteAddress || null;
+      const userAgent = req.get("user-agent") || null;
+
+      // Set security and tracking headers
+      res.set({
+        "X-Request-Id": requestId,
+        "X-Verification-Timestamp": requestTimestamp,
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "Cache-Control": "no-store, no-cache, must-revalidate, private",
+        "Pragma": "no-cache",
+      });
+
+      // Import verification service functions
+      const {
+        sanitizeVerificationId,
+        isValidVerificationIdFormat,
+        verifySignature,
+        buildVerificationResponse,
+        createVerificationLogEntry,
+        checkRateLimit,
+      } = await import("./certificate-verification-service");
+
+      // Rate limiting check
+      const rateLimit = checkRateLimit(clientIp || "unknown");
+      if (!rateLimit.allowed) {
+        res.set("X-RateLimit-Remaining", "0");
+        res.set("X-RateLimit-Reset", Math.ceil(rateLimit.resetAt / 1000).toString());
+        console.log(`[Verification] Rate limited request ${requestId} from ${clientIp}`);
+        return res.status(429).json({
+          message: "Too many verification requests. Please try again later.",
+          retryAfter: Math.ceil((rateLimit.resetAt - Date.now()) / 1000),
+          requestId,
+        });
+      }
+
+      res.set("X-RateLimit-Remaining", rateLimit.remaining.toString());
+      res.set("X-RateLimit-Reset", Math.ceil(rateLimit.resetAt / 1000).toString());
+
+      // Sanitize and validate input
+      const verificationId = sanitizeVerificationId(rawVerificationId);
+
+      if (!isValidVerificationIdFormat(verificationId)) {
+        // Log failed attempt
+        await storage.logVerificationAttempt(
+          createVerificationLogEntry(rawVerificationId, null, false, "Invalid format", clientIp, userAgent)
+        );
+
+        console.log(`[Verification] Invalid format attempt ${requestId}: ${rawVerificationId.substring(0, 30)}`);
+        return res.status(400).json({
+          verified: false,
+          message: "Invalid verification ID format",
+          expectedFormat: "TM-XXXX-XXXX-XXXX",
+          requestId,
+          timestamp: requestTimestamp,
+        });
+      }
+
+      // Look up certificate
+      const certificate = await storage.getCertificateByVerificationId(verificationId);
+
+      if (!certificate) {
+        // Log failed attempt - don't reveal if ID exists
+        await storage.logVerificationAttempt(
+          createVerificationLogEntry(verificationId, null, false, "Not found", clientIp, userAgent)
+        );
+
+        console.log(`[Verification] Not found ${requestId}: ${verificationId}`);
+        return res.status(404).json({
+          verified: false,
+          message: "Certificate not found",
+          requestId,
+          timestamp: requestTimestamp,
+        });
+      }
+
+      // Verify signature
+      const signatureResult = verifySignature(certificate);
+
+      // Build response
+      const response = buildVerificationResponse(certificate, signatureResult);
+
+      // Log verification attempt
+      const logEntry = createVerificationLogEntry(
+        verificationId,
+        certificate,
+        response.verified,
+        response.verified ? null : "Verification failed",
+        clientIp,
+        userAgent
+      );
+      await storage.logVerificationAttempt(logEntry);
+
+      // Increment verification count if successful
+      if (response.verified) {
+        await storage.incrementVerificationCount(certificate.id);
+        // Cache successful verifications briefly (can be cached by CDN)
+        res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+        console.log(`[Verification] Success ${requestId}: ${verificationId}`);
+      }
+
+      // Add request tracking to response
+      const enrichedResponse = {
+        ...response,
+        requestId,
+        verifiedAt: requestTimestamp,
+      };
+
+      // Return appropriate status
+      if (!response.verified) {
+        // Determine specific error
+        if (!response.verificationStatus.signatureVerified) {
+          console.warn(`[Verification] Signature failed ${requestId}: ${verificationId}`);
+          return res.status(422).json({
+            ...enrichedResponse,
+            message: "Certificate signature verification failed. Data may have been tampered with.",
+          });
+        }
+        if (!response.verificationStatus.notRevoked) {
+          console.log(`[Verification] Revoked ${requestId}: ${verificationId}`);
+          return res.status(410).json({
+            ...enrichedResponse,
+            message: "This certificate has been revoked.",
+          });
+        }
+        if (!response.verificationStatus.notExpired) {
+          console.log(`[Verification] Expired ${requestId}: ${verificationId}`);
+          return res.status(410).json({
+            ...enrichedResponse,
+            message: "This certificate has expired.",
+          });
+        }
+      }
+
+      res.json(enrichedResponse);
+    } catch (error: any) {
+      console.error(`[Verification] Error ${requestId}:`, error);
+      res.status(500).json({
+        verified: false,
+        message: "Verification service temporarily unavailable",
+        requestId,
+        timestamp: requestTimestamp,
+      });
+    }
+  });
+
+  // Admin endpoint: Revoke a certificate
+  app.post("/api/certificates/:id/revoke", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const certificateId = parseInt(req.params.id);
+      const { reason } = req.body;
+
+      if (isNaN(certificateId)) {
+        return res.status(400).json({ message: "Invalid certificate ID" });
+      }
+
+      if (!reason || typeof reason !== "string" || reason.trim().length < 3) {
+        return res.status(400).json({ message: "Revocation reason is required (min 3 characters)" });
+      }
+
+      const certificate = await storage.getCertificateById(certificateId);
+
+      if (!certificate) {
+        return res.status(404).json({ message: "Certificate not found" });
+      }
+
+      // Only certificate owner can revoke
+      if (certificate.userId !== userId) {
+        return res.status(403).json({ message: "Access denied: You can only revoke your own certificates" });
+      }
+
+      if (certificate.revokedAt) {
+        return res.status(400).json({ message: "Certificate is already revoked" });
+      }
+
+      await storage.revokeCertificate(certificateId, reason.trim());
+
+      console.log(`[Verification] Certificate ${certificate.verificationId} revoked by user ${userId}: ${reason}`);
+
+      res.json({
+        message: "Certificate revoked successfully",
+        verificationId: certificate.verificationId,
+        revokedAt: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error("[Verification] Revoke certificate error:", error);
+      res.status(500).json({ message: "Failed to revoke certificate" });
+    }
+  });
+
+  // Admin endpoint: Unrevoke a certificate
+  app.post("/api/certificates/:id/unrevoke", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const certificateId = parseInt(req.params.id);
+
+      if (isNaN(certificateId)) {
+        return res.status(400).json({ message: "Invalid certificate ID" });
+      }
+
+      const certificate = await storage.getCertificateById(certificateId);
+
+      if (!certificate) {
+        return res.status(404).json({ message: "Certificate not found" });
+      }
+
+      // Only certificate owner can unrevoke
+      if (certificate.userId !== userId) {
+        return res.status(403).json({ message: "Access denied: You can only unrevoke your own certificates" });
+      }
+
+      if (!certificate.revokedAt) {
+        return res.status(400).json({ message: "Certificate is not revoked" });
+      }
+
+      await storage.unrevokeCertificate(certificateId);
+
+      console.log(`[Verification] Certificate ${certificate.verificationId} unrevoked by user ${userId}`);
+
+      res.json({
+        message: "Certificate restored successfully",
+        verificationId: certificate.verificationId,
+      });
+    } catch (error: any) {
+      console.error("[Verification] Unrevoke certificate error:", error);
+      res.status(500).json({ message: "Failed to restore certificate" });
+    }
+  });
+
+  // Public endpoint: Get platform verification stats
+  app.get("/api/verification/stats", async (_req, res) => {
+    try {
+      const stats = await storage.getVerificationStats();
+
+      res.json({
+        platform: "TypeMasterAI",
+        stats: {
+          totalVerifiedCertificates: stats.totalCertificates,
+          totalVerificationRequests: stats.totalVerifications,
+          successfulVerifications: stats.successfulVerifications,
+          failedVerifications: stats.failedVerifications,
+          successRate: stats.totalVerifications > 0
+            ? ((stats.successfulVerifications / stats.totalVerifications) * 100).toFixed(1) + "%"
+            : "N/A",
+        },
+        issuer: {
+          name: "TypeMasterAI",
+          version: "1.0",
+          url: "https://typemasterai.com",
+        },
+      });
+    } catch (error: any) {
+      console.error("[Verification] Get stats error:", error);
+      res.status(500).json({ message: "Failed to fetch verification stats" });
     }
   });
 

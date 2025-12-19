@@ -1161,6 +1161,7 @@ export default function Profile() {
                     totalWords={selectedCertificate.metadata?.totalWords || 0}
                     duration={selectedCertificate.duration}
                     username={selectedCertificate.metadata?.username || user?.username || 'Typing Expert'}
+                    verificationId={selectedCertificate.verificationId}
                   />
                 ) : selectedCertificate.certificateType === 'stress' ? (
                   <StressCertificate
@@ -1175,6 +1176,7 @@ export default function Profile() {
                     activeChallenges={selectedCertificate.metadata?.activeChallenges || []}
                     duration={selectedCertificate.duration}
                     username={selectedCertificate.metadata?.username || user?.username || 'Typing Expert'}
+                    verificationId={selectedCertificate.verificationId}
                   />
                 ) : (
                   <div className="text-center py-8">
