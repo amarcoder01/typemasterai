@@ -2,7 +2,6 @@ import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Share2, Copy, Check, Twitter, Facebook, MessageCircle, Mail, Send, Image, Clipboard, Linkedin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { drawQRCodeOnCanvas, getVerificationUrl } from "@/lib/qr-code-utils";
 
 interface ShareCardProps {
   wpm: number;
@@ -14,12 +13,11 @@ interface ShareCardProps {
   consistency?: number;
   words?: number;
   characters?: number;
-  verificationId?: string;
   onClose?: () => void;
   onShareTracked?: (platform: string) => void;
 }
 
-export function ShareCard({ wpm, accuracy, mode, language, username, freestyle = false, consistency = 100, words = 0, characters = 0, verificationId, onClose, onShareTracked }: ShareCardProps) {
+export function ShareCard({ wpm, accuracy, mode, language, username, freestyle = false, consistency = 100, words = 0, characters = 0, onClose, onShareTracked }: ShareCardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -99,19 +97,7 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
 
   useEffect(() => {
     void generateCard();
-  }, [wpm, accuracy, mode, language, username, freestyle, consistency, words, characters, verificationId]);
-
-  // Generate a compact verification ID for the share card
-  const generateCompactVerificationId = () => {
-    const data = `${username || 'anon'}-${wpm}-${accuracy}-${mode}-${Date.now()}`;
-    let hash = 0;
-    for (let i = 0; i < data.length; i++) {
-      const char = data.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
-    }
-    return Math.abs(hash).toString(16).toUpperCase().slice(0, 6);
-  };
+  }, [wpm, accuracy, mode, language, username, freestyle, consistency, words, characters]);
 
   const generateCard = async () => {
     const canvas = canvasRef.current;
@@ -122,9 +108,6 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
 
     const rating = getPerformanceRating();
     const modeDisplay = mode >= 60 ? `${Math.floor(mode / 60)}min` : `${mode}s`;
-    const fallbackId = generateCompactVerificationId();
-    const finalVerificationId = verificationId ? verificationId.toUpperCase() : `TM-${fallbackId}`;
-    const verificationUrl = getVerificationUrl(finalVerificationId);
 
     canvas.width = 600;
     canvas.height = 400;
@@ -222,11 +205,8 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
       ctx.fillText("Language", canvas.width - 140, statsY + 25);
     }
 
-    // ========== MINIMAL FOOTER ==========
-    // Canvas height: 400, inner border bottom: 375 (400-25)
-    // Keep all content within Y=25 to Y=375
-    
-    // Username (if available)
+    // ========== FOOTER ==========
+    // Keep within Y=25 to Y=375
     if (username) {
       ctx.fillStyle = "#94a3b8";
       ctx.font = "13px 'DM Sans', sans-serif";
@@ -234,63 +214,11 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
       ctx.fillText(`@${username}`, canvas.width / 2, 330);
     }
 
-    // Minimal verification line + QR
     const footerY = username ? 350 : 340;
-    
-    // Left block: issuer + ID
-    const checkX = canvas.width / 2 - 120;
-    ctx.beginPath();
-    ctx.arc(checkX, footerY, 5, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(34, 197, 94, 0.2)";
-    ctx.fill();
-    ctx.strokeStyle = "#22c55e";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    
-    ctx.save();
-    ctx.strokeStyle = "#22c55e";
-    ctx.lineWidth = 1.5;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.beginPath();
-    ctx.moveTo(checkX - 2, footerY);
-    ctx.lineTo(checkX - 0.5, footerY + 2);
-    ctx.lineTo(checkX + 2.5, footerY - 1.5);
-    ctx.stroke();
-    ctx.restore();
-    
-    ctx.fillStyle = "#64748b";
-    ctx.font = "9px 'DM Sans', sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText("Verified by TypeMasterAI", checkX + 10, footerY + 3);
-    
-    const verifiedTextWidth = ctx.measureText("Verified by TypeMasterAI").width;
-    ctx.fillStyle = "#475569";
-    ctx.fillText("•", checkX + 10 + verifiedTextWidth + 5, footerY + 3);
-    ctx.fillStyle = "#a855f7";
-    ctx.font = "9px 'JetBrains Mono', monospace";
-    ctx.fillText(finalVerificationId, checkX + 10 + verifiedTextWidth + 10, footerY + 3);
-    
-    // QR code on the right
-    try {
-      await drawQRCodeOnCanvas(ctx as any, finalVerificationId, canvas.width - 70, footerY - 5, 60, "#0f172a");
-      ctx.fillStyle = "#94a3b8";
-      ctx.font = "9px 'DM Sans', sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("Scan to verify", canvas.width - 70, footerY + 38);
-    } catch {
-      // If QR fails, fallback text
-      ctx.fillStyle = "#ef4444";
-      ctx.font = "9px 'DM Sans', sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("QR unavailable", canvas.width - 70, footerY + 10);
-    }
-    
-    // Website URL
     ctx.fillStyle = "#a855f7";
     ctx.font = "bold 11px 'DM Sans', sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("typemasterai.com/verify", canvas.width / 2, footerY + 18);
+    ctx.fillText("typemasterai.com", canvas.width / 2, footerY + 18);
   };
 
   const downloadCard = () => {

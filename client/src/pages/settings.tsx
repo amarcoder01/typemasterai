@@ -4,7 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Moon, Volume2, Keyboard, Shield, Trash2, Eye, EyeOff, CheckCircle2, XCircle, AlertCircle, HelpCircle, Link2, Unlink, Github, Loader2 } from "lucide-react";
+import { Moon, Volume2, Keyboard, Shield, Trash2, Eye, EyeOff, CheckCircle2, XCircle, AlertCircle, HelpCircle, Link2, Unlink, Github, Loader2, Bell } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { useState, useEffect } from "react";
@@ -34,10 +34,10 @@ import {
 function GoogleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
     </svg>
   );
 }
@@ -45,7 +45,7 @@ function GoogleIcon({ className }: { className?: string }) {
 function FacebookIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="#1877F2">
-      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
     </svg>
   );
 }
@@ -69,14 +69,14 @@ export default function Settings() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
-  
+
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   // Sound settings state
   const [soundEnabled, setSoundEnabled] = useState(false); // Disabled by default
   const [soundType, setSoundType] = useState<SoundType>('mechanical');
@@ -98,7 +98,7 @@ export default function Settings() {
     const smoothCaretSetting = localStorage.getItem('smoothCaret');
     const quickRestartSetting = localStorage.getItem('quickRestart');
     const zenModeSetting = localStorage.getItem('zenMode');
-    
+
     if (smoothCaretSetting !== null) {
       setSmoothCaret(smoothCaretSetting === 'true');
     }
@@ -164,12 +164,12 @@ export default function Settings() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || "Failed to change password");
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -195,12 +195,12 @@ export default function Settings() {
       const response = await fetch("/api/auth/delete-account", {
         method: "DELETE",
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || "Failed to delete account");
       }
-      
+
       return response.json();
     },
     onSuccess: () => {
@@ -288,24 +288,24 @@ export default function Settings() {
   // Password validation helper
   const getPasswordStrength = (password: string) => {
     if (password.length === 0) return { strength: 0, label: '', color: '' };
-    
+
     // Must meet minimum requirements to even start calculating strength
-    const meetsMinimum = password.length >= 8 && 
-                        /[A-Z]/.test(password) && 
-                        /[a-z]/.test(password) && 
-                        /\d/.test(password);
-    
+    const meetsMinimum = password.length >= 8 &&
+      /[A-Z]/.test(password) &&
+      /[a-z]/.test(password) &&
+      /\d/.test(password);
+
     if (!meetsMinimum) {
       return { strength: 0, label: 'Weak', color: 'text-destructive' };
     }
-    
+
     let strength = 0;
     if (password.length >= 8) strength++;
     if (password.length >= 12) strength++;
     if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
     if (/\d/.test(password)) strength++;
     if (/[^a-zA-Z0-9]/.test(password)) strength++;
-    
+
     if (strength <= 2) return { strength, label: 'Weak', color: 'text-destructive' };
     if (strength <= 3) return { strength, label: 'Fair', color: 'text-yellow-500' };
     if (strength <= 4) return { strength, label: 'Good', color: 'text-blue-500' };
@@ -316,11 +316,11 @@ export default function Settings() {
 
   const validatePassword = () => {
     const errors: string[] = [];
-    
+
     if (!currentPassword) {
       errors.push("Current password is required");
     }
-    
+
     if (!newPassword) {
       errors.push("New password is required");
     } else {
@@ -337,15 +337,15 @@ export default function Settings() {
         errors.push("Password must contain at least one number");
       }
     }
-    
+
     if (newPassword && confirmPassword && newPassword !== confirmPassword) {
       errors.push("Passwords do not match");
     }
-    
+
     if (newPassword && currentPassword && newPassword === currentPassword) {
       errors.push("New password must be different from current password");
     }
-    
+
     return errors;
   };
 
@@ -354,14 +354,14 @@ export default function Settings() {
     const currentPwd = currentPassword;
     const newPwd = newPassword;
     const confirmPwd = confirmPassword;
-    
+
     // Re-validate with frozen values
     const errors: string[] = [];
-    
+
     if (!currentPwd) {
       errors.push("Current password is required");
     }
-    
+
     if (!newPwd) {
       errors.push("New password is required");
     } else {
@@ -378,15 +378,15 @@ export default function Settings() {
         errors.push("Password must contain at least one number");
       }
     }
-    
+
     if (newPwd && confirmPwd && newPwd !== confirmPwd) {
       errors.push("Passwords do not match");
     }
-    
+
     if (newPwd && currentPwd && newPwd === currentPwd) {
       errors.push("New password must be different from current password");
     }
-    
+
     if (errors.length > 0) {
       toast({
         title: "Validation Error",
@@ -395,7 +395,7 @@ export default function Settings() {
       });
       return;
     }
-    
+
     // Submit with frozen values
     changePasswordMutation.mutate({ currentPassword: currentPwd, newPassword: newPwd });
   };
@@ -404,11 +404,11 @@ export default function Settings() {
     <TooltipProvider delayDuration={300}>
       <div className="max-w-2xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-0">
         <div className="space-y-2">
-           <h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
-           <p className="text-sm sm:text-base text-muted-foreground">
-             Customize your typing experience
-             {!user && " (Settings are saved locally on this device)"}
-           </p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            Customize your typing experience
+            {!user && " (Settings are saved locally on this device)"}
+          </p>
         </div>
 
         <div className="space-y-4 sm:space-y-6">
@@ -456,9 +456,9 @@ export default function Settings() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="flex items-center justify-between">
-                 <Label htmlFor="blur" className="flex flex-col gap-1">
+                <Label htmlFor="blur" className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
                     <span>Blur Effects</span>
                     <Tooltip>
@@ -481,7 +481,7 @@ export default function Settings() {
           </Card>
 
           {/* Sound */}
-           <Card>
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Volume2 className="w-5 h-5" /> Sound
@@ -514,8 +514,8 @@ export default function Settings() {
                   data-testid="switch-sound-enabled"
                 />
               </div>
-              
-               <div className="flex items-center justify-between">
+
+              <div className="flex items-center justify-between">
                 <Label htmlFor="sound-type" className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
                     <span>Sound Type</span>
@@ -595,8 +595,8 @@ export default function Settings() {
               <CardDescription>Adjust how the test behaves</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-               <div className="flex items-center justify-between">
-                 <Label htmlFor="smooth-caret" className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="smooth-caret" className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
                     <span>Smooth Caret</span>
                     <Tooltip>
@@ -622,7 +622,7 @@ export default function Settings() {
               </div>
 
               <div className="flex items-center justify-between">
-                 <Label htmlFor="quick-restart" className="flex flex-col gap-1">
+                <Label htmlFor="quick-restart" className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
                     <span>Quick Restart</span>
                     <Tooltip>
@@ -647,7 +647,7 @@ export default function Settings() {
                 />
               </div>
 
-{/* Zen Mode setting hidden for now
+              {/* Zen Mode setting hidden for now
               <div className="flex items-center justify-between">
                  <Label htmlFor="zen-mode" className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
@@ -674,6 +674,29 @@ export default function Settings() {
                 />
               </div>
 */}
+            </CardContent>
+          </Card>
+
+          {/* Notifications */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="w-5 h-5" /> Notifications
+              </CardTitle>
+              <CardDescription>Manage browser push notifications and preferences</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">Notification Settings</p>
+                  <p className="text-xs text-muted-foreground truncate max-w-[200px] sm:max-w-none">
+                    Configure daily reminders, streak warnings, and more
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => navigate("/notifications")}>
+                  Manage
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -867,7 +890,7 @@ export default function Settings() {
                       Keep your account secure with a strong password
                     </p>
                   </div>
-                  
+
                   <div className="grid gap-3">
                     <div className="grid gap-2">
                       <Label htmlFor="current-password" className="text-xs">Current Password</Label>
@@ -892,7 +915,7 @@ export default function Settings() {
                         </button>
                       </div>
                     </div>
-                    
+
                     <div className="grid gap-2">
                       <Label htmlFor="new-password" className="text-xs">New Password</Label>
                       <div className="relative">
@@ -916,7 +939,7 @@ export default function Settings() {
                         </button>
                       </div>
                     </div>
-                    
+
                     <div className="grid gap-2">
                       <Label htmlFor="confirm-password" className="text-xs">Confirm Password</Label>
                       <div className="relative">
@@ -940,7 +963,7 @@ export default function Settings() {
                         </button>
                       </div>
                     </div>
-                    
+
                     <Button
                       onClick={handleChangePassword}
                       disabled={!currentPassword || !newPassword || !confirmPassword || changePasswordMutation.isPending || validatePassword().length > 0}
@@ -966,11 +989,11 @@ export default function Settings() {
                       </p>
                     </div>
                   </div>
-                  
+
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         className="border-destructive/30 text-destructive hover:bg-destructive hover:text-destructive-foreground"
                         data-testid="button-delete-account"
@@ -989,7 +1012,7 @@ export default function Settings() {
                         </AlertDialogTitle>
                         <AlertDialogDescription className="space-y-3">
                           <p>This will permanently delete your TypeMasterAI account and remove all your data from our servers.</p>
-                          
+
                           <div className="rounded-md bg-muted p-3 space-y-2">
                             <p className="text-xs font-medium text-foreground">This includes:</p>
                             <ul className="text-xs space-y-1 text-muted-foreground">
@@ -1011,7 +1034,7 @@ export default function Settings() {
                               </li>
                             </ul>
                           </div>
-                          
+
                           <p className="text-xs font-medium text-destructive">This action cannot be undone.</p>
                         </AlertDialogDescription>
                       </AlertDialogHeader>

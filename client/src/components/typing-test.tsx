@@ -3952,7 +3952,6 @@ Investing time in foundational skills often yields the highest returns in produc
                     consistency={lastResultSnapshot.consistency}
                     words={lastResultSnapshot.words}
                     characters={lastResultSnapshot.characters}
-                    verificationId={lastResultSnapshot.verificationId}
                     onShareTracked={trackShare}
                   />
                 )}

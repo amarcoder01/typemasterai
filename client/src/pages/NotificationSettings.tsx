@@ -58,7 +58,39 @@ export default function NotificationSettings() {
   useEffect(() => {
     checkPermissionStatus();
     loadPreferences();
+    fetchVapidKey();
   }, []);
+
+  const [vapidKey, setVapidKey] = useState<string | null>(null);
+
+  // Update permission state when the window gains focus (in case user changed settings)
+  useEffect(() => {
+    const handleFocus = () => checkPermissionStatus();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  // Auto-subscribe if permission is already granted
+  useEffect(() => {
+    if (vapidKey && permission === 'granted' && !subscribed) {
+      console.log('Permission granted but not subscribed – auto-subscribing...');
+      handleEnableNotifications();
+    }
+  }, [vapidKey, permission, subscribed]);
+
+
+
+  const fetchVapidKey = async () => {
+    try {
+      const response = await fetch('/api/notifications/vapid-public-key');
+      if (response.ok) {
+        const data = await response.json();
+        setVapidKey(data.publicKey);
+      }
+    } catch (error) {
+      console.error('Failed to fetch VAPID key:', error);
+    }
+  };
 
   const checkPermissionStatus = async () => {
     const permission = await notificationManager.getPermissionStatus();
@@ -81,9 +113,19 @@ export default function NotificationSettings() {
   };
 
   const handleEnableNotifications = async () => {
+    if (!vapidKey) {
+      toast({
+        title: "Error",
+        description: "Notification service not available",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
-      const success = await notificationManager.requestPermission();
-      if (success) {
+      const result = await notificationManager.enableNotifications(vapidKey);
+
+      if (result.success) {
         setSubscribed(true);
         setPermission('granted');
         toast({
@@ -93,7 +135,7 @@ export default function NotificationSettings() {
       } else {
         toast({
           title: "Permission Denied",
-          description: "Please enable notifications in your browser settings",
+          description: result.error || "Please enable notifications in your browser settings",
           variant: "destructive",
         });
       }
@@ -109,14 +151,23 @@ export default function NotificationSettings() {
 
   const handleDisableNotifications = async () => {
     try {
-      await notificationManager.unsubscribe();
-      setSubscribed(false);
-      toast({
-        title: "Notifications Disabled",
-        description: "You will no longer receive push notifications",
-      });
+      const result = await notificationManager.disableNotifications();
+      if (result.success) {
+        setSubscribed(false);
+        toast({
+          title: "Notifications Disabled",
+          description: "You will no longer receive push notifications",
+        });
+      } else {
+        throw new Error(result.error);
+      }
     } catch (error) {
       console.error('Failed to disable notifications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to disable notifications",
+        variant: "destructive",
+      });
     }
   };
 
@@ -125,7 +176,7 @@ export default function NotificationSettings() {
       const response = await fetch('/api/notifications/test', {
         method: 'POST',
       });
-      
+
       if (response.ok) {
         toast({
           title: "Test Notification Sent!",
@@ -218,9 +269,18 @@ export default function NotificationSettings() {
               </p>
             </div>
             {!subscribed ? (
-              <Button onClick={handleEnableNotifications} data-testid="button-enable-notifications">
-                Enable Notifications
-              </Button>
+              permission === 'denied' ? (
+                <div className="flex flex-col items-end gap-2">
+                  <span className="text-sm text-red-500 font-medium">Permission Denied in Browser</span>
+                  <Button variant="secondary" disabled>
+                    Enable in Browser Settings
+                  </Button>
+                </div>
+              ) : (
+                <Button onClick={handleEnableNotifications} data-testid="button-enable-notifications">
+                  Enable Notifications
+                </Button>
+              )
             ) : (
               <div className="flex gap-2">
                 <Button variant="outline" onClick={handleTestNotification} data-testid="button-test-notification">

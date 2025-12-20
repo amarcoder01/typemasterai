@@ -244,10 +244,10 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date, free
     // ========== VERIFICATION SECTION WITH QR CODE ==========
     const verifyY = 720; // Anchor for text line
 
-    // Draw QR code if available (positioned on the left)
+    // Draw QR code if available (positioned on the right)
     if (qrCodeImage) {
       const qrSize = 90; // Increased from 60
-      const qrX = 90; // Align closer to inner border (60)
+      const qrX = canvas.width - 170; // Right-side placement with padding
       const qrY = 615; // Positioned higher to ensure text fits within border
 
       // QR code background
@@ -264,8 +264,8 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date, free
       ctx.fillText("Scan to Verify", qrX + qrSize / 2, qrY + qrSize + 15);
     }
 
-    // Small checkmark circle - adjusted position
-    const checkX = qrCodeImage ? canvas.width / 2 - 80 : canvas.width / 2 - 140;
+    // Small checkmark circle - adjusted position (shifted right to balance QR on right)
+    const checkX = qrCodeImage ? canvas.width / 2 - 40 : canvas.width / 2 - 140;
     ctx.beginPath();
     ctx.arc(checkX, verifyY, 6, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(34, 197, 94, 0.2)";

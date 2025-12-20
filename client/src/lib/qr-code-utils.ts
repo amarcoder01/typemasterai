@@ -88,10 +88,18 @@ export async function drawQRCodeOnCanvas(
  * @returns Full verification URL
  */
 export function getVerificationUrl(verificationId: string): string {
-  // Use the current origin for certificates (works for both dev and prod)
-  const baseUrl = typeof window !== 'undefined'
-    ? window.location.origin
-    : 'https://typemasterai.com';
+  // Prefer an explicit public app URL when provided (supports multi-domain deployments)
+  const envBase =
+    (typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_PUBLIC_APP_URL) ||
+    (typeof process !== "undefined" && (process as any).env?.VITE_PUBLIC_APP_URL);
+
+  // Otherwise use the current origin for the active environment
+  const runtimeBase =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://typemasterai.com";
+
+  const baseUrl = envBase || runtimeBase;
 
   return `${baseUrl}/verify/${verificationId}`;
 }
