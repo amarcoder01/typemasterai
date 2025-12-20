@@ -5,7 +5,7 @@ import FeedbackWidget from "@/components/FeedbackWidget";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,6 +22,31 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+
+// Inline Logo Component for reliable rendering across all pages and themes
+function LogoHorizontal({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn("relative z-10 inline-flex items-center gap-2 select-none whitespace-nowrap", className)}
+      aria-label="TypeMasterAI Logo"
+    >
+      {/* TM Badge Circle */}
+      {/* Badge background */}
+      {/* TM Letters inside badge */}
+      {/* TypeMaster Text */}
+      <div className="relative h-8 w-8 shrink-0">
+        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500 to-cyan-400 p-[2px]">
+          <div className="h-full w-full rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-extrabold text-slate-50">
+            TM
+          </div>
+        </div>
+      </div>
+      <div className="text-[18px] leading-none font-bold text-foreground shrink-0">
+        TypeMaster<span className="text-cyan-400">AI</span>
+      </div>
+    </div>
+  );
+}
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
@@ -78,14 +103,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-primary-foreground flex flex-col">
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-md">
+      <header className="fixed top-0 left-0 right-0 z-50 isolate border-b border-border/40 bg-background/95 backdrop-blur-md shadow-sm">
         <div className="max-w-[1800px] mx-auto px-2 h-14 flex items-center justify-between">
           <Link href="/">
-            <div className="flex items-center gap-2 shrink-0 cursor-pointer group p-1.5">
-              <img 
-                src="/logo-horizontal.svg" 
-                alt="TypeMasterAI Logo" 
-                className="h-9 w-auto object-contain transition-transform group-hover:scale-105"
+            <div className="flex items-center shrink-0 cursor-pointer group p-1.5 whitespace-nowrap">
+              <LogoHorizontal 
+                className="h-8 w-auto transition-transform group-hover:scale-105"
               />
             </div>
           </Link>

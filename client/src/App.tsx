@@ -13,6 +13,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { AchievementCelebrationProvider } from "@/components/achievement-celebration";
 import { CookieConsentBanner } from "@/components/cookie-consent-banner";
 import Layout from "@/components/layout";
+import { NotificationSync } from "@/components/NotificationSync";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Profile from "@/pages/profile";
@@ -128,7 +129,7 @@ function App() {
                   <TooltipProvider>
                     <NetworkStatusBanner />
                     <Toaster />
-                    <SonnerToaster 
+                    <SonnerToaster
                       position="top-right"
                       richColors
                       closeButton
@@ -137,6 +138,7 @@ function App() {
                         className: "font-sans",
                       }}
                     />
+                    <NotificationSync />
                     <Router />
                     <CookieConsentBanner />
                   </TooltipProvider>

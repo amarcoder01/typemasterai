@@ -466,7 +466,7 @@ export function RaceCertificate({
     ctx.fillText("Official Multiplayer Racing Authority", canvas.width / 2, sigY + 18);
 
     // Footer with certificate ID and URL
-    ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
     ctx.font = "10px 'JetBrains Mono', monospace";
     ctx.textAlign = "left";
     ctx.fillText(`ID: ${certificateId}`, 50, canvas.height - 25);

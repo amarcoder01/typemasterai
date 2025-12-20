@@ -342,6 +342,17 @@ export default function StressTest() {
   const { toast } = useToast();
   const { user } = useAuth();
   const createCertificateMutation = useCreateCertificate();
+  
+  // Toast debouncing to prevent spam during rapid events
+  const lastToastTimeRef = useRef<Record<string, number>>({});
+  const showDebouncedToast = useCallback((key: string, title: string, description: string, variant: "default" | "destructive" = "default", debounceMs = 2000) => {
+    const now = Date.now();
+    const lastTime = lastToastTimeRef.current[key] || 0;
+    if (now - lastTime > debounceMs) {
+      lastToastTimeRef.current[key] = now;
+      toast({ title, description, variant });
+    }
+  }, [toast]);
   const { isOnline, isServerReachable, addPendingAction, checkConnection } = useNetwork();
   const [, setLocation] = useLocation();
   const [showCertificate, setShowCertificate] = useState(false);
@@ -593,6 +604,10 @@ export default function StressTest() {
     return () => {
       clearAllTimers();
       isTestActiveRef.current = false;
+      // Ensure all audio contexts are properly closed
+      if (globalAudioContext && globalAudioContext.state !== 'closed') {
+        globalAudioContext.close().catch(() => {});
+      }
     };
   }, [clearAllTimers]);
 

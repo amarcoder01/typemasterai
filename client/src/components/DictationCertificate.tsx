@@ -231,7 +231,7 @@ export function DictationCertificate({
       ctx.fillText(rating.badge.toUpperCase(), width / 2, 768);
 
       ctx.font = "16px system-ui, -apple-system, sans-serif";
-      ctx.fillStyle = "#666";
+      ctx.fillStyle = "#94a3b8";
       ctx.fillText(`Issued: ${date.toLocaleDateString()}`, 150, height - 50);
       ctx.textAlign = "right";
       ctx.fillText(`Certificate ID: ${certificateId}`, width - 150, height - 50);

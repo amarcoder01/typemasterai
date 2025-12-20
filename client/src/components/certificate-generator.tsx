@@ -244,11 +244,11 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date, free
     // ========== VERIFICATION SECTION WITH QR CODE ==========
     const verifyY = 720; // Anchor for text line
 
-    // Draw QR code if available (positioned on the right)
+    // Draw QR code if available (positioned on the right with safe padding)
     if (qrCodeImage) {
       const qrSize = 90; // Increased from 60
-      const qrX = canvas.width - 170; // Right-side placement with padding
-      const qrY = 615; // Positioned higher to ensure text fits within border
+      const qrX = canvas.width - 190; // More inset from right to avoid border overlap
+      const qrY = 600; // Slightly higher to leave room for text and border
 
       // QR code background
       ctx.fillStyle = "#ffffff";
@@ -258,14 +258,14 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date, free
       ctx.drawImage(qrCodeImage, qrX, qrY, qrSize, qrSize);
 
       // "Scan to Verify" text under QR
-      ctx.fillStyle = "#64748b";
-      ctx.font = "10px 'DM Sans', sans-serif";
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "11px 'DM Sans', sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("Scan to Verify", qrX + qrSize / 2, qrY + qrSize + 15);
+      ctx.fillText("Scan to Verify", qrX + qrSize / 2, qrY + qrSize + 18);
     }
 
     // Small checkmark circle - adjusted position (shifted right to balance QR on right)
-    const checkX = qrCodeImage ? canvas.width / 2 - 40 : canvas.width / 2 - 140;
+    const checkX = qrCodeImage ? canvas.width / 2 - 160 : canvas.width / 2 - 260;
     ctx.beginPath();
     ctx.arc(checkX, verifyY, 6, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(34, 197, 94, 0.2)";
@@ -288,25 +288,26 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date, free
     ctx.restore();
 
     // Verification text - single line
-    ctx.fillStyle = "#64748b";
-    ctx.font = "11px 'DM Sans', sans-serif";
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "12px 'DM Sans', sans-serif";
     ctx.textAlign = "left";
     ctx.fillText("Digitally Verified by TypeMasterAI", checkX + 12, verifyY + 4);
 
     // Separator dot
-    ctx.fillStyle = "#475569";
-    ctx.fillText("•", checkX + 190, verifyY + 4);
+    ctx.fillStyle = "#64748b";
+    ctx.fillText("•", checkX + 195, verifyY + 4);
 
     // Certificate ID
     ctx.fillStyle = "#a855f7";
-    ctx.font = "bold 11px 'JetBrains Mono', monospace";
-    ctx.fillText(verificationId, checkX + 200, verifyY + 4);
+    ctx.font = "bold 12px 'JetBrains Mono', monospace";
+    ctx.fillText(verificationId, checkX + 210, verifyY + 4);
 
-    // Verification URL hint
-    ctx.fillStyle = "#475569";
-    ctx.font = "10px 'DM Sans', sans-serif";
-    ctx.textAlign = "right";
-    ctx.fillText("typemasterai.com/verify", canvas.width - 60, verifyY + 4);
+    // Verification URL hint - below QR with padding and centered to QR
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "11px 'DM Sans', sans-serif";
+    ctx.textAlign = "center";
+    const urlY = 600 + 90 + 36; // qrY + qrSize + padding
+    ctx.fillText("typemasterai.com/verify", qrCodeImage ? (canvas.width - 190 + 90 / 2) : canvas.width / 2, urlY);
   };
 
   const downloadCertificate = () => {

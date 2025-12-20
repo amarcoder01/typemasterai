@@ -672,12 +672,21 @@ export default function BookMode() {
     setIsActive(false);
     setIsFinished(true);
     
-    const elapsedSeconds = (Date.now() - startTime) / 1000;
+    const elapsedSeconds = Math.max(1, (Date.now() - startTime) / 1000);
     const duration = Math.round(elapsedSeconds);
     
     const chars = userInput.length;
+    
+    // Guard against empty input
+    if (chars === 0) {
+      setWpm(0);
+      setAccuracy(100);
+      setErrors(0);
+      return;
+    }
+    
     const errorCount = userInput.split("").filter((char, i) => char !== normalizedText[i]).length;
-    const correctChars = chars - errorCount;
+    const correctChars = Math.max(0, chars - errorCount);
     const finalWpm = calculateWPM(correctChars, elapsedSeconds);
     const finalAccuracy = calculateAccuracy(correctChars, chars);
     

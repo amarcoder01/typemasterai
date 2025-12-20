@@ -21,6 +21,7 @@ import { BADGES, TOTAL_BADGES, type UserBadgeProgress, getTierColor, getTierBord
 import { BadgeCard } from "@/components/badge-card";
 import { BadgeShareCard } from "@/components/badge-share-card";
 import FeedbackWidget from "@/components/FeedbackWidget";
+import { BackButton } from "@/components/back-button";
 
 function ProfileHeaderSkeleton() {
   return (
@@ -104,28 +105,28 @@ function BadgeCardSkeleton() {
 }
 
 
-function ErrorState({ 
-  message, 
-  onRetry, 
+function ErrorState({
+  message,
+  onRetry,
   isRetrying,
   testId = "button-retry"
-}: { 
-  message: string; 
-  onRetry: () => void; 
+}: {
+  message: string;
+  onRetry: () => void;
   isRetrying?: boolean;
   testId?: string;
 }) {
   return (
     <div className="flex flex-col items-center justify-center p-6 text-center space-y-3 bg-destructive/5 border border-destructive/20 rounded-lg">
       <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center">
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          className="h-5 w-5 text-destructive" 
-          viewBox="0 0 24 24" 
-          fill="none" 
-          stroke="currentColor" 
-          strokeWidth="2" 
-          strokeLinecap="round" 
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5 text-destructive"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
           strokeLinejoin="round"
         >
           <circle cx="12" cy="12" r="10"></circle>
@@ -134,9 +135,9 @@ function ErrorState({
         </svg>
       </div>
       <p className="text-sm text-muted-foreground">{message}</p>
-      <Button 
-        variant="outline" 
-        size="sm" 
+      <Button
+        variant="outline"
+        size="sm"
         onClick={onRetry}
         disabled={isRetrying}
         data-testid={testId}
@@ -148,14 +149,14 @@ function ErrorState({
           </>
         ) : (
           <>
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              className="h-4 w-4 mr-2" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 mr-2"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
               strokeLinejoin="round"
             >
               <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
@@ -192,7 +193,7 @@ function BadgeIcon({ iconName, className }: { iconName: string; className?: stri
 const tierDescriptions: Record<string, string> = {
   bronze: "Entry-level achievement",
   silver: "Intermediate milestone",
-  gold: "Advanced accomplishment", 
+  gold: "Advanced accomplishment",
   platinum: "Expert-level mastery",
   diamond: "Ultimate achievement",
 };
@@ -312,7 +313,7 @@ export default function Profile() {
   const [showBadgeShareCard, setShowBadgeShareCard] = useState(false);
   const [certificateFilter, setCertificateFilter] = useState<string>("all");
   const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
-  
+
   const { data: certificatesData, isLoading: certificatesLoading, error: certificatesError, refetch: refetchCertificates } = useUserCertificates(user?.id?.toString(), certificateFilter === "all" ? undefined : certificateFilter);
   const deleteCertificateMutation = useDeleteCertificate();
 
@@ -363,7 +364,7 @@ export default function Profile() {
   const badgeProgress: UserBadgeProgress[] = BADGES.map((badge) => {
     const isUnlocked = unlockedKeys.has(badge.id);
     const userAchievement = unlockedMap.get(badge.id);
-    
+
     if (!badgeData?.badgeData) {
       return {
         badge,
@@ -399,10 +400,10 @@ export default function Profile() {
         break;
     }
 
-    const progress = isUnlocked 
-      ? 100 
-      : badge.requirement.value > 0 
-        ? Math.min((currentValue / badge.requirement.value) * 100, 99.9) 
+    const progress = isUnlocked
+      ? 100
+      : badge.requirement.value > 0
+        ? Math.min((currentValue / badge.requirement.value) * 100, 99.9)
         : 0;
 
     return {
@@ -424,53 +425,56 @@ export default function Profile() {
 
   if (!user) {
     return (
-        <div className="max-w-3xl mx-auto px-4 sm:px-0">
-          <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardContent className="p-6 sm:p-12">
-              <div className="flex flex-col items-center text-center space-y-4 sm:space-y-6">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                  <UserIcon className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+      <div className="max-w-3xl mx-auto px-4 sm:px-0">
+        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+          <CardContent className="p-6 sm:p-12">
+            <div className="flex flex-col items-center text-center space-y-4 sm:space-y-6">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                <UserIcon className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl sm:text-3xl font-bold">View Your Typing Stats</h2>
+                <p className="text-sm sm:text-base text-muted-foreground max-w-md">
+                  Sign in to access your personal profile, track your progress over time, and see detailed analytics of your typing performance.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full max-w-md pt-4">
+                <div className="p-3 sm:p-4 bg-background/50 rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold text-primary">📊</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Charts</div>
                 </div>
-                <div className="space-y-2">
-                  <h2 className="text-2xl sm:text-3xl font-bold">View Your Typing Stats</h2>
-                  <p className="text-sm sm:text-base text-muted-foreground max-w-md">
-                    Sign in to access your personal profile, track your progress over time, and see detailed analytics of your typing performance.
-                  </p>
+                <div className="p-3 sm:p-4 bg-background/50 rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold text-primary">📈</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">History</div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full max-w-md pt-4">
-                  <div className="p-3 sm:p-4 bg-background/50 rounded-lg">
-                    <div className="text-xl sm:text-2xl font-bold text-primary">📊</div>
-                    <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Charts</div>
-                  </div>
-                  <div className="p-3 sm:p-4 bg-background/50 rounded-lg">
-                    <div className="text-xl sm:text-2xl font-bold text-primary">📈</div>
-                    <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">History</div>
-                  </div>
-                  <div className="p-3 sm:p-4 bg-background/50 rounded-lg">
-                    <div className="text-xl sm:text-2xl font-bold text-primary">🏆</div>
-                    <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Stats</div>
-                  </div>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3 pt-4 w-full sm:w-auto">
-                  <Button onClick={() => setLocation("/register")} size="lg" className="w-full sm:w-auto">
-                    Create Account
-                  </Button>
-                  <Button onClick={() => setLocation("/login")} variant="outline" size="lg" className="w-full sm:w-auto">
-                    Sign In
-                  </Button>
+                <div className="p-3 sm:p-4 bg-background/50 rounded-lg">
+                  <div className="text-xl sm:text-2xl font-bold text-primary">🏆</div>
+                  <div className="text-[10px] sm:text-xs text-muted-foreground mt-1">Stats</div>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 w-full sm:w-auto">
+                <Button onClick={() => setLocation("/register")} size="lg" className="w-full sm:w-auto">
+                  Create Account
+                </Button>
+                <Button onClick={() => setLocation("/login")} variant="outline" size="lg" className="w-full sm:w-auto">
+                  Sign In
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   const stats = statsData?.stats;
 
   return (
-      <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-0">
-        <TooltipProvider delayDuration={200}>
+    <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-0">
+      <div className="flex justify-start">
+        <BackButton />
+      </div>
+      <TooltipProvider delayDuration={200}>
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 p-4 sm:p-6 rounded-2xl bg-card/70 backdrop-blur-md border border-border/50 shadow-xl">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -551,7 +555,7 @@ export default function Profile() {
                       <Edit className="w-4 h-4 mr-2" />
                       Edit Profile
                     </Button>
-                    <FeedbackWidget 
+                    <FeedbackWidget
                       triggerVariant="outline"
                       triggerSize="sm"
                     />
@@ -563,9 +567,9 @@ export default function Profile() {
               </Tooltip>
             </div>
             {statsError ? (
-              <ErrorState 
-                message="Failed to load stats. Please try again." 
-                onRetry={() => refetchStats()} 
+              <ErrorState
+                message="Failed to load stats. Please try again."
+                onRetry={() => refetchStats()}
                 isRetrying={statsRefetching}
                 testId="button-retry-stats"
               />
@@ -621,7 +625,7 @@ export default function Profile() {
                     <span>{xp % 100} / 100 XP</span>
                   </div>
                   <div className="w-full h-2 bg-secondary rounded-full overflow-hidden">
-                    <div 
+                    <div
                       className="h-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-500"
                       style={{ width: `${xpProgress}%` }}
                     />
@@ -633,7 +637,7 @@ export default function Profile() {
                 <p className="text-xs text-muted-foreground mt-1">Earn 100 XP to reach the next level. Complete tests and unlock badges to earn XP faster!</p>
               </TooltipContent>
             </Tooltip>
-            
+
             {unlockedCount > 0 && (
               <div className="pt-3 border-t border-border/30">
                 <div className="flex items-center justify-between mb-3">
@@ -723,7 +727,7 @@ export default function Profile() {
         </div>
 
         {nextAchievement && (
-          <Card 
+          <Card
             className="border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-card/80 to-purple-500/5 backdrop-blur-md shadow-lg shadow-primary/10 hover:border-primary/50 transition-all duration-300 overflow-hidden"
             data-testid="next-badge-widget"
           >
@@ -733,9 +737,9 @@ export default function Profile() {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div className="shrink-0 mx-auto md:mx-0 cursor-help">
-                      <div 
+                      <div
                         className="aspect-square w-12 sm:w-14 overflow-hidden rounded-xl bg-gradient-to-br from-muted/80 to-muted border border-border/50 flex items-center justify-center shadow-md"
-                        style={{ 
+                        style={{
                           boxShadow: `0 4px 16px ${nextAchievement.color}20`,
                         }}
                       >
@@ -748,7 +752,7 @@ export default function Profile() {
                     <p className="text-xs text-muted-foreground mt-1">Your next achievement to unlock. Complete the requirements to earn this badge and {nextAchievement.points} XP!</p>
                   </TooltipContent>
                 </Tooltip>
-                
+
                 {/* Text Column - Flexible with Overflow Protection */}
                 <div className="min-w-0 flex flex-col gap-1.5 text-center md:text-left overflow-hidden">
                   <div className="flex flex-wrap items-center justify-center md:justify-start gap-1.5">
@@ -757,10 +761,10 @@ export default function Profile() {
                     </span>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className="text-[9px] sm:text-[10px] px-1 py-0 capitalize shrink-0 cursor-help"
-                          style={{ 
+                          style={{
                             borderColor: nextAchievement.color,
                             color: nextAchievement.color
                           }}
@@ -776,8 +780,8 @@ export default function Profile() {
                     </Tooltip>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Badge 
-                          variant="secondary" 
+                        <Badge
+                          variant="secondary"
                           className="text-[9px] sm:text-[10px] px-1 py-0 shrink-0 cursor-help"
                           data-testid="next-badge-points"
                         >
@@ -790,7 +794,7 @@ export default function Profile() {
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  
+
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <h3 className="text-base sm:text-lg font-semibold text-balance break-words cursor-help" data-testid="next-badge-name">
@@ -803,7 +807,7 @@ export default function Profile() {
                       <p className="text-xs text-primary mt-2">Progress: {nextAchievement.currentValue} / {nextAchievement.targetValue} ({nextAchievement.progress}%)</p>
                     </TooltipContent>
                   </Tooltip>
-                  
+
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <p className="text-xs sm:text-sm text-muted-foreground text-pretty break-words cursor-help" data-testid="next-badge-description">
@@ -815,7 +819,7 @@ export default function Profile() {
                       <p className="text-xs text-muted-foreground mt-1">Keep typing to make progress towards unlocking this badge!</p>
                     </TooltipContent>
                   </Tooltip>
-                  
+
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="mt-1 space-y-1.5 cursor-help">
@@ -826,8 +830,8 @@ export default function Profile() {
                             <span className="text-muted-foreground ml-1 text-[10px] sm:text-xs">({nextAchievement.progress}%)</span>
                           </span>
                         </div>
-                        <Progress 
-                          value={nextAchievement.progress} 
+                        <Progress
+                          value={nextAchievement.progress}
                           className="h-2 sm:h-2.5 rounded-full bg-secondary [&>div]:bg-gradient-to-r [&>div]:from-primary [&>div]:to-purple-500"
                           data-testid="next-badge-progress"
                         />
@@ -836,19 +840,19 @@ export default function Profile() {
                     <TooltipContent className="max-w-xs">
                       <p className="font-semibold">Your Progress</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        You've completed {nextAchievement.currentValue} out of {nextAchievement.targetValue} required. 
+                        You've completed {nextAchievement.currentValue} out of {nextAchievement.targetValue} required.
                         Only {nextAchievement.targetValue - nextAchievement.currentValue} more to go!
                       </p>
                       <p className="text-xs text-primary mt-2">{Math.round(nextAchievement.progress)}% complete</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                
+
                 {/* CTA Button Column */}
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="icon"
                       className="shrink-0 hidden md:flex md:justify-self-end h-8 w-8"
                       onClick={() => setLocation("/")}
@@ -1199,7 +1203,7 @@ export default function Profile() {
                 Choose up to 5 unlocked badges to display prominently on your profile. These badges will be visible to other users.
               </DialogDescription>
             </DialogHeader>
-            
+
             <TooltipProvider delayDuration={300}>
               <div className="flex-1 overflow-hidden flex flex-col py-4">
                 <div className="flex items-center justify-between mb-4 flex-shrink-0">
@@ -1231,7 +1235,7 @@ export default function Profile() {
                     </Tooltip>
                   )}
                 </div>
-                
+
                 <div className="flex-1 overflow-y-auto pr-2 -mr-2">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {badgeProgress
@@ -1239,15 +1243,15 @@ export default function Profile() {
                       .map((item) => {
                         const isSelected = selectedShowcaseBadges.includes(item.badge.id);
                         const canSelect = selectedShowcaseBadges.length < 5 || isSelected;
-                        
+
                         return (
                           <Tooltip key={item.badge.id}>
                             <TooltipTrigger asChild>
                               <div
                                 className={cn(
                                   "relative flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md",
-                                  isSelected 
-                                    ? `${getTierBorder(item.badge.tier)} bg-gradient-to-br ${getTierColor(item.badge.tier)} bg-opacity-10 shadow-sm` 
+                                  isSelected
+                                    ? `${getTierBorder(item.badge.tier)} bg-gradient-to-br ${getTierColor(item.badge.tier)} bg-opacity-10 shadow-sm`
                                     : "border-border hover:border-primary/50 bg-background",
                                   !canSelect && "opacity-50 cursor-not-allowed hover:shadow-none"
                                 )}
@@ -1271,8 +1275,8 @@ export default function Profile() {
                                   <div className="font-semibold text-sm truncate">{item.badge.name}</div>
                                   <div className="text-xs text-muted-foreground line-clamp-1">{item.badge.description}</div>
                                   <div className="flex items-center gap-2 mt-1.5">
-                                    <Badge 
-                                      variant="outline" 
+                                    <Badge
+                                      variant="outline"
                                       className="text-[10px] px-1.5 py-0 capitalize"
                                       style={{ borderColor: item.badge.color, color: item.badge.color }}
                                     >
@@ -1283,8 +1287,8 @@ export default function Profile() {
                                 </div>
                                 <div className={cn(
                                   "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0",
-                                  isSelected 
-                                    ? "bg-primary border-primary" 
+                                  isSelected
+                                    ? "bg-primary border-primary"
                                     : "border-muted-foreground/30 hover:border-primary/50"
                                 )}>
                                   {isSelected && <Check className="w-4 h-4 text-primary-foreground" />}
@@ -1308,7 +1312,7 @@ export default function Profile() {
                       })}
                   </div>
                 </div>
-                
+
                 {badgeProgress.filter(item => item.unlocked).length === 0 && (
                   <div className="text-center py-12 text-muted-foreground">
                     <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
@@ -1316,9 +1320,9 @@ export default function Profile() {
                     </div>
                     <p className="font-medium">No badges unlocked yet!</p>
                     <p className="text-sm mt-2 max-w-xs mx-auto">Complete typing tests and reach milestones to earn badges you can showcase.</p>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="mt-4"
                       onClick={() => {
                         setShowShowcaseModal(false);
@@ -1331,7 +1335,7 @@ export default function Profile() {
                 )}
               </div>
             </TooltipProvider>
-            
+
             <div className="flex justify-between items-center gap-3 pt-4 border-t flex-shrink-0">
               <div className="text-xs text-muted-foreground">
                 {badgeProgress.filter(item => item.unlocked).length} badge{badgeProgress.filter(item => item.unlocked).length !== 1 ? 's' : ''} available
@@ -1391,6 +1395,6 @@ export default function Profile() {
           />
         )}
       </TooltipProvider>
-      </div>
+    </div>
   );
 }

@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, Mail, Lock } from "lucide-react";
+import { AlertCircle, Mail, Lock, Bell } from "lucide-react";
+import { notificationManager } from "@/lib/notification-manager";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
+  const [enableNotifications, setEnableNotifications] = useState(true);
 
   const { data: providers } = useQuery<ProviderAvailability>({
     queryKey: ["provider-availability"],
@@ -93,6 +95,17 @@ export default function Login() {
     setIsLoading(true);
 
     try {
+      // Trigger notification permission request if enabled (using the click gesture)
+      if (enableNotifications && notificationManager.isSupported()) {
+        try {
+          // We don't await this as we don't want to block login if the user is slow to click
+          // The click gesture is still valid here because it's the start of the handler
+          notificationManager.requestPermission();
+        } catch (nErr) {
+          console.error("Failed to request notification permission:", nErr);
+        }
+      }
+
       await login(email, password, rememberMe);
       setIsSuccess(true);
       triggerSuccessConfetti();
@@ -108,6 +121,17 @@ export default function Login() {
       setError("This sign-in method is not currently available.");
       return;
     }
+
+    // Trigger notification permission request if enabled (using the click gesture)
+    if (enableNotifications && notificationManager.isSupported()) {
+      try {
+        // Social login redirects immediately, so we trigger and then redirect
+        notificationManager.requestPermission();
+      } catch (nErr) {
+        console.error("Failed to request notification permission:", nErr);
+      }
+    }
+
     window.location.href = `/api/auth/${provider}`;
   };
 
@@ -122,7 +146,7 @@ export default function Login() {
             title="Sign In"
             description="Enter your credentials to access your account"
           />
-          
+
           <AuthPanelContent>
             <AnimatePresence mode="wait">
               {error && (
@@ -141,7 +165,7 @@ export default function Login() {
             </AnimatePresence>
 
             {anyProviderAvailable && (
-              <motion.div 
+              <motion.div
                 className="grid gap-3"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -203,12 +227,12 @@ export default function Login() {
                 icon={<Lock className="h-4 w-4" />}
                 delay={5}
               />
-              
+
               <AnimatePresence>
                 <CapsLockWarning show={capsLockOn} />
               </AnimatePresence>
 
-              <motion.div 
+              <motion.div
                 className="flex justify-end"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -225,7 +249,7 @@ export default function Login() {
               </motion.div>
             </div>
 
-            <motion.div 
+            <motion.div
               className="flex items-center space-x-2"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -242,8 +266,30 @@ export default function Login() {
                 Remember me for 30 days
               </Label>
             </motion.div>
+
+            {notificationManager.isSupported() && (
+              <motion.div
+                className="flex items-center space-x-2"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.7 }}
+              >
+                <Checkbox
+                  id="enable-notifications"
+                  checked={enableNotifications}
+                  onCheckedChange={(checked) => setEnableNotifications(checked === true)}
+                  className="border-zinc-700 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <Label htmlFor="enable-notifications" className="text-sm font-normal cursor-pointer text-zinc-400 flex items-center gap-1.5">
+                    <Bell className="h-3 w-3" /> Enable browser notifications
+                  </Label>
+                  <p className="text-[10px] text-zinc-500">Get daily reminders and streak alerts</p>
+                </div>
+              </motion.div>
+            )}
           </AuthPanelContent>
-          
+
           <AuthPanelFooter>
             <div className="space-y-4">
               <SubmitButton

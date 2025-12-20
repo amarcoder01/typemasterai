@@ -291,81 +291,14 @@ export function CodeCertificate({
     ctx.font = "16px 'DM Sans', system-ui, sans-serif";
     ctx.fillText("with the following results:", canvas.width / 2, 300);
 
-    // Stats box background
-    const statsBoxX = 200;
-    const statsBoxY = 320;
-    const statsBoxWidth = 800;
-    const statsBoxHeight = 100;
-
-    ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-    ctx.beginPath();
-    ctx.roundRect(statsBoxX, statsBoxY, statsBoxWidth, statsBoxHeight, 12);
-    ctx.fill();
-
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(statsBoxX, statsBoxY, statsBoxWidth, statsBoxHeight, 12);
-    ctx.stroke();
-
-    // Stats Row 1: WPM | Accuracy | Consistency
-    const row1Y = statsBoxY + 40;
-    const statsStartX = statsBoxX + 80;
-    const statSpacing = 250;
-
-    // WPM
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 32px 'JetBrains Mono', monospace";
-    ctx.textAlign = "center";
-    ctx.fillText(`${wpm}`, statsStartX, row1Y);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-    ctx.font = "12px 'DM Sans', system-ui, sans-serif";
-    ctx.fillText("WPM", statsStartX, row1Y + 20);
-
-    // Divider
-    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
-    ctx.fillText("|", statsStartX + statSpacing / 2, row1Y);
-
-    // Accuracy
-    ctx.fillStyle = "#4ade80";
-    ctx.font = "bold 32px 'JetBrains Mono', monospace";
-    ctx.fillText(`${accuracy}%`, statsStartX + statSpacing, row1Y);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-    ctx.font = "12px 'DM Sans', system-ui, sans-serif";
-    ctx.fillText("ACCURACY", statsStartX + statSpacing, row1Y + 20);
-
-    // Divider
-    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
-    ctx.fillText("|", statsStartX + statSpacing * 1.5, row1Y);
-
-    // Raw WPM
-    ctx.fillStyle = "#c084fc";
-    ctx.font = "bold 32px 'JetBrains Mono', monospace";
-    ctx.fillText(`${rawWpm}`, statsStartX + statSpacing * 2, row1Y);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-    ctx.font = "12px 'DM Sans', system-ui, sans-serif";
-    ctx.fillText("RAW WPM", statsStartX + statSpacing * 2, row1Y + 20);
-
-    // Divider
-    ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
-    ctx.fillText("|", statsStartX + statSpacing * 2.5, row1Y);
-
-    // Time
-    ctx.fillStyle = "#22d3ee";
-    ctx.font = "bold 32px 'JetBrains Mono', monospace";
-    ctx.fillText(time, statsStartX + statSpacing * 3, row1Y);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-    ctx.font = "12px 'DM Sans', system-ui, sans-serif";
-    ctx.fillText("TIME", statsStartX + statSpacing * 3, row1Y + 20);
-
-    // Performance tier badge (on right side)
-    const badgeX = canvas.width - 120;
-    const badgeY = statsBoxY + statsBoxHeight / 2;
-    const badgeRadius = 35;
+    // Performance tier badge (TOP RIGHT corner - positioned before stats)
+    const badgeX = canvas.width - 100;
+    const badgeY = 80;
+    const badgeRadius = 40;
 
     ctx.save();
     ctx.shadowColor = tierVisuals.glowColor;
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = 20;
 
     const badgeGradient = ctx.createRadialGradient(badgeX, badgeY, 0, badgeX, badgeY, badgeRadius);
     badgeGradient.addColorStop(0, tierVisuals.secondaryColor);
@@ -385,12 +318,92 @@ export function CodeCertificate({
     ctx.restore();
 
     ctx.fillStyle = tierVisuals.primaryColor;
-    ctx.font = "bold 12px 'DM Sans', system-ui, sans-serif";
+    ctx.font = "bold 14px 'DM Sans', system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(rating.badge.toUpperCase(), badgeX, badgeY - 2);
+    ctx.fillText(rating.badge.toUpperCase(), badgeX, badgeY + 2);
     ctx.fillStyle = "#ffffff";
-    ctx.font = "9px 'DM Sans', system-ui, sans-serif";
-    ctx.fillText("TIER", badgeX, badgeY + 12);
+    ctx.font = "10px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("TIER", badgeX, badgeY + 16);
+
+    // Stats box background - properly sized for 4 columns with clearance from tier badge
+    const statsBoxX = 150;  // Centered with margins
+    const statsBoxY = 320;
+    const statsBoxWidth = 900;  // Reduced to prevent overlap with tier badge
+    const statsBoxHeight = 100;
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+    ctx.beginPath();
+    ctx.roundRect(statsBoxX, statsBoxY, statsBoxWidth, statsBoxHeight, 12);
+    ctx.fill();
+
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(statsBoxX, statsBoxY, statsBoxWidth, statsBoxHeight, 12);
+    ctx.stroke();
+
+    // Stats Row - 4 evenly spaced columns
+    const row1Y = statsBoxY + 40;
+    const columnWidth = statsBoxWidth / 4;
+    const col1X = statsBoxX + columnWidth / 2;
+    const col2X = statsBoxX + columnWidth + columnWidth / 2;
+    const col3X = statsBoxX + columnWidth * 2 + columnWidth / 2;
+    const col4X = statsBoxX + columnWidth * 3 + columnWidth / 2;
+
+    // Column 1: WPM
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 36px 'JetBrains Mono', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(`${wpm}`, col1X, row1Y);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.font = "12px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("WPM", col1X, row1Y + 22);
+
+    // Vertical divider 1
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(statsBoxX + columnWidth, statsBoxY + 20);
+    ctx.lineTo(statsBoxX + columnWidth, statsBoxY + statsBoxHeight - 20);
+    ctx.stroke();
+
+    // Column 2: Accuracy
+    ctx.fillStyle = "#4ade80";
+    ctx.font = "bold 36px 'JetBrains Mono', monospace";
+    ctx.fillText(`${accuracy}%`, col2X, row1Y);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.font = "12px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("ACCURACY", col2X, row1Y + 22);
+
+    // Vertical divider 2
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+    ctx.beginPath();
+    ctx.moveTo(statsBoxX + columnWidth * 2, statsBoxY + 20);
+    ctx.lineTo(statsBoxX + columnWidth * 2, statsBoxY + statsBoxHeight - 20);
+    ctx.stroke();
+
+    // Column 3: Raw WPM
+    ctx.fillStyle = "#c084fc";
+    ctx.font = "bold 36px 'JetBrains Mono', monospace";
+    ctx.fillText(`${rawWpm}`, col3X, row1Y);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.font = "12px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("RAW WPM", col3X, row1Y + 22);
+
+    // Vertical divider 3
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+    ctx.beginPath();
+    ctx.moveTo(statsBoxX + columnWidth * 3, statsBoxY + 20);
+    ctx.lineTo(statsBoxX + columnWidth * 3, statsBoxY + statsBoxHeight - 20);
+    ctx.stroke();
+
+    // Column 4: Time
+    ctx.fillStyle = "#22d3ee";
+    ctx.font = "bold 36px 'JetBrains Mono', monospace";
+    ctx.fillText(time, col4X, row1Y);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.font = "12px 'DM Sans', system-ui, sans-serif";
+    ctx.fillText("TIME", col4X, row1Y + 22);
 
     // Earned on date
     const formattedDate = date.toLocaleDateString('en-GB', {
@@ -435,20 +448,20 @@ export function CodeCertificate({
 
     // Footer with certificate ID, QR code, and URL
     const footerY = canvas.height - 25;
-    
+
     // Draw QR code if available (positioned on the left)
     if (qrCodeImage) {
       const qrSize = 50;
       const qrX = 50;
       const qrY = footerY - qrSize - 5;
-      
+
       // QR code background
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(qrX - 3, qrY - 3, qrSize + 6, qrSize + 6);
-      
+
       // Draw QR code
       ctx.drawImage(qrCodeImage, qrX, qrY, qrSize, qrSize);
-      
+
       // Certificate ID next to QR
       ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
       ctx.font = "10px 'JetBrains Mono', monospace";

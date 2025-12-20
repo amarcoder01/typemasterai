@@ -17,14 +17,31 @@ export function generateText(wordCount: number = 50): string {
   return text.join(" ");
 }
 
+// Maximum realistic WPM - world record is ~212 WPM sustained
+// Setting cap at 300 to allow for brief bursts while catching cheating
+const MAX_WPM = 300;
+const MIN_WPM = 0;
+
 export function calculateWPM(correctChars: number, timeElapsedSeconds: number): number {
-  if (timeElapsedSeconds === 0) return 0;
+  // Guard against invalid inputs
+  if (timeElapsedSeconds <= 0 || correctChars < 0) return 0;
+  if (!Number.isFinite(correctChars) || !Number.isFinite(timeElapsedSeconds)) return 0;
+  
   const words = correctChars / 5;
   const minutes = timeElapsedSeconds / 60;
-  return Math.round(words / minutes);
+  const wpm = Math.round(words / minutes);
+  
+  // Clamp to realistic bounds
+  return Math.max(MIN_WPM, Math.min(MAX_WPM, wpm));
 }
 
 export function calculateAccuracy(correctChars: number, totalChars: number): number {
-  if (totalChars === 0) return 100;
-  return Math.round((correctChars / totalChars) * 100);
+  // Guard against invalid inputs
+  if (totalChars <= 0 || correctChars < 0) return 100;
+  if (!Number.isFinite(correctChars) || !Number.isFinite(totalChars)) return 100;
+  
+  const accuracy = Math.round((correctChars / totalChars) * 100);
+  
+  // Clamp to 0-100 range
+  return Math.max(0, Math.min(100, accuracy));
 }

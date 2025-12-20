@@ -200,21 +200,31 @@ self.addEventListener('notificationclick', event => {
 self.addEventListener('pushsubscriptionchange', event => {
   console.log('[Service Worker] Push subscription changed');
   
+  // First fetch the VAPID public key from the server
   event.waitUntil(
-    self.registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(self.VAPID_PUBLIC_KEY || '')
-    }).then(subscription => {
-      console.log('[Service Worker] Re-subscribed to push');
-      return fetch('/api/notifications/update-subscription', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(subscription)
-      });
-    }).catch(error => {
-      console.error('[Service Worker] Re-subscription failed:', error);
-    })
+    fetch('/api/notifications/vapid-public-key')
+      .then(res => res.json())
+      .then(({ publicKey }) => {
+        if (!publicKey) {
+          throw new Error('No VAPID public key available');
+        }
+        return self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+      })
+      .then(subscription => {
+        console.log('[Service Worker] Re-subscribed to push');
+        return fetch('/api/notifications/update-subscription', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(subscription)
+        });
+      })
+      .catch(error => {
+        console.error('[Service Worker] Re-subscription failed:', error);
+      })
   );
 });
 

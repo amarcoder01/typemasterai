@@ -23,21 +23,32 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
+  // Normalize metrics to avoid NaN/undefined bugs
+  const normalizedWpm = Number.isFinite(wpm) ? wpm : 0;
+  const normalizedAccuracy = Number.isFinite(accuracy) ? accuracy : 0;
+  const normalizedConsistency = Number.isFinite(consistency) ? consistency! : 0;
+
   const getPerformanceRating = () => {
+    // Default bronze fallback
+    const bronze = { emoji: "🎯", title: "Rising Star", badge: "Bronze", color: "#cd7f32", bgGradient: ["#0f172a", "#3d2a1a", "#0f172a"] };
+
+    // Safety guard
+    if (normalizedWpm <= 0) return bronze;
+
     // For Freestyle, use WPM and consistency instead of accuracy
     if (freestyle) {
-      if (wpm >= 100 && consistency >= 85) return { emoji: "🏆", title: "Freestyle Master", badge: "Diamond", color: "#b9f2ff", bgGradient: ["#0f172a", "#1e3a5f", "#0f172a"] };
-      if (wpm >= 80 && consistency >= 75) return { emoji: "⚡", title: "Speed Demon", badge: "Platinum", color: "#e5e4e2", bgGradient: ["#0f172a", "#2d3748", "#0f172a"] };
-      if (wpm >= 60 && consistency >= 65) return { emoji: "🔥", title: "Fast & Steady", badge: "Gold", color: "#ffd700", bgGradient: ["#0f172a", "#3d2914", "#0f172a"] };
-      if (wpm >= 40) return { emoji: "💪", title: "Solid Performer", badge: "Silver", color: "#c0c0c0", bgGradient: ["#0f172a", "#374151", "#0f172a"] };
-      return { emoji: "🎯", title: "Rising Star", badge: "Bronze", color: "#cd7f32", bgGradient: ["#0f172a", "#3d2a1a", "#0f172a"] };
+      if (normalizedWpm >= 100 && normalizedConsistency >= 85) return { emoji: "🏆", title: "Freestyle Master", badge: "Diamond", color: "#b9f2ff", bgGradient: ["#0f172a", "#1e3a5f", "#0f172a"] };
+      if (normalizedWpm >= 80 && normalizedConsistency >= 75) return { emoji: "⚡", title: "Speed Demon", badge: "Platinum", color: "#e5e4e2", bgGradient: ["#0f172a", "#2d3748", "#0f172a"] };
+      if (normalizedWpm >= 60 && normalizedConsistency >= 65) return { emoji: "🔥", title: "Fast & Steady", badge: "Gold", color: "#ffd700", bgGradient: ["#0f172a", "#3d2914", "#0f172a"] };
+      if (normalizedWpm >= 40) return { emoji: "💪", title: "Solid Performer", badge: "Silver", color: "#c0c0c0", bgGradient: ["#0f172a", "#374151", "#0f172a"] };
+      return bronze;
     }
     // Standard mode ratings
-    if (wpm >= 100 && accuracy >= 98) return { emoji: "🏆", title: "Legendary Typist", badge: "Diamond", color: "#b9f2ff", bgGradient: ["#0f172a", "#1e3a5f", "#0f172a"] };
-    if (wpm >= 80 && accuracy >= 95) return { emoji: "⚡", title: "Speed Demon", badge: "Platinum", color: "#e5e4e2", bgGradient: ["#0f172a", "#2d3748", "#0f172a"] };
-    if (wpm >= 60 && accuracy >= 90) return { emoji: "🔥", title: "Fast & Accurate", badge: "Gold", color: "#ffd700", bgGradient: ["#0f172a", "#3d2914", "#0f172a"] };
-    if (wpm >= 40 && accuracy >= 85) return { emoji: "💪", title: "Solid Performer", badge: "Silver", color: "#c0c0c0", bgGradient: ["#0f172a", "#374151", "#0f172a"] };
-    return { emoji: "🎯", title: "Rising Star", badge: "Bronze", color: "#cd7f32", bgGradient: ["#0f172a", "#3d2a1a", "#0f172a"] };
+    if (normalizedWpm >= 100 && normalizedAccuracy >= 98) return { emoji: "🏆", title: "Legendary Typist", badge: "Diamond", color: "#b9f2ff", bgGradient: ["#0f172a", "#1e3a5f", "#0f172a"] };
+    if (normalizedWpm >= 80 && normalizedAccuracy >= 95) return { emoji: "⚡", title: "Speed Demon", badge: "Platinum", color: "#e5e4e2", bgGradient: ["#0f172a", "#2d3748", "#0f172a"] };
+    if (normalizedWpm >= 60 && normalizedAccuracy >= 90) return { emoji: "🔥", title: "Fast & Accurate", badge: "Gold", color: "#ffd700", bgGradient: ["#0f172a", "#3d2914", "#0f172a"] };
+    if (normalizedWpm >= 40 && normalizedAccuracy >= 85) return { emoji: "💪", title: "Solid Performer", badge: "Silver", color: "#c0c0c0", bgGradient: ["#0f172a", "#374151", "#0f172a"] };
+    return bronze;
   };
 
   // Create a PNG blob from the current canvas

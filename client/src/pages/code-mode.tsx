@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CodeShareCard } from "@/components/CodeShareCard";
 import { CodeCertificate } from "@/components/CodeCertificate";
 import { keyboardSound } from "@/lib/keyboard-sounds";
+import { getCodePerformanceRating } from "@/lib/share-utils";
 
 const PROGRAMMING_LANGUAGES = {
   javascript: { name: "JavaScript", prism: "javascript", category: "Popular" },
@@ -125,6 +126,23 @@ function normalizeCodeSnippet(code: string): string {
   return code.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
 }
 
+// Get celebratory message based on performance (matches share-utils.ts thresholds)
+function getCelebratoryMessage(wpm: number, accuracy: number) {
+  if (wpm >= 80 && accuracy >= 98) {
+    return "You're in the top 1% of code typists! Legendary performance!";
+  }
+  if (wpm >= 60 && accuracy >= 95) {
+    return "Blazing fast! You code faster than 95% of developers!";
+  }
+  if (wpm >= 45 && accuracy >= 90) {
+    return "Impressive speed! You're faster than most professional coders!";
+  }
+  if (wpm >= 30 && accuracy >= 85) {
+    return "Great job! Your code typing skills are above average!";
+  }
+  return "Keep practicing! Every keystroke makes you faster!";
+}
+
 export default function CodeMode() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -200,6 +218,22 @@ export default function CodeMode() {
   const timeLimitRef = useRef<number>(timeLimit);
   const timerRafRef = useRef<number | null>(null);
   const finishTestRef = useRef<() => void>(() => {});
+  
+  // Advanced edge case handling refs
+  const lastKeystrokeTimeRef = useRef<number>(0);
+  const keystrokeTimesRef = useRef<number[]>([]);
+  const suspiciousActivityCountRef = useRef<number>(0);
+  const tabHiddenTimeRef = useRef<number | null>(null);
+  const isOnlineRef = useRef<boolean>(navigator.onLine);
+  const testStartedWhileOfflineRef = useRef<boolean>(false);
+  const lastFetchTimeRef = useRef<number>(0);
+  
+  // Anti-cheat constants
+  const MIN_KEYSTROKE_INTERVAL_MS = 20; // Humanly impossible to type faster than 50 chars/second
+  const MAX_SUSPICIOUS_EVENTS = 10; // Flag after 10 suspicious rapid keystrokes
+  const MIN_TEST_DURATION_MS = 3000; // Minimum 3 seconds for valid test
+  const MAX_CHARS_PER_SECOND = 25; // ~300 WPM max realistic speed
+  const FETCH_DEBOUNCE_MS = 1000; // Minimum 1 second between fetch requests
 
   // Guard function to prevent setting changes during active typing
   const confirmOrRun = useCallback((title: string, description: string, onConfirm: () => void, confirmLabel = "Change & Reset") => {
@@ -238,6 +272,13 @@ export default function CodeMode() {
   }, [toast]);
 
   const fetchCodeSnippet = useCallback(async (forceNew = true, isRetry = false) => {
+    // Debounce protection - prevent rapid-fire API calls
+    const now = Date.now();
+    if (!isRetry && now - lastFetchTimeRef.current < FETCH_DEBOUNCE_MS) {
+      return;
+    }
+    lastFetchTimeRef.current = now;
+    
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -365,7 +406,7 @@ export default function CodeMode() {
         setIsLoading(false);
       }
     }
-  }, [language, difficulty, toast, retryCount]);
+  }, [language, difficulty, timeLimit, testMode, customPrompt, toast, retryCount]);
   
   useEffect(() => {
     return () => {
@@ -384,8 +425,76 @@ export default function CodeMode() {
         pendingInputRafRef.current = null;
         pendingInputValueRef.current = null;
       }
+      // Cleanup infinite mode fetch controller
+      if (infiniteAbortRef.current) {
+        infiniteAbortRef.current.abort();
+        infiniteAbortRef.current = null;
+      }
     };
   }, []);
+
+  // Tab visibility change detection - warn user if they switch tabs during timed test
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Tab became hidden
+        if (isActive && !isFinished && timeLimit > 0) {
+          tabHiddenTimeRef.current = Date.now();
+        }
+      } else {
+        // Tab became visible again
+        if (tabHiddenTimeRef.current && isActive && !isFinished) {
+          const hiddenDuration = Date.now() - tabHiddenTimeRef.current;
+          // If hidden for more than 5 seconds during a timed test, warn user
+          if (hiddenDuration > 5000 && timeLimit > 0) {
+            toast({
+              title: "⚠️ Tab Switch Detected",
+              description: `You were away for ${Math.round(hiddenDuration / 1000)}s. Timer continued running.`,
+              variant: "destructive",
+            });
+          }
+          tabHiddenTimeRef.current = null;
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isActive, isFinished, timeLimit, toast]);
+
+  // Network status detection - warn user if they go offline
+  useEffect(() => {
+    const handleOnline = () => {
+      isOnlineRef.current = true;
+      if (testStartedWhileOfflineRef.current) {
+        toast({
+          title: "📶 Back Online",
+          description: "Connection restored. Your results can now be saved.",
+        });
+        testStartedWhileOfflineRef.current = false;
+      }
+    };
+
+    const handleOffline = () => {
+      isOnlineRef.current = false;
+      if (isActive && !isFinished) {
+        testStartedWhileOfflineRef.current = true;
+        toast({
+          title: "📵 You're Offline",
+          description: "Continue typing - results will save when you reconnect.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [isActive, isFinished, toast]);
 
   useEffect(() => {
     if (mode === "ai" && !codeSnippet && !isLoading) {
@@ -513,24 +622,60 @@ export default function CodeMode() {
     }
   }, [userInput, isActive, startTime, codeSnippet, timeLimit, testMode]);
 
+  interface CodeTestResult {
+    codeSnippetId: number | null;
+    programmingLanguage: string;
+    wpm: number;
+    accuracy: number;
+    characters: number;
+    errors: number;
+    syntaxErrors: number;
+    duration: number;
+  }
+
   const saveCodeTestMutation = useMutation({
-    mutationFn: async (testData: any) => {
-      const response = await fetch("/api/code/tests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(testData),
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to save test");
-      return response.json();
+    mutationFn: async (testData: CodeTestResult) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+      
+      try {
+        const response = await fetch("/api/code/test-results", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(testData),
+          credentials: "include",
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || "Failed to save test");
+        }
+        return response.json();
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error("Request timed out. Your result may not have been saved.");
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/code/tests"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/code/test-results"] });
       queryClient.invalidateQueries({ queryKey: ["/api/code/leaderboard"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Save Failed",
+        description: error.message || "Could not save your test result. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
-  const finishTest = () => {
+  const finishTest = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (timerRafRef.current != null) {
       cancelAnimationFrame(timerRafRef.current);
@@ -589,8 +734,33 @@ export default function CodeMode() {
       }
     }
     
-    setWpm(Math.max(0, finalWpm));
-    setRawWpm(Math.max(0, finalRawWpm));
+    // Clamp WPM to realistic bounds (0-300 WPM)
+    const clampedWpm = Math.max(0, Math.min(300, finalWpm));
+    const clampedRawWpm = Math.max(0, Math.min(300, finalRawWpm));
+    
+    // Validate minimum test duration (anti-cheat)
+    const isValidDuration = durationMs >= MIN_TEST_DURATION_MS;
+    
+    // Check for suspicious activity flags
+    const hasSuspiciousActivity = suspiciousActivityCountRef.current >= MAX_SUSPICIOUS_EVENTS;
+    
+    // Calculate characters per second for additional validation
+    const charsPerSecond = durationMs > 0 ? (userInput.length / durationMs) * 1000 : 0;
+    const isRealisticSpeed = charsPerSecond <= MAX_CHARS_PER_SECOND;
+    
+    // Determine if result should be flagged
+    const isFlagged = !isValidDuration || hasSuspiciousActivity || !isRealisticSpeed;
+    
+    if (isFlagged && !isValidDuration) {
+      toast({
+        title: "⚠️ Test Too Short",
+        description: "Test must be at least 3 seconds for valid results.",
+        variant: "destructive",
+      });
+    }
+    
+    setWpm(clampedWpm);
+    setRawWpm(clampedRawWpm);
     setAccuracy(finalAccuracy);
     setConsistency(finalConsistency);
     setErrors(errorCount);
@@ -598,27 +768,38 @@ export default function CodeMode() {
     setIsActive(false);
     setCompletionDialogOpen(true);
     
-    // Celebration confetti
+    // Celebration confetti (reduced for flagged results)
     confetti({
-      particleCount: 100,
+      particleCount: isFlagged ? 30 : 100,
       spread: 70,
       origin: { y: 0.6 },
-      colors: ['#22c55e', '#3b82f6', '#f59e0b'],
+      colors: isFlagged ? ['#94a3b8'] : ['#22c55e', '#3b82f6', '#f59e0b'],
     });
 
-    if (user && startTime) {
+    // Only save valid, non-flagged results for logged-in users
+    if (user && startTime && isValidDuration && !isFlagged) {
       saveCodeTestMutation.mutate({
         codeSnippetId: snippetId,
         programmingLanguage: language,
-        wpm: Math.max(0, finalWpm),
+        wpm: clampedWpm,
         accuracy: finalAccuracy,
         characters: userInput.length,
         errors: errorCount,
         syntaxErrors: 0,
         duration,
       });
+    } else if (user && isFlagged) {
+      toast({
+        title: "Result Not Saved",
+        description: "This result was flagged and won't be saved to your profile.",
+        variant: "destructive",
+      });
     }
-  };
+    
+    // Reset anti-cheat counters
+    suspiciousActivityCountRef.current = 0;
+    keystrokeTimesRef.current = [];
+  }, [userInput, codeSnippet, startTime, user, snippetId, language, saveCodeTestMutation, toast]);
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (isComposing) return;
@@ -651,22 +832,58 @@ export default function CodeMode() {
   const processInput = (value: string) => {
     if (isFinished || isFailed) return;
     
+    // Guard against empty or invalid code snippet
+    if (!codeSnippet || codeSnippet.length === 0) {
+      return;
+    }
+    
     if (value.length > codeSnippet.length) {
       if (textareaRef.current) textareaRef.current.value = userInput;
       return;
     }
     
-    // Play keyboard sound when typing (uses global sound settings)
+    // Anti-cheat: Detect impossibly fast typing (bot detection)
+    const now = Date.now();
     if (value.length > userInput.length) {
+      const timeSinceLastKeystroke = now - lastKeystrokeTimeRef.current;
+      
+      // Track keystroke timing for analysis
+      if (lastKeystrokeTimeRef.current > 0) {
+        keystrokeTimesRef.current.push(timeSinceLastKeystroke);
+        // Keep only last 20 samples
+        if (keystrokeTimesRef.current.length > 20) {
+          keystrokeTimesRef.current.shift();
+        }
+        
+        // Check for suspiciously fast typing
+        if (timeSinceLastKeystroke < MIN_KEYSTROKE_INTERVAL_MS) {
+          suspiciousActivityCountRef.current++;
+          
+          // Warn after multiple suspicious events
+          if (suspiciousActivityCountRef.current === MAX_SUSPICIOUS_EVENTS) {
+            toast({
+              title: "⚠️ Unusual Typing Pattern",
+              description: "Your typing speed seems unusually fast. Results may be flagged.",
+              variant: "destructive",
+            });
+          }
+        }
+      }
+      
+      lastKeystrokeTimeRef.current = now;
+      
+      // Play keyboard sound when typing (uses global sound settings)
       keyboardSound.play();
     }
     
     if (!isActive && value.length > 0) {
       setIsActive(true);
-      const now = Date.now();
       startTimeRef.current = now;
       setStartTime(now);
       wpmHistoryRef.current = [];
+      keystrokeTimesRef.current = [];
+      suspiciousActivityCountRef.current = 0;
+      lastKeystrokeTimeRef.current = now;
       lastElapsedSecondRef.current = -1;
       statsLastUpdateRef.current = 0;
     }
@@ -757,6 +974,12 @@ export default function CodeMode() {
     wpmHistoryRef.current = [];
     lastElapsedSecondRef.current = -1;
     statsLastUpdateRef.current = 0;
+    
+    // Reset anti-cheat counters
+    lastKeystrokeTimeRef.current = 0;
+    keystrokeTimesRef.current = [];
+    suspiciousActivityCountRef.current = 0;
+    tabHiddenTimeRef.current = null;
     
     if (mode === "ai") {
       fetchCodeSnippet(true); // Force new snippet
@@ -2275,178 +2498,173 @@ Understanding your baseline code typing speed can help identify opportunities fo
             </div>
           )}
 
-          {/* Results Summary Modal */}
-          <Dialog open={completionDialogOpen} onOpenChange={setCompletionDialogOpen}>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-bold text-center">Test Complete!</DialogTitle>
-                <DialogDescription className="text-center">
-                  Great job! Here are your results for this {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language} typing test.
-                </DialogDescription>
-              </DialogHeader>
-              
-              {/* Main stats grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center my-4">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="p-3 rounded-lg bg-muted/50 cursor-help hover:bg-muted/70 transition-colors">
-                      <div className="text-2xl sm:text-3xl font-bold text-primary">{wpm}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Net WPM</div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[200px]">
-                    <p className="text-xs">Your final typing speed after error correction. This is your official score.</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="p-3 rounded-lg bg-muted/50 cursor-help hover:bg-muted/70 transition-colors">
-                      <div className="text-2xl sm:text-3xl font-bold">{rawWpm}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Raw WPM</div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[200px]">
-                    <p className="text-xs">Total keystroke speed without error penalty. Difference from Net WPM shows error impact.</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="p-3 rounded-lg bg-muted/50 cursor-help hover:bg-muted/70 transition-colors">
-                      <div className={`text-2xl sm:text-3xl font-bold ${Number(accuracy) >= 95 ? 'text-green-500' : Number(accuracy) >= 85 ? 'text-yellow-500' : 'text-red-500'}`}>
-                        {accuracy}%
-                      </div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Accuracy</div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[200px]">
-                    <p className="text-xs">Percentage of correct keystrokes. {Number(accuracy) >= 95 ? "Excellent accuracy!" : Number(accuracy) >= 85 ? "Good, aim for 95%+" : "Practice to improve accuracy."}</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="p-3 rounded-lg bg-muted/50 cursor-help hover:bg-muted/70 transition-colors">
-                      <div className="text-2xl sm:text-3xl font-bold text-green-500">{consistency}%</div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Consistency</div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[200px]">
-                    <p className="text-xs">How steady your typing rhythm was. Higher = more consistent flow throughout the test.</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="p-3 rounded-lg bg-muted/50 cursor-help hover:bg-muted/70 transition-colors">
-                      <div className="text-2xl sm:text-3xl font-bold">{formatTime(elapsedTime)}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Time</div>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[200px]">
-                    <p className="text-xs">Total time taken to complete the typing test.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+        {/* Results Modal - Full Screen Overlay */}
+        <AnimatePresence>
+          {isFinished && completionDialogOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-2 sm:p-4"
+              onClick={() => setCompletionDialogOpen(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="bg-card border border-border p-4 sm:p-6 md:p-8 rounded-xl sm:rounded-2xl shadow-2xl max-w-lg w-full relative overflow-hidden max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Animated gradient bar at top */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-cyan-500 animate-gradient" />
+                
+                {/* Close button */}
+                <button
+                  onClick={() => setCompletionDialogOpen(false)}
+                  className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-muted transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4 text-muted-foreground" />
+                </button>
 
-              {/* Detail stats */}
-              <div className="grid grid-cols-3 gap-3 text-center text-sm border-t border-border/50 pt-4">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="cursor-help">
-                      <span className="text-muted-foreground">Characters: </span>
-                      <span className="font-mono font-medium">{userInput.length}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p className="text-xs">Total characters you typed accurately</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="cursor-help">
-                      <span className="text-muted-foreground">Errors: </span>
-                      <span className={`font-mono font-medium ${errors > 0 ? 'text-red-500' : 'text-green-500'}`}>{errors}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p className="text-xs">{errors === 0 ? "Perfect! No typing errors" : `${errors} character${errors > 1 ? 's' : ''} typed incorrectly`}</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="cursor-help">
-                      <span className="text-muted-foreground">Language: </span>
-                      <span className="font-medium">{PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}</span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p className="text-xs">The programming language of this code snippet</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-center">Test Complete!</h2>
+                <p className="text-center text-muted-foreground text-sm mb-6">
+                  {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language} • {difficulty} difficulty
+                </p>
 
-              {/* Action buttons */}
-              <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
+                {/* Main Stats - Large WPM and Accuracy */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="flex flex-col items-center p-4 bg-background/50 rounded-xl">
+                    <div className="text-muted-foreground text-xs sm:text-sm mb-1 flex items-center gap-2">
+                      <Zap className="w-4 h-4" /> WPM
+                    </div>
+                    <div className="text-4xl sm:text-5xl font-mono font-bold text-primary">{wpm}</div>
+                  </div>
+                  <div className="flex flex-col items-center p-4 bg-background/50 rounded-xl">
+                    <div className="text-muted-foreground text-xs sm:text-sm mb-1 flex items-center gap-2">
+                      <Code className="w-4 h-4" /> Accuracy
+                    </div>
+                    <div className={`text-4xl sm:text-5xl font-mono font-bold ${accuracy >= 95 ? 'text-green-500' : accuracy >= 85 ? 'text-yellow-500' : 'text-red-500'}`}>
+                      {accuracy}%
+                    </div>
+                  </div>
+                </div>
+
+                {/* Secondary Stats */}
+                <div className="space-y-2 mb-6">
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Raw WPM</span>
+                    <span className="font-mono text-foreground">{rawWpm}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Consistency</span>
+                    <span className="font-mono text-foreground">{consistency}%</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Errors</span>
+                    <span className={`font-mono ${errors > 0 ? 'text-red-500' : 'text-green-500'}`}>{errors}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Characters</span>
+                    <span className="font-mono text-foreground">{userInput.length}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Time</span>
+                    <span className="font-mono text-foreground">{formatTime(elapsedTime)}</span>
+                  </div>
+                </div>
+
+                {/* Celebratory Share Prompt */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.3, duration: 0.4 }}
+                  className="mb-6 p-4 bg-gradient-to-r from-yellow-500/10 via-orange-500/10 to-pink-500/10 rounded-xl border border-yellow-500/30 text-center"
+                >
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <span className="text-2xl">{getCodePerformanceRating(wpm, accuracy).emoji}</span>
+                    <span className="font-bold text-lg">{getCodePerformanceRating(wpm, accuracy).title}!</span>
+                    <span className="text-2xl">{getCodePerformanceRating(wpm, accuracy).emoji}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {getCelebratoryMessage(wpm, accuracy)}
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      setCompletionDialogOpen(false);
+                      setShareDialogOpen(true);
+                    }}
+                    className="group inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-amber-400 via-orange-500 to-pink-500 text-white font-semibold shadow-lg hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 transition-all"
+                    data-testid="button-share-celebration"
+                  >
+                    <Share2 className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    Share Result
+                  </motion.button>
+                </motion.div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col gap-3">
+                  {user && (
+                    <button
                       onClick={() => {
                         setCompletionDialogOpen(false);
-                        resetTest();
+                        setShareDialogOpen(true);
                       }}
-                      disabled={isLoading}
-                      className="gap-1.5"
+                      className="w-full py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                      data-testid="button-get-certificate"
                     >
-                      <RotateCcw className="w-4 h-4" />
-                      Try Again
-                      <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted hidden sm:inline">Esc</kbd>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">Retry the same code snippet to improve your score</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
+                      <Award className="w-5 h-5" />
+                      Get Certificate
+                    </button>
+                  )}
+                  <div className="flex gap-3">
+                    <button
                       onClick={() => {
                         setCompletionDialogOpen(false);
                         fetchCodeSnippet(true);
                       }}
                       disabled={isLoading}
-                      className="gap-1.5"
+                      className="flex-1 py-3 bg-primary text-primary-foreground font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
+                      data-testid="button-new-snippet"
                     >
                       <Zap className="w-4 h-4" />
                       New Snippet
-                      <kbd className="ml-1 px-1 py-0.5 text-[10px] rounded bg-muted hidden sm:inline">Tab</kbd>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">Generate a fresh AI code snippet to practice</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="default"
+                    </button>
+                    <button
                       onClick={() => {
                         setCompletionDialogOpen(false);
-                        setShareDialogOpen(true);
+                        resetTest();
                       }}
-                      data-testid="button-share"
-                      className="gap-1.5"
+                      className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition-colors flex items-center justify-center gap-2"
+                      data-testid="button-try-again"
                     >
-                      <Share2 className="w-4 h-4" />
-                      Share
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">Share your achievement with certificate, card, or link</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </DialogContent>
-          </Dialog>
+                      <RotateCcw className="w-4 h-4" />
+                      Retry
+                    </button>
+                  </div>
+                </div>
+
+                {/* Performance Badge */}
+                <div className="mt-4 pt-4 border-t border-border/50 text-center">
+                  <span 
+                    className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium"
+                    style={{ 
+                      backgroundColor: `${getCodePerformanceRating(wpm, accuracy).color}20`,
+                      color: getCodePerformanceRating(wpm, accuracy).color,
+                      borderColor: getCodePerformanceRating(wpm, accuracy).color,
+                      borderWidth: 1
+                    }}
+                  >
+                    {getCodePerformanceRating(wpm, accuracy).emoji} {getCodePerformanceRating(wpm, accuracy).badge} Tier
+                  </span>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
           {/* Login prompt */}
           {!user && (
@@ -2479,59 +2697,143 @@ Understanding your baseline code typing speed can help identify opportunities fo
               </DialogDescription>
             </DialogHeader>
             
-            <Tabs defaultValue="certificate" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <TabsTrigger value="certificate" className="gap-2" data-testid="tab-certificate">
-                      <Award className="w-4 h-4" />
-                      Certificate
-                    </TabsTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">Professional 1200×675 certificate with verification ID</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <TabsTrigger value="visual" className="gap-2" data-testid="tab-visual-card">
-                      <Image className="w-4 h-4" />
-                      Card
-                    </TabsTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">Social media optimized image card</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <TabsTrigger value="link" className="gap-2" data-testid="tab-link-sharing">
-                      <Link2 className="w-4 h-4" />
-                      Link
-                    </TabsTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">Share directly to 8 social platforms</p>
-                  </TooltipContent>
-                </Tooltip>
+            <Tabs defaultValue="quick" className="w-full">
+              <TabsList className="grid w-full grid-cols-4 mb-4">
+                <TabsTrigger value="quick" data-testid="tab-quick-share">Quick Share</TabsTrigger>
+                <TabsTrigger value="visual" data-testid="tab-visual-card">Visual Card</TabsTrigger>
+                {user && <TabsTrigger value="certificate" data-testid="tab-certificate">Certificate</TabsTrigger>}
+                <TabsTrigger value="challenge" data-testid="tab-challenge">Challenge</TabsTrigger>
               </TabsList>
-              
-              <TabsContent value="certificate" className="mt-4">
-                <CodeCertificate
-                  wpm={wpm}
-                  rawWpm={rawWpm}
-                  accuracy={accuracy}
-                  consistency={consistency}
-                  language={language}
-                  languageName={PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}
-                  difficulty={difficulty}
-                  characters={userInput.length}
-                  errors={errors}
-                  time={formatTime(elapsedTime)}
-                  username={user?.username}
-                />
+
+              {/* Quick Share Tab */}
+              <TabsContent value="quick" className="space-y-4">
+                {/* Pre-composed Share Message Preview */}
+                <div className="relative">
+                  <div className="absolute -top-2 left-3 px-2 bg-background text-xs font-medium text-muted-foreground">
+                    Your Share Message
+                  </div>
+                  <div className="p-4 bg-gradient-to-br from-slate-900/50 to-slate-800/50 rounded-xl border border-primary/20 text-sm leading-relaxed">
+                    <div className="space-y-2">
+                      <p className="text-base font-medium">
+                        {getCodePerformanceRating(wpm, accuracy).emoji} Code Typing: <span className="text-primary font-bold">{wpm} WPM</span>!
+                      </p>
+                      <p className="text-muted-foreground">
+                        💻 Language: <span className="text-foreground font-semibold">{PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}</span>
+                      </p>
+                      <p className="text-muted-foreground">
+                        ⚡ Speed: <span className="text-foreground font-semibold">{wpm} Words Per Minute</span>
+                      </p>
+                      <p className="text-muted-foreground">
+                        ✨ Accuracy: <span className="text-foreground font-semibold">{accuracy}%</span>
+                      </p>
+                      <p className="text-muted-foreground">
+                        🏆 Level: <span className="text-yellow-400 font-semibold">{getCodePerformanceRating(wpm, accuracy).title}</span>
+                      </p>
+                      <p className="text-muted-foreground">
+                        🎯 Badge: <span className="text-foreground font-semibold">{getCodePerformanceRating(wpm, accuracy).badge}</span>
+                      </p>
+                      <p className="text-muted-foreground">
+                        📊 Difficulty: <span className="text-foreground font-semibold">{difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</span>
+                      </p>
+                      <p className="text-primary/80 text-xs mt-3 font-medium">
+                        Can you code faster? Take the challenge! 🚀
+                      </p>
+                      <p className="text-xs text-primary mt-2 font-medium">
+                        👉 https://typemasterai.com/code-mode
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        #CodeTyping #TypeMasterAI #Developer #WPM
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const rating = getCodePerformanceRating(wpm, accuracy);
+                      const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
+                      const text = `${rating.emoji} Code Typing: ${wpm} WPM!\n\n💻 Language: ${langName}\n⚡ Speed: ${wpm} Words Per Minute\n✨ Accuracy: ${accuracy}%\n🏆 Level: ${rating.title}\n🎯 Badge: ${rating.badge}\n📊 Difficulty: ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}\n\nCan you code faster? Take the challenge! 🚀\n\n👉 https://typemasterai.com/code-mode\n\n#CodeTyping #TypeMasterAI #Developer #WPM`;
+                      navigator.clipboard.writeText(text);
+                      toast({ title: "Message Copied!", description: "Share message copied to clipboard" });
+                    }}
+                    className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
+                    data-testid="button-copy-message"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                </div>
+
+                {/* Quick Share Buttons */}
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-center text-muted-foreground uppercase tracking-wide">
+                    Click to Share Instantly
+                  </p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => shareToSocial('twitter')}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all group"
+                      data-testid="button-share-twitter"
+                    >
+                      <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                      <span className="text-xs font-medium">X (Twitter)</span>
+                    </button>
+                    <button
+                      onClick={() => shareToSocial('facebook')}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all group"
+                      data-testid="button-share-facebook"
+                    >
+                      <Facebook className="w-4 h-4 text-[#1877F2]" />
+                      <span className="text-xs font-medium">Facebook</span>
+                    </button>
+                    <button
+                      onClick={() => shareToSocial('linkedin')}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all group"
+                      data-testid="button-share-linkedin"
+                    >
+                      <Linkedin className="w-4 h-4 text-[#0A66C2]" />
+                      <span className="text-xs font-medium">LinkedIn</span>
+                    </button>
+                    <button
+                      onClick={() => shareToSocial('whatsapp')}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all group"
+                      data-testid="button-share-whatsapp"
+                    >
+                      <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                      <span className="text-xs font-medium">WhatsApp</span>
+                    </button>
+                    <button
+                      onClick={() => shareToSocial('discord')}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#5865F2]/10 hover:bg-[#5865F2]/25 border border-[#5865F2]/20 transition-all group"
+                      data-testid="button-share-discord"
+                    >
+                      <svg className="w-4 h-4 text-[#5865F2]" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                      </svg>
+                      <span className="text-xs font-medium">Discord</span>
+                    </button>
+                    <button
+                      onClick={() => shareToSocial('telegram')}
+                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 transition-all group"
+                      data-testid="button-share-telegram"
+                    >
+                      <Send className="w-4 h-4 text-[#0088cc]" />
+                      <span className="text-xs font-medium">Telegram</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Native Share */}
+                {'share' in navigator && (
+                  <button
+                    onClick={handleNativeShare}
+                    className="w-full py-3 bg-gradient-to-r from-primary/10 to-purple-500/10 text-foreground font-medium rounded-xl hover:from-primary/20 hover:to-purple-500/20 transition-all flex items-center justify-center gap-2 border border-primary/20"
+                    data-testid="button-native-share"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    More Sharing Options
+                  </button>
+                )}
               </TabsContent>
-              
+
+              {/* Visual Card Tab */}
               <TabsContent value="visual" className="mt-4">
                 <CodeShareCard
                   wpm={wpm}
@@ -2548,159 +2850,193 @@ Understanding your baseline code typing speed can help identify opportunities fo
                 />
               </TabsContent>
               
-              <TabsContent value="link" className="mt-4 space-y-4">
-                <div className="bg-muted/50 rounded-lg p-4 text-center">
-                  <div className="text-4xl font-bold text-primary mb-2">{wpm} WPM</div>
-                  <div className="text-sm text-muted-foreground">
-                    {accuracy}% accuracy • {consistency}% consistency
+              {/* Certificate Tab - Only for logged in users */}
+              {user && (
+              <TabsContent value="certificate" className="mt-4">
+                <div className="text-center space-y-2 mb-4">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/30 mb-2">
+                    <Award className="w-8 h-8 text-yellow-400" />
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {userInput.length} characters • {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name}
+                  <h3 className="text-lg font-bold">Your Code Typing Certificate</h3>
+                  <p className="text-sm text-muted-foreground">
+                    A professional certificate showcasing your {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name} typing skills
+                  </p>
+                </div>
+                
+                {/* Certificate Stats Preview */}
+                <div className="p-4 bg-gradient-to-br from-yellow-500/10 via-orange-500/10 to-purple-500/10 rounded-xl border border-yellow-500/20 mb-4">
+                  <div className="grid grid-cols-2 gap-3 text-center">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Typing Speed</p>
+                      <p className="text-2xl font-bold text-primary">{wpm} WPM</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
+                      <p className="text-2xl font-bold text-green-400">{accuracy}%</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Performance</p>
+                      <p className="text-sm font-bold text-yellow-400">{getCodePerformanceRating(wpm, accuracy).badge}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Language</p>
+                      <p className="text-sm font-bold">{PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name}</p>
+                    </div>
+                  </div>
+                </div>
+                <CodeCertificate
+                  wpm={wpm}
+                  rawWpm={rawWpm}
+                  accuracy={accuracy}
+                  consistency={consistency}
+                  language={language}
+                  languageName={PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}
+                  difficulty={difficulty}
+                  characters={userInput.length}
+                  errors={errors}
+                  time={formatTime(elapsedTime)}
+                  username={user?.username}
+                />
+              </TabsContent>
+              )}
+              
+              {/* Challenge Tab */}
+              <TabsContent value="challenge" className="mt-4 space-y-4">
+                {/* Challenge Header */}
+                <div className="text-center space-y-2">
+                  <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-orange-500/20 to-red-500/20 border-2 border-orange-500/30 mb-2">
+                    <Zap className="w-7 h-7 text-orange-400" />
+                  </div>
+                  <h3 className="text-lg font-bold">Challenge Your Friends!</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Think you're fast? Challenge your friends to beat your score!
+                  </p>
+                </div>
+                
+                {/* Your Score to Beat */}
+                <div className="p-4 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-xl border border-orange-500/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-medium text-muted-foreground">Score to Beat</span>
+                    <span className="px-2 py-0.5 bg-orange-500/20 text-orange-400 text-xs font-medium rounded-full">
+                      {getCodePerformanceRating(wpm, accuracy).badge}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div>
+                      <div className="text-2xl font-bold text-primary">{wpm}</div>
+                      <div className="text-xs text-muted-foreground">WPM</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold text-green-400">{accuracy}%</div>
+                      <div className="text-xs text-muted-foreground">Accuracy</div>
+                    </div>
+                    <div>
+                      <div className="text-2xl font-bold">{PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name}</div>
+                      <div className="text-xs text-muted-foreground">Language</div>
+                    </div>
                   </div>
                 </div>
                 
+                {/* Challenge Link */}
                 <div className="space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide text-center">
+                    Share Challenge Link
+                  </p>
                   <div className="flex items-center gap-2">
                     <Input 
-                      value={shareUrl || `${window.location.origin}/code-mode`}
+                      value={shareUrl || `${window.location.origin}/code-mode?challenge=${wpm}`}
                       readOnly
                       className="flex-1 font-mono text-sm"
                     />
                     <Button
-                      onClick={copyShareLink}
+                      onClick={() => {
+                        const url = shareUrl || `${window.location.origin}/code-mode?challenge=${wpm}`;
+                        navigator.clipboard.writeText(url);
+                        toast({ title: "Challenge Link Copied!", description: "Send it to your friends!" });
+                      }}
                       variant="outline"
                       size="icon"
-                      data-testid="button-copy-link"
+                      data-testid="button-copy-challenge-link"
                     >
                       <Copy className="w-4 h-4" />
                     </Button>
                   </div>
-                  
-                  <p className="text-xs text-center text-muted-foreground uppercase tracking-wide">Share on Social Media</p>
-                  
-                  <div className="grid grid-cols-4 gap-2">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => shareToSocial("twitter")}
-                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all"
-                          data-testid="share-twitter"
-                        >
-                          <Twitter className="w-4 h-4 text-[#1DA1F2]" />
-                          <span className="text-xs font-medium hidden sm:inline">Twitter</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top"><p className="text-xs">Tweet your achievement</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => shareToSocial("discord")}
-                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#5865F2]/10 hover:bg-[#5865F2]/25 border border-[#5865F2]/20 transition-all"
-                          data-testid="share-discord"
-                        >
-                          <svg className="w-4 h-4 text-[#5865F2]" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-                          </svg>
-                          <span className="text-xs font-medium hidden sm:inline">Discord</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top"><p className="text-xs">Copy formatted message for Discord</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => shareToSocial("reddit")}
-                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#FF4500]/10 hover:bg-[#FF4500]/25 border border-[#FF4500]/20 transition-all"
-                          data-testid="share-reddit"
-                        >
-                          <svg className="w-4 h-4 text-[#FF4500]" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/>
-                          </svg>
-                          <span className="text-xs font-medium hidden sm:inline">Reddit</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top"><p className="text-xs">Post to Reddit</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => shareToSocial("whatsapp")}
-                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"
-                          data-testid="share-whatsapp"
-                        >
-                          <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                          <span className="text-xs font-medium hidden sm:inline">WhatsApp</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top"><p className="text-xs">Send via WhatsApp</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => shareToSocial("telegram")}
-                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 transition-all"
-                          data-testid="share-telegram"
-                        >
-                          <Send className="w-4 h-4 text-[#0088cc]" />
-                          <span className="text-xs font-medium hidden sm:inline">Telegram</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top"><p className="text-xs">Share via Telegram</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => shareToSocial("linkedin")}
-                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all"
-                          data-testid="share-linkedin"
-                        >
-                          <Linkedin className="w-4 h-4 text-[#0A66C2]" />
-                          <span className="text-xs font-medium hidden sm:inline">LinkedIn</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top"><p className="text-xs">Post to LinkedIn</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => shareToSocial("facebook")}
-                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all"
-                          data-testid="share-facebook"
-                        >
-                          <Facebook className="w-4 h-4 text-[#1877F2]" />
-                          <span className="text-xs font-medium hidden sm:inline">Facebook</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top"><p className="text-xs">Share on Facebook</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          onClick={() => shareToSocial("email")}
-                          className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-gray-500/10 hover:bg-gray-500/25 border border-gray-500/20 transition-all"
-                          data-testid="share-email"
-                        >
-                          <Mail className="w-4 h-4 text-gray-400" />
-                          <span className="text-xs font-medium hidden sm:inline">Email</span>
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top"><p className="text-xs">Send via Email</p></TooltipContent>
-                    </Tooltip>
-                  </div>
-                  
-                  {'share' in navigator && (
-                    <Button
-                      onClick={handleNativeShare}
-                      variant="secondary"
-                      className="w-full gap-2"
-                      data-testid="button-share-native"
-                    >
-                      <Share2 className="w-4 h-4" />
-                      Share via...
-                    </Button>
-                  )}
                 </div>
+                
+                {/* Challenge Message */}
+                <div className="relative">
+                  <div className="absolute -top-2 left-3 px-2 bg-background text-xs font-medium text-muted-foreground">
+                    Challenge Message
+                  </div>
+                  <div className="p-4 bg-gradient-to-br from-orange-500/5 to-red-500/5 rounded-xl border border-orange-500/20 text-sm">
+                    <p className="mb-2">🔥 <span className="font-bold">I challenge you to beat my score!</span></p>
+                    <p className="text-muted-foreground mb-2">
+                      I just typed {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name} code at <span className="text-primary font-bold">{wpm} WPM</span> with {accuracy}% accuracy!
+                    </p>
+                    <p className="text-muted-foreground">Think you can code faster? Prove it! 💻⚡</p>
+                    <p className="text-primary/80 text-xs mt-3">👉 https://typemasterai.com/code-mode</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
+                      const text = `🔥 I challenge you to beat my score!\n\nI just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy!\n\nThink you can code faster? Prove it! 💻⚡\n\n👉 https://typemasterai.com/code-mode`;
+                      navigator.clipboard.writeText(text);
+                      toast({ title: "Challenge Copied!", description: "Now send it to your friends!" });
+                    }}
+                    className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
+                    data-testid="button-copy-challenge-message"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                </div>
+                
+                {/* Quick Challenge Share */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
+                      const text = `🔥 I challenge you! I just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy on @TypeMasterAI! Can you beat me? 💻⚡`;
+                      const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent('https://typemasterai.com/code-mode')}`;
+                      window.open(url, '_blank');
+                    }}
+                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all"
+                    data-testid="button-challenge-twitter"
+                  >
+                    <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                    <span className="text-sm font-medium">Challenge on X</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
+                      const text = `🔥 I challenge you! I just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy! Can you beat me? 💻⚡ https://typemasterai.com/code-mode`;
+                      const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+                      window.open(url, '_blank');
+                    }}
+                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"
+                    data-testid="button-challenge-whatsapp"
+                  >
+                    <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                    <span className="text-sm font-medium">Challenge on WhatsApp</span>
+                  </button>
+                </div>
+                
+                {'share' in navigator && (
+                  <button
+                    onClick={() => {
+                      const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
+                      navigator.share({
+                        title: '🔥 Code Typing Challenge!',
+                        text: `I challenge you! I just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy! Can you beat me? 💻⚡`,
+                        url: 'https://typemasterai.com/code-mode'
+                      }).catch(() => {});
+                    }}
+                    className="w-full py-3 bg-gradient-to-r from-orange-500/10 to-red-500/10 text-foreground font-medium rounded-xl hover:from-orange-500/20 hover:to-red-500/20 transition-all flex items-center justify-center gap-2 border border-orange-500/20"
+                    data-testid="button-challenge-native"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    More Sharing Options
+                  </button>
+                )}
               </TabsContent>
             </Tabs>
           </DialogContent>

@@ -49,7 +49,44 @@ export interface SendNotificationOptions {
 }
 
 export class NotificationService {
-  constructor(private storage: IStorage) {}
+  // In-memory deduplication cache: Map<dedupeKey, timestamp>
+  private recentNotifications: Map<string, number> = new Map();
+  private readonly DEDUPE_WINDOW_MS = 60 * 1000; // 1 minute deduplication window
+  private lastCleanup = Date.now();
+
+  constructor(private storage: IStorage) {
+    // Cleanup old entries periodically
+    setInterval(() => this.cleanupDedupeCache(), 5 * 60 * 1000);
+  }
+
+  /**
+   * Cleanup old entries from deduplication cache
+   */
+  private cleanupDedupeCache(): void {
+    const now = Date.now();
+    for (const [key, timestamp] of this.recentNotifications.entries()) {
+      if (now - timestamp > this.DEDUPE_WINDOW_MS) {
+        this.recentNotifications.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Check if this notification was recently sent (deduplication)
+   */
+  private isDuplicate(userId: string, type: string, tag?: string): boolean {
+    const key = `${userId}:${type}:${tag || 'default'}`;
+    const now = Date.now();
+    
+    const lastSent = this.recentNotifications.get(key);
+    if (lastSent && now - lastSent < this.DEDUPE_WINDOW_MS) {
+      console.log(`[Notifications] Skipping duplicate ${type} for user ${userId}`);
+      return true;
+    }
+    
+    this.recentNotifications.set(key, now);
+    return false;
+  }
 
   /**
    * Send push notification to a specific user
@@ -60,6 +97,11 @@ export class NotificationService {
     // Check if VAPID keys are configured
     if (!VAPID_KEYS_AVAILABLE) {
       console.warn('[NotificationService] Skipping notification - VAPID keys not configured');
+      return { sent: 0, failed: 0 };
+    }
+
+    // Check for duplicate notification (prevent spam)
+    if (this.isDuplicate(userId, type, payload.tag)) {
       return { sent: 0, failed: 0 };
     }
 
@@ -437,26 +479,214 @@ export class NotificationService {
   }
 
   /**
+   * Send personal record notification
+   */
+  async sendPersonalRecord(
+    userId: string,
+    record: {
+      wpm: number;
+      previousBest: number;
+      accuracy: number;
+      mode: string;
+    }
+  ): Promise<void> {
+    const { wpm, previousBest, accuracy, mode } = record;
+    const improvement = wpm - previousBest;
+
+    const payload: NotificationPayload = {
+      title: `🏆 New Personal Record!`,
+      body: `${wpm} WPM (+${improvement} WPM) with ${accuracy.toFixed(1)}% accuracy in ${mode} mode!`,
+      icon: '/icon-192x192.png',
+      badge: '/icon-72x72.png',
+      data: {
+        url: '/profile',
+        type: 'personal_record',
+        record,
+      },
+      tag: 'personal-record',
+      requireInteraction: true,
+      actions: [
+        { action: 'view', title: 'View Stats' },
+        { action: 'share', title: 'Share' },
+      ],
+    };
+
+    await this.sendToUser({ 
+      userId, 
+      type: 'personal_record', 
+      payload,
+      urgency: 'high',
+    });
+  }
+
+  /**
+   * Send streak milestone notification
+   */
+  async sendStreakMilestone(
+    userId: string,
+    milestone: {
+      streak: number;
+      reward?: number;
+    }
+  ): Promise<void> {
+    const { streak, reward } = milestone;
+
+    const milestoneEmojis: Record<number, string> = {
+      7: '🔥',
+      14: '⚡',
+      30: '💪',
+      50: '🌟',
+      100: '👑',
+      365: '🏆',
+    };
+
+    const emoji = milestoneEmojis[streak] || '🎯';
+
+    const payload: NotificationPayload = {
+      title: `${emoji} ${streak}-Day Streak Milestone!`,
+      body: reward 
+        ? `Amazing! You've maintained a ${streak}-day streak! +${reward} bonus points!`
+        : `Incredible dedication! You've typed for ${streak} days straight!`,
+      icon: '/icon-192x192.png',
+      badge: '/icon-72x72.png',
+      data: {
+        url: '/profile',
+        type: 'streak_milestone',
+        milestone,
+      },
+      tag: `streak-milestone-${streak}`,
+      requireInteraction: true,
+      actions: [
+        { action: 'view', title: 'View Profile' },
+        { action: 'share', title: 'Share Achievement' },
+      ],
+    };
+
+    await this.sendToUser({ 
+      userId, 
+      type: 'streak_milestone', 
+      payload,
+      urgency: 'high',
+    });
+  }
+
+  /**
+   * Send race starting notification
+   */
+  async sendRaceStarting(
+    userId: string,
+    race: {
+      roomCode: string;
+      startsIn: number; // seconds
+      participants: number;
+    }
+  ): Promise<void> {
+    const { roomCode, startsIn, participants } = race;
+
+    const payload: NotificationPayload = {
+      title: `🏁 Race Starting Soon!`,
+      body: `Your race with ${participants} participants starts in ${startsIn} seconds!`,
+      icon: '/icon-192x192.png',
+      badge: '/icon-72x72.png',
+      data: {
+        url: `/race/${roomCode}`,
+        type: 'race_starting',
+        race,
+      },
+      tag: `race-starting-${roomCode}`,
+      requireInteraction: true,
+      actions: [
+        { action: 'join', title: 'Join Now' },
+      ],
+    };
+
+    await this.sendToUser({ 
+      userId, 
+      type: 'race_starting', 
+      payload,
+      urgency: 'high',
+      ttl: 60, // 1 minute TTL
+    });
+  }
+
+  /**
+   * Send tip of the day notification
+   */
+  async sendTipOfTheDay(
+    userId: string,
+    tip: {
+      title: string;
+      content: string;
+      category: string;
+    }
+  ): Promise<void> {
+    const { title, content, category } = tip;
+
+    const categoryEmojis: Record<string, string> = {
+      'technique': '⌨️',
+      'posture': '🧘',
+      'speed': '⚡',
+      'accuracy': '🎯',
+      'practice': '📚',
+      'motivation': '💪',
+    };
+
+    const emoji = categoryEmojis[category] || '💡';
+
+    const payload: NotificationPayload = {
+      title: `${emoji} Tip: ${title}`,
+      body: content,
+      icon: '/icon-192x192.png',
+      badge: '/icon-72x72.png',
+      data: {
+        url: '/learn',
+        type: 'tip_of_the_day',
+        tip,
+      },
+      tag: 'tip-of-the-day',
+      actions: [
+        { action: 'learn', title: 'Learn More' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ],
+    };
+
+    await this.sendToUser({ userId, type: 'tip_of_the_day', payload });
+  }
+
+  /**
    * Check if user should receive a notification based on preferences
    */
   async shouldSendNotification(userId: string, notificationType: string): Promise<boolean> {
     const prefs = await this.storage.getNotificationPreferences(userId);
-    
+
     if (!prefs) {
       return false;
+    }
+
+    // Check quiet hours first (high-urgency notifications like race invites bypass this)
+    const highUrgencyTypes = ['race_invite', 'race_starting'];
+    if (!highUrgencyTypes.includes(notificationType)) {
+      if (this.isInQuietHours(prefs.quietHoursStart, prefs.quietHoursEnd, prefs.timezone)) {
+        console.log(`[Notifications] Skipping ${notificationType} for user ${userId} - in quiet hours`);
+        return false;
+      }
     }
 
     // Check specific notification type preferences
     const typeMapping: Record<string, keyof typeof prefs> = {
       'daily_reminder': 'dailyReminder',
       'streak_warning': 'streakWarning',
+      'streak_milestone': 'streakMilestone',
       'weekly_summary': 'weeklySummary',
       'achievement_unlock': 'achievementUnlocked',
       'challenge_started': 'challengeInvite',
       'challenge_progress': 'challengeInvite',
       'challenge_completed': 'challengeComplete',
       'leaderboard_update': 'leaderboardChange',
+      'personal_record': 'newPersonalRecord',
       'race_invite': 'raceInvite',
+      'race_starting': 'raceStarting',
+      'tip_of_the_day': 'tipOfTheDay',
     };
 
     const prefKey = typeMapping[notificationType];
@@ -465,6 +695,54 @@ export class NotificationService {
     }
 
     return true; // Default to true for unknown types
+  }
+
+  /**
+   * Check if current time is within user's quiet hours
+   */
+  private isInQuietHours(
+    quietHoursStart: string | null, 
+    quietHoursEnd: string | null, 
+    timezone: string | null
+  ): boolean {
+    if (!quietHoursStart || !quietHoursEnd) {
+      return false;
+    }
+
+    try {
+      const userTimezone = timezone || 'UTC';
+      const now = new Date();
+      
+      // Get current hour and minute in user's timezone
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: userTimezone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      const parts = formatter.formatToParts(now);
+      const currentHour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+      const currentMinute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+      const currentMinutes = currentHour * 60 + currentMinute;
+
+      // Parse quiet hours (format: "HH:MM")
+      const [startHour, startMinute] = quietHoursStart.split(':').map(Number);
+      const [endHour, endMinute] = quietHoursEnd.split(':').map(Number);
+      const startMinutes = startHour * 60 + startMinute;
+      const endMinutes = endHour * 60 + endMinute;
+
+      // Handle overnight quiet hours (e.g., 22:00 to 07:00)
+      if (startMinutes > endMinutes) {
+        // Quiet hours span midnight
+        return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+      } else {
+        // Same day quiet hours
+        return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+      }
+    } catch (error) {
+      console.error('[Notifications] Error checking quiet hours:', error);
+      return false; // If error, allow notification
+    }
   }
 
   /**

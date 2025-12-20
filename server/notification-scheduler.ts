@@ -40,11 +40,29 @@ export class NotificationScheduler {
     }, 6 * 60 * 60 * 1000);
     this.intervals.push(cleanupInterval);
 
+    // Cleanup old notification history daily
+    const historyCleanupInterval = setInterval(() => {
+      this.cleanupNotificationHistory().catch(console.error);
+    }, 24 * 60 * 60 * 1000);
+    this.intervals.push(historyCleanupInterval);
+
     setTimeout(() => {
       this.processDueJobs().catch(console.error);
     }, 5000);
 
     console.log('[Scheduler] Notification scheduler started with minute-precision');
+  }
+
+  /**
+   * Cleanup old notification history to prevent database bloat
+   */
+  private async cleanupNotificationHistory(): Promise<void> {
+    try {
+      const deleted = await this.storage.cleanupOldNotificationHistory(30); // Keep 30 days
+      console.log(`[Scheduler] Cleaned up ${deleted} old notification history records`);
+    } catch (error) {
+      console.error('[Scheduler] Notification history cleanup failed:', error);
+    }
   }
 
   /**
@@ -163,6 +181,32 @@ export class NotificationScheduler {
           break;
         }
 
+        case 'tip_of_the_day': {
+          // Curated typing tips for daily motivation
+          const tips = [
+            { title: 'Home Row Foundation', content: 'Keep your fingers on ASDF and JKL; keys. Return to home position after each keystroke for consistent speed.', category: 'technique' },
+            { title: 'Look at the Screen', content: 'Train yourself to look at the screen, not your keyboard. This builds muscle memory faster.', category: 'technique' },
+            { title: 'Posture Matters', content: 'Sit up straight with elbows at 90°. Your wrists should float slightly above the keyboard.', category: 'posture' },
+            { title: 'Accuracy Over Speed', content: 'Focus on accuracy first. Speed naturally follows as your muscle memory improves.', category: 'accuracy' },
+            { title: 'Regular Breaks', content: 'Take a 5-minute break every 30 minutes to prevent fatigue and maintain peak performance.', category: 'practice' },
+            { title: 'Warm Up Daily', content: 'Start each session with a slow, accuracy-focused warm-up before pushing for speed.', category: 'practice' },
+            { title: 'Use All Fingers', content: 'Each finger has assigned keys. Using the correct finger builds faster, more reliable muscle memory.', category: 'technique' },
+            { title: 'Rhythm is Key', content: 'Type with a steady rhythm rather than bursts. Consistent tempo reduces errors.', category: 'speed' },
+            { title: 'Practice Weak Spots', content: 'Identify your problem keys and practice them specifically. Targeted practice shows faster improvement.', category: 'practice' },
+            { title: 'Stay Relaxed', content: 'Tension slows you down. Keep your hands, arms, and shoulders relaxed while typing.', category: 'technique' },
+            { title: 'Track Your Progress', content: 'Review your analytics regularly. Seeing improvement is motivating and helps identify areas to work on.', category: 'motivation' },
+            { title: 'Challenge Yourself', content: 'Once comfortable, try harder modes like punctuation, numbers, or code typing to level up.', category: 'practice' },
+          ];
+
+          // Pick a tip based on the day to ensure variety
+          const dayOfYear = DateTime.now().ordinal;
+          const tipIndex = dayOfYear % tips.length;
+          const tip = tips[tipIndex];
+
+          await this.notificationService.sendTipOfTheDay(job.userId, tip);
+          break;
+        }
+
         default:
           throw new Error(`Unknown notification type: ${job.notificationType}`);
       }
@@ -218,6 +262,11 @@ export class NotificationScheduler {
       case 'weekly_summary': {
         const currentSendTime = DateTime.fromJSDate(job.sendAtUtc).setZone(userTimezone);
         return currentSendTime.plus({ weeks: 1 }).toUTC().toJSDate();
+      }
+
+      case 'tip_of_the_day': {
+        const currentSendTime = DateTime.fromJSDate(job.sendAtUtc).setZone(userTimezone);
+        return currentSendTime.plus({ days: 1 }).toUTC().toJSDate();
       }
 
       default:
@@ -333,6 +382,90 @@ export class NotificationScheduler {
 
     if (shouldSend) {
       await this.notificationService.sendRaceInvite(userId, invite);
+    }
+  }
+
+  /**
+   * Send personal record notification
+   */
+  async notifyPersonalRecord(
+    userId: string,
+    record: {
+      wpm: number;
+      previousBest: number;
+      accuracy: number;
+      mode: string;
+    }
+  ): Promise<void> {
+    const shouldSend = await this.notificationService.shouldSendNotification(
+      userId,
+      'personal_record'
+    );
+
+    if (shouldSend) {
+      await this.notificationService.sendPersonalRecord(userId, record);
+    }
+  }
+
+  /**
+   * Send streak milestone notification
+   */
+  async notifyStreakMilestone(
+    userId: string,
+    milestone: {
+      streak: number;
+      reward?: number;
+    }
+  ): Promise<void> {
+    const shouldSend = await this.notificationService.shouldSendNotification(
+      userId,
+      'streak_milestone'
+    );
+
+    if (shouldSend) {
+      await this.notificationService.sendStreakMilestone(userId, milestone);
+    }
+  }
+
+  /**
+   * Send race starting notification
+   */
+  async notifyRaceStarting(
+    userId: string,
+    race: {
+      roomCode: string;
+      startsIn: number;
+      participants: number;
+    }
+  ): Promise<void> {
+    const shouldSend = await this.notificationService.shouldSendNotification(
+      userId,
+      'race_starting'
+    );
+
+    if (shouldSend) {
+      await this.notificationService.sendRaceStarting(userId, race);
+    }
+  }
+
+  /**
+   * Send tip of the day notification
+   */
+  async notifyTipOfTheDay(
+    userId: string,
+    tip: {
+      title: string;
+      content: string;
+      category: string;
+    }
+  ): Promise<void> {
+    const shouldSend = await this.notificationService.shouldSendNotification(
+      userId,
+      'tip_of_the_day'
+    );
+
+    if (shouldSend) {
+      await this.notificationService.sendTipOfTheDay(userId, tip);
     }
   }
 }

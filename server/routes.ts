@@ -825,10 +825,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Get user's previous best WPM before saving new result
+      const previousStats = await storage.getUserStats(req.user!.id);
+      const previousBestWpm = previousStats?.bestWpm || 0;
+
       const result = await storage.createTestResult(parsed.data);
 
       // Update user streak after completing a test
-      await storage.updateUserStreak(req.user!.id);
+      const streakResult = await storage.updateUserStreak(req.user!.id);
+
+      // Send streak milestone notification if applicable
+      if (streakResult?.isMilestone) {
+        try {
+          await notificationScheduler.notifyStreakMilestone(req.user!.id, {
+            streak: streakResult.newStreak,
+            reward: streakResult.milestoneReward,
+          });
+        } catch (notificationError) {
+          console.error('[Notifications] Streak milestone notification failed:', notificationError);
+        }
+      }
+
+      // Check for personal record and send notification
+      const isPersonalRecord = result.wpm > previousBestWpm;
+      if (isPersonalRecord && previousBestWpm > 0) {
+        try {
+          const modeLabel = result.mode === 15 ? '15s' : result.mode === 30 ? '30s' : result.mode === 60 ? '1min' : `${result.mode}s`;
+          await notificationScheduler.notifyPersonalRecord(req.user!.id, {
+            wpm: result.wpm,
+            previousBest: previousBestWpm,
+            accuracy: result.accuracy,
+            mode: modeLabel,
+          });
+        } catch (notificationError) {
+          console.error('[Notifications] Personal record notification failed:', notificationError);
+        }
+      }
+
+      // Check for leaderboard rank improvement and send notification
+      try {
+        const leaderboardResult = await storage.getLeaderboardAroundUser(req.user!.id, 1, 'all-time', result.language);
+        const newRank = leaderboardResult.userRank;
+        
+        // Only send notification if user has a rank and it's in top 100
+        if (newRank > 0 && newRank <= 100) {
+          // Check if this is a significant improvement (entering top 100, or moving up 5+ positions)
+          const totalUsers = await storage.getLeaderboardCount('all-time', result.language);
+          
+          // For new personal bests, likely moved up in rankings - send notification for top positions
+          if (isPersonalRecord && (newRank <= 10 || (newRank <= 50 && previousBestWpm > 0))) {
+            await notificationScheduler.notifyLeaderboardUpdate(req.user!.id, {
+              category: `${result.language} Typing`,
+              oldRank: newRank + 1, // Approximate - we don't store old rank
+              newRank: newRank,
+              totalUsers: totalUsers,
+            });
+          }
+        }
+      } catch (leaderboardError) {
+        console.error('[Notifications] Leaderboard notification failed:', leaderboardError);
+      }
 
       // Auto-create a verified certificate for this test result
       let certificate = null;
@@ -2598,6 +2654,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ race, participant });
     } catch (error: any) {
       console.error("Join race error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Invite a user to a race
+  app.post("/api/races/:roomCode/invite", isAuthenticated, async (req, res) => {
+    try {
+      const { roomCode } = req.params;
+      const { targetUserId, targetUsername } = req.body;
+
+      if (!targetUserId && !targetUsername) {
+        return res.status(400).json({ message: "Please provide targetUserId or targetUsername" });
+      }
+
+      // Find the race
+      const race = await storage.getRaceByCode(roomCode);
+      if (!race) {
+        return res.status(404).json({ message: "Race not found" });
+      }
+
+      if (race.status !== "waiting") {
+        return res.status(400).json({ message: "Race has already started or finished" });
+      }
+
+      // Find the target user
+      let targetUser;
+      if (targetUserId) {
+        targetUser = await storage.getUser(targetUserId);
+      } else if (targetUsername) {
+        targetUser = await storage.getUserByUsername(targetUsername);
+      }
+
+      if (!targetUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Get the inviter's username
+      const inviter = await storage.getUser(req.user!.id);
+      const inviterName = inviter?.username || "Someone";
+
+      // Determine race mode
+      const raceMode = race.raceType === "timed" ? "Timed Race" : "Classic Race";
+
+      // Send race invite notification
+      try {
+        await notificationScheduler.notifyRaceInvite(targetUser.id, {
+          inviterName,
+          roomCode,
+          mode: raceMode,
+        });
+      } catch (notificationError) {
+        console.error('[Notifications] Race invite notification failed:', notificationError);
+      }
+
+      res.json({ 
+        success: true, 
+        message: `Invitation sent to ${targetUser.username}`,
+        invitedUser: {
+          id: targetUser.id,
+          username: targetUser.username,
+        }
+      });
+    } catch (error: any) {
+      console.error("Race invite error:", error);
       res.status(500).json({ message: error.message });
     }
   });
@@ -5372,7 +5492,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Mount notification routes
-  app.use(createNotificationRoutes(storage));
+  app.use(createNotificationRoutes(storage, notificationScheduler));
 
   const httpServer = createServer(app);
   

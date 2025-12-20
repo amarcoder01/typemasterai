@@ -213,7 +213,62 @@ export class NotificationJobGenerator {
     return totalGenerated;
   }
 
-  async regenerateAllJobs(): Promise<{ daily: number; streak: number; weekly: number }> {
+  async generateTipOfTheDayJobs(): Promise<number> {
+    let totalGenerated = 0;
+    let offset = 0;
+    const batchSize = 200;
+
+    while (true) {
+      const userBatch = await this.storage.getUsersWithNotificationPreferences(
+        'tip_of_the_day',
+        offset,
+        batchSize
+      );
+
+      if (userBatch.length === 0) break;
+
+      const jobs: InsertNotificationJob[] = [];
+      const nowUtc = DateTime.utc();
+
+      for (const { user } of userBatch) {
+        const userTimezone = user.timezone || 'UTC';
+        
+        // Send tip at 10 AM in user's timezone
+        let nextSend = DateTime.now()
+          .setZone(userTimezone)
+          .set({ hour: 10, minute: 0, second: 0, millisecond: 0 });
+
+        const nextSendUtc = nextSend.toUTC();
+        if (nextSendUtc <= nowUtc) {
+          nextSend = nextSend.plus({ days: 1 });
+        }
+
+        jobs.push({
+          userId: user.id,
+          notificationType: 'tip_of_the_day',
+          sendAtUtc: nextSend.toUTC().toJSDate(),
+          status: 'pending',
+          attemptCount: 0,
+          payloadMeta: {
+            username: user.username,
+            timezone: userTimezone,
+          },
+        });
+      }
+
+      if (jobs.length > 0) {
+        await this.storage.createNotificationJobs(jobs);
+        totalGenerated += jobs.length;
+      }
+
+      offset += batchSize;
+      if (userBatch.length < batchSize) break;
+    }
+
+    return totalGenerated;
+  }
+
+  async regenerateAllJobs(): Promise<{ daily: number; streak: number; weekly: number; tips: number }> {
     console.log('[JobGenerator] Starting job regeneration...');
 
     const dailyCount = await this.generateDailyReminderJobs();
@@ -225,7 +280,10 @@ export class NotificationJobGenerator {
     const weeklyCount = await this.generateWeeklySummaryJobs();
     console.log(`[JobGenerator] Generated ${weeklyCount} weekly summary jobs`);
 
-    return { daily: dailyCount, streak: streakCount, weekly: weeklyCount };
+    const tipsCount = await this.generateTipOfTheDayJobs();
+    console.log(`[JobGenerator] Generated ${tipsCount} tip of the day jobs`);
+
+    return { daily: dailyCount, streak: streakCount, weekly: weeklyCount, tips: tipsCount };
   }
 
 

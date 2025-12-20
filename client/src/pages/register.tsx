@@ -3,7 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth-context";
 import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, Mail, Lock, User } from "lucide-react";
+import { AlertCircle, Mail, Lock, User, Bell } from "lucide-react";
+import { notificationManager } from "@/lib/notification-manager";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import confetti from "canvas-confetti";
 import {
@@ -38,6 +41,7 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
+  const [enableNotifications, setEnableNotifications] = useState(true);
 
   const { data: providers } = useQuery<ProviderAvailability>({
     queryKey: ["provider-availability"],
@@ -109,6 +113,16 @@ export default function Register() {
       setError("This sign-up method is not currently available.");
       return;
     }
+
+    // Trigger notification permission request if enabled (using the click gesture)
+    if (enableNotifications && notificationManager.isSupported()) {
+      try {
+        notificationManager.requestPermission();
+      } catch (nErr) {
+        console.error("Failed to request notification permission:", nErr);
+      }
+    }
+
     window.location.href = `/api/auth/${provider}`;
   };
 
@@ -155,6 +169,16 @@ export default function Register() {
 
     setIsLoading(true);
 
+    // Trigger notification permission request if enabled (using the click gesture)
+    if (enableNotifications && notificationManager.isSupported()) {
+      try {
+        // We don't await this as we don't want to block registration if the user is slow to click
+        notificationManager.requestPermission();
+      } catch (nErr) {
+        console.error("Failed to request notification permission:", nErr);
+      }
+    }
+
     try {
       await register(username, email, password);
       setIsSuccess(true);
@@ -180,7 +204,7 @@ export default function Register() {
             title="Create Account"
             description="Sign up to start improving your typing skills"
           />
-          
+
           <AuthPanelContent>
             <AnimatePresence mode="wait">
               {error && (
@@ -199,7 +223,7 @@ export default function Register() {
             </AnimatePresence>
 
             {anyProviderAvailable && (
-              <motion.div 
+              <motion.div
                 className="grid gap-3"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -277,7 +301,7 @@ export default function Register() {
                 icon={<Lock className="h-4 w-4" />}
                 delay={6}
               />
-              
+
               <AnimatePresence>
                 <CapsLockWarning show={capsLockOn} />
               </AnimatePresence>
@@ -298,8 +322,30 @@ export default function Register() {
               success={!!passwordsMatch}
               error={passwordsDontMatch ? "Passwords don't match" : undefined}
             />
+
+            {notificationManager.isSupported() && (
+              <motion.div
+                className="flex items-center space-x-2 mt-4"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.8 }}
+              >
+                <Checkbox
+                  id="enable-notifications"
+                  checked={enableNotifications}
+                  onCheckedChange={(checked) => setEnableNotifications(checked === true)}
+                  className="border-zinc-700 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <Label htmlFor="enable-notifications" className="text-sm font-normal cursor-pointer text-zinc-400 flex items-center gap-1.5">
+                    <Bell className="h-3 w-3" /> Enable browser notifications
+                  </Label>
+                  <p className="text-[10px] text-zinc-500">Get reminders, streak alerts, and AI coach tips</p>
+                </div>
+              </motion.div>
+            )}
           </AuthPanelContent>
-          
+
           <AuthPanelFooter>
             <div className="space-y-4">
               <SubmitButton
@@ -317,7 +363,7 @@ export default function Register() {
                 testId="link-login"
               />
 
-              <motion.p 
+              <motion.p
                 className="text-xs text-center text-muted-foreground"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

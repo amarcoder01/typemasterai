@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Bell, BellOff, Loader2, CheckCircle2, XCircle, Clock, Globe } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { notificationManager } from '@/lib/notification-manager';
+import { BackButton } from '@/components/back-button';
 
 const TIMEZONES = [
   { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
@@ -70,9 +71,10 @@ export default function NotificationSettings() {
     return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
-  // Auto-subscribe if permission is already granted
+  // Auto-subscribe if permission is already granted and user hasn't explicitly disabled on this device
   useEffect(() => {
-    if (vapidKey && permission === 'granted' && !subscribed) {
+    const isExplicitlyDisabled = localStorage.getItem('notifications_disabled') === 'true';
+    if (vapidKey && permission === 'granted' && !subscribed && !isExplicitlyDisabled) {
       console.log('Permission granted but not subscribed – auto-subscribing...');
       handleEnableNotifications();
     }
@@ -128,6 +130,7 @@ export default function NotificationSettings() {
       if (result.success) {
         setSubscribed(true);
         setPermission('granted');
+        localStorage.removeItem('notifications_disabled');
         toast({
           title: "Notifications Enabled!",
           description: "You'll now receive push notifications",
@@ -154,6 +157,7 @@ export default function NotificationSettings() {
       const result = await notificationManager.disableNotifications();
       if (result.success) {
         setSubscribed(false);
+        localStorage.setItem('notifications_disabled', 'true');
         toast({
           title: "Notifications Disabled",
           description: "You will no longer receive push notifications",
@@ -171,22 +175,7 @@ export default function NotificationSettings() {
     }
   };
 
-  const handleTestNotification = async () => {
-    try {
-      const response = await fetch('/api/notifications/test', {
-        method: 'POST',
-      });
 
-      if (response.ok) {
-        toast({
-          title: "Test Notification Sent!",
-          description: "Check your notifications",
-        });
-      }
-    } catch (error) {
-      console.error('Failed to send test notification:', error);
-    }
-  };
 
   const handleSavePreferences = async () => {
     if (!preferences) return;
@@ -232,6 +221,9 @@ export default function NotificationSettings() {
 
   return (
     <div className="container mx-auto py-8 max-w-4xl">
+      <div className="mb-4">
+        <BackButton to="/settings" label="Settings" />
+      </div>
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Notification Settings</h1>
         <p className="text-muted-foreground">
@@ -283,9 +275,6 @@ export default function NotificationSettings() {
               )
             ) : (
               <div className="flex gap-2">
-                <Button variant="outline" onClick={handleTestNotification} data-testid="button-test-notification">
-                  Send Test
-                </Button>
                 <Button variant="destructive" onClick={handleDisableNotifications} data-testid="button-disable-notifications">
                   Disable
                 </Button>

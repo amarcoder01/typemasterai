@@ -180,7 +180,7 @@ import {
   type CertificateVerificationLog,
   type InsertCertificateVerificationLog,
 } from "@shared/schema";
-import { eq, desc, sql, and, notInArray, or, isNull } from "drizzle-orm";
+import { eq, desc, sql, and, notInArray, or, isNull, inArray } from "drizzle-orm";
 
 neonConfig.webSocketConstructor = ws;
 
@@ -425,7 +425,12 @@ export interface IStorage {
     currentStreak: number;
     bestStreak: number;
   }>;
-  updateUserStreak(userId: string): Promise<void>;
+  updateUserStreak(userId: string): Promise<{ 
+    newStreak: number; 
+    previousStreak: number; 
+    isMilestone: boolean;
+    milestoneReward?: number;
+  } | null>;
   
   // Multiplayer Racing
   createRace(race: InsertRace): Promise<Race>;
@@ -567,7 +572,8 @@ export interface IStorage {
   getUserNotificationHistory(userId: string, limit?: number): Promise<NotificationHistory[]>;
   markNotificationDelivered(id: number): Promise<void>;
   markNotificationClicked(id: number): Promise<void>;
-  
+  cleanupOldNotificationHistory(daysAgo: number): Promise<number>;
+
   createNotificationJobs(jobs: InsertNotificationJob[]): Promise<NotificationJob[]>;
   claimDueNotificationJobs(beforeUtc: Date, limit: number): Promise<NotificationJob[]>;
   markJobCompleted(jobId: number): Promise<void>;
@@ -2899,15 +2905,21 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async updateUserStreak(userId: string): Promise<void> {
+  async updateUserStreak(userId: string): Promise<{ 
+    newStreak: number; 
+    previousStreak: number; 
+    isMilestone: boolean;
+    milestoneReward?: number;
+  } | null> {
     const user = await this.getUser(userId);
-    if (!user) return;
+    if (!user) return null;
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     let newStreak = 1;
     let newBestStreak = user.bestStreak;
+    const previousStreak = user.currentStreak;
 
     if (user.lastTestDate) {
       const lastTestDate = new Date(user.lastTestDate);
@@ -2916,7 +2928,7 @@ export class DatabaseStorage implements IStorage {
 
       if (daysDiff === 0) {
         // Same day, don't update streak
-        return;
+        return null;
       } else if (daysDiff === 1) {
         // Consecutive day, increment streak
         newStreak = user.currentStreak + 1;
@@ -2937,6 +2949,26 @@ export class DatabaseStorage implements IStorage {
         lastTestDate: now,
       })
       .where(eq(users.id, userId));
+
+    // Check if this is a milestone streak (7, 14, 30, 50, 100, 365 days)
+    const milestones: Record<number, number> = {
+      7: 50,     // 7 days = 50 bonus points
+      14: 100,   // 14 days = 100 bonus points
+      30: 250,   // 30 days = 250 bonus points
+      50: 500,   // 50 days = 500 bonus points
+      100: 1000, // 100 days = 1000 bonus points
+      365: 5000, // 365 days = 5000 bonus points
+    };
+
+    const isMilestone = newStreak in milestones;
+    const milestoneReward = milestones[newStreak];
+
+    return {
+      newStreak,
+      previousStreak,
+      isMilestone,
+      milestoneReward,
+    };
   }
 
   // Multiplayer Racing Methods
@@ -4020,6 +4052,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notificationHistory.id, id));
   }
 
+  async cleanupOldNotificationHistory(daysAgo: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
+
+    const deleted = await db
+      .delete(notificationHistory)
+      .where(sql`${notificationHistory.createdAt} < ${cutoffDate}`)
+      .returning({ id: notificationHistory.id });
+
+    return deleted.length;
+  }
+
   async createNotificationJobs(jobs: InsertNotificationJob[]): Promise<NotificationJob[]> {
     if (jobs.length === 0) return [];
     const inserted = await db.insert(notificationJobs).values(jobs).returning();
@@ -4052,7 +4096,7 @@ export class DatabaseStorage implements IStorage {
           attemptCount: sql`${notificationJobs.attemptCount} + 1`,
           lastAttemptAt: new Date()
         })
-        .where(sql`${notificationJobs.id} = ANY(${jobIds})`)
+        .where(inArray(notificationJobs.id, jobIds))
         .returning();
       
       return updated;
@@ -4115,6 +4159,7 @@ export class DatabaseStorage implements IStorage {
     const preferenceColumn = notificationType === 'daily_reminder' ? 'daily_reminder'
       : notificationType === 'streak_warning' ? 'streak_warning'
       : notificationType === 'weekly_summary' ? 'weekly_summary'
+      : notificationType === 'tip_of_the_day' ? 'tip_of_the_day'
       : null;
     
     if (!preferenceColumn) return [];

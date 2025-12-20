@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/searchable-select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BackButton } from "@/components/back-button";
 
 const AVATAR_COLORS = [
   { value: "bg-primary", label: "Amber", class: "bg-primary" },
@@ -77,7 +78,7 @@ export default function ProfileEdit() {
   };
 
   useEffect(() => {
-    const hasChanges = 
+    const hasChanges =
       avatarColor !== initialValues.avatarColor ||
       bio !== initialValues.bio ||
       country !== initialValues.country ||
@@ -164,16 +165,7 @@ export default function ProfileEdit() {
     <TooltipProvider delayDuration={200}>
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="flex items-center gap-4">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={() => setLocation("/profile")} data-testid="button-back">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Back to profile</p>
-            </TooltipContent>
-          </Tooltip>
+          <BackButton to="/profile" label="Profile" />
           <div>
             <h1 className="text-3xl font-bold">Edit Profile</h1>
             <p className="text-muted-foreground">Customize your typing profile</p>
@@ -300,8 +292,8 @@ export default function ProfileEdit() {
               <div className="flex items-center justify-between mt-2">
                 <p className={cn(
                   "text-xs transition-colors",
-                  bioCharLimit ? "text-destructive font-medium" : 
-                  bioCharWarning ? "text-amber-500" : "text-muted-foreground"
+                  bioCharLimit ? "text-destructive font-medium" :
+                    bioCharWarning ? "text-amber-500" : "text-muted-foreground"
                 )}>
                   {bio.length}/200 characters
                   {bioCharLimit && " (limit reached)"}
@@ -440,9 +432,9 @@ export default function ProfileEdit() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  type="submit" 
-                  disabled={updateProfileMutation.isPending || !hasUnsavedChanges} 
+                <Button
+                  type="submit"
+                  disabled={updateProfileMutation.isPending || !hasUnsavedChanges}
                   data-testid="button-save-profile"
                   className="min-w-[120px]"
                 >

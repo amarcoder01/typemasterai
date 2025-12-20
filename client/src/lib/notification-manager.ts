@@ -137,35 +137,105 @@ export class NotificationManager {
     }
   }
 
-  // Save subscription to server
-  async saveSubscriptionToServer(subscription: PushSubscription): Promise<boolean> {
-    try {
-      const response = await fetch('/api/notifications/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(subscription),
-      });
+  // Save subscription to server with retry logic
+  async saveSubscriptionToServer(subscription: PushSubscription, retries = 3): Promise<boolean> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const response = await fetch('/api/notifications/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(subscription),
+        });
 
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+        if (response.status === 429) {
+          // Rate limited - wait and retry
+          console.warn(`[Notifications] Rate limited, attempt ${attempt}/${retries}`);
+          if (attempt < retries) {
+            await new Promise(resolve => setTimeout(resolve, 5000 * attempt));
+            continue;
+          }
+          throw new Error('Too many subscription attempts. Please try again later.');
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Server returned ${response.status}`);
+        }
+
+        console.log('[Notifications] Subscription saved to server');
+        return true;
+      } catch (error: any) {
+        console.error(`[Notifications] Failed to save subscription (attempt ${attempt}/${retries}):`, error);
+        
+        if (attempt === retries) {
+          return false;
+        }
+        
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+      }
+    }
+    return false;
+  }
+
+  // Check if notifications are properly configured
+  async checkNotificationHealth(): Promise<{
+    supported: boolean;
+    permission: NotificationPermission;
+    serviceWorkerActive: boolean;
+    subscribed: boolean;
+    serverConnected: boolean;
+  }> {
+    const supported = this.isSupported();
+    const permission = this.getPermissionStatus();
+    
+    let serviceWorkerActive = false;
+    let subscribed = false;
+    let serverConnected = false;
+
+    if (supported) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        serviceWorkerActive = !!registration.active;
+        
+        const subscription = await registration.pushManager.getSubscription();
+        subscribed = !!subscription;
+      } catch {
+        // Ignore errors
       }
 
-      console.log('[Notifications] Subscription saved to server');
-      return true;
-    } catch (error) {
-      console.error('[Notifications] Failed to save subscription:', error);
-      return false;
+      try {
+        const response = await fetch('/api/notifications/vapid-public-key', {
+          credentials: 'include',
+        });
+        serverConnected = response.ok;
+      } catch {
+        // Ignore errors
+      }
     }
+
+    return {
+      supported,
+      permission,
+      serviceWorkerActive,
+      subscribed,
+      serverConnected,
+    };
   }
 
   // Remove subscription from server
   async removeSubscriptionFromServer(): Promise<boolean> {
     try {
+      // Get the current subscription to send its endpoint
+      const subscription = await this.getSubscription();
+      const endpoint = subscription?.endpoint;
+
       const response = await fetch('/api/notifications/unsubscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        body: JSON.stringify({ endpoint }),
       });
 
       if (!response.ok) {

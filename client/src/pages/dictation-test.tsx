@@ -776,11 +776,29 @@ export default function DictationTest() {
   
   const fetchNewSentence = useCallback(async () => {
     setIsLoading(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
     try {
       const categoryParam = category !== 'all' ? `&category=${category}` : '';
       const excludeParam = shownSentenceIds.length > 0 ? `&excludeIds=${shownSentenceIds.join(',')}` : '';
-      const res = await fetch(`/api/dictation/sentence?difficulty=${difficulty}${categoryParam}${excludeParam}`);
-      if (!res.ok) throw new Error('Failed to fetch sentence');
+      const res = await fetch(`/api/dictation/sentence?difficulty=${difficulty}${categoryParam}${excludeParam}`, {
+        signal: controller.signal,
+        credentials: 'include',
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!res.ok) {
+        if (res.status === 404) {
+          toast({
+            title: 'No sentences found',
+            description: 'No sentences match your current filters. Try different settings.',
+            variant: 'destructive',
+          });
+        }
+        throw new Error('Failed to fetch sentence');
+      }
       const data = await res.json();
       const sentence = data.sentence as DictationSentence;
       
@@ -789,13 +807,23 @@ export default function DictationTest() {
       }
       
       return { data: sentence };
-    } catch (error) {
-      console.error('Failed to fetch sentence:', error);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      
+      if (error.name === 'AbortError') {
+        toast({
+          title: 'Request timeout',
+          description: 'The server took too long to respond. Please try again.',
+          variant: 'destructive',
+        });
+      } else {
+        console.error('Failed to fetch sentence:', error);
+      }
       return { data: null };
     } finally {
       setIsLoading(false);
     }
-  }, [difficulty, category, shownSentenceIds]);
+  }, [difficulty, category, shownSentenceIds, toast]);
 
   const saveTestMutation = useMutation({
     mutationFn: async (testData: {

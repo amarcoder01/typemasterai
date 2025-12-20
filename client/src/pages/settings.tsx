@@ -19,6 +19,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { BackButton } from "@/components/back-button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -403,6 +404,9 @@ export default function Settings() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="max-w-2xl mx-auto space-y-6 sm:space-y-8 px-4 sm:px-0">
+        <div className="flex justify-start">
+          <BackButton />
+        </div>
         <div className="space-y-2">
           <h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
           <p className="text-sm sm:text-base text-muted-foreground">
