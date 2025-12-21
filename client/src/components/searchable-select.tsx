@@ -27,6 +27,8 @@ interface SearchableSelectProps {
   className?: string;
   triggerClassName?: string;
   contentClassName?: string;
+  disabled?: boolean;
+  disabledTooltip?: string;
   "data-testid"?: string;
 }
 
@@ -41,6 +43,8 @@ export function SearchableSelect({
   className,
   triggerClassName,
   contentClassName,
+  disabled = false,
+  disabledTooltip,
   "data-testid": dataTestId,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
@@ -48,14 +52,20 @@ export function SearchableSelect({
   const selectedOption = options.find((option) => option.value === value);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={disabled ? false : open} onOpenChange={disabled ? undefined : setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn("w-full justify-between bg-secondary hover:bg-secondary/80", triggerClassName)}
+          disabled={disabled}
+          className={cn(
+            "w-full justify-between bg-secondary hover:bg-secondary/80",
+            disabled && "opacity-50 cursor-not-allowed",
+            triggerClassName
+          )}
           data-testid={dataTestId || `searchable-select-${placeholder.toLowerCase().replace(/\s+/g, '-')}`}
+          title={disabled ? disabledTooltip : undefined}
         >
           <div className="flex items-center gap-2">
             {icon}
@@ -75,9 +85,10 @@ export function SearchableSelect({
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
-                  value={option.value}
-                  onSelect={(currentValue) => {
-                    onValueChange(currentValue);
+                  value={option.label}
+                  onSelect={() => {
+                    // Use option.value directly instead of currentValue (which gets lowercased by cmdk)
+                    onValueChange(option.value);
                     setOpen(false);
                   }}
                   data-testid={`option-${option.value}`}

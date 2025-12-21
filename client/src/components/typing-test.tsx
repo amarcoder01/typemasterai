@@ -2060,6 +2060,8 @@ Test yourself: `,
                       searchPlaceholder="Search languages..."
                       emptyText="No language found."
                       icon={<Globe className="w-4 h-4" />}
+                      disabled={freestyleMode}
+                      disabledTooltip="Disabled in Freestyle mode - type anything freely"
                     />
                     {languagesError && !languagesFetching && !languagesData && (
                       <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" title="Failed to load languages" />
@@ -2107,6 +2109,8 @@ Test yourself: `,
                       searchPlaceholder="Search modes..."
                       emptyText="No mode found."
                       icon={<BookOpen className="w-4 h-4" />}
+                      disabled={freestyleMode}
+                      disabledTooltip="Disabled in Freestyle mode - no predefined content"
                     />
                     {modesError && !modesFetching && !modesData && (
                       <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" title="Failed to load modes" />
@@ -2160,6 +2164,8 @@ Test yourself: `,
                       searchPlaceholder="Search difficulty..."
                       emptyText="No difficulty found."
                       icon={<Target className="w-4 h-4" />}
+                      disabled={freestyleMode}
+                      disabledTooltip="Disabled in Freestyle mode - no text generation"
                     />
                   </div>
                 </TooltipTrigger>

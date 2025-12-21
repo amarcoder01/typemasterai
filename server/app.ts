@@ -39,6 +39,11 @@ app.use(express.json({
     req.rawBody = buf;
   },
   limit: '10mb',
+  // Accept any JSON content type, regardless of charset case (UTF-8, utf-8, etc.)
+  type: (req) => {
+    const contentType = req.headers['content-type'] || '';
+    return contentType.toLowerCase().includes('application/json');
+  },
 }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
@@ -58,11 +63,11 @@ app.use((req, res, next) => {
   res.on("finish", () => {
     const duration = Date.now() - start;
     metricsCollector.recordResponseTime(duration);
-    
+
     if (res.statusCode >= 500) {
       metricsCollector.recordError();
     }
-    
+
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
@@ -84,13 +89,13 @@ export default async function runApp(
   setup: (app: Express, server: Server) => Promise<void>,
 ) {
   metricsCollector.initialize();
-  
+
   const server = await registerRoutes(app);
 
   registerShutdownHandlers(server);
 
   app.use("/api/*", notFoundHandler);
-  
+
   app.use(errorHandler);
 
   // importantly run the final setup after setting up all the other routes so

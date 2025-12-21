@@ -5,12 +5,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/searchable-select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail, Award, X, Infinity, Sparkles, Settings, Volume2, VolumeX, Eye, EyeOff, Terminal, Upload, Trash2, AlertTriangle, FileCode } from "lucide-react";
+import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail, Award, X, Infinity, Sparkles, Settings, Volume2, VolumeX, Eye, EyeOff, Terminal, Upload, Trash2, AlertTriangle, FileCode, Code2, Target, Timer, Gauge } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -146,7 +147,7 @@ function normalizeCodeSnippet(code: string): string {
     .join('\n')
     // Remove leading/trailing empty lines
     .trim();
-  
+
   return normalized;
 }
 
@@ -166,13 +167,13 @@ function validateCustomCode(code: string): CodeValidation {
   const trimmed = code.trim();
   const lines = trimmed.split('\n');
   const longestLine = Math.max(...lines.map(l => l.length));
-  
+
   const stats = {
     characters: trimmed.length,
     lines: lines.length,
     longestLine,
   };
-  
+
   // Check minimum length
   if (trimmed.length < CUSTOM_CODE_LIMITS.MIN_LENGTH) {
     return {
@@ -181,7 +182,7 @@ function validateCustomCode(code: string): CodeValidation {
       stats,
     };
   }
-  
+
   // Check maximum length
   if (trimmed.length > CUSTOM_CODE_LIMITS.MAX_LENGTH) {
     return {
@@ -190,7 +191,7 @@ function validateCustomCode(code: string): CodeValidation {
       stats,
     };
   }
-  
+
   // Check maximum lines
   if (lines.length > CUSTOM_CODE_LIMITS.MAX_LINES) {
     return {
@@ -199,7 +200,7 @@ function validateCustomCode(code: string): CodeValidation {
       stats,
     };
   }
-  
+
   // Check if it's only whitespace or special characters
   const printableContent = trimmed.replace(/\s/g, '');
   if (printableContent.length < 5) {
@@ -209,16 +210,16 @@ function validateCustomCode(code: string): CodeValidation {
       stats,
     };
   }
-  
+
   // Generate warnings
   let warning: string | undefined;
-  
+
   if (trimmed.length > CUSTOM_CODE_LIMITS.WARN_LENGTH) {
     warning = `Large code snippet (${(trimmed.length / 1000).toFixed(1)}KB). This may take a while to complete.`;
   } else if (longestLine > CUSTOM_CODE_LIMITS.MAX_LINE_LENGTH) {
     warning = `Some lines are very long (${longestLine} chars). Long lines may be harder to type.`;
   }
-  
+
   return {
     isValid: true,
     warning,
@@ -253,7 +254,38 @@ export default function CodeMode() {
   const [mode, setMode] = useState<"ai" | "custom">("ai");
   const [testMode, setTestMode] = useState<"normal" | "expert" | "master">("normal");
   const [timeLimit, setTimeLimit] = useState(60); // Default 1 minute
-  const [customCode, setCustomCode] = useState("");
+
+  // Custom code with localStorage persistence
+  const [customCode, setCustomCodeState] = useState(() => {
+    // Initialize from localStorage on mount
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('typemaster_custom_code');
+        return saved || "";
+      } catch {
+        return "";
+      }
+    }
+    return "";
+  });
+
+  // Wrapper to persist custom code to localStorage
+  const setCustomCode = useCallback((value: string | ((prev: string) => string)) => {
+    setCustomCodeState(prev => {
+      const newValue = typeof value === 'function' ? value(prev) : value;
+      // Persist to localStorage (with try-catch for quota errors)
+      try {
+        if (newValue) {
+          localStorage.setItem('typemaster_custom_code', newValue);
+        } else {
+          localStorage.removeItem('typemaster_custom_code');
+        }
+      } catch (e) {
+        console.warn('Failed to persist custom code to localStorage:', e);
+      }
+      return newValue;
+    });
+  }, []);
   const [codeSnippet, setCodeSnippet] = useState("");
   const [snippetId, setSnippetId] = useState<number | null>(null);
   const [userInput, setUserInput] = useState("");
@@ -267,6 +299,7 @@ export default function CodeMode() {
   const [consistency, setConsistency] = useState(100);
   const [errors, setErrors] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFileReading, setIsFileReading] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [completionDialogOpen, setCompletionDialogOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
@@ -318,6 +351,7 @@ export default function CodeMode() {
   const timeLimitRef = useRef<number>(timeLimit);
   const timerRafRef = useRef<number | null>(null);
   const finishTestRef = useRef<() => void>(() => { });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Advanced edge case handling refs
   const lastKeystrokeTimeRef = useRef<number>(0);
@@ -1026,9 +1060,13 @@ export default function CodeMode() {
     if (e.key === "Tab") {
       e.preventDefault();
 
-      // If test is finished or no input, Tab gets new snippet
+      // If test is finished or no input, Tab gets new snippet (AI mode) or resets (custom mode)
       if (isFinished || isFailed || (!isActive && userInput.length === 0)) {
-        fetchCodeSnippet(true);
+        if (mode === "ai") {
+          resetTest(false); // Reset all state and fetch new code
+        } else if (mode === "custom" && codeSnippet) {
+          resetTest(true); // Keep the same custom code
+        }
         return;
       }
 
@@ -1053,19 +1091,27 @@ export default function CodeMode() {
   };
 
   const resetTest = useCallback((keepSnippet: boolean = false) => {
+    // Close all dialogs
     setCompletionDialogOpen(false);
+    setShareDialogOpen(false);
+
+    // Reset typing state
     setUserInput("");
     setStartTime(null);
     startTimeRef.current = null;
     setIsActive(false);
     setIsFinished(false);
     setIsFailed(false);
+
+    // Reset stats
     setWpm(0);
     setRawWpm(0);
     setAccuracy(100);
     setConsistency(100);
     setErrors(0);
     setElapsedTime(0);
+
+    // Reset history
     wpmHistoryRef.current = [];
     lastElapsedSecondRef.current = -1;
     statsLastUpdateRef.current = 0;
@@ -1081,15 +1127,21 @@ export default function CodeMode() {
         fetchCodeSnippet(true); // Force new snippet
       } else {
         // Just refocus if extending/retrying same snippet
-        // Optional: toast to confirm reset
         toast({
           title: "Test Reset",
           description: "Restarting with the same code snippet.",
         });
       }
-    } else if (mode === "custom" && customCode) {
-      setCodeSnippet(normalizeCodeSnippet(customCode));
-      setSnippetId(null);
+    } else if (mode === "custom") {
+      // In custom mode, always use existing custom code - NEVER fetch from AI
+      if (customCode) {
+        setCodeSnippet(normalizeCodeSnippet(customCode));
+        setSnippetId(null);
+      }
+      toast({
+        title: "Test Reset",
+        description: "Restarting with the same custom code.",
+      });
     }
 
     setTimeout(() => textareaRef.current?.focus(), 0);
@@ -1137,10 +1189,14 @@ export default function CodeMode() {
       // Only handle when not focused on typing textarea
       if (document.activeElement === textareaRef.current) return;
 
-      // Tab to get new snippet - only when test is not active or is finished
+      // Tab to get new snippet (AI mode) or reset test (custom mode) - only when test is not active or is finished
       if (e.key === "Tab" && (!isActive || isFinished || isFailed)) {
         e.preventDefault();
-        fetchCodeSnippet(true);
+        if (mode === "ai") {
+          resetTest(false); // Reset all state and fetch new code
+        } else if (mode === "custom" && codeSnippet) {
+          resetTest(true); // Keep the same custom code
+        }
       }
 
       // Escape to reset - always allowed
@@ -1157,41 +1213,131 @@ export default function CodeMode() {
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [fetchCodeSnippet, resetTest, isActive, isFinished, isFailed]);
+  }, [fetchCodeSnippet, resetTest, isActive, isFinished, isFailed, mode, codeSnippet]);
 
   const handleModeSwitch = (newMode: "ai" | "custom") => {
     if (newMode === mode) return;
 
-    confirmOrRun(
-      "Switch Mode?",
-      `Changing from ${mode === "ai" ? "AI Generated" : "Custom Code"} to ${newMode === "ai" ? "AI Generated" : "Custom Code"} will reset your current test and clear progress.`,
-      () => {
-        setMode(newMode);
-        setCodeSnippet("");
-        setUserInput("");
-        setIsActive(false);
-        setIsFinished(false);
-        setErrorState({ type: null, message: '', canRetry: false });
-        setRetryCount(0);
-        if (newMode === "ai") {
-          fetchCodeSnippet(true);
-        }
-        toast({
-          title: "Mode Changed",
-          description: `Switched to ${newMode === "ai" ? "AI Generated" : "Custom Code"} mode.`,
-        });
-      },
-      "Switch Mode"
-    );
-  };
+    // Full state reset function for mode switching
+    const performModeSwitch = () => {
+      // Close any open dialogs first
+      setCompletionDialogOpen(false);
+      setShareDialogOpen(false);
 
-  // Reset error state when language or difficulty changes
-  useEffect(() => {
-    if (mode === "ai") {
+      // Reset mode and code
+      setMode(newMode);
+      setCodeSnippet("");
+      setCustomCode(""); // Also clear custom code input
+      setSnippetId(null);
+
+      // Reset typing state
+      setUserInput("");
+      setStartTime(null);
+      setIsActive(false);
+      setIsFinished(false);
+      setIsFailed(false);
+
+      // Reset stats
+      setWpm(0);
+      setRawWpm(0);
+      setAccuracy(100);
+      setConsistency(100);
+      setErrors(0);
+      setElapsedTime(0);
+
+      // Reset error state
       setErrorState({ type: null, message: '', canRetry: false });
       setRetryCount(0);
+      setIsFileReading(false);
+
+      // Reset test mode when switching to custom (use Normal for custom practice)
+      if (newMode === "custom") {
+        setTestMode("normal");
+      }
+
+      // Clear history refs
+      wpmHistoryRef.current = [];
+      keystrokeTimesRef.current = [];
+      suspiciousActivityCountRef.current = 0;
+
+      // Fetch new code if switching to AI mode
+      if (newMode === "ai") {
+        fetchCodeSnippet(true);
+      }
+
+      toast({
+        title: "Mode Changed",
+        description: `Switched to ${newMode === "ai" ? "AI Generated" : "Custom Code"} mode.`,
+      });
+    };
+
+    // Always show confirmation when switching modes to prevent accidental state loss
+    const hasContent = customCode.trim().length > 0 || codeSnippet.trim().length > 0 || userInput.length > 0;
+
+    if (hasContent || isActive) {
+      pendingChangeRef.current = performModeSwitch;
+      setChangeTitle("Switch Mode?");
+      setChangeDescription(`Changing from ${mode === "ai" ? "AI Generated" : "Custom Code"} to ${newMode === "ai" ? "AI Generated" : "Custom Code"} will reset your current test and clear progress.`);
+      setChangeConfirmLabel("Switch Mode");
+      setShowChangeConfirm(true);
+    } else {
+      performModeSwitch();
     }
-  }, [language, difficulty, timeLimit, testMode]);
+  };
+
+  // Track if settings change is user-initiated (to avoid fetching on initial load)
+  const settingsInitializedRef = useRef(false);
+  const prevSettingsRef = useRef({ language, difficulty, testMode });
+  
+  // Fetch new code when language, difficulty, or testMode changes (user-initiated)
+  useEffect(() => {
+    // Skip initial mount
+    if (!settingsInitializedRef.current) {
+      settingsInitializedRef.current = true;
+      prevSettingsRef.current = { language, difficulty, testMode };
+      return;
+    }
+    
+    // Check if any relevant setting actually changed
+    const prev = prevSettingsRef.current;
+    const settingsChanged = 
+      prev.language !== language || 
+      prev.difficulty !== difficulty || 
+      prev.testMode !== testMode;
+    
+    if (settingsChanged && mode === "ai") {
+      // Update previous settings
+      prevSettingsRef.current = { language, difficulty, testMode };
+      
+      // Reset error state
+      setErrorState({ type: null, message: '', canRetry: false });
+      setRetryCount(0);
+      
+      // Reset test state and fetch new code with updated settings
+      setUserInput("");
+      setStartTime(null);
+      startTimeRef.current = null;
+      setIsActive(false);
+      setIsFinished(false);
+      setIsFailed(false);
+      setWpm(0);
+      setRawWpm(0);
+      setAccuracy(100);
+      setConsistency(100);
+      setErrors(0);
+      setElapsedTime(0);
+      wpmHistoryRef.current = [];
+      lastElapsedSecondRef.current = -1;
+      statsLastUpdateRef.current = 0;
+      lastKeystrokeTimeRef.current = 0;
+      keystrokeTimesRef.current = [];
+      suspiciousActivityCountRef.current = 0;
+      tabHiddenTimeRef.current = null;
+      
+      // Fetch new code with the updated settings
+      fetchCodeSnippet(true);
+    }
+  }, [language, difficulty, testMode, mode, fetchCodeSnippet]);
 
 
   // Fetch more content for continuous typing (works for both timed and unlimited modes)
@@ -1270,7 +1416,7 @@ export default function CodeMode() {
   const applyCustomCode = () => {
     // Validate the custom code
     const validation = validateCustomCode(customCode);
-    
+
     if (!validation.isValid) {
       toast({
         title: "Invalid Code",
@@ -1285,18 +1431,27 @@ export default function CodeMode() {
       setCodeSnippet(normalized);
       setSnippetId(null);
       setUserInput("");
+      setStartTime(null);
       setIsActive(false);
       setIsFinished(false);
-      
+      setIsFailed(false);
+
+      // Reset stats
+      setWpm(0);
+      setRawWpm(0);
+      setAccuracy(100);
+      setErrors(0);
+      setElapsedTime(0);
+
       // Show success with stats
       const lines = normalized.split('\n').length;
       const chars = normalized.length;
-      
+
       toast({
         title: "Custom Code Loaded ✓",
         description: `${lines} lines, ${chars.toLocaleString()} characters ready for practice.`,
       });
-      
+
       // Show warning if applicable
       if (validation.warning) {
         setTimeout(() => {
@@ -1306,7 +1461,7 @@ export default function CodeMode() {
           });
         }, 500);
       }
-      
+
       setTimeout(() => textareaRef.current?.focus(), 0);
     };
 
@@ -1322,88 +1477,237 @@ export default function CodeMode() {
     }
   };
 
-  // Handle file upload for custom code
+  // Handle file upload for custom code with comprehensive validation
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    // Check file size (max 100KB for safety)
-    if (file.size > 100 * 1024) {
+
+    // Validate file size (max 100KB)
+    const MAX_FILE_SIZE = 100 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
       toast({
         title: "File Too Large",
-        description: "Please upload a file smaller than 100KB.",
+        description: `Maximum file size is 100KB. Your file is ${(file.size / 1024).toFixed(1)}KB.`,
         variant: "destructive",
       });
       e.target.value = '';
       return;
     }
-    
-    // Check file type
-    const validExtensions = ['.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.cpp', '.c', '.h', '.cs', '.go', '.rs', '.rb', '.php', '.html', '.css', '.scss', '.sql', '.sh', '.bash', '.json', '.yaml', '.yml', '.xml', '.md', '.txt'];
+
+    // Validate file extension
+    const validExtensions = ['.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.cpp', '.c', '.h', '.cs', '.go', '.rs', '.rb', '.php', '.html', '.css', '.scss', '.sql', '.sh', '.bash', '.json', '.yaml', '.yml', '.xml', '.md', '.txt', '.swift', '.kt', '.scala', '.r', '.m', '.lua', '.pl', '.hs'];
     const fileName = file.name.toLowerCase();
     const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
-    
+
     if (!hasValidExtension) {
       toast({
         title: "Unsupported File Type",
-        description: "Please upload a code or text file (.js, .py, .java, etc.)",
+        description: "Supported files: .js, .ts, .py, .java, .cpp, .go, .rs, .rb, .php, .html, .css, .sql, .json, .md, .txt, etc.",
         variant: "destructive",
       });
       e.target.value = '';
       return;
     }
-    
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        setCustomCode(content);
+
+    // Helper function to process the file
+    const processFile = () => {
+      setIsFileReading(true);
+
+      const reader = new FileReader();
+
+      // Set up timeout for file reading (10 seconds max)
+      const readTimeout = setTimeout(() => {
+        reader.abort();
+        setIsFileReading(false);
         toast({
-          title: "File Loaded",
-          description: `${file.name} loaded. Click "Start Typing" to begin.`,
+          title: "File Read Timeout",
+          description: "The file took too long to read. Please try again.",
+          variant: "destructive",
         });
-      }
+      }, 10000);
+
+      reader.onload = (event) => {
+        clearTimeout(readTimeout);
+        setIsFileReading(false);
+
+        const content = event.target?.result as string;
+
+        // Check for empty file
+        if (!content || content.trim().length === 0) {
+          toast({
+            title: "Empty File",
+            description: "The file appears to be empty. Please upload a file with code.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Detect binary content (check for null bytes or high concentration of non-printable chars)
+        const nullByteCount = (content.match(/\x00/g) || []).length;
+        const nonPrintableCount = (content.match(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g) || []).length;
+        const binaryThreshold = content.length * 0.05; // More than 5% non-printable = likely binary
+
+        if (nullByteCount > 0 || nonPrintableCount > binaryThreshold) {
+          toast({
+            title: "Binary File Detected",
+            description: "This appears to be a binary file. Please upload a text-based code file.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Validate content length
+        if (content.length > CUSTOM_CODE_LIMITS.MAX_LENGTH) {
+          toast({
+            title: "File Content Too Large",
+            description: `Maximum ${(CUSTOM_CODE_LIMITS.MAX_LENGTH / 1024).toFixed(0)}KB of code allowed. Your file has ${(content.length / 1024).toFixed(1)}KB.`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Normalize and set the content
+        const normalized = normalizeCodeSnippet(content);
+        const lines = normalized.split('\n').length;
+        const chars = normalized.length;
+
+        // Check line count
+        if (lines > CUSTOM_CODE_LIMITS.MAX_LINES) {
+          toast({
+            title: "Too Many Lines",
+            description: `Maximum ${CUSTOM_CODE_LIMITS.MAX_LINES} lines allowed. Your file has ${lines} lines.`,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Successfully loaded - update state
+        setCustomCode(normalized);
+
+        // Reset any active test state
+        if (isActive || codeSnippet) {
+          setCodeSnippet("");
+          setUserInput("");
+          setIsActive(false);
+          setIsFinished(false);
+          setIsFailed(false);
+        }
+
+        toast({
+          title: "✓ File Loaded Successfully",
+          description: `${file.name} • ${lines} lines • ${chars.toLocaleString()} characters`,
+        });
+      };
+
+      reader.onerror = () => {
+        clearTimeout(readTimeout);
+        setIsFileReading(false);
+        toast({
+          title: "Error Reading File",
+          description: "Could not read the file. Please check the file and try again.",
+          variant: "destructive",
+        });
+      };
+
+      reader.onabort = () => {
+        clearTimeout(readTimeout);
+        setIsFileReading(false);
+      };
+
+      reader.readAsText(file);
     };
-    reader.onerror = () => {
-      toast({
-        title: "Error Reading File",
-        description: "Could not read the file. Please try again.",
-        variant: "destructive",
-      });
-    };
-    reader.readAsText(file);
-    e.target.value = ''; // Reset input to allow re-uploading same file
+
+    // Reset input value first to allow re-uploading same file
+    e.target.value = '';
+
+    // Check if there's existing content that would be replaced
+    const hasExistingCode = customCode.trim().length > 0 || codeSnippet.trim().length > 0;
+    const isTestInProgress = isActive && !isFinished && userInput.length > 0;
+
+    if (isTestInProgress) {
+      // Confirm before replacing during active test (uses confirmOrRun for typing protection)
+      pendingChangeRef.current = processFile;
+      setChangeTitle("Replace Current Test?");
+      setChangeDescription(`Uploading "${file.name}" will end your current test and replace the code.`);
+      setChangeConfirmLabel("Replace & Upload");
+      setShowChangeConfirm(true);
+    } else if (hasExistingCode) {
+      // Confirm before replacing existing code (show custom confirmation)
+      pendingChangeRef.current = processFile;
+      setChangeTitle("Replace Current Code?");
+      setChangeDescription(`This will replace your current code with "${file.name}".`);
+      setChangeConfirmLabel("Replace");
+      setShowChangeConfirm(true);
+    } else {
+      // No existing code, process directly
+      processFile();
+    }
   };
 
-  // Clear custom code
+  // Clear custom code with confirmation
   const clearCustomCode = () => {
-    setCustomCode("");
-    setCodeSnippet("");
-    toast({
-      title: "Code Cleared",
-      description: "Paste new code or upload a file to start.",
-    });
+    const hasContent = customCode.trim().length > 0 || codeSnippet.trim().length > 0;
+    const isTestInProgress = isActive && !isFinished && userInput.length > 0;
+
+    const performClear = () => {
+      setCustomCode("");
+      setCodeSnippet("");
+      setUserInput("");
+      setStartTime(null);
+      setIsActive(false);
+      setIsFinished(false);
+      setIsFailed(false);
+      setWpm(0);
+      setRawWpm(0);
+      setAccuracy(100);
+      setErrors(0);
+      setElapsedTime(0);
+      toast({
+        title: "Code Cleared",
+        description: "Paste new code or upload a file to start.",
+      });
+    };
+
+    // Always show confirmation if there's content (to prevent accidental data loss)
+    if (isTestInProgress || hasContent) {
+      pendingChangeRef.current = performClear;
+      setChangeTitle(isTestInProgress ? "Clear Code & End Test?" : "Clear Code?");
+      setChangeDescription(isTestInProgress
+        ? "This will end your current test and clear all code."
+        : "This will remove all code. This action cannot be undone.");
+      setChangeConfirmLabel(isTestInProgress ? "Clear All" : "Clear");
+      setShowChangeConfirm(true);
+    } else {
+      performClear();
+    }
   };
 
   // Edit loaded code (go back to input mode)
   const editLoadedCode = () => {
+    const performEdit = () => {
+      setCustomCode(codeSnippet);
+      setCodeSnippet("");
+      setUserInput("");
+      setStartTime(null);
+      setIsActive(false);
+      setIsFinished(false);
+      setIsFailed(false);
+      setWpm(0);
+      setRawWpm(0);
+      setAccuracy(100);
+      setErrors(0);
+      setElapsedTime(0);
+    };
+
     if (isActive && userInput.length > 0) {
       confirmOrRun(
         "Edit Code?",
         "Editing the code will reset your current typing progress.",
-        () => {
-          setCustomCode(codeSnippet);
-          setCodeSnippet("");
-          setUserInput("");
-          setIsActive(false);
-        },
+        performEdit,
         "Edit Code"
       );
     } else {
-      setCustomCode(codeSnippet);
-      setCodeSnippet("");
-      setUserInput("");
-      setIsActive(false);
+      performEdit();
     }
   };
 
@@ -1435,12 +1739,14 @@ export default function CodeMode() {
   }, [codeSnippet, userInput.length]);
 
   // Caret component based on style setting
+  // Uses negative left offset to prevent overlapping with narrow characters like * and /
   const renderCaret = (style: "line" | "block" | "underline") => {
     const baseClass = smoothCaret ? "animate-caret-smooth" : "animate-caret-blink";
 
     if (style === "block") {
+      // Block caret: positioned behind the character with lower z-index
       return (
-        <span className={`absolute left-0 top-0 w-[0.6em] h-[1.2em] bg-primary/30 rounded-sm ${baseClass}`} />
+        <span className={`absolute -left-[1px] top-0 w-[0.65em] h-[1.2em] bg-primary/25 rounded-sm ${baseClass} -z-10`} />
       );
     }
     if (style === "underline") {
@@ -1448,9 +1754,9 @@ export default function CodeMode() {
         <span className={`absolute left-0 bottom-0 w-[0.6em] h-[2px] bg-primary rounded-full ${baseClass} shadow-[0_0_6px_rgba(var(--primary),0.5)]`} />
       );
     }
-    // Default: line
+    // Default: line - positioned just before the character
     return (
-      <span className={`absolute left-0 top-0 w-[2px] h-[1.2em] bg-primary rounded-full ${baseClass} shadow-[0_0_8px_rgba(var(--primary),0.5)]`} />
+      <span className={`absolute -left-[1px] top-0 w-[2px] h-[1.2em] bg-primary rounded-full ${baseClass} shadow-[0_0_6px_rgba(var(--primary),0.4)]`} />
     );
   };
 
@@ -1502,17 +1808,33 @@ export default function CodeMode() {
 
         // Handle tabs
         if (char === "\t") {
+          if (isCurrent && !isFinished && !isFailed) {
+            return (
+              <span key={currentCharIndex} className={charClassName}>
+                {renderCaret(caretStyle)}
+                <span className="relative z-10">{"    "}</span>
+              </span>
+            );
+          }
           return (
             <span key={currentCharIndex} className={charClassName}>
               {"    "}
-              {isCurrent && !isFinished && !isFailed && renderCaret(caretStyle)}
+            </span>
+          );
+        }
+
+        // Render character with caret if current position
+        if (isCurrent && !isFinished && !isFailed) {
+          return (
+            <span key={currentCharIndex} className={charClassName}>
+              {renderCaret(caretStyle)}
+              <span className="relative z-10">{char}</span>
             </span>
           );
         }
 
         return (
           <span key={currentCharIndex} className={charClassName}>
-            {isCurrent && !isFinished && !isFailed && renderCaret(caretStyle)}
             {char}
           </span>
         );
@@ -1693,7 +2015,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
 
           {/* Controls Bar */}
           <Card className="p-3 sm:p-4 mb-4 sm:mb-6">
-            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:gap-4 items-stretch sm:items-center justify-center">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 sm:gap-6 items-stretch sm:items-center justify-center">
               <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
                 <div className="flex items-center gap-1">
                   <span className="text-xs sm:text-sm font-medium">Mode:</span>
@@ -1709,12 +2031,12 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <div className="flex border rounded-md overflow-hidden">
+                <div className="flex items-center gap-3">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
                         variant={mode === "ai" ? "default" : "ghost"}
-                        className="rounded-none text-xs px-3 h-8"
+                        className="text-xs px-3 h-8 border rounded-md transition-all"
                         onClick={() => {
                           if (isActive) {
                             toast({
@@ -1740,7 +2062,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     <TooltipTrigger asChild>
                       <Button
                         variant={mode === "custom" ? "default" : "ghost"}
-                        className="rounded-none text-xs px-3 h-8"
+                        className="text-xs px-3 h-8 border rounded-md transition-all"
                         onClick={() => {
                           if (isActive) {
                             toast({
@@ -1780,42 +2102,41 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Select value={language} onValueChange={(val) => {
-                  if (val === language) return;
-                  confirmOrRun(
-                    "Change Language?",
-                    `Switching from ${PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language} to ${PROGRAMMING_LANGUAGES[val as keyof typeof PROGRAMMING_LANGUAGES]?.name || val} will reset your current test and load new code.`,
-                    () => {
-                      setLanguage(val);
-                      toast({
-                        title: "Language Changed",
-                        description: `Now using ${PROGRAMMING_LANGUAGES[val as keyof typeof PROGRAMMING_LANGUAGES]?.name || val}.`,
-                      });
-                    }
-                  );
-                }} disabled={isActive || mode === "custom"}>
-                  <SelectTrigger className="w-[140px] h-8 text-xs" data-testid="select-language">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[400px]">
-                    {Object.entries(
-                      Object.entries(PROGRAMMING_LANGUAGES).reduce((acc, [key, lang]) => {
-                        if (!acc[lang.category]) acc[lang.category] = [];
-                        acc[lang.category].push({ key, ...lang });
-                        return acc;
-                      }, {} as Record<string, Array<{ key: string; name: string; prism: string; category: string }>>)
-                    ).map(([category, languages]) => (
-                      <div key={category}>
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                          {category}
-                        </div>
-                        {languages.map(({ key, name }) => (
-                          <SelectItem key={key} value={key}>{name}</SelectItem>
-                        ))}
-                      </div>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={language}
+                  onValueChange={(val) => {
+                    if (val === language) return;
+                    confirmOrRun(
+                      "Change Language?",
+                      `Switching from ${PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language} to ${PROGRAMMING_LANGUAGES[val as keyof typeof PROGRAMMING_LANGUAGES]?.name || val} will reset your current test and load new code.`,
+                      () => {
+                        setLanguage(val);
+                        toast({
+                          title: "Language Changed",
+                          description: `Now using ${PROGRAMMING_LANGUAGES[val as keyof typeof PROGRAMMING_LANGUAGES]?.name || val}.`,
+                        });
+                        // useEffect will automatically fetch new code when language changes
+                      }
+                    );
+                  }}
+                  options={Object.entries(PROGRAMMING_LANGUAGES).map(([key, lang]) => ({
+                    value: key,
+                    label: lang.name,
+                  }))}
+                  placeholder="Language"
+                  searchPlaceholder="Search languages..."
+                  emptyText="No language found."
+                  icon={<Code2 className="w-4 h-4" />}
+                  disabled={isActive || mode === "custom"}
+                  disabledTooltip={mode === "custom" ? "Custom code defines its own language" : "Cannot change during active test"}
+                  triggerClassName="w-[140px] h-8 text-xs"
+                  data-testid="select-language"
+                />
+                {mode === "custom" && (
+                  <p className="text-[10px] text-muted-foreground/70 mt-1">
+                    Language selection is disabled in custom mode. Your pasted code defines the language.
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
@@ -1837,29 +2158,38 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Select value={difficulty} onValueChange={(val) => {
-                  if (val === difficulty) return;
-                  confirmOrRun(
-                    "Change Difficulty?",
-                    `Switching from ${difficulty} to ${val} difficulty will reset your current test and load new code with different complexity.`,
-                    () => {
-                      setDifficulty(val as any);
-                      toast({
-                        title: "Difficulty Changed",
-                        description: `Now using ${val} difficulty level.`,
-                      });
-                    }
-                  );
-                }} disabled={isActive || mode === "custom"}>
-                  <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-difficulty">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DIFFICULTIES.map(({ value, label }) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={difficulty}
+                  onValueChange={(val) => {
+                    if (val === difficulty) return;
+                    confirmOrRun(
+                      "Change Difficulty?",
+                      `Switching from ${difficulty} to ${val} difficulty will reset your current test and load new code with different complexity.`,
+                      () => {
+                        setDifficulty(val as "easy" | "medium" | "hard");
+                        toast({
+                          title: "Difficulty Changed",
+                          description: `Now using ${val} difficulty level.`,
+                        });
+                        // useEffect will automatically fetch new code when difficulty changes
+                      }
+                    );
+                  }}
+                  options={DIFFICULTIES.map(({ value, label }) => ({ value, label }))}
+                  placeholder="Difficulty"
+                  searchPlaceholder="Search..."
+                  emptyText="No difficulty found."
+                  icon={<Target className="w-4 h-4" />}
+                  disabled={isActive || mode === "custom"}
+                  disabledTooltip={mode === "custom" ? "Custom code uses your code's complexity" : "Cannot change during active test"}
+                  triggerClassName="w-[100px] h-8 text-xs"
+                  data-testid="select-difficulty"
+                />
+                {mode === "custom" && (
+                  <p className="text-[10px] text-muted-foreground/70 mt-1">
+                    Difficulty is AI-only. Custom mode uses the complexity of your code.
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
@@ -1881,29 +2211,38 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Select value={testMode} onValueChange={(val) => {
-                  if (val === testMode) return;
-                  confirmOrRun(
-                    "Change Test Mode?",
-                    `Switching from ${testMode} to ${val} mode will reset your current test. Different modes have different error tolerance rules.`,
-                    () => {
-                      setTestMode(val as any);
-                      toast({
-                        title: "Test Mode Changed",
-                        description: `Now using ${val} mode.`,
-                      });
-                    }
-                  );
-                }} disabled={isActive}>
-                  <SelectTrigger className="w-[100px] h-8 text-xs" data-testid="select-test-mode">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TEST_MODES.map(({ value, label }) => (
-                      <SelectItem key={value} value={value}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={testMode}
+                  onValueChange={(val) => {
+                    if (val === testMode) return;
+                    confirmOrRun(
+                      "Change Test Mode?",
+                      `Switching from ${testMode} to ${val} mode will reset your current test. Different modes have different error tolerance rules.`,
+                      () => {
+                        setTestMode(val as "normal" | "expert" | "master");
+                        toast({
+                          title: "Test Mode Changed",
+                          description: `Now using ${val} mode.`,
+                        });
+                        // useEffect will automatically fetch new code when test mode changes
+                      }
+                    );
+                  }}
+                  options={TEST_MODES.map(({ value, label }) => ({ value, label }))}
+                  placeholder="Mode"
+                  searchPlaceholder="Search..."
+                  emptyText="No mode found."
+                  icon={<Gauge className="w-4 h-4" />}
+                  disabled={isActive || mode === "custom"}
+                  disabledTooltip={mode === "custom" ? "Expert/Master modes are AI-only challenges" : "Cannot change during active test"}
+                  triggerClassName="w-[110px] h-8 text-xs px-2"
+                  data-testid="select-test-mode"
+                />
+                {mode === "custom" && (
+                  <p className="text-[10px] text-muted-foreground/70 mt-1">
+                    Test modes are for AI snippets. Custom mode runs in Normal for consistency.
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
@@ -1921,30 +2260,45 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <Select value={timeLimit.toString()} onValueChange={(val) => {
-                  const newTimeLimit = parseInt(val);
-                  if (newTimeLimit === timeLimit) return;
-                  confirmOrRun(
-                    "Change Time Limit?",
-                    `Switching from ${timeLimit === 0 ? "No Limit" : `${timeLimit}s`} to ${newTimeLimit === 0 ? "No Limit" : `${newTimeLimit}s`} will reset your current test.`,
-                    () => {
-                      setTimeLimit(newTimeLimit);
-                      toast({
-                        title: "Time Limit Changed",
-                        description: `Now using ${newTimeLimit === 0 ? "No Limit" : `${newTimeLimit} seconds`}.`,
-                      });
-                    }
-                  );
-                }} disabled={isActive}>
-                  <SelectTrigger className="w-[90px] h-8 text-xs" data-testid="select-time">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[200px]">
-                    {TIME_OPTIONS.map(({ value, label }) => (
-                      <SelectItem key={value} value={value.toString()}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  value={timeLimit.toString()}
+                  onValueChange={(val) => {
+                    const newTimeLimit = parseInt(val);
+                    if (newTimeLimit === timeLimit) return;
+                    confirmOrRun(
+                      "Change Time Limit?",
+                      `Switching from ${timeLimit === 0 ? "No Limit" : `${timeLimit}s`} to ${newTimeLimit === 0 ? "No Limit" : `${newTimeLimit}s`} will reset your current test.`,
+                      () => {
+                        setTimeLimit(newTimeLimit);
+                        // Reset test state (keep same code snippet for time changes)
+                        setUserInput("");
+                        setStartTime(null);
+                        startTimeRef.current = null;
+                        setIsActive(false);
+                        setIsFinished(false);
+                        setIsFailed(false);
+                        setWpm(0);
+                        setRawWpm(0);
+                        setAccuracy(100);
+                        setErrors(0);
+                        setElapsedTime(0);
+                        toast({
+                          title: "Time Limit Changed",
+                          description: `Now using ${newTimeLimit === 0 ? "No Limit" : `${newTimeLimit} seconds`}.`,
+                        });
+                      }
+                    );
+                  }}
+                  options={TIME_OPTIONS.map(({ value, label }) => ({ value: value.toString(), label }))}
+                  placeholder="Time"
+                  searchPlaceholder="Search..."
+                  emptyText="No time option found."
+                  icon={<Timer className="w-4 h-4" />}
+                  disabled={isActive}
+                  disabledTooltip="Cannot change during active test"
+                  triggerClassName="w-[100px] h-8 text-xs px-2"
+                  data-testid="select-time"
+                />
               </div>
 
 
@@ -1952,29 +2306,43 @@ Understanding your baseline code typing speed can help identify opportunities fo
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="default" // Changed to default for emphasis on "New" action
+                    variant="default"
                     size="sm"
                     onClick={() => {
-                      if (isActive && !isFinished && userInput.length > 0) {
-                        confirmOrRun(
-                          "New Code?",
-                          "This will discard your current progress and load new code.",
-                          () => resetTest(false),
-                          "New Code"
-                        );
+                      if (mode === "ai") {
+                        // AI mode: reset test and fetch new code
+                        if (isActive && !isFinished && userInput.length > 0) {
+                          confirmOrRun(
+                            "New Code?",
+                            "This will discard your current progress and load new code.",
+                            () => resetTest(false), // false = fetch new snippet
+                            "New Code"
+                          );
+                        } else {
+                          resetTest(false); // Reset all state and fetch new code
+                        }
                       } else {
-                        resetTest(false);
+                        // Custom mode: reset test with same custom code
+                        if (isActive && !isFinished && userInput.length > 0) {
+                          confirmOrRun(
+                            "Reset Test?",
+                            "This will restart the test with the same custom code.",
+                            () => resetTest(true),
+                            "Reset"
+                          );
+                        } else {
+                          resetTest(true);
+                        }
                       }
                     }}
                     disabled={isLoading}
                     data-testid="button-new-snippet"
                   >
-
-                    {mode === "ai" ? "New Code" : "New Test"}
+                    {mode === "ai" ? "New Code" : "Restart"}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Load new code (Tab)</p>
+                  <p>{mode === "ai" ? "Load new code (Tab)" : "Restart with same code (Tab)"}</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -2236,7 +2604,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                             {isLoading ? (
                               <div className="w-3.5 h-3.5 border-2 border-background/30 border-t-background rounded-full animate-spin" />
                             ) : (
-                              <Zap className="w-3.5 h-3.5" />
+                              <Send className="w-3.5 h-3.5" />
                             )}
                           </Button>
                         </TooltipTrigger>
@@ -2323,19 +2691,25 @@ Understanding your baseline code typing speed can help identify opportunities fo
                       </TooltipContent>
                     </Tooltip>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     {/* File Upload Button */}
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <label className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-muted/50 hover:bg-muted border border-border/50 hover:border-primary/30 rounded-md transition-all">
-                          <Upload className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">Upload File</span>
+                        <label className={`cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-muted/50 hover:bg-muted border border-border/50 hover:border-primary/30 rounded-md transition-all ${isFileReading ? 'opacity-50 cursor-wait' : ''}`}>
+                          {isFileReading ? (
+                            <div className="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                          ) : (
+                            <Upload className="w-3.5 h-3.5" />
+                          )}
+                          <span className="hidden sm:inline">{isFileReading ? 'Reading...' : 'Upload File'}</span>
                           <input
+                            ref={fileInputRef}
                             type="file"
-                            accept=".js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.h,.cs,.go,.rs,.rb,.php,.html,.css,.scss,.sql,.sh,.bash,.json,.yaml,.yml,.xml,.md,.txt"
+                            accept=".js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.h,.cs,.go,.rs,.rb,.php,.html,.css,.scss,.sql,.sh,.bash,.json,.yaml,.yml,.xml,.md,.txt,.swift,.kt,.scala,.r,.m,.lua,.pl,.hs"
                             onChange={handleFileUpload}
                             className="hidden"
+                            disabled={isFileReading}
                             data-testid="input-file-upload"
                           />
                         </label>
@@ -2344,7 +2718,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                         <p className="text-xs">Upload a code file (max 100KB)</p>
                       </TooltipContent>
                     </Tooltip>
-                    
+
                     {/* Clear Button - only show if there's content */}
                     {customCode.length > 0 && (
                       <Tooltip>
@@ -2365,52 +2739,83 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     )}
                   </div>
                 </div>
-                
+
                 {/* Textarea with character count */}
                 <div className="relative">
                   <textarea
                     value={customCode}
                     onChange={(e) => {
-                      // Limit input to max length + some buffer for UX
-                      if (e.target.value.length <= CUSTOM_CODE_LIMITS.MAX_LENGTH + 1000) {
-                        setCustomCode(e.target.value);
+                      const newValue = e.target.value;
+
+                      // Limit input to max length + buffer for UX
+                      if (newValue.length > CUSTOM_CODE_LIMITS.MAX_LENGTH + 1000) {
+                        toast({
+                          title: "Content Too Long",
+                          description: `Maximum ${(CUSTOM_CODE_LIMITS.MAX_LENGTH / 1024).toFixed(0)}KB allowed.`,
+                          variant: "destructive",
+                        });
+                        return;
                       }
+
+                      // Detect binary content on large pastes (more than 100 chars added)
+                      const charsDiff = newValue.length - customCode.length;
+                      if (charsDiff > 100) {
+                        const nullByteCount = (newValue.match(/\x00/g) || []).length;
+                        const nonPrintableCount = (newValue.match(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g) || []).length;
+                        if (nullByteCount > 0 || nonPrintableCount > newValue.length * 0.05) {
+                          toast({
+                            title: "Binary Content Detected",
+                            description: "Please paste text-based code only.",
+                            variant: "destructive",
+                          });
+                          return;
+                        }
+                      }
+
+                      setCustomCode(newValue);
                     }}
-                    className={`w-full h-40 sm:h-48 p-3 bg-background border rounded-lg font-mono text-xs sm:text-sm resize-none focus:outline-none focus:ring-2 transition-colors ${
-                      customCode.length > CUSTOM_CODE_LIMITS.MAX_LENGTH 
-                        ? 'border-destructive focus:ring-destructive/50' 
-                        : customCode.length > CUSTOM_CODE_LIMITS.WARN_LENGTH 
-                          ? 'border-yellow-500 focus:ring-yellow-500/50' 
-                          : 'focus:ring-primary'
-                    }`}
+                    className={`w-full h-40 sm:h-48 p-3 bg-background border rounded-lg font-mono text-xs sm:text-sm resize-none focus:outline-none focus:ring-2 transition-colors ${customCode.length > CUSTOM_CODE_LIMITS.MAX_LENGTH
+                      ? 'border-destructive focus:ring-destructive/50'
+                      : customCode.length > CUSTOM_CODE_LIMITS.WARN_LENGTH
+                        ? 'border-yellow-500 focus:ring-yellow-500/50'
+                        : 'focus:ring-primary'
+                      }`}
                     placeholder="// Paste your code here...&#10;&#10;function example() {&#10;  console.log('Hello, World!');&#10;}&#10;&#10;// Or upload a code file using the button above"
                     spellCheck={false}
                     autoComplete="off"
+                    disabled={isFileReading}
                     autoCorrect="off"
                     autoCapitalize="off"
                     data-testid="textarea-custom-code"
                   />
-                  
+
                   {/* Character count and stats overlay */}
-                  <div className="absolute bottom-2 right-2 flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md border border-border/30">
-                    {customCode.length > 0 && (
-                      <>
-                        <span>{customCode.split('\n').length} lines</span>
-                        <span className="text-muted-foreground/50">•</span>
-                      </>
-                    )}
-                    <span className={
-                      customCode.length > CUSTOM_CODE_LIMITS.MAX_LENGTH 
-                        ? 'text-destructive font-medium' 
-                        : customCode.length > CUSTOM_CODE_LIMITS.WARN_LENGTH 
-                          ? 'text-yellow-500' 
-                          : ''
-                    }>
-                      {customCode.length.toLocaleString()} / {CUSTOM_CODE_LIMITS.MAX_LENGTH.toLocaleString()}
-                    </span>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="absolute bottom-2 right-6 flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md border border-border/30 cursor-help">
+                        {customCode.length > 0 && (
+                          <>
+                            <span>{customCode.split('\n').length} lines</span>
+                            <span className="text-muted-foreground/50">•</span>
+                          </>
+                        )}
+                        <span className={
+                          customCode.length > CUSTOM_CODE_LIMITS.MAX_LENGTH
+                            ? 'text-destructive font-medium'
+                            : customCode.length > CUSTOM_CODE_LIMITS.WARN_LENGTH
+                              ? 'text-yellow-500'
+                              : ''
+                        }>
+                          {customCode.length.toLocaleString()} / {CUSTOM_CODE_LIMITS.MAX_LENGTH.toLocaleString()}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                      <p className="text-xs">Current characters / Limit</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-                
+
                 {/* Validation warnings/errors */}
                 {customCode.length > 0 && (
                   <>
@@ -2434,13 +2839,13 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     )}
                   </>
                 )}
-                
+
                 {/* Action buttons */}
                 <div className="flex items-center gap-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button 
-                        onClick={applyCustomCode} 
+                      <Button
+                        onClick={applyCustomCode}
                         disabled={customCode.trim().length < CUSTOM_CODE_LIMITS.MIN_LENGTH || customCode.length > CUSTOM_CODE_LIMITS.MAX_LENGTH}
                         className="gap-2"
                         data-testid="button-apply-custom"
@@ -2453,7 +2858,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                       <p className="text-xs">Load your code and begin the typing test</p>
                     </TooltipContent>
                   </Tooltip>
-                  
+
                   {customCode.length > 0 && (
                     <span className="text-xs text-muted-foreground">
                       Ready: {customCode.split('\n').length} lines, {customCode.trim().length.toLocaleString()} chars
@@ -2462,7 +2867,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                 </div>
               </div>
             )}
-            
+
             {/* Show edit button when code is loaded in custom mode */}
             {mode === "custom" && codeSnippet && !isActive && (
               <div className="mt-3 flex items-center justify-center gap-2">
@@ -2635,9 +3040,16 @@ Understanding your baseline code typing speed can help identify opportunities fo
             {/* Code editor header bar */}
             <div className="flex items-center justify-between px-2 sm:px-4 py-1.5 sm:py-2 border-b border-border/20 bg-card/40">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md bg-muted/50">
-                  <Terminal className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-primary/70" />
-                </div>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md bg-muted/50 cursor-help">
+                      <Terminal className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-primary/70" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">Current Language</p>
+                  </TooltipContent>
+                </Tooltip>
                 <span className="text-[10px] sm:text-xs text-muted-foreground/60 font-mono">
                   {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language}
                   {!isLoading && codeSnippet && (
@@ -2786,7 +3198,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                         Auto-retrying... (Attempt {retryCount + 1}/{MAX_RETRIES})
                       </p>
                     )}
-                    {errorState.canRetry && (
+                    {errorState.canRetry && mode === "ai" && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -2807,8 +3219,14 @@ Understanding your baseline code typing speed can help identify opportunities fo
                   </div>
                 </div>
               ) : mode === "custom" ? (
-                <div className="flex items-center justify-center h-64 text-muted-foreground">
-                  Select "Custom Code" mode and paste your code above
+                <div className="flex flex-col items-center justify-center h-64 gap-3 text-center px-4">
+                  <FileCode className="w-12 h-12 text-muted-foreground/30" />
+                  <div className="text-muted-foreground">
+                    Paste your code above or upload a file to start practicing
+                  </div>
+                  <p className="text-xs text-muted-foreground/60">
+                    Supports any programming language
+                  </p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 gap-4">
@@ -2892,13 +3310,20 @@ Understanding your baseline code typing speed can help identify opportunities fo
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-cyan-500 animate-gradient" />
 
                   {/* Close button */}
-                  <button
-                    onClick={() => setCompletionDialogOpen(false)}
-                    className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-muted transition-colors"
-                    aria-label="Close"
-                  >
-                    <X className="w-4 h-4 text-muted-foreground" />
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setCompletionDialogOpen(false)}
+                        className="absolute top-3 right-3 p-1.5 rounded-full hover:bg-muted transition-colors"
+                        aria-label="Close"
+                      >
+                        <X className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Close Results</p>
+                    </TooltipContent>
+                  </Tooltip>
 
                   <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-center">Test Complete!</h2>
                   <p className="text-center text-muted-foreground text-sm mb-6">
@@ -2996,14 +3421,23 @@ Understanding your baseline code typing speed can help identify opportunities fo
                       <button
                         onClick={() => {
                           setCompletionDialogOpen(false);
-                          fetchCodeSnippet(true);
+                          if (mode === "ai") {
+                            resetTest(false); // Reset all state and fetch new code
+                          } else {
+                            // In custom mode, reset with same code
+                            resetTest(true);
+                          }
                         }}
                         disabled={isLoading}
                         className="flex-1 py-2.5 sm:py-3 bg-primary text-primary-foreground text-sm sm:text-base font-bold rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 sm:gap-2 disabled:opacity-50"
                         data-testid="button-new-snippet"
                       >
                         <Zap className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
-                        <span className="hidden xs:inline">New</span> Snippet
+                        {mode === "ai" ? (
+                          <><span className="hidden xs:inline">New</span> Snippet</>
+                        ) : (
+                          <>Try Again</>
+                        )}
                       </button>
                       <button
                         onClick={() => {
@@ -3118,19 +3552,26 @@ Understanding your baseline code typing speed can help identify opportunities fo
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      const rating = getCodePerformanceRating(wpm, accuracy);
-                      const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
-                      const text = `${rating.emoji} Code Typing: ${wpm} WPM!\n\n💻 Language: ${langName}\n⚡ Speed: ${wpm} Words Per Minute\n✨ Accuracy: ${accuracy}%\n🏆 Level: ${rating.title}\n🎯 Badge: ${rating.badge}\n📊 Difficulty: ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}\n\nCan you code faster? Take the challenge! 🚀\n\n👉 https://typemasterai.com/code-mode\n\n#CodeTyping #TypeMasterAI #Developer #WPM`;
-                      navigator.clipboard.writeText(text);
-                      toast({ title: "Message Copied!", description: "Share message copied to clipboard" });
-                    }}
-                    className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
-                    data-testid="button-copy-message"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => {
+                          const rating = getCodePerformanceRating(wpm, accuracy);
+                          const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
+                          const text = `${rating.emoji} Code Typing: ${wpm} WPM!\n\n💻 Language: ${langName}\n⚡ Speed: ${wpm} Words Per Minute\n✨ Accuracy: ${accuracy}%\n🏆 Level: ${rating.title}\n🎯 Badge: ${rating.badge}\n📊 Difficulty: ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}\n\nCan you code faster? Take the challenge! 🚀\n\n👉 https://typemasterai.com/code-mode\n\n#CodeTyping #TypeMasterAI #Developer #WPM`;
+                          navigator.clipboard.writeText(text);
+                          toast({ title: "Message Copied!", description: "Share message copied to clipboard" });
+                        }}
+                        className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
+                        data-testid="button-copy-message"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Copy Share Message</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
 
                 {/* Quick Share Buttons */}
@@ -3139,56 +3580,98 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     Click to Share
                   </p>
                   <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-                    <button
-                      onClick={() => shareToSocial('twitter')}
-                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all group"
-                      data-testid="button-share-twitter"
-                    >
-                      <Twitter className="w-4 h-4 text-[#1DA1F2]" />
-                      <span className="text-xs font-medium">X (Twitter)</span>
-                    </button>
-                    <button
-                      onClick={() => shareToSocial('facebook')}
-                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all group"
-                      data-testid="button-share-facebook"
-                    >
-                      <Facebook className="w-4 h-4 text-[#1877F2]" />
-                      <span className="text-xs font-medium">Facebook</span>
-                    </button>
-                    <button
-                      onClick={() => shareToSocial('linkedin')}
-                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all group"
-                      data-testid="button-share-linkedin"
-                    >
-                      <Linkedin className="w-4 h-4 text-[#0A66C2]" />
-                      <span className="text-xs font-medium">LinkedIn</span>
-                    </button>
-                    <button
-                      onClick={() => shareToSocial('whatsapp')}
-                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all group"
-                      data-testid="button-share-whatsapp"
-                    >
-                      <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                      <span className="text-xs font-medium">WhatsApp</span>
-                    </button>
-                    <button
-                      onClick={() => shareToSocial('discord')}
-                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#5865F2]/10 hover:bg-[#5865F2]/25 border border-[#5865F2]/20 transition-all group"
-                      data-testid="button-share-discord"
-                    >
-                      <svg className="w-4 h-4 text-[#5865F2]" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
-                      </svg>
-                      <span className="text-xs font-medium">Discord</span>
-                    </button>
-                    <button
-                      onClick={() => shareToSocial('telegram')}
-                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 transition-all group"
-                      data-testid="button-share-telegram"
-                    >
-                      <Send className="w-4 h-4 text-[#0088cc]" />
-                      <span className="text-xs font-medium">Telegram</span>
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial('twitter')}
+                          className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all group"
+                          data-testid="button-share-twitter"
+                        >
+                          <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                          <span className="text-xs font-medium">X (Twitter)</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Share on X</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial('facebook')}
+                          className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all group"
+                          data-testid="button-share-facebook"
+                        >
+                          <Facebook className="w-4 h-4 text-[#1877F2]" />
+                          <span className="text-xs font-medium">Facebook</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Share on Facebook</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial('linkedin')}
+                          className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all group"
+                          data-testid="button-share-linkedin"
+                        >
+                          <Linkedin className="w-4 h-4 text-[#0A66C2]" />
+                          <span className="text-xs font-medium">LinkedIn</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Share on LinkedIn</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial('whatsapp')}
+                          className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all group"
+                          data-testid="button-share-whatsapp"
+                        >
+                          <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                          <span className="text-xs font-medium">WhatsApp</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Share on WhatsApp</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial('discord')}
+                          className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#5865F2]/10 hover:bg-[#5865F2]/25 border border-[#5865F2]/20 transition-all group"
+                          data-testid="button-share-discord"
+                        >
+                          <svg className="w-4 h-4 text-[#5865F2]" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+                          </svg>
+                          <span className="text-xs font-medium">Discord</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Share on Discord</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => shareToSocial('telegram')}
+                          className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 transition-all group"
+                          data-testid="button-share-telegram"
+                        >
+                          <Send className="w-4 h-4 text-[#0088cc]" />
+                          <span className="text-xs font-medium">Telegram</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Share on Telegram</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
 
@@ -3320,18 +3803,25 @@ Understanding your baseline code typing speed can help identify opportunities fo
                       readOnly
                       className="flex-1 font-mono text-sm"
                     />
-                    <Button
-                      onClick={() => {
-                        const url = shareUrl || `${window.location.origin}/code-mode?challenge=${wpm}`;
-                        navigator.clipboard.writeText(url);
-                        toast({ title: "Challenge Link Copied!", description: "Send it to your friends!" });
-                      }}
-                      variant="outline"
-                      size="icon"
-                      data-testid="button-copy-challenge-link"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => {
+                            const url = shareUrl || `${window.location.origin}/code-mode?challenge=${wpm}`;
+                            navigator.clipboard.writeText(url);
+                            toast({ title: "Challenge Link Copied!", description: "Send it to your friends!" });
+                          }}
+                          variant="outline"
+                          size="icon"
+                          data-testid="button-copy-challenge-link"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Copy Challenge Link</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
 
@@ -3348,48 +3838,69 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     <p className="text-muted-foreground">Think you can code faster? Prove it! 💻⚡</p>
                     <p className="text-primary/80 text-xs mt-3">👉 https://typemasterai.com/code-mode</p>
                   </div>
-                  <button
-                    onClick={() => {
-                      const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
-                      const text = `🔥 I challenge you to beat my score!\n\nI just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy!\n\nThink you can code faster? Prove it! 💻⚡\n\n👉 https://typemasterai.com/code-mode`;
-                      navigator.clipboard.writeText(text);
-                      toast({ title: "Challenge Copied!", description: "Now send it to your friends!" });
-                    }}
-                    className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
-                    data-testid="button-copy-challenge-message"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => {
+                          const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
+                          const text = `🔥 I challenge you to beat my score!\n\nI just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy!\n\nThink you can code faster? Prove it! 💻⚡\n\n👉 https://typemasterai.com/code-mode`;
+                          navigator.clipboard.writeText(text);
+                          toast({ title: "Challenge Copied!", description: "Now send it to your friends!" });
+                        }}
+                        className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
+                        data-testid="button-copy-challenge-message"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Copy Challenge Message</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
 
                 {/* Quick Challenge Share */}
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => {
-                      const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
-                      const text = `🔥 I challenge you! I just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy on @TypeMasterAI! Can you beat me? 💻⚡`;
-                      const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent('https://typemasterai.com/code-mode')}`;
-                      window.open(url, '_blank');
-                    }}
-                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all"
-                    data-testid="button-challenge-twitter"
-                  >
-                    <Twitter className="w-4 h-4 text-[#1DA1F2]" />
-                    <span className="text-sm font-medium">Challenge on X</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
-                      const text = `🔥 I challenge you! I just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy! Can you beat me? 💻⚡ https://typemasterai.com/code-mode`;
-                      const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
-                      window.open(url, '_blank');
-                    }}
-                    className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"
-                    data-testid="button-challenge-whatsapp"
-                  >
-                    <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                    <span className="text-sm font-medium">Challenge on WhatsApp</span>
-                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => {
+                          const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
+                          const text = `🔥 I challenge you! I just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy on @TypeMasterAI! Can you beat me? 💻⚡`;
+                          const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent('https://typemasterai.com/code-mode')}`;
+                          window.open(url, '_blank');
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all"
+                        data-testid="button-challenge-twitter"
+                      >
+                        <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                        <span className="text-sm font-medium">Challenge on X</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Challenge on X</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => {
+                          const langName = PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name || language;
+                          const text = `🔥 I challenge you! I just typed ${langName} code at ${wpm} WPM with ${accuracy}% accuracy! Can you beat me? 💻⚡ https://typemasterai.com/code-mode`;
+                          const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+                          window.open(url, '_blank');
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"
+                        data-testid="button-challenge-whatsapp"
+                      >
+                        <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                        <span className="text-sm font-medium">Challenge on WhatsApp</span>
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Challenge on WhatsApp</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
 
                 {'share' in navigator && (
