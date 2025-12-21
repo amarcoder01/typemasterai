@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film, Zap, LogOut, Lock, ExternalLink } from "lucide-react";
+import { Trophy, Copy, Check, Loader2, Home, RotateCcw, ArrowLeft, WifiOff, RefreshCw, Info, Gauge, Target, Bot, User, Users, Share2, Play, Flag, AlertTriangle, Wifi, XCircle, Timer, Sparkles, MessageCircle, Send, TrendingUp, TrendingDown, Award, Eye, Film, Zap, LogOut, Lock, ExternalLink, Twitter, Facebook, Linkedin, Mail } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { RaceCertificate } from "@/components/RaceCertificate";
+import { getTypingPerformanceRating } from "@/lib/share-utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Error types for better error handling
@@ -884,6 +885,9 @@ export default function RacePage() {
   } | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [showCertificate, setShowCertificate] = useState(false);
+  const [certificateImageCopied, setCertificateImageCopied] = useState(false);
+  const [isSharingCertificate, setIsSharingCertificate] = useState(false);
   const [lastResultSnapshot, setLastResultSnapshot] = useState<{
     wpm: number;
     accuracy: number;
@@ -2911,20 +2915,297 @@ export default function RacePage() {
                   </Tooltip>
                 </TabsList>
                 
-                <TabsContent value="certificate" className="mt-4">
-                  <RaceCertificate
-                    wpm={lastResultSnapshot.wpm}
-                    accuracy={lastResultSnapshot.accuracy}
-                    consistency={lastResultSnapshot.consistency}
-                    placement={lastResultSnapshot.placement}
-                    totalParticipants={lastResultSnapshot.totalParticipants}
-                    characters={lastResultSnapshot.characters}
-                    errors={lastResultSnapshot.errors}
-                    duration={lastResultSnapshot.duration}
-                    username={user?.username}
-                    raceId={race?.id?.toString()}
-                  />
+                <TabsContent value="certificate" className="space-y-4">
+                  <div className="text-center space-y-2 mb-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/30 mb-2">
+                      <Award className="w-8 h-8 text-yellow-400" />
+                    </div>
+                    <h3 className="text-lg font-bold">Share Your Certificate</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Show off your official Race Typing Certificate - #{lastResultSnapshot.placement} of {lastResultSnapshot.totalParticipants}!
+                    </p>
+                  </div>
+
+                  {/* Certificate Stats Preview */}
+                  <div className="p-4 bg-gradient-to-br from-yellow-500/10 via-orange-500/10 to-purple-500/10 rounded-xl border border-yellow-500/20">
+                    <div className="grid grid-cols-2 gap-3 text-center">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Typing Speed</p>
+                        <p className="text-2xl font-bold text-primary">{lastResultSnapshot.wpm} WPM</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
+                        <p className="text-2xl font-bold text-green-400">{lastResultSnapshot.accuracy}%</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Placement</p>
+                        <p className="text-sm font-bold text-yellow-400">#{lastResultSnapshot.placement} of {lastResultSnapshot.totalParticipants}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Performance</p>
+                        <p className="text-sm font-bold">{getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy).badge}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Hidden pre-rendered certificate for sharing */}
+                  <div className="absolute -z-50 w-0 h-0 overflow-hidden opacity-0 pointer-events-none" aria-hidden="true">
+                    <RaceCertificate
+                      wpm={lastResultSnapshot.wpm}
+                      accuracy={lastResultSnapshot.accuracy}
+                      consistency={lastResultSnapshot.consistency}
+                      placement={lastResultSnapshot.placement}
+                      totalParticipants={lastResultSnapshot.totalParticipants}
+                      characters={lastResultSnapshot.characters}
+                      errors={lastResultSnapshot.errors}
+                      duration={lastResultSnapshot.duration}
+                      username={user?.username}
+                      raceId={race?.id?.toString()}
+                    />
+                  </div>
+
+                  {/* View & Share Certificate Buttons */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setShowCertificate(true)}
+                      className="py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25"
+                    >
+                      <Award className="w-5 h-5" />
+                      View Certificate
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const certCanvas = document.querySelector('[data-testid="certificate-canvas"]') as HTMLCanvasElement;
+                        if (!certCanvas) {
+                          toast({ title: "Certificate not ready", description: "Please try again.", variant: "destructive" });
+                          return;
+                        }
+                        try {
+                          const blob = await new Promise<Blob>((resolve, reject) => {
+                            certCanvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Failed")), "image/png");
+                          });
+                          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+                          setCertificateImageCopied(true);
+                          setTimeout(() => setCertificateImageCopied(false), 2000);
+                          toast({ title: "Certificate Copied!", description: "Paste directly into Twitter, Discord, or LinkedIn!" });
+                        } catch {
+                          toast({ title: "Copy Failed", description: "Please download instead.", variant: "destructive" });
+                        }
+                      }}
+                      className="py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-green-500/25"
+                    >
+                      {certificateImageCopied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                      {certificateImageCopied ? "Copied!" : "Copy Image"}
+                    </button>
+                  </div>
+
+                  {/* Share Certificate with Image Button */}
+                  {'share' in navigator && (
+                    <button
+                      onClick={async () => {
+                        const certCanvas = document.querySelector('[data-testid="certificate-canvas"]') as HTMLCanvasElement;
+                        if (!certCanvas) {
+                          toast({ title: "Certificate not ready", description: "Please try again.", variant: "destructive" });
+                          return;
+                        }
+                        setIsSharingCertificate(true);
+                        try {
+                          const blob = await new Promise<Blob>((resolve, reject) => {
+                            certCanvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Failed")), "image/png");
+                          });
+                          const file = new File([blob], `TypeMasterAI_Race_Certificate_${lastResultSnapshot.wpm}WPM.png`, { type: "image/png" });
+                          if (navigator.canShare?.({ files: [file] })) {
+                            const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
+                            await navigator.share({
+                              title: `TypeMasterAI Race Certificate - ${lastResultSnapshot.wpm} WPM`,
+                              text: `🏆 I finished #${lastResultSnapshot.placement} of ${lastResultSnapshot.totalParticipants} in a TypeMasterAI Race!\n\n⚡ ${lastResultSnapshot.wpm} WPM | ✨ ${lastResultSnapshot.accuracy}% Accuracy\n🎖️ ${rating.badge} Badge\n\n🔗 typemasterai.com/race`,
+                              files: [file],
+                            });
+                            toast({ title: "Certificate Shared!", description: "Your achievement is on its way!" });
+                          }
+                        } catch (error: any) {
+                          if (error.name !== 'AbortError') {
+                            toast({ title: "Share failed", description: "Please try Copy Image instead.", variant: "destructive" });
+                          }
+                        } finally {
+                          setIsSharingCertificate(false);
+                        }
+                      }}
+                      disabled={isSharingCertificate}
+                      className="w-full py-4 bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Share2 className="w-5 h-5" />
+                      {isSharingCertificate ? "Preparing..." : "Share Certificate with Image"}
+                    </button>
+                  )}
+
+                  {/* Certificate Share Message Preview */}
+                  <div className="relative">
+                    <div className="absolute -top-2 left-3 px-2 bg-background text-xs font-medium text-muted-foreground">
+                      Certificate Share Message
+                    </div>
+                    <div className="p-4 bg-gradient-to-br from-slate-900/50 to-slate-800/50 rounded-xl border border-yellow-500/20 text-sm leading-relaxed">
+                      <div className="space-y-2">
+                        <p className="text-base font-medium">
+                          🏆 <span className="text-yellow-400 font-bold">RACE CERTIFIED: #{lastResultSnapshot.placement} Place!</span>
+                        </p>
+                        <p className="text-muted-foreground">
+                          ⚡ Speed: <span className="text-foreground font-semibold">{lastResultSnapshot.wpm} WPM</span>
+                        </p>
+                        <p className="text-muted-foreground">
+                          ✨ Accuracy: <span className="text-foreground font-semibold">{lastResultSnapshot.accuracy}%</span>
+                        </p>
+                        <p className="text-muted-foreground">
+                          🎖️ Result: <span className="text-foreground font-semibold">#{lastResultSnapshot.placement} of {lastResultSnapshot.totalParticipants}</span>
+                        </p>
+                        <p className="text-muted-foreground">
+                          🏆 Level: <span className="text-yellow-400 font-semibold">{getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy).title}</span>
+                        </p>
+                        <p className="text-primary/80 text-xs mt-3 font-medium">
+                          Official race certificate earned! 🏎️
+                        </p>
+                        <p className="text-xs text-primary mt-2 font-medium">
+                          🔗 https://typemasterai.com/race
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
+                        const text = `🏆 Just earned my TypeMasterAI Race Certificate! #${lastResultSnapshot.placement} of ${lastResultSnapshot.totalParticipants} 🏎️
+
+⚡ ${lastResultSnapshot.wpm} WPM | ✨ ${lastResultSnapshot.accuracy}% Accuracy
+🎖️ ${rating.title}
+
+🔗 https://typemasterai.com/race
+
+#TypeMasterAI #TypingRace`;
+                        navigator.clipboard.writeText(text);
+                        toast({ title: "Certificate Message Copied!", description: "Paste into your social media post" });
+                      }}
+                      className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
+                  </div>
+
+                  {/* Certificate Social Share Buttons */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium text-center text-muted-foreground uppercase tracking-wide">
+                      Share Certificate On
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => {
+                          const text = encodeURIComponent(`🏆 Just earned my TypeMasterAI Race Certificate! #${lastResultSnapshot.placement} of ${lastResultSnapshot.totalParticipants} with ${lastResultSnapshot.wpm} WPM! 🏎️
+
+#TypeMasterAI #TypingRace`);
+                          window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent('https://typemasterai.com/race')}`, '_blank', 'width=600,height=400');
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all"
+                      >
+                        <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                        <span className="text-xs font-medium">X (Twitter)</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const text = encodeURIComponent(`🏆 I just earned my official TypeMasterAI Race Certificate!
+
+Finished #${lastResultSnapshot.placement} of ${lastResultSnapshot.totalParticipants} with ${lastResultSnapshot.wpm} WPM and ${lastResultSnapshot.accuracy}% accuracy! 🏎️`);
+                          window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://typemasterai.com/race')}&quote=${text}`, '_blank', 'width=600,height=400');
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all"
+                      >
+                        <Facebook className="w-4 h-4 text-[#1877F2]" />
+                        <span className="text-xs font-medium">Facebook</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://typemasterai.com/race')}`, '_blank', 'width=600,height=400');
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all"
+                      >
+                        <Linkedin className="w-4 h-4 text-[#0A66C2]" />
+                        <span className="text-xs font-medium">LinkedIn</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
+                          const waText = `*TypeMasterAI Race Certificate*\n\nPlacement: *#${lastResultSnapshot.placement} of ${lastResultSnapshot.totalParticipants}*\nSpeed: *${lastResultSnapshot.wpm} WPM*\nAccuracy: *${lastResultSnapshot.accuracy}%*\nLevel: ${rating.title}\n\nJoin the race: https://typemasterai.com/race`;
+                          window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank', 'width=600,height=400');
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"
+                      >
+                        <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                        <span className="text-xs font-medium">WhatsApp</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
+                          const text = `🏆 RACE CERTIFIED!\n\n🏎️ #${lastResultSnapshot.placement} of ${lastResultSnapshot.totalParticipants}\n⚡ ${lastResultSnapshot.wpm} WPM | ✨ ${lastResultSnapshot.accuracy}%\n🎖️ ${rating.title}`;
+                          window.open(`https://t.me/share/url?url=${encodeURIComponent('https://typemasterai.com/race')}&text=${encodeURIComponent(text)}`, '_blank', 'width=600,height=400');
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 transition-all"
+                      >
+                        <Send className="w-4 h-4 text-[#0088cc]" />
+                        <span className="text-xs font-medium">Telegram</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
+                          const subject = encodeURIComponent(`🏆 TypeMasterAI Race Certificate - #${lastResultSnapshot.placement} Place!`);
+                          const body = encodeURIComponent(`Hello!\n\nI earned a TypeMasterAI Race Certificate!\n\n🏎️ Placement: #${lastResultSnapshot.placement} of ${lastResultSnapshot.totalParticipants}\n⚡ Speed: ${lastResultSnapshot.wpm} WPM\n✨ Accuracy: ${lastResultSnapshot.accuracy}%\n🎖️ Level: ${rating.title}\n\n👉 Join: https://typemasterai.com/race`);
+                          window.open(`mailto:?subject=${subject}&body=${body}`);
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-500/10 hover:bg-gray-500/25 border border-gray-500/20 transition-all"
+                      >
+                        <Mail className="w-4 h-4 text-gray-400" />
+                        <span className="text-xs font-medium">Email</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Certificate Sharing Tips */}
+                  <div className="space-y-2">
+                    <div className="p-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg border border-blue-500/20">
+                      <p className="text-xs text-center text-muted-foreground">
+                        📱 <span className="font-medium text-foreground">Mobile:</span> Use "Share Certificate with Image" to attach the certificate directly!
+                      </p>
+                    </div>
+                    <div className="p-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/20">
+                      <p className="text-xs text-center text-muted-foreground">
+                        💻 <span className="font-medium text-foreground">Desktop:</span> Use "Copy Image" then paste directly into Twitter, LinkedIn, Discord, or any social media!
+                      </p>
+                    </div>
+                  </div>
                 </TabsContent>
+
+                {/* View Certificate Dialog */}
+                {showCertificate && user && lastResultSnapshot && (
+                  <Dialog open={showCertificate} onOpenChange={setShowCertificate}>
+                    <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Award className="w-5 h-5 text-yellow-400" />
+                          Your Race Certificate
+                        </DialogTitle>
+                      </DialogHeader>
+                      <RaceCertificate
+                        wpm={lastResultSnapshot.wpm}
+                        accuracy={lastResultSnapshot.accuracy}
+                        consistency={lastResultSnapshot.consistency}
+                        placement={lastResultSnapshot.placement}
+                        totalParticipants={lastResultSnapshot.totalParticipants}
+                        characters={lastResultSnapshot.characters}
+                        errors={lastResultSnapshot.errors}
+                        duration={lastResultSnapshot.duration}
+                        username={user?.username}
+                        raceId={race?.id?.toString()}
+                        minimal={true}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                )}
               </Tabs>
             )}
           </DialogContent>

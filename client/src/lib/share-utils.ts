@@ -134,7 +134,7 @@ export function shareToSocialPlatform(
   if (!config) return;
 
   const shareUrl = config.getUrl(text, url, title);
-  
+
   if (platform === 'email') {
     window.location.href = shareUrl;
   } else if (platform === 'discord') {
@@ -194,7 +194,7 @@ export interface CardDimensions {
 
 export const CARD_DIMENSIONS: Record<string, CardDimensions> = {
   standard: { width: 600, height: 400 },
-  code: { width: 600, height: 450 },
+  code: { width: 600, height: 450 }, // Slightly taller for code mode metadata
 };
 
 export function drawCardBackground(

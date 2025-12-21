@@ -1,9 +1,16 @@
 import { useRef, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Share2, Check, Clipboard, Award, Sparkles } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Download, Share2, Check, Clipboard, Award, Sparkles, FileImage, FileType, FileText, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getCodePerformanceRating, getLanguageIcon, triggerCelebration } from "@/lib/share-utils";
 import { generateVerificationQRCode } from "@/lib/qr-code-utils";
+import { jsPDF } from "jspdf";
 
 interface CodeCertificateProps {
   wpm: number;
@@ -19,6 +26,7 @@ interface CodeCertificateProps {
   username?: string;
   date?: Date;
   verificationId?: string; // Server-generated verification ID
+  minimal?: boolean; // Only show download button, hide full share area
 }
 
 interface TierVisuals {
@@ -81,6 +89,7 @@ export function CodeCertificate({
   username,
   date = new Date(),
   verificationId: serverVerificationId,
+  minimal = false,
 }: CodeCertificateProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSharing, setIsSharing] = useState(false);
@@ -485,20 +494,48 @@ export function CodeCertificate({
     ctx.fillText(`${rating.emoji} ${rating.badge} CERTIFIED`, canvas.width - 50, footerY);
   };
 
-  const downloadCertificate = () => {
+  const downloadCertificate = (format: "png" | "jpg" | "pdf" = "png") => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const link = document.createElement("a");
-    link.download = `TypeMasterAI_Certificate_${languageName}_${wpm}WPM_${certificateId}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
+    const baseFileName = `TypeMasterAI_Certificate_${languageName}_${wpm}WPM_${certificateId}`;
+
+    if (format === "png") {
+      const link = document.createElement("a");
+      link.download = `${baseFileName}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    } else if (format === "jpg") {
+      const link = document.createElement("a");
+      link.download = `${baseFileName}.jpg`;
+      link.href = canvas.toDataURL("image/jpeg", 0.95);
+      link.click();
+    } else if (format === "pdf") {
+      try {
+        const imgData = canvas.toDataURL("image/png");
+        const pdf = new jsPDF({
+          orientation: "landscape",
+          unit: "px",
+          format: [canvas.width, canvas.height],
+        });
+
+        pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+        pdf.save(`${baseFileName}.pdf`);
+      } catch (error) {
+        toast({
+          title: "PDF Download Failed",
+          description: "Please try downloading as PNG instead.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     triggerCelebration('medium');
 
     toast({
       title: "Certificate Downloaded!",
-      description: "Share your achievement on social media!",
+      description: `Your certificate has been downloaded as ${format.toUpperCase()}.`,
     });
   };
 
@@ -590,54 +627,110 @@ export function CodeCertificate({
         </div>
       </div>
 
-      <div className="w-full space-y-3">
-        <div className="p-4 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 rounded-xl border border-zinc-700">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <Sparkles className="w-4 h-4" style={{ color: tierVisuals.primaryColor }} />
-            <p className="text-sm font-medium" style={{ color: tierVisuals.primaryColor }}>Share Your Achievement</p>
-            <Sparkles className="w-4 h-4" style={{ color: tierVisuals.primaryColor }} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              onClick={copyImageToClipboard}
-              variant="outline"
-              className="gap-2 h-10 bg-zinc-800/50 border-zinc-600 hover:bg-zinc-700/50 hover:border-zinc-500"
-              data-testid="button-copy-certificate"
-            >
-              {imageCopied ? <Check className="w-4 h-4 text-green-500" /> : <Clipboard className="w-4 h-4" style={{ color: tierVisuals.primaryColor }} />}
-              <span className="text-zinc-200">{imageCopied ? "Copied!" : "Copy Image"}</span>
-            </Button>
-            <Button
-              onClick={downloadCertificate}
-              variant="outline"
-              className="gap-2 h-10 bg-zinc-800/50 border-zinc-600 hover:bg-zinc-700/50 hover:border-zinc-500"
-              data-testid="button-download-certificate"
-            >
-              <Download className="w-4 h-4 text-purple-400" />
-              <span className="text-zinc-200">Download</span>
-            </Button>
-          </div>
+      {/* Minimal mode: Only download button */}
+      {minimal ? (
+        <div className="w-full">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                className="w-full gap-2 h-11 text-white font-semibold"
+                style={{
+                  background: `linear-gradient(135deg, ${tierVisuals.borderGradient[0]}, ${tierVisuals.primaryColor}, ${tierVisuals.borderGradient[2]})`,
+                }}
+                data-testid="button-download-certificate"
+              >
+                <Download className="w-4 h-4" />
+                Download Certificate
+                <ChevronDown className="w-4 h-4 ml-auto" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => downloadCertificate("png")} className="cursor-pointer">
+                <FileImage className="w-4 h-4 mr-2" />
+                Download as PNG
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadCertificate("jpg")} className="cursor-pointer">
+                <FileImage className="w-4 h-4 mr-2" />
+                Download as JPG
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadCertificate("pdf")} className="cursor-pointer">
+                <FileText className="w-4 h-4 mr-2" />
+                Download as PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <p className="text-[10px] text-center text-zinc-500 mt-2" data-testid="text-certificate-id">
+            Certificate ID: <span className="font-mono" style={{ color: tierVisuals.primaryColor }}>{certificateId}</span>
+          </p>
         </div>
+      ) : (
+        <div className="w-full space-y-3">
+          <div className="p-4 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 rounded-xl border border-zinc-700">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4" style={{ color: tierVisuals.primaryColor }} />
+              <p className="text-sm font-medium" style={{ color: tierVisuals.primaryColor }}>Share Your Achievement</p>
+              <Sparkles className="w-4 h-4" style={{ color: tierVisuals.primaryColor }} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                onClick={copyImageToClipboard}
+                variant="outline"
+                className="gap-2 h-10 bg-zinc-800/50 border-zinc-600 hover:bg-zinc-700/50 hover:border-zinc-500"
+                data-testid="button-copy-certificate"
+              >
+                {imageCopied ? <Check className="w-4 h-4 text-green-500" /> : <Clipboard className="w-4 h-4" style={{ color: tierVisuals.primaryColor }} />}
+                <span className="text-zinc-200">{imageCopied ? "Copied!" : "Copy Image"}</span>
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="gap-2 h-10 bg-zinc-800/50 border-zinc-600 hover:bg-zinc-700/50 hover:border-zinc-500"
+                    data-testid="button-download-certificate"
+                  >
+                    <Download className="w-4 h-4 text-purple-400" />
+                    <span className="text-zinc-200">Download</span>
+                    <ChevronDown className="w-3 h-3 ml-auto" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => downloadCertificate("png")} className="cursor-pointer">
+                    <FileImage className="w-4 h-4 mr-2" />
+                    Download as PNG
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadCertificate("jpg")} className="cursor-pointer">
+                    <FileImage className="w-4 h-4 mr-2" />
+                    Download as JPG
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadCertificate("pdf")} className="cursor-pointer">
+                    <FileText className="w-4 h-4 mr-2" />
+                    Download as PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
 
-        {'share' in navigator && (
-          <Button
-            onClick={shareCertificate}
-            disabled={isSharing}
-            className="w-full gap-2 h-11 text-white font-semibold"
-            style={{
-              background: `linear-gradient(135deg, ${tierVisuals.borderGradient[0]}, ${tierVisuals.primaryColor}, ${tierVisuals.borderGradient[2]})`,
-            }}
-            data-testid="button-share-certificate"
-          >
-            <Share2 className="w-4 h-4" />
-            {isSharing ? "Sharing..." : "Share Certificate"}
-          </Button>
-        )}
+          {'share' in navigator && (
+            <Button
+              onClick={shareCertificate}
+              disabled={isSharing}
+              className="w-full gap-2 h-11 text-white font-semibold"
+              style={{
+                background: `linear-gradient(135deg, ${tierVisuals.borderGradient[0]}, ${tierVisuals.primaryColor}, ${tierVisuals.borderGradient[2]})`,
+              }}
+              data-testid="button-share-certificate"
+            >
+              <Share2 className="w-4 h-4" />
+              {isSharing ? "Sharing..." : "Share Certificate"}
+            </Button>
+          )}
 
-        <p className="text-[10px] text-center text-zinc-500" data-testid="text-certificate-id">
-          Certificate ID: <span className="font-mono" style={{ color: tierVisuals.primaryColor }}>{certificateId}</span>
-        </p>
-      </div>
+          <p className="text-[10px] text-center text-zinc-500" data-testid="text-certificate-id">
+            Certificate ID: <span className="font-mono" style={{ color: tierVisuals.primaryColor }}>{certificateId}</span>
+          </p>
+        </div>
+      )}
     </div>
   );
 }

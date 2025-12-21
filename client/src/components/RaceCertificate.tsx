@@ -18,6 +18,7 @@ interface RaceCertificateProps {
   date?: Date;
   raceId?: string;
   verificationId?: string; // Server-generated verification ID
+  minimal?: boolean; // Only show download button, hide full share area
 }
 
 interface TierVisuals {
@@ -85,6 +86,7 @@ export function RaceCertificate({
   date = new Date(),
   raceId,
   verificationId: serverVerificationId,
+  minimal = false,
 }: RaceCertificateProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSharing, setIsSharing] = useState(false);
@@ -587,54 +589,74 @@ export function RaceCertificate({
         </div>
       </div>
 
-      <div className="w-full space-y-3">
-        <div className="p-4 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 rounded-xl border border-zinc-700">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <Sparkles className="w-4 h-4" style={{ color: placementVisuals.color }} />
-            <p className="text-sm font-medium" style={{ color: placementVisuals.color }}>Share Your Racing Victory</p>
-            <Sparkles className="w-4 h-4" style={{ color: placementVisuals.color }} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              onClick={copyImageToClipboard}
-              variant="outline"
-              className="gap-2 h-10 bg-zinc-800/50 border-zinc-600 hover:bg-zinc-700/50 hover:border-zinc-500"
-              data-testid="button-copy-race-certificate"
-            >
-              {imageCopied ? <Check className="w-4 h-4 text-green-500" /> : <Clipboard className="w-4 h-4" style={{ color: placementVisuals.color }} />}
-              <span className="text-zinc-200">{imageCopied ? "Copied!" : "Copy Image"}</span>
-            </Button>
-            <Button
-              onClick={downloadCertificate}
-              variant="outline"
-              className="gap-2 h-10 bg-zinc-800/50 border-zinc-600 hover:bg-zinc-700/50 hover:border-zinc-500"
-              data-testid="button-download-race-certificate"
-            >
-              <Download className="w-4 h-4 text-purple-400" />
-              <span className="text-zinc-200">Download</span>
-            </Button>
-          </div>
-        </div>
-
-        {'share' in navigator && (
+      {/* Minimal mode: Only download button */}
+      {minimal ? (
+        <div className="w-full">
           <Button
-            onClick={shareCertificate}
-            disabled={isSharing}
+            onClick={downloadCertificate}
             className="w-full gap-2 h-11 text-white font-semibold"
             style={{
               background: `linear-gradient(135deg, ${placement <= 3 ? placementVisuals.color : tierVisuals.borderGradient[0]}, ${tierVisuals.primaryColor}, ${placement <= 3 ? placementVisuals.color : tierVisuals.borderGradient[2]})`,
             }}
-            data-testid="button-share-race-certificate"
+            data-testid="button-download-race-certificate"
           >
-            <Share2 className="w-4 h-4" />
-            {isSharing ? "Sharing..." : "Share Certificate"}
+            <Download className="w-4 h-4" />
+            Download Certificate
           </Button>
-        )}
+          <p className="text-[10px] text-center text-zinc-500 mt-2" data-testid="text-race-certificate-id">
+            Certificate ID: <span className="font-mono" style={{ color: placementVisuals.color }}>{certificateId}</span>
+          </p>
+        </div>
+      ) : (
+        <div className="w-full space-y-3">
+          <div className="p-4 bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-900 rounded-xl border border-zinc-700">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4" style={{ color: placementVisuals.color }} />
+              <p className="text-sm font-medium" style={{ color: placementVisuals.color }}>Share Your Racing Victory</p>
+              <Sparkles className="w-4 h-4" style={{ color: placementVisuals.color }} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                onClick={copyImageToClipboard}
+                variant="outline"
+                className="gap-2 h-10 bg-zinc-800/50 border-zinc-600 hover:bg-zinc-700/50 hover:border-zinc-500"
+                data-testid="button-copy-race-certificate"
+              >
+                {imageCopied ? <Check className="w-4 h-4 text-green-500" /> : <Clipboard className="w-4 h-4" style={{ color: placementVisuals.color }} />}
+                <span className="text-zinc-200">{imageCopied ? "Copied!" : "Copy Image"}</span>
+              </Button>
+              <Button
+                onClick={downloadCertificate}
+                variant="outline"
+                className="gap-2 h-10 bg-zinc-800/50 border-zinc-600 hover:bg-zinc-700/50 hover:border-zinc-500"
+                data-testid="button-download-race-certificate"
+              >
+                <Download className="w-4 h-4 text-purple-400" />
+                <span className="text-zinc-200">Download</span>
+              </Button>
+            </div>
+          </div>
 
-        <p className="text-[10px] text-center text-zinc-500" data-testid="text-race-certificate-id">
-          Certificate ID: <span className="font-mono" style={{ color: placementVisuals.color }}>{certificateId}</span>
-        </p>
-      </div>
+          {'share' in navigator && (
+            <Button
+              onClick={shareCertificate}
+              disabled={isSharing}
+              className="w-full gap-2 h-11 text-white font-semibold"
+              style={{
+                background: `linear-gradient(135deg, ${placement <= 3 ? placementVisuals.color : tierVisuals.borderGradient[0]}, ${tierVisuals.primaryColor}, ${placement <= 3 ? placementVisuals.color : tierVisuals.borderGradient[2]})`,
+              }}
+              data-testid="button-share-race-certificate"
+            >
+              <Share2 className="w-4 h-4" />
+              {isSharing ? "Sharing..." : "Share Certificate"}
+            </Button>
+          )}
+
+          <p className="text-[10px] text-center text-zinc-500" data-testid="text-race-certificate-id">
+            Certificate ID: <span className="font-mono" style={{ color: placementVisuals.color }}>{certificateId}</span>
+          </p>
+        </div>
+      )}
     </div>
   );
 }

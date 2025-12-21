@@ -13,6 +13,311 @@ interface GenerateCodeOptions {
   testMode?: "normal" | "expert" | "master";
 }
 
+// Comprehensive code topics from basic to advanced - each request gets a random topic
+const CODE_TOPICS = {
+  // BASIC CONCEPTS
+  basics: [
+    "variable declarations and types", "conditional statements", "loop iterations",
+    "function definitions", "array operations", "object manipulation", "string operations",
+    "basic math operations", "type conversions", "boolean logic", "switch statements",
+    "ternary operators", "template literals", "destructuring assignment", "spread operator"
+  ],
+  
+  // DATA STRUCTURES
+  dataStructures: [
+    "array methods implementation", "linked list operations", "stack implementation",
+    "queue operations", "hash table/map", "binary tree operations", "graph representation",
+    "heap implementation", "set operations", "priority queue", "circular buffer",
+    "trie implementation", "doubly linked list", "skip list", "disjoint set union"
+  ],
+  
+  // ALGORITHMS - Sorting
+  sortingAlgorithms: [
+    "bubble sort", "selection sort", "insertion sort", "merge sort", "quick sort",
+    "heap sort", "counting sort", "radix sort", "bucket sort", "shell sort",
+    "tim sort implementation", "cocktail shaker sort"
+  ],
+  
+  // ALGORITHMS - Searching
+  searchingAlgorithms: [
+    "linear search", "binary search", "jump search", "interpolation search",
+    "exponential search", "fibonacci search", "ternary search", "depth-first search",
+    "breadth-first search", "A* pathfinding", "dijkstra algorithm", "bellman-ford algorithm"
+  ],
+  
+  // ALGORITHMS - Advanced
+  advancedAlgorithms: [
+    "dynamic programming solution", "greedy algorithm", "backtracking algorithm",
+    "divide and conquer", "sliding window technique", "two pointer technique",
+    "recursion with memoization", "topological sort", "kruskal algorithm",
+    "prim algorithm", "floyd warshall", "knapsack problem", "longest common subsequence",
+    "matrix chain multiplication", "coin change problem", "edit distance algorithm"
+  ],
+  
+  // STRING ALGORITHMS
+  stringAlgorithms: [
+    "string reversal", "palindrome checker", "anagram detector", "string compression",
+    "pattern matching", "KMP algorithm", "rabin-karp algorithm", "longest palindromic substring",
+    "string permutations", "word frequency counter", "text justification", "regex parser"
+  ],
+  
+  // MATH & NUMBERS
+  mathOperations: [
+    "prime number generator", "factorial calculator", "fibonacci sequence",
+    "greatest common divisor", "least common multiple", "power function",
+    "matrix multiplication", "number to words converter", "roman numeral converter",
+    "base converter", "fraction operations", "complex number operations",
+    "statistical calculations", "random number generator", "big integer operations"
+  ],
+  
+  // OBJECT-ORIENTED PROGRAMMING
+  oopConcepts: [
+    "class with inheritance", "interface implementation", "abstract class",
+    "encapsulation example", "polymorphism demonstration", "composition over inheritance",
+    "method overloading", "method overriding", "static methods and properties",
+    "getters and setters", "constructor patterns", "prototype chain", "mixins"
+  ],
+  
+  // DESIGN PATTERNS - Creational
+  creationalPatterns: [
+    "factory pattern", "abstract factory", "builder pattern", "prototype pattern",
+    "singleton pattern", "object pool pattern", "lazy initialization"
+  ],
+  
+  // DESIGN PATTERNS - Structural
+  structuralPatterns: [
+    "adapter pattern", "bridge pattern", "composite pattern", "decorator pattern",
+    "facade pattern", "flyweight pattern", "proxy pattern", "module pattern"
+  ],
+  
+  // DESIGN PATTERNS - Behavioral
+  behavioralPatterns: [
+    "chain of responsibility", "command pattern", "iterator pattern", "mediator pattern",
+    "memento pattern", "observer pattern", "state pattern", "strategy pattern",
+    "template method", "visitor pattern", "null object pattern", "specification pattern"
+  ],
+  
+  // FUNCTIONAL PROGRAMMING
+  functionalProgramming: [
+    "pure functions", "higher-order functions", "currying implementation",
+    "function composition", "partial application", "immutable data operations",
+    "map reduce filter", "fold/reduce implementation", "lazy evaluation",
+    "functor implementation", "monad example", "pipe and compose utilities"
+  ],
+  
+  // ASYNC PROGRAMMING
+  asyncProgramming: [
+    "promise implementation", "async/await patterns", "callback handling",
+    "promise chaining", "parallel async operations", "sequential async execution",
+    "race conditions handling", "debounce function", "throttle function",
+    "retry with backoff", "timeout wrapper", "cancellable promise", "async queue"
+  ],
+  
+  // ERROR HANDLING
+  errorHandling: [
+    "try-catch patterns", "custom error classes", "error boundary",
+    "graceful degradation", "error logging utility", "validation error handling",
+    "async error handling", "error recovery mechanism", "circuit breaker pattern"
+  ],
+  
+  // DATA VALIDATION
+  dataValidation: [
+    "email validator", "password strength checker", "phone number validator",
+    "credit card validator", "URL validator", "date validator", "form validation",
+    "schema validator", "input sanitizer", "type guard functions", "JSON schema validator"
+  ],
+  
+  // DATA TRANSFORMATION
+  dataTransformation: [
+    "object mapper", "data normalizer", "array flattener", "deep clone utility",
+    "object diff calculator", "data aggregator", "pivot table generator",
+    "group by implementation", "data denormalizer", "tree to flat converter"
+  ],
+  
+  // PARSING & SERIALIZATION
+  parsingAndSerialization: [
+    "JSON parser", "CSV parser", "XML parser", "YAML parser", "markdown parser",
+    "query string parser", "command line argument parser", "expression parser",
+    "tokenizer/lexer", "simple compiler", "template engine", "INI file parser"
+  ],
+  
+  // FILE & I/O OPERATIONS
+  fileOperations: [
+    "file reader utility", "file writer utility", "directory walker",
+    "file watcher", "stream processor", "buffer operations", "binary file handler",
+    "file compression utility", "file encryption", "temp file manager"
+  ],
+  
+  // NETWORKING
+  networking: [
+    "HTTP client", "REST API wrapper", "WebSocket client", "GraphQL client",
+    "request interceptor", "response handler", "API rate limiter",
+    "connection pool manager", "request queue", "fetch wrapper with retry"
+  ],
+  
+  // CACHING
+  caching: [
+    "LRU cache", "LFU cache", "TTL cache", "memoization utility",
+    "cache invalidation", "write-through cache", "cache decorator",
+    "distributed cache interface", "in-memory cache", "persistent cache"
+  ],
+  
+  // SECURITY
+  security: [
+    "password hasher", "token generator", "encryption utility", "decryption utility",
+    "HMAC generator", "digital signature", "secure random generator",
+    "XSS sanitizer", "SQL injection preventer", "CSRF token handler", "rate limiter"
+  ],
+  
+  // AUTHENTICATION & AUTHORIZATION
+  authPatterns: [
+    "JWT token handler", "OAuth flow handler", "session manager",
+    "role-based access control", "permission checker", "API key validator",
+    "refresh token handler", "multi-factor auth", "password reset flow"
+  ],
+  
+  // STATE MANAGEMENT
+  stateManagement: [
+    "state container", "store implementation", "reducer pattern",
+    "action creator", "middleware chain", "state selector", "computed properties",
+    "undo/redo manager", "history state manager", "reactive state"
+  ],
+  
+  // EVENT HANDLING
+  eventHandling: [
+    "event emitter", "event bus", "pub/sub system", "event aggregator",
+    "event sourcing", "event replay", "event queue", "event dispatcher",
+    "custom event system", "event delegation handler"
+  ],
+  
+  // SCHEDULING & TIMING
+  scheduling: [
+    "task scheduler", "cron job parser", "interval manager", "timeout manager",
+    "rate limiter", "job queue", "priority scheduler", "deadline scheduler",
+    "recurring task handler", "batch processor"
+  ],
+  
+  // LOGGING & MONITORING
+  loggingMonitoring: [
+    "logger utility", "log formatter", "log rotator", "performance monitor",
+    "metrics collector", "health checker", "tracing utility", "debug helper",
+    "profiler", "memory usage tracker"
+  ],
+  
+  // TESTING UTILITIES
+  testingUtilities: [
+    "test runner", "assertion library", "mock generator", "spy utility",
+    "fixture factory", "snapshot comparator", "coverage calculator",
+    "test data generator", "fake data factory", "stub creator"
+  ],
+  
+  // CLI UTILITIES
+  cliUtilities: [
+    "command parser", "argument validator", "interactive prompt",
+    "progress bar", "spinner animation", "table formatter", "color output",
+    "menu system", "autocomplete handler", "command history"
+  ],
+  
+  // DATE & TIME
+  dateTimeUtilities: [
+    "date formatter", "date parser", "timezone converter", "duration calculator",
+    "date range generator", "calendar utility", "relative time formatter",
+    "business days calculator", "recurring date generator", "countdown timer"
+  ],
+  
+  // COLLECTIONS & ITERATORS
+  collectionsIterators: [
+    "custom iterator", "generator function", "lazy sequence", "range generator",
+    "zip utility", "chunk splitter", "window slider", "unique filter",
+    "intersection finder", "difference calculator", "cartesian product"
+  ],
+  
+  // TEXT PROCESSING
+  textProcessing: [
+    "text formatter", "word counter", "sentence tokenizer", "slug generator",
+    "case converter", "text truncator", "search highlighter", "diff generator",
+    "fuzzy matcher", "autocorrect", "spell checker", "text summarizer"
+  ],
+  
+  // GEOMETRY & GRAPHICS
+  geometryGraphics: [
+    "point operations", "line intersection", "polygon area calculator",
+    "distance calculator", "bounding box", "collision detection",
+    "shape renderer", "color converter", "image resizer", "canvas utilities"
+  ],
+  
+  // GAME DEVELOPMENT
+  gameDevelopment: [
+    "game loop", "entity component system", "collision system", "physics engine",
+    "particle system", "animation controller", "input handler", "scene manager",
+    "pathfinding AI", "inventory system", "save/load system", "leaderboard"
+  ],
+  
+  // DATABASE PATTERNS
+  databasePatterns: [
+    "query builder", "ORM implementation", "repository pattern", "unit of work",
+    "data mapper", "active record", "connection manager", "migration runner",
+    "seed data generator", "transaction handler"
+  ],
+  
+  // API DESIGN
+  apiDesign: [
+    "REST controller", "middleware handler", "route handler", "request validator",
+    "response formatter", "pagination helper", "sorting utility", "filter parser",
+    "versioning handler", "documentation generator"
+  ],
+  
+  // REAL-TIME FEATURES
+  realTimeFeatures: [
+    "chat message handler", "presence tracker", "live notification",
+    "real-time sync", "collaborative editing", "live cursor", "typing indicator",
+    "online status manager", "broadcast channel", "room manager"
+  ],
+  
+  // E-COMMERCE
+  ecommerce: [
+    "shopping cart", "price calculator", "discount engine", "tax calculator",
+    "inventory manager", "order processor", "payment handler", "shipping calculator",
+    "wishlist manager", "product recommender", "review system"
+  ],
+  
+  // SOCIAL FEATURES
+  socialFeatures: [
+    "follow system", "like/reaction handler", "comment system", "share handler",
+    "feed generator", "notification system", "mention parser", "hashtag extractor",
+    "activity tracker", "privacy settings"
+  ],
+  
+  // CONTENT MANAGEMENT
+  contentManagement: [
+    "content editor", "version control", "draft manager", "publish scheduler",
+    "media library", "tag manager", "category handler", "SEO optimizer",
+    "sitemap generator", "RSS feed generator"
+  ],
+  
+  // UTILITY PATTERNS
+  utilityPatterns: [
+    "dependency injection container", "service locator", "plugin system",
+    "hook system", "middleware pipeline", "interceptor chain", "feature flag",
+    "configuration manager", "environment handler", "localization utility"
+  ]
+};
+
+// Get a random topic for variety
+function getRandomTopic(): string {
+  const categories = Object.values(CODE_TOPICS);
+  const randomCategory = categories[Math.floor(Math.random() * categories.length)];
+  const randomTopic = randomCategory[Math.floor(Math.random() * randomCategory.length)];
+  return randomTopic;
+}
+
+// Get multiple random topics to suggest variety
+function getTopicSuggestions(count: number = 3): string[] {
+  const allTopics = Object.values(CODE_TOPICS).flat();
+  const shuffled = [...allTopics].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+
 function getTargetLineCount(
   difficulty: "easy" | "medium" | "hard",
   timeLimit: number
@@ -152,7 +457,20 @@ Special guidance for ${programmingLanguage}:
     ? `\n\n🎯 USER'S CUSTOM REQUEST:\nThe user specifically wants code about: "${customPrompt}"\nGenerate code that directly addresses this request while maintaining ${programmingLanguage} syntax and the specified difficulty level.`
     : '';
 
-  const prompt = `Generate a ${difficulty}-level ${programmingLanguage} code snippet${frameworkNote} for typing practice.${customPromptGuidance}
+  // Generate variety by suggesting a random topic when no custom prompt
+  const randomTopic = getRandomTopic();
+  const topicSuggestions = getTopicSuggestions(5);
+  const varietyGuidance = !customPrompt ? `
+🎲 VARIETY REQUIREMENT - CRITICAL:
+- Generate code about: "${randomTopic}" (or pick from: ${topicSuggestions.join(", ")})
+- DO NOT generate common examples like "hello world", "calculator", "fibonacci", or basic CRUD operations
+- Each generation should be UNIQUE and CREATIVE
+- Pick a DIFFERENT topic, domain, or use case than typical examples
+- Create something interesting: real-world utilities, clever algorithms, practical features
+- Avoid repetitive patterns - surprise the user with fresh, educational content!
+` : '';
+
+  const prompt = `Generate a ${difficulty}-level ${programmingLanguage} code snippet${frameworkNote} for typing practice.${customPromptGuidance}${varietyGuidance}
 
 ⚠️ CRITICAL LENGTH REQUIREMENT - THIS IS MANDATORY:
 - You MUST generate AT LEAST ${charCount} characters of code
@@ -181,11 +499,13 @@ ${framework ? `Framework-specific requirements:
 - Follow ${framework} best practices and conventions
 ` : ''}
 
-GENERATE A COMPLETE CODE EXAMPLE such as:
-- A complete function with multiple operations
-- A class with several methods
-- Multiple related functions working together
-- An algorithm implementation with helper functions
+GENERATE A COMPLETE CODE EXAMPLE - BE CREATIVE AND UNIQUE:
+- A complete function with multiple operations (NOT hello world or basic math)
+- A class with several methods (for real-world use cases)
+- Multiple related functions working together (practical utilities)
+- An algorithm implementation with helper functions (educational value)
+- API clients, data processors, validators, utilities, handlers, managers
+- Game logic, UI helpers, formatting tools, parsers, converters
 
 Return the code snippet in this JSON format:
 {
@@ -196,13 +516,14 @@ Return the code snippet in this JSON format:
 Return ONLY valid JSON. Remember: MINIMUM ${charCount} characters!`;
 
   try {
-    console.log(`🔧 Generating ${difficulty} ${programmingLanguage} snippet (${timeLimit}s, ${testMode} mode) - Target: ${charCount} chars, ${lineCount} lines`);
+    const topicInfo = customPrompt ? `custom: "${customPrompt}"` : `suggested: "${randomTopic}"`;
+    console.log(`🔧 Generating ${difficulty} ${programmingLanguage} snippet (${timeLimit}s, ${testMode} mode) - Target: ${charCount} chars, ${lineCount} lines - Topic: ${topicInfo}`);
     
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 4000, // Increased for longer code snippets
-      temperature: 0.7,
+      temperature: 0.9, // Higher temperature for more variety in topics
       response_format: { type: "json_object" }
     });
 
