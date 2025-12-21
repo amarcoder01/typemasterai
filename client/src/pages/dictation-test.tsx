@@ -817,7 +817,7 @@ export default function DictationTest() {
           variant: 'destructive',
         });
       } else {
-        console.error('Failed to fetch sentence:', error);
+      console.error('Failed to fetch sentence:', error);
       }
       return { data: null };
     } finally {

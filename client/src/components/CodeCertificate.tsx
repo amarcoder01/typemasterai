@@ -128,7 +128,7 @@ export function CodeCertificate({
   // Load QR code image for any verification ID
   useEffect(() => {
     if (certificateId) {
-      generateVerificationQRCode(certificateId, 80)
+      generateVerificationQRCode(certificateId, 120)  // Increased resolution for better visibility
         .then(dataUrl => {
           const img = new Image();
           img.onload = () => setQrCodeImage(img);
@@ -451,9 +451,9 @@ export function CodeCertificate({
 
     // Draw QR code if available (positioned on the left)
     if (qrCodeImage) {
-      const qrSize = 50;
-      const qrX = 50;
-      const qrY = footerY - qrSize - 5;
+      const qrSize = 70;  // Increased from 50 for better visibility
+      const qrX = 45;
+      const qrY = footerY - qrSize - 8;
 
       // QR code background
       ctx.fillStyle = "#ffffff";
