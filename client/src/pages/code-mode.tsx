@@ -10,7 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail, Award, X, Infinity, Sparkles, Settings, Volume2, VolumeX, Eye, EyeOff, Terminal } from "lucide-react";
+import { Code, RotateCcw, Share2, Copy, Facebook, Twitter, Linkedin, MessageCircle, HelpCircle, Zap, Check, Image, Link2, Download, Send, Mail, Award, X, Infinity, Sparkles, Settings, Volume2, VolumeX, Eye, EyeOff, Terminal, Upload, Trash2, AlertTriangle, FileCode } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -121,9 +121,109 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Normalize code snippets: remove Windows line endings and trailing whitespace
+// Custom code limits
+const CUSTOM_CODE_LIMITS = {
+  MIN_LENGTH: 10,          // Minimum 10 characters for meaningful practice
+  MAX_LENGTH: 50000,       // 50KB max to prevent performance issues
+  MAX_LINE_LENGTH: 500,    // Truncate extremely long lines
+  MAX_LINES: 1000,         // Maximum 1000 lines
+  WARN_LENGTH: 10000,      // Show warning above 10KB
+};
+
+// Normalize code snippets: comprehensive sanitization for typing practice
 function normalizeCodeSnippet(code: string): string {
-  return code.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd();
+  let normalized = code
+    // Normalize line endings (Windows, old Mac, Unix -> Unix)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    // Remove null bytes and other control characters (except \n and \t)
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+    // Normalize Unicode spaces to regular spaces
+    .replace(/[\u00A0\u2000-\u200B\u202F\u205F\u3000]/g, ' ')
+    // Remove trailing whitespace from each line (common in pasted code)
+    .split('\n')
+    .map(line => line.trimEnd())
+    .join('\n')
+    // Remove leading/trailing empty lines
+    .trim();
+  
+  return normalized;
+}
+
+// Validate custom code and return validation result
+interface CodeValidation {
+  isValid: boolean;
+  error?: string;
+  warning?: string;
+  stats: {
+    characters: number;
+    lines: number;
+    longestLine: number;
+  };
+}
+
+function validateCustomCode(code: string): CodeValidation {
+  const trimmed = code.trim();
+  const lines = trimmed.split('\n');
+  const longestLine = Math.max(...lines.map(l => l.length));
+  
+  const stats = {
+    characters: trimmed.length,
+    lines: lines.length,
+    longestLine,
+  };
+  
+  // Check minimum length
+  if (trimmed.length < CUSTOM_CODE_LIMITS.MIN_LENGTH) {
+    return {
+      isValid: false,
+      error: `Code must be at least ${CUSTOM_CODE_LIMITS.MIN_LENGTH} characters. Currently: ${trimmed.length}`,
+      stats,
+    };
+  }
+  
+  // Check maximum length
+  if (trimmed.length > CUSTOM_CODE_LIMITS.MAX_LENGTH) {
+    return {
+      isValid: false,
+      error: `Code exceeds maximum limit of ${(CUSTOM_CODE_LIMITS.MAX_LENGTH / 1000).toFixed(0)}KB. Please use a shorter snippet.`,
+      stats,
+    };
+  }
+  
+  // Check maximum lines
+  if (lines.length > CUSTOM_CODE_LIMITS.MAX_LINES) {
+    return {
+      isValid: false,
+      error: `Code exceeds ${CUSTOM_CODE_LIMITS.MAX_LINES} lines limit. Please use a shorter snippet.`,
+      stats,
+    };
+  }
+  
+  // Check if it's only whitespace or special characters
+  const printableContent = trimmed.replace(/\s/g, '');
+  if (printableContent.length < 5) {
+    return {
+      isValid: false,
+      error: "Code must contain meaningful content to practice typing.",
+      stats,
+    };
+  }
+  
+  // Generate warnings
+  let warning: string | undefined;
+  
+  if (trimmed.length > CUSTOM_CODE_LIMITS.WARN_LENGTH) {
+    warning = `Large code snippet (${(trimmed.length / 1000).toFixed(1)}KB). This may take a while to complete.`;
+  } else if (longestLine > CUSTOM_CODE_LIMITS.MAX_LINE_LENGTH) {
+    warning = `Some lines are very long (${longestLine} chars). Long lines may be harder to type.`;
+  }
+  
+  return {
+    isValid: true,
+    warning,
+    stats,
+  };
 }
 
 // Get celebratory message based on performance (matches share-utils.ts thresholds)
@@ -902,7 +1002,7 @@ export default function CodeMode() {
           variant: "destructive",
         });
         setTimeout(() => {
-          resetTest();
+          resetTest(true);
           setIsFailed(false);
         }, 1500);
         return;
@@ -948,11 +1048,11 @@ export default function CodeMode() {
 
     // Escape to reset/restart
     if (e.key === "Escape") {
-      resetTest();
+      resetTest(true); // Escape restarts current test (standard behavior)
     }
   };
 
-  const resetTest = useCallback(() => {
+  const resetTest = useCallback((keepSnippet: boolean = false) => {
     setCompletionDialogOpen(false);
     setUserInput("");
     setStartTime(null);
@@ -977,14 +1077,23 @@ export default function CodeMode() {
     tabHiddenTimeRef.current = null;
 
     if (mode === "ai") {
-      fetchCodeSnippet(true); // Force new snippet
+      if (!keepSnippet) {
+        fetchCodeSnippet(true); // Force new snippet
+      } else {
+        // Just refocus if extending/retrying same snippet
+        // Optional: toast to confirm reset
+        toast({
+          title: "Test Reset",
+          description: "Restarting with the same code snippet.",
+        });
+      }
     } else if (mode === "custom" && customCode) {
       setCodeSnippet(normalizeCodeSnippet(customCode));
       setSnippetId(null);
     }
 
     setTimeout(() => textareaRef.current?.focus(), 0);
-  }, [mode, customCode, fetchCodeSnippet]);
+  }, [mode, customCode, fetchCodeSnippet, toast]);
 
   // Keep refs synced for rAF timer loop
   useEffect(() => { userInputRef.current = userInput; }, [userInput]);
@@ -1159,25 +1268,45 @@ export default function CodeMode() {
   }, [userInput.length, codeSnippet]);
 
   const applyCustomCode = () => {
-    if (!customCode.trim()) {
+    // Validate the custom code
+    const validation = validateCustomCode(customCode);
+    
+    if (!validation.isValid) {
       toast({
-        title: "No Code Entered",
-        description: "Please paste some code to practice typing.",
+        title: "Invalid Code",
+        description: validation.error,
         variant: "destructive",
       });
       return;
     }
 
     const applyCode = () => {
-      setCodeSnippet(normalizeCodeSnippet(customCode));
+      const normalized = normalizeCodeSnippet(customCode);
+      setCodeSnippet(normalized);
       setSnippetId(null);
       setUserInput("");
       setIsActive(false);
       setIsFinished(false);
+      
+      // Show success with stats
+      const lines = normalized.split('\n').length;
+      const chars = normalized.length;
+      
       toast({
-        title: "Custom Code Loaded",
-        description: `${customCode.trim().split('\n').length} lines ready for typing practice.`,
+        title: "Custom Code Loaded ✓",
+        description: `${lines} lines, ${chars.toLocaleString()} characters ready for practice.`,
       });
+      
+      // Show warning if applicable
+      if (validation.warning) {
+        setTimeout(() => {
+          toast({
+            title: "⚠️ Note",
+            description: validation.warning,
+          });
+        }, 500);
+      }
+      
       setTimeout(() => textareaRef.current?.focus(), 0);
     };
 
@@ -1190,6 +1319,91 @@ export default function CodeMode() {
       );
     } else {
       applyCode();
+    }
+  };
+
+  // Handle file upload for custom code
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Check file size (max 100KB for safety)
+    if (file.size > 100 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Please upload a file smaller than 100KB.",
+        variant: "destructive",
+      });
+      e.target.value = '';
+      return;
+    }
+    
+    // Check file type
+    const validExtensions = ['.js', '.ts', '.jsx', '.tsx', '.py', '.java', '.cpp', '.c', '.h', '.cs', '.go', '.rs', '.rb', '.php', '.html', '.css', '.scss', '.sql', '.sh', '.bash', '.json', '.yaml', '.yml', '.xml', '.md', '.txt'];
+    const fileName = file.name.toLowerCase();
+    const hasValidExtension = validExtensions.some(ext => fileName.endsWith(ext));
+    
+    if (!hasValidExtension) {
+      toast({
+        title: "Unsupported File Type",
+        description: "Please upload a code or text file (.js, .py, .java, etc.)",
+        variant: "destructive",
+      });
+      e.target.value = '';
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setCustomCode(content);
+        toast({
+          title: "File Loaded",
+          description: `${file.name} loaded. Click "Start Typing" to begin.`,
+        });
+      }
+    };
+    reader.onerror = () => {
+      toast({
+        title: "Error Reading File",
+        description: "Could not read the file. Please try again.",
+        variant: "destructive",
+      });
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input to allow re-uploading same file
+  };
+
+  // Clear custom code
+  const clearCustomCode = () => {
+    setCustomCode("");
+    setCodeSnippet("");
+    toast({
+      title: "Code Cleared",
+      description: "Paste new code or upload a file to start.",
+    });
+  };
+
+  // Edit loaded code (go back to input mode)
+  const editLoadedCode = () => {
+    if (isActive && userInput.length > 0) {
+      confirmOrRun(
+        "Edit Code?",
+        "Editing the code will reset your current typing progress.",
+        () => {
+          setCustomCode(codeSnippet);
+          setCodeSnippet("");
+          setUserInput("");
+          setIsActive(false);
+        },
+        "Edit Code"
+      );
+    } else {
+      setCustomCode(codeSnippet);
+      setCodeSnippet("");
+      setUserInput("");
+      setIsActive(false);
     }
   };
 
@@ -1491,7 +1705,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-[250px]">
                       <p className="font-medium mb-1">Code Generation Mode</p>
-                      <p className="text-xs text-muted-foreground">Choose between AI-generated code snippets or paste your own custom code to practice.</p>
+                      <p className="text-xs text-muted-foreground">Choose between AI-generated code or paste your own custom code to practice.</p>
                     </TooltipContent>
                   </Tooltip>
                 </div>
@@ -1515,11 +1729,11 @@ Understanding your baseline code typing speed can help identify opportunities fo
                         disabled={isActive}
                         data-testid="button-mode-ai"
                       >
-                        AI Generated
+                        Standard
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-[220px]">
-                      <p className="text-xs">GPT-4 generates unique code snippets tailored to your selected language and difficulty.</p>
+                      <p className="text-xs">AI generates unique code tailored to your selected language and difficulty.</p>
                     </TooltipContent>
                   </Tooltip>
                   <Tooltip>
@@ -1733,32 +1947,34 @@ Understanding your baseline code typing speed can help identify opportunities fo
                 </Select>
               </div>
 
+
+
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant="outline"
+                    variant="default" // Changed to default for emphasis on "New" action
                     size="sm"
                     onClick={() => {
                       if (isActive && !isFinished && userInput.length > 0) {
                         confirmOrRun(
-                          "Reset Test?",
-                          "Resetting will discard your current progress and start a fresh test.",
-                          resetTest,
-                          "Reset Test"
+                          "New Code?",
+                          "This will discard your current progress and load new code.",
+                          () => resetTest(false),
+                          "New Code"
                         );
                       } else {
-                        resetTest();
+                        resetTest(false);
                       }
                     }}
                     disabled={isLoading}
-                    data-testid="button-restart"
+                    data-testid="button-new-snippet"
                   >
-                    <RotateCcw className="w-4 h-4 mr-1" />
-                    {mode === "ai" ? "New Snippet" : "Restart"}
+
+                    {mode === "ai" ? "New Code" : "New Test"}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Press Escape to restart</p>
+                  <p>Load new code (Tab)</p>
                 </TooltipContent>
               </Tooltip>
             </div>
@@ -1976,7 +2192,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                           if (e.key === "Enter" && customPrompt.trim()) {
                             toast({
                               title: "Generating...",
-                              description: `Creating ${customPrompt} code snippet`,
+                              description: `Creating ${customPrompt} code`,
                             });
                             fetchCodeSnippet(true);
                             setShowCustomAI(false);
@@ -2007,7 +2223,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                               }
                               toast({
                                 title: "Generating...",
-                                description: `Creating ${customPrompt} code snippet`,
+                                description: `Creating ${customPrompt} code`,
                               });
                               fetchCodeSnippet(true);
                               setShowCustomAI(false);
@@ -2084,39 +2300,190 @@ Understanding your baseline code typing speed can help identify opportunities fo
             )}
 
             {mode === "custom" && !codeSnippet && (
-              <div className="mt-4">
-                <div className="flex items-center gap-1 mb-2">
-                  <span className="text-sm font-medium">Paste Your Code:</span>
+              <div className="mt-4 space-y-3">
+                {/* Header with help and file upload */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <FileCode className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">Paste Your Code:</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Custom code help">
+                          <HelpCircle className="w-3 h-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-[280px]">
+                        <p className="font-medium mb-1">Custom Code Practice</p>
+                        <p className="text-xs text-muted-foreground mb-2">Paste any code snippet you want to practice typing. Works with any programming language.</p>
+                        <div className="text-[10px] text-muted-foreground/70 space-y-0.5">
+                          <p>• Min: {CUSTOM_CODE_LIMITS.MIN_LENGTH} characters</p>
+                          <p>• Max: {(CUSTOM_CODE_LIMITS.MAX_LENGTH / 1000).toFixed(0)}KB / {CUSTOM_CODE_LIMITS.MAX_LINES} lines</p>
+                          <p>• Supports file upload (.js, .py, .java, etc.)</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    {/* File Upload Button */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <label className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-muted/50 hover:bg-muted border border-border/50 hover:border-primary/30 rounded-md transition-all">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Upload File</span>
+                          <input
+                            type="file"
+                            accept=".js,.ts,.jsx,.tsx,.py,.java,.cpp,.c,.h,.cs,.go,.rs,.rb,.php,.html,.css,.scss,.sql,.sh,.bash,.json,.yaml,.yml,.xml,.md,.txt"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                            data-testid="input-file-upload"
+                          />
+                        </label>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Upload a code file (max 100KB)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    
+                    {/* Clear Button - only show if there's content */}
+                    {customCode.length > 0 && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={clearCustomCode}
+                            className="inline-flex items-center gap-1 px-2 py-1.5 text-xs text-muted-foreground hover:text-destructive bg-muted/30 hover:bg-destructive/10 border border-border/30 hover:border-destructive/30 rounded-md transition-all"
+                            data-testid="button-clear-code"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Clear</span>
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Clear all code</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Textarea with character count */}
+                <div className="relative">
+                  <textarea
+                    value={customCode}
+                    onChange={(e) => {
+                      // Limit input to max length + some buffer for UX
+                      if (e.target.value.length <= CUSTOM_CODE_LIMITS.MAX_LENGTH + 1000) {
+                        setCustomCode(e.target.value);
+                      }
+                    }}
+                    className={`w-full h-40 sm:h-48 p-3 bg-background border rounded-lg font-mono text-xs sm:text-sm resize-none focus:outline-none focus:ring-2 transition-colors ${
+                      customCode.length > CUSTOM_CODE_LIMITS.MAX_LENGTH 
+                        ? 'border-destructive focus:ring-destructive/50' 
+                        : customCode.length > CUSTOM_CODE_LIMITS.WARN_LENGTH 
+                          ? 'border-yellow-500 focus:ring-yellow-500/50' 
+                          : 'focus:ring-primary'
+                    }`}
+                    placeholder="// Paste your code here...&#10;&#10;function example() {&#10;  console.log('Hello, World!');&#10;}&#10;&#10;// Or upload a code file using the button above"
+                    spellCheck={false}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    data-testid="textarea-custom-code"
+                  />
+                  
+                  {/* Character count and stats overlay */}
+                  <div className="absolute bottom-2 right-2 flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-2 py-1 rounded-md border border-border/30">
+                    {customCode.length > 0 && (
+                      <>
+                        <span>{customCode.split('\n').length} lines</span>
+                        <span className="text-muted-foreground/50">•</span>
+                      </>
+                    )}
+                    <span className={
+                      customCode.length > CUSTOM_CODE_LIMITS.MAX_LENGTH 
+                        ? 'text-destructive font-medium' 
+                        : customCode.length > CUSTOM_CODE_LIMITS.WARN_LENGTH 
+                          ? 'text-yellow-500' 
+                          : ''
+                    }>
+                      {customCode.length.toLocaleString()} / {CUSTOM_CODE_LIMITS.MAX_LENGTH.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Validation warnings/errors */}
+                {customCode.length > 0 && (
+                  <>
+                    {customCode.length > CUSTOM_CODE_LIMITS.MAX_LENGTH && (
+                      <div className="flex items-center gap-2 p-2 bg-destructive/10 border border-destructive/30 rounded-md text-xs text-destructive">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                        <span>Code exceeds maximum limit. Please remove {(customCode.length - CUSTOM_CODE_LIMITS.MAX_LENGTH).toLocaleString()} characters.</span>
+                      </div>
+                    )}
+                    {customCode.length <= CUSTOM_CODE_LIMITS.MAX_LENGTH && customCode.length > CUSTOM_CODE_LIMITS.WARN_LENGTH && (
+                      <div className="flex items-center gap-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded-md text-xs text-yellow-600 dark:text-yellow-400">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                        <span>Large code snippet ({(customCode.length / 1000).toFixed(1)}KB). This may take a while to complete.</span>
+                      </div>
+                    )}
+                    {customCode.trim().length > 0 && customCode.trim().length < CUSTOM_CODE_LIMITS.MIN_LENGTH && (
+                      <div className="flex items-center gap-2 p-2 bg-muted/50 border border-border/50 rounded-md text-xs text-muted-foreground">
+                        <HelpCircle className="w-4 h-4 shrink-0" />
+                        <span>Add at least {CUSTOM_CODE_LIMITS.MIN_LENGTH - customCode.trim().length} more characters to start.</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {/* Action buttons */}
+                <div className="flex items-center gap-2">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button type="button" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="Custom code help">
-                        <HelpCircle className="w-3 h-3" />
-                      </button>
+                      <Button 
+                        onClick={applyCustomCode} 
+                        disabled={customCode.trim().length < CUSTOM_CODE_LIMITS.MIN_LENGTH || customCode.length > CUSTOM_CODE_LIMITS.MAX_LENGTH}
+                        className="gap-2"
+                        data-testid="button-apply-custom"
+                      >
+                        <Zap className="w-4 h-4" />
+                        Start Typing
+                      </Button>
                     </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-[250px]">
-                      <p className="font-medium mb-1">Custom Code Practice</p>
-                      <p className="text-xs text-muted-foreground">Paste any code snippet you want to practice. Works with any programming language or text format.</p>
+                    <TooltipContent side="right">
+                      <p className="text-xs">Load your code and begin the typing test</p>
                     </TooltipContent>
                   </Tooltip>
+                  
+                  {customCode.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      Ready: {customCode.split('\n').length} lines, {customCode.trim().length.toLocaleString()} chars
+                    </span>
+                  )}
                 </div>
-                <textarea
-                  value={customCode}
-                  onChange={(e) => setCustomCode(e.target.value)}
-                  className="w-full h-32 p-3 bg-background border rounded-lg font-mono text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Paste your code here..."
-                  spellCheck={false}
-                  data-testid="textarea-custom-code"
-                />
+              </div>
+            )}
+            
+            {/* Show edit button when code is loaded in custom mode */}
+            {mode === "custom" && codeSnippet && !isActive && (
+              <div className="mt-3 flex items-center justify-center gap-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button onClick={applyCustomCode} className="mt-2" data-testid="button-apply-custom">
-                      Start Typing
-                    </Button>
+                    <button
+                      onClick={editLoadedCode}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground bg-muted/30 hover:bg-muted/50 border border-border/30 rounded-md transition-all"
+                      data-testid="button-edit-code"
+                    >
+                      <Code className="w-3.5 h-3.5" />
+                      Edit Code
+                    </button>
                   </TooltipTrigger>
-                  <TooltipContent side="right">
-                    <p className="text-xs">Load your code and begin the typing test</p>
+                  <TooltipContent>
+                    <p className="text-xs">Modify the loaded code snippet</p>
                   </TooltipContent>
                 </Tooltip>
+                <span className="text-[10px] text-muted-foreground/60">
+                  {codeSnippet.split('\n').length} lines • {codeSnippet.length.toLocaleString()} chars
+                </span>
               </div>
             )}
           </Card>
@@ -2280,12 +2647,31 @@ Understanding your baseline code typing speed can help identify opportunities fo
                   )}
                 </span>
               </div>
-              {isActive && (
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-[10px] sm:text-xs text-green-500/80 font-mono">typing</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => resetTest(true)}
+                      disabled={isLoading}
+                      data-testid="button-reset-header"
+                    >
+                      Reset
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left">
+                    <p className="text-xs">Reset Test (Esc)</p>
+                  </TooltipContent>
+                </Tooltip>
+                {isActive && (
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-[10px] sm:text-xs text-green-500/80 font-mono">typing</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="p-3 sm:p-5">
@@ -2294,7 +2680,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                     <span className="text-xs text-muted-foreground">
-                      Generating {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name} snippet...
+                      Generating {PROGRAMMING_LANGUAGES[language as keyof typeof PROGRAMMING_LANGUAGES]?.name} code...
                     </span>
                   </div>
                   <div className="space-y-2.5">
@@ -2426,7 +2812,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 gap-4">
-                  <div className="text-muted-foreground">No code snippet available</div>
+                  <div className="text-muted-foreground">No code available</div>
                   <Button
                     variant="outline"
                     size="sm"
@@ -2434,7 +2820,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     disabled={isLoading}
                   >
                     <RotateCcw className="w-4 h-4 mr-2" />
-                    Generate Snippet
+                    Generate Code
                   </Button>
                 </div>
               )}
@@ -2465,7 +2851,7 @@ Understanding your baseline code typing speed can help identify opportunities fo
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    <p className="text-xs">Press Escape to restart the same snippet</p>
+                    <p className="text-xs">Press Escape to restart the same code</p>
                   </TooltipContent>
                 </Tooltip>
                 <span className="text-muted-foreground/50">•</span>
@@ -2473,11 +2859,11 @@ Understanding your baseline code typing speed can help identify opportunities fo
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-1.5 cursor-help">
                       <kbd className="px-1.5 py-0.5 rounded bg-muted border text-muted-foreground">Tab</kbd>
-                      <span>new snippet</span>
+                      <span>new code</span>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="top">
-                    <p className="text-xs">Press Tab to generate a fresh code snippet</p>
+                    <p className="text-xs">Press Tab to generate fresh code</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -3064,6 +3450,6 @@ Understanding your baseline code typing speed can help identify opportunities fo
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </TooltipProvider>
+    </TooltipProvider >
   );
 }
