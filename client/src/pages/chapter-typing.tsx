@@ -22,6 +22,14 @@ import type { Book, BookParagraph, InsertBookTypingTest } from "@shared/schema";
 import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { BookCertificate } from "@/components/BookCertificate";
 import { getTypingPerformanceRating } from "@/lib/share-utils";
+import { splitIntoScenes, calculateSceneProgress, type Scene } from "@/lib/book-scene-detector";
+import { SceneNavigationControls, SceneProgressCompact, SceneCompletion } from "@/components/SceneNavigationControls";
+import { parseBookContent, getBlockOffset, getNormalizedTypingText, type ParsedContent } from "@/lib/book-content-parser";
+import { BookContentBlockEnhanced } from "@/components/BookContentBlock";
+import { READING_MODES } from "@/lib/book-typography";
+import { BookHeader } from "@/components/book/BookHeader";
+import { ReadingProgress } from "@/components/book/ReadingProgress";
+import { splitIntoTypingSegments, type TypingSegment } from "@/lib/book-segment-splitter";
 
 interface CachedChapterData {
   book: Book;
@@ -35,14 +43,14 @@ function getChapterCache(slug: string, chapterNum: number): CachedChapterData | 
   try {
     const cached = localStorage.getItem(`chapter_cache_${slug}_${chapterNum}`);
     if (!cached) return null;
-    
+
     const parsed: CachedChapterData = JSON.parse(cached);
     const age = Date.now() - parsed.timestamp;
-    
+
     if (age < CHAPTER_CACHE_TTL) {
       return parsed;
     }
-    
+
     localStorage.removeItem(`chapter_cache_${slug}_${chapterNum}`);
     return null;
   } catch {
@@ -65,15 +73,15 @@ function setChapterCache(slug: string, chapterNum: number, book: Book, paragraph
 async function fetchBook(slug: string): Promise<Book> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
-  
+
   try {
     const res = await fetch(`/api/books/${slug}`, {
       signal: controller.signal,
       credentials: 'include',
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (!res.ok) {
       if (res.status === 404) {
         throw new Error('BOOK_NOT_FOUND');
@@ -83,19 +91,19 @@ async function fetchBook(slug: string): Promise<Book> {
       }
       throw new Error(`HTTP_${res.status}`);
     }
-    
+
     return res.json();
   } catch (error: any) {
     clearTimeout(timeoutId);
-    
+
     if (error.name === 'AbortError') {
       throw new Error('TIMEOUT');
     }
-    
+
     if (error.message === 'Failed to fetch' || error.message.includes('NetworkError')) {
       throw new Error('NETWORK_ERROR');
     }
-    
+
     throw error;
   }
 }
@@ -103,15 +111,15 @@ async function fetchBook(slug: string): Promise<Book> {
 async function fetchChapterParagraphs(bookId: number, chapter: number): Promise<BookParagraph[]> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
-  
+
   try {
     const res = await fetch(`/api/books/${bookId}/chapters/${chapter}`, {
       signal: controller.signal,
       credentials: 'include',
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (!res.ok) {
       if (res.status === 404) {
         throw new Error('CHAPTER_NOT_FOUND');
@@ -121,19 +129,19 @@ async function fetchChapterParagraphs(bookId: number, chapter: number): Promise<
       }
       throw new Error(`HTTP_${res.status}`);
     }
-    
+
     return res.json();
   } catch (error: any) {
     clearTimeout(timeoutId);
-    
+
     if (error.name === 'AbortError') {
       throw new Error('TIMEOUT');
     }
-    
+
     if (error.message === 'Failed to fetch' || error.message.includes('NetworkError')) {
       throw new Error('NETWORK_ERROR');
     }
-    
+
     throw error;
   }
 }
@@ -196,12 +204,12 @@ interface ErrorStateProps {
 
 function ErrorState({ error, onRetry, isRetrying, onGoBack, cachedData, onUseCached, slug }: ErrorStateProps) {
   const errorType = error.message;
-  
+
   let icon = <AlertCircle className="w-16 h-16 text-destructive" />;
   let title = "Unable to Load Chapter";
   let description = "Something went wrong while loading the chapter.";
   let canRetry = true;
-  
+
   switch (errorType) {
     case 'NETWORK_ERROR':
       icon = <WifiOff className="w-16 h-16 text-muted-foreground" />;
@@ -228,7 +236,7 @@ function ErrorState({ error, onRetry, isRetrying, onGoBack, cachedData, onUseCac
       canRetry = false;
       break;
   }
-  
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl">
       <Button
@@ -240,7 +248,7 @@ function ErrorState({ error, onRetry, isRetrying, onGoBack, cachedData, onUseCac
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back to Book
       </Button>
-      
+
       <div className="flex flex-col items-center justify-center min-h-[50vh] gap-6 p-4">
         {icon}
         <div className="text-center max-w-md">
@@ -293,7 +301,7 @@ export default function ChapterTyping() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const slug = params?.slug || '';
   const chapterNum = params?.chapterNum ? parseInt(params.chapterNum) : 0;
 
@@ -335,7 +343,18 @@ export default function ChapterTyping() {
     paragraphsCompleted: number;
     wordsTyped: number;
   } | null>(null);
-  
+
+  // Scene navigation state
+  const [scenes, setScenes] = useState<Scene[]>([]);
+  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
+  const [autoAdvanceScene, setAutoAdvanceScene] = useState(false);
+  const [sceneCompletionShown, setSceneCompletionShown] = useState(false);
+
+  // Enhanced content parsing state
+  const [parsedContent, setParsedContent] = useState<ParsedContent[]>([]);
+  const [readingMode, setReadingMode] = useState<'theater' | 'novel' | 'compact'>('novel');
+  const [focusMode, setFocusMode] = useState(false);
+
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const correctSpanRef = useRef<HTMLSpanElement>(null);
@@ -348,8 +367,8 @@ export default function ChapterTyping() {
     }
   }, [slug, chapterNum]);
 
-  const { 
-    data: book, 
+  const {
+    data: book,
     isLoading: bookLoading,
     isError: bookError,
     error: bookErrorData,
@@ -368,8 +387,8 @@ export default function ChapterTyping() {
     retryDelay: 1000,
   });
 
-  const { 
-    data: chapterParagraphs = [], 
+  const {
+    data: chapterParagraphs = [],
     isLoading: chaptersLoading,
     isError: chaptersError,
     error: chaptersErrorData,
@@ -387,10 +406,10 @@ export default function ChapterTyping() {
     },
     retryDelay: 1000,
   });
-  
+
   const displayBook = useCachedData && cachedData ? cachedData.book : book;
   const displayParagraphs = useCachedData && cachedData ? cachedData.paragraphs : chapterParagraphs;
-  
+
   useEffect(() => {
     if (book && chapterParagraphs.length > 0 && slug && chapterNum && !useCachedData) {
       setChapterCache(slug, chapterNum, book, chapterParagraphs);
@@ -399,19 +418,37 @@ export default function ChapterTyping() {
 
   useEffect(() => {
     if (displayParagraphs.length > 0) {
-      const text = displayParagraphs.map(p => p.text).join('\n\n');
+      // Parse paragraphs into scenes
+      const detectedScenes = splitIntoScenes(displayParagraphs, {
+        maxWordsPerScene: 800,
+        minWordsPerScene: 50,
+      });
+      setScenes(detectedScenes);
+
+      // Get text for current scene (default to scene 0)
+      const currentScene = detectedScenes[0];
+      const text = currentScene ? currentScene.paragraphs.map(p => p.text).join('\n\n') : displayParagraphs.map(p => p.text).join('\n\n');
       setChapterText(text);
-      setParagraphs(displayParagraphs);
-      
+      setParagraphs(currentScene ? currentScene.paragraphs : displayParagraphs);
+
       const progressKey = `chapter-progress-${slug}-${chapterNum}`;
       let progressRestored = false;
-      
+
       try {
         const savedProgress = localStorage.getItem(progressKey);
         if (savedProgress) {
-          const { userInput: savedInput, timestamp, elapsedSeconds } = JSON.parse(savedProgress);
+          const { userInput: savedInput, timestamp, elapsedSeconds, sceneIndex } = JSON.parse(savedProgress);
           const age = Date.now() - timestamp;
           if (age < 24 * 60 * 60 * 1000 && savedInput.length > 0 && savedInput.length < text.length) {
+            // Restore scene index if saved
+            if (typeof sceneIndex === 'number' && sceneIndex >= 0 && sceneIndex < detectedScenes.length) {
+              setCurrentSceneIndex(sceneIndex);
+              const restoredScene = detectedScenes[sceneIndex];
+              const sceneText = restoredScene.paragraphs.map(p => p.text).join('\n\n');
+              setChapterText(sceneText);
+              setParagraphs(restoredScene.paragraphs);
+            }
+
             setUserInput(savedInput);
             setIsActive(true);
             const resumeTime = elapsedSeconds ? Date.now() - (elapsedSeconds * 1000) : Date.now() - 1000;
@@ -427,8 +464,9 @@ export default function ChapterTyping() {
         }
       } catch (e) {
       }
-      
+
       if (!progressRestored) {
+        setCurrentSceneIndex(0);
         resetTestState();
       }
     }
@@ -443,11 +481,32 @@ export default function ChapterTyping() {
           userInput,
           timestamp: Date.now(),
           elapsedSeconds,
+          sceneIndex: currentSceneIndex, // Save current scene
         }));
       } catch (e) {
       }
     }
-  }, [userInput, chapterText, isFinished, slug, chapterNum, startTime]);
+  }, [userInput, chapterText, isFinished, slug, chapterNum, startTime, currentSceneIndex]);
+
+  // Parse content when chapterText changes for enhanced rendering
+  useEffect(() => {
+    if (chapterText) {
+      const parsed = parseBookContent(chapterText);
+      setParsedContent(parsed);
+    } else {
+      setParsedContent([]);
+    }
+  }, [chapterText]);
+
+  // Create typing segments from parsed content
+  const typingSegments = useMemo(() => {
+    if (parsedContent.length === 0) return [];
+    return splitIntoTypingSegments(parsedContent, {
+      maxWords: 80,
+      minWords: 30,
+      targetWords: 60,
+    });
+  }, [parsedContent]);
 
   useEffect(() => {
     if (isFinished && slug && chapterNum) {
@@ -463,7 +522,7 @@ export default function ChapterTyping() {
     mutationFn: async (result: Omit<InsertBookTypingTest, 'userId'>) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
+
       try {
         const res = await fetch('/api/book-tests', {
           method: 'POST',
@@ -472,9 +531,9 @@ export default function ChapterTyping() {
           credentials: 'include',
           signal: controller.signal,
         });
-        
+
         clearTimeout(timeoutId);
-        
+
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
           throw new Error(errorData.message || `HTTP ${res.status}`);
@@ -495,10 +554,10 @@ export default function ChapterTyping() {
       setSaveRetryCount(0);
     },
     onError: (error: any) => {
-      const isNetworkError = error.message === 'Failed to fetch' || 
-                             error.name === 'AbortError' ||
-                             error.message.includes('NetworkError');
-      
+      const isNetworkError = error.message === 'Failed to fetch' ||
+        error.name === 'AbortError' ||
+        error.message.includes('NetworkError');
+
       if (isNetworkError && saveRetryCount < 3) {
         setSaveRetryCount(prev => prev + 1);
         toast({
@@ -519,16 +578,47 @@ export default function ChapterTyping() {
     retryDelay: 1000,
   });
 
+  // Scene navigation handlers
+  const handleSceneChange = useCallback((sceneIndex: number) => {
+    if (sceneIndex < 0 || sceneIndex >= scenes.length || isActive) return;
+
+    const scene = scenes[sceneIndex];
+    if (!scene) return;
+
+    setCurrentSceneIndex(sceneIndex);
+    const text = scene.paragraphs.map(p => p.text).join('\n\n');
+    setChapterText(text);
+    setParagraphs(scene.paragraphs);
+    resetTestState();
+
+    toast({
+      title: `Switched to ${scene.title}`,
+      description: `${scene.wordCount} words • ${scene.paragraphs.length} paragraphs`,
+    });
+  }, [scenes, isActive, toast]);
+
+  const handleNextScene = useCallback(() => {
+    if (currentSceneIndex < scenes.length - 1) {
+      handleSceneChange(currentSceneIndex + 1);
+    }
+  }, [currentSceneIndex, scenes, handleSceneChange]);
+
+  const handlePrevScene = useCallback(() => {
+    if (currentSceneIndex > 0) {
+      handleSceneChange(currentSceneIndex - 1);
+    }
+  }, [currentSceneIndex, handleSceneChange]);
+
   const stats = useMemo(() => {
     if (!isActive || !startTime || !chapterText) {
       return { wpm: 0, accuracy: 100, errors: 0 };
     }
-    
+
     const chars = userInput.length;
     const errorCount = userInput.split("").filter((char, i) => char !== chapterText[i]).length;
     const correctChars = chars - errorCount;
     const timeElapsed = (Date.now() - startTime) / 1000;
-    
+
     return {
       wpm: calculateWPM(correctChars, timeElapsed),
       accuracy: calculateAccuracy(correctChars, chars),
@@ -538,13 +628,13 @@ export default function ChapterTyping() {
 
   useEffect(() => {
     if (!isActive || isFinished) return;
-    
+
     const timer = setTimeout(() => {
       setWpm(stats.wpm);
       setAccuracy(stats.accuracy);
       setErrors(stats.errors);
     }, 50);
-    
+
     return () => clearTimeout(timer);
   }, [stats, isActive, isFinished]);
 
@@ -557,12 +647,12 @@ export default function ChapterTyping() {
   const updateCursorPosition = useCallback(() => {
     requestAnimationFrame(() => {
       if (!containerRef.current) return;
-      
+
       try {
         const containerRect = containerRef.current.getBoundingClientRect();
         let targetSpan: HTMLSpanElement | null = null;
         let offsetInSpan = 0;
-        
+
         if (correctSpanRef.current && userInput.length <= (correctSpanRef.current.textContent?.length || 0)) {
           targetSpan = correctSpanRef.current;
           offsetInSpan = userInput.length;
@@ -571,21 +661,21 @@ export default function ChapterTyping() {
           const correctLength = correctSpanRef.current?.textContent?.length || 0;
           offsetInSpan = userInput.length - correctLength;
         }
-        
+
         if (targetSpan && targetSpan.firstChild) {
           const range = document.createRange();
           const textNode = targetSpan.firstChild;
           const maxOffset = textNode.textContent?.length || 0;
           const safeOffset = Math.min(offsetInSpan, maxOffset);
-          
+
           range.setStart(textNode, safeOffset);
           range.setEnd(textNode, safeOffset);
-          
+
           const rect = range.getBoundingClientRect();
           const relativeLeft = rect.left - containerRect.left;
           const relativeTop = rect.top - containerRect.top;
           const height = rect.height || 40;
-          
+
           setCursorPosition({ left: relativeLeft, top: relativeTop, height });
         } else {
           setCursorPosition({ left: 0, top: 0, height: 40 });
@@ -603,11 +693,11 @@ export default function ChapterTyping() {
   useEffect(() => {
     const handleResize = () => updateCursorPosition();
     window.addEventListener('resize', handleResize);
-    
+
     if (document.fonts) {
       document.fonts.ready.then(() => updateCursorPosition());
     }
-    
+
     return () => window.removeEventListener('resize', handleResize);
   }, [updateCursorPosition]);
 
@@ -621,7 +711,7 @@ export default function ChapterTyping() {
           description: "Your progress has been cleared. Start typing to begin again.",
         });
       }
-      
+
       if (!isActive && !isFinished) {
         if (e.key === 'ArrowLeft' && chapterNum > 1) {
           e.preventDefault();
@@ -632,14 +722,14 @@ export default function ChapterTyping() {
         }
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isActive, isFinished, chapterNum, displayBook]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    
+
     if (isActive && startTime) {
       interval = setInterval(() => {
         setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
@@ -647,7 +737,7 @@ export default function ChapterTyping() {
     } else if (!isActive) {
       setElapsedTime(0);
     }
-    
+
     return () => {
       if (interval) clearInterval(interval);
     };
@@ -661,7 +751,7 @@ export default function ChapterTyping() {
     const correctChars = chars - errorCount;
     const elapsedSeconds = (Date.now() - startTime) / 1000;
     const duration = Math.round(elapsedSeconds);
-    
+
     const finalWpm = calculateWPM(correctChars, elapsedSeconds);
     const finalAccuracy = calculateAccuracy(correctChars, chars);
     const finalErrors = errorCount;
@@ -670,20 +760,24 @@ export default function ChapterTyping() {
     const words = chapterText.split(/\s+/).length;
     const wordsTyped = Math.min(words, Math.floor(userInput.split(/\s+/).length));
 
+    // Check if this is a scene completion vs full chapter completion
+    const isSceneCompletion = scenes.length > 1 && currentSceneIndex < scenes.length - 1;
+    const isLastScene = currentSceneIndex === scenes.length - 1;
+
     setIsActive(false);
     setIsFinished(true);
-    
+
     setWpm(finalWpm);
     setAccuracy(finalAccuracy);
     setErrors(finalErrors);
-    
+
     setCompletedTestData({
       duration,
       wpm: finalWpm,
       accuracy: finalAccuracy,
       errors: finalErrors,
     });
-    
+
     setLastResultSnapshot({
       wpm: finalWpm,
       accuracy: finalAccuracy,
@@ -696,7 +790,7 @@ export default function ChapterTyping() {
       paragraphsCompleted: paragraphs.length,
       wordsTyped,
     });
-    
+
     confetti({
       particleCount: 100,
       spread: 70,
@@ -704,7 +798,8 @@ export default function ChapterTyping() {
       colors: ['#FFD700', '#00FFFF', '#FF00FF']
     });
 
-    if (user) {
+    // Only save to database on last scene (full chapter completion)
+    if (user && isLastScene) {
       const result = {
         paragraphId: paragraphs[0].id,
         wpm: finalWpm,
@@ -716,7 +811,16 @@ export default function ChapterTyping() {
       setPendingResult(result);
       saveTestMutation.mutate(result);
     }
-  }, [chapterText, startTime, paragraphs, userInput, user, saveTestMutation, displayBook, chapterNum]);
+
+    // Auto-advance to next scene if enabled
+    if (isSceneCompletion && autoAdvanceScene) {
+      setTimeout(() => {
+        handleNextScene();
+      }, 2000); // 2 second delay to show stats
+    } else {
+      setSceneCompletionShown(true);
+    }
+  }, [chapterText, startTime, paragraphs, userInput, user, saveTestMutation, displayBook, chapterNum, scenes, currentSceneIndex, autoAdvanceScene, handleNextScene]);
 
   useEffect(() => {
     if (isActive && userInput === chapterText && chapterText) {
@@ -745,17 +849,17 @@ export default function ChapterTyping() {
 
   const processInput = (value: string) => {
     if (!chapterText || isFinished) return;
-    
+
     if (value.length > chapterText.length) {
       if (inputRef.current) inputRef.current.value = userInput;
       return;
     }
-    
+
     if (!isActive && value.length > 0) {
       setIsActive(true);
       setStartTime(Date.now());
     }
-    
+
     setUserInput(value);
   };
 
@@ -813,7 +917,7 @@ export default function ChapterTyping() {
       setLocation(`/books/${slug}`);
     }
   };
-  
+
   const handleRetry = useCallback(() => {
     setUseCachedData(false);
     refetchBook();
@@ -821,29 +925,29 @@ export default function ChapterTyping() {
       refetchChapter();
     }
   }, [refetchBook, refetchChapter, book]);
-  
+
   const handleUseCached = useCallback(() => {
     if (cachedData && cachedData.paragraphs.length > 0) {
       queryClient.setQueryData(['book', slug], cachedData.book);
       queryClient.setQueryData(['chapter', cachedData.book.id, chapterNum], cachedData.paragraphs);
-      
+
       setUseCachedData(true);
       const text = cachedData.paragraphs.map(p => p.text).join('\n\n');
       setChapterText(text);
       setParagraphs(cachedData.paragraphs);
       resetTestState();
-      
+
       toast({
         title: "Using Offline Data",
         description: "Loaded cached chapter content. Some features may be limited.",
       });
     }
   }, [cachedData, queryClient, slug, chapterNum, toast]);
-  
+
   const handleGoBack = useCallback(() => {
     setLocation(`/books/${slug}`);
   }, [setLocation, slug]);
-  
+
   const handleRetrySave = useCallback(() => {
     if (pendingResult) {
       saveTestMutation.mutate(pendingResult);
@@ -885,7 +989,7 @@ export default function ChapterTyping() {
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Book
         </Button>
-        
+
         <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
           <BookOpen className="w-16 h-16 text-muted-foreground" />
           <h2 className="text-2xl font-bold">Chapter Not Found</h2>
@@ -900,6 +1004,34 @@ export default function ChapterTyping() {
     );
   }
 
+  // Enhanced rendering using semantic content blocks
+  const renderEnhancedText = () => {
+    if (parsedContent.length > 0) {
+      return (
+        <div className="book-content-structure space-y-1">
+          {parsedContent.map((block, idx) => (
+            <BookContentBlockEnhanced
+              key={`block-${idx}-${block.type}`}
+              block={block}
+              userProgress={userInput.length}
+              blockStartOffset={getBlockOffset(parsedContent, idx, true)}
+              isActive={isActive}
+              readingMode={readingMode}
+              userInput={userInput}
+              useDisplayText={true}
+              focusMode={focusMode}
+              autoScroll={true}
+            />
+          ))}
+        </div>
+      );
+    }
+
+    // Fallback to simple rendering
+    return renderText();
+  };
+
+  // Original simple text rendering (fallback)
   const renderText = () => {
     let correctUpTo = 0;
     for (let i = 0; i < userInput.length && i < chapterText.length; i++) {
@@ -909,11 +1041,11 @@ export default function ChapterTyping() {
         break;
       }
     }
-    
+
     const correctText = chapterText.slice(0, correctUpTo);
     const incorrectText = chapterText.slice(correctUpTo, userInput.length);
     const remainingText = chapterText.slice(userInput.length);
-    
+
     return (
       <>
         {correctText && (
@@ -1062,8 +1194,8 @@ export default function ChapterTyping() {
                   <Zap className="w-4 h-4 text-yellow-500" aria-hidden="true" />
                   <span className="text-sm text-muted-foreground">WPM</span>
                 </div>
-                <div 
-                  className="text-3xl font-bold text-yellow-500" 
+                <div
+                  className="text-3xl font-bold text-yellow-500"
                   data-testid="text-wpm"
                   role="status"
                   aria-live="polite"
@@ -1086,8 +1218,8 @@ export default function ChapterTyping() {
                   <Target className="w-4 h-4 text-green-500" aria-hidden="true" />
                   <span className="text-sm text-muted-foreground">Accuracy</span>
                 </div>
-                <div 
-                  className="text-3xl font-bold text-green-500" 
+                <div
+                  className="text-3xl font-bold text-green-500"
                   data-testid="text-accuracy"
                   role="status"
                   aria-live="polite"
@@ -1109,8 +1241,8 @@ export default function ChapterTyping() {
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <span className="text-sm text-muted-foreground">Errors</span>
                 </div>
-                <div 
-                  className="text-3xl font-bold text-red-500" 
+                <div
+                  className="text-3xl font-bold text-red-500"
                   data-testid="text-errors"
                   role="status"
                   aria-live="polite"
@@ -1132,8 +1264,8 @@ export default function ChapterTyping() {
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <span className="text-sm text-muted-foreground">Time</span>
                 </div>
-                <div 
-                  className="text-3xl font-bold" 
+                <div
+                  className="text-3xl font-bold"
                   data-testid="text-timer"
                   role="timer"
                   aria-live="off"
@@ -1150,11 +1282,74 @@ export default function ChapterTyping() {
         </TooltipProvider>
       </div>
 
+      {/* Reading Mode Selector & Progress */}
+      {parsedContent.length > 0 && (
+        <Card className="p-4 mb-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-muted-foreground">Mode:</label>
+                <Tabs value={readingMode} onValueChange={(value) => setReadingMode(value as 'theater' | 'novel' | 'compact')}>
+                  <TabsList className="h-8">
+                    {READING_MODES.map(mode => (
+                      <TooltipProvider key={mode.id}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <TabsTrigger value={mode.id} className="text-xs h-6 px-2">
+                              {mode.label}
+                            </TabsTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="max-w-xs">{mode.description}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ))}
+                  </TabsList>
+                </Tabs>
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={focusMode ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => setFocusMode(!focusMode)}
+                      className="h-8 text-xs"
+                    >
+                      Focus Mode
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Dim completed and upcoming text for better focus</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+
+            {/* Segment Progress */}
+            {typingSegments.length > 0 && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{typingSegments.length} segments</span>
+                <div className="w-24 h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-200"
+                    style={{ width: `${chapterText ? (userInput.length / chapterText.length) * 100 : 0}%` }}
+                  />
+                </div>
+                <span className="font-mono">{chapterText ? Math.round((userInput.length / chapterText.length) * 100) : 0}%</span>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
       <Card className="p-6 mb-6 relative">
-        <div 
+        <div
           ref={containerRef}
           onClick={handleContainerClick}
-          className="relative min-h-[200px] font-serif text-lg leading-relaxed cursor-text"
+          className="relative min-h-[200px] font-serif text-lg leading-relaxed cursor-text book-content-container"
+          style={{ maxWidth: '70ch', margin: '0 auto' }}
           data-testid="typing-container"
           role="application"
           aria-label="Chapter typing practice area"
@@ -1172,11 +1367,11 @@ export default function ChapterTyping() {
             disabled={isFinished}
             data-testid="hidden-input"
           />
-          
+
           <div className="relative z-10 whitespace-pre-wrap pointer-events-none select-none">
-            {renderText()}
+            {renderEnhancedText()}
           </div>
-          
+
           {!isFinished && (
             <div
               className="absolute pointer-events-none z-20 bg-primary/60 animate-pulse"
@@ -1322,7 +1517,7 @@ export default function ChapterTyping() {
                   <div className="text-3xl font-bold">{formatTime(completedTestData.duration)}</div>
                 </div>
               </div>
-              
+
               {saveTestMutation.isError && (
                 <div className="p-3 bg-destructive/10 rounded-lg text-center">
                   <p className="text-sm text-destructive mb-2">Failed to save your progress</p>
@@ -1342,7 +1537,7 @@ export default function ChapterTyping() {
                   </Button>
                 </div>
               )}
-              
+
               {lastResultSnapshot && (
                 <div className="flex justify-center mb-3">
                   <Tooltip>
@@ -1363,7 +1558,7 @@ export default function ChapterTyping() {
                   </Tooltip>
                 </div>
               )}
-              
+
               <div className="flex gap-3">
                 {chapterNum < displayBook.totalChapters && (
                   <Button
@@ -1410,7 +1605,7 @@ export default function ChapterTyping() {
               Share your chapter typing achievement with others!
             </DialogDescription>
           </DialogHeader>
-          
+
           {lastResultSnapshot && (
             <Tabs defaultValue="certificate" className="w-full">
               <TabsList className="grid w-full grid-cols-1">
@@ -1426,7 +1621,7 @@ export default function ChapterTyping() {
                   </TooltipContent>
                 </Tooltip>
               </TabsList>
-              
+
               <TabsContent value="certificate" className="space-y-4">
                 <div className="text-center space-y-2 mb-4">
                   <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/30 mb-2">

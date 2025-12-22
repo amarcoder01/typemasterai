@@ -1209,7 +1209,7 @@ export const dictationTests = pgTable("dictation_tests", {
 
 export const insertDictationTestSchema = createInsertSchema(dictationTests, {
   sentenceId: z.number().int().positive(),
-  speedLevel: z.enum(["slow", "medium", "fast", "random"]),
+  speedLevel: z.string(),
   actualSpeed: z.number().min(0.5).max(2.0),
   actualSentence: z.string().min(1),
   typedText: z.string(),

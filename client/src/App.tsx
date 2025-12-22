@@ -36,6 +36,7 @@ import BookLibrary from "@/pages/book-library";
 import BookDetail from "@/pages/book-detail";
 import ChapterTyping from "@/pages/chapter-typing";
 import DictationTest from "@/pages/dictation-test";
+import DictationMode from "@/pages/dictation-mode";
 import StressTest from "@/pages/stress-test";
 import StressLeaderboard from "@/pages/stress-leaderboard";
 import SharedResult from "@/pages/shared-result";
@@ -89,7 +90,8 @@ function Router() {
             <Route path="/code-mode" component={CodeMode} />
             <Route path="/code-leaderboard" component={CodeLeaderboard} />
             <Route path="/book-mode" component={BookMode} />
-            <Route path="/dictation-mode" component={DictationTest} />
+            <Route path="/dictation-mode" component={DictationMode} />
+            <Route path="/dictation-test" component={DictationTest} />
             <Route path="/stress-test" component={StressTest} />
             <Route path="/stress-leaderboard" component={StressLeaderboard} />
             <Route path="/books/:slug/chapter/:chapterNum" component={ChapterTyping} />

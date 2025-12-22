@@ -5047,7 +5047,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/certificates", isAuthenticated, async (req, res) => {
     try {
       const userId = req.user!.id;
-      const parsed = insertCertificateSchema.safeParse(req.body);
+      // Invalidate cache if exists
+      // await invalidateCache(`certificates:${userId}`);
+
+      // We need to inject userId into the validation because insertCertificateSchema requires it
+      const parsed = insertCertificateSchema.safeParse({
+        ...req.body,
+        userId
+      });
       
       if (!parsed.success) {
         return res.status(400).json({

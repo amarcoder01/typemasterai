@@ -518,3 +518,330 @@
     border-top: 1px solid #ddd;
   }
 }
+
+/* ============================================================================
+   BOOK MODE - Enhanced Typography & Visual Styles
+   ============================================================================ */
+
+/* Book Content Container */
+.book-content-container {
+  --book-line-height: 1.8;
+  --book-font-size: 1.125rem;
+  --book-max-width: 70ch;
+  
+  font-size: var(--book-font-size);
+  line-height: var(--book-line-height);
+  max-width: var(--book-max-width);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Book Content Structure - Spacing between semantic blocks */
+.book-content-structure {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.book-content-structure > * {
+  transition: all 0.2s ease-out;
+}
+
+/* Individual Content Block Base */
+.book-content-block {
+  position: relative;
+  padding: 0.25rem 0;
+}
+
+/* Current block focus indicator */
+.book-content-block[data-block-state="current"] {
+  scroll-margin-top: 4rem;
+  scroll-margin-bottom: 4rem;
+}
+
+/* Smooth scroll behavior for content */
+.book-content-container {
+  scroll-behavior: smooth;
+}
+
+/* Focus Mode - Enhanced dimming */
+.focus-mode .book-content-block[data-block-state="completed"] {
+  opacity: 0.25;
+  filter: blur(0.5px) saturate(0.5);
+}
+
+.focus-mode .book-content-block[data-block-state="upcoming"] {
+  opacity: 0.35;
+}
+
+.focus-mode .book-content-block[data-block-state="current"] {
+  opacity: 1;
+  transform: scale(1.01);
+  box-shadow: 0 4px 20px -4px hsl(var(--primary) / 0.2);
+}
+
+/* Typing state animations */
+@keyframes block-focus-in {
+  from {
+    opacity: 0.6;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.book-content-block[data-block-state="current"] {
+  animation: block-focus-in 0.2s ease-out;
+}
+
+/* Content Type Specific Styles */
+
+/* Act Headers - Prominent with decorative borders */
+[data-block-type="ACT_HEADER"] {
+  text-align: center;
+  position: relative;
+  padding: 1.5rem 0;
+}
+
+[data-block-type="ACT_HEADER"]::before,
+[data-block-type="ACT_HEADER"]::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.4), transparent);
+}
+
+[data-block-type="ACT_HEADER"]::before {
+  top: 0;
+}
+
+[data-block-type="ACT_HEADER"]::after {
+  bottom: 0;
+}
+
+/* Scene Headers - Left accent */
+[data-block-type="SCENE_HEADER"] {
+  position: relative;
+  padding-left: 1rem;
+}
+
+[data-block-type="SCENE_HEADER"]::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 80%;
+  background: hsl(var(--primary) / 0.5);
+  border-radius: 2px;
+}
+
+/* Stage Directions - Italic with amber accent */
+[data-block-type="STAGE_DIRECTION"] {
+  font-style: italic;
+  color: hsl(var(--muted-foreground) / 0.8);
+  background: hsl(45 50% 50% / 0.05);
+  border-left: 2px solid hsl(45 70% 50% / 0.4);
+  padding: 0.5rem 0 0.5rem 1rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+  margin-left: 0.5rem;
+}
+
+/* Setting Description - Muted background */
+[data-block-type="SETTING_DESCRIPTION"] {
+  font-style: italic;
+  background: hsl(var(--muted) / 0.3);
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid hsl(var(--muted) / 0.5);
+}
+
+/* Time Marker - Centered with dashes */
+[data-block-type="TIME_MARKER"] {
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  padding: 0.5rem 0;
+}
+
+[data-block-type="TIME_MARKER"]::before {
+  content: '—  ';
+}
+
+[data-block-type="TIME_MARKER"]::after {
+  content: '  —';
+}
+
+/* Character Name - Bold primary color */
+[data-block-type="CHARACTER_NAME"] {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--primary));
+  font-size: 0.875rem;
+  margin-top: 1rem;
+}
+
+/* Dialogue - Indented with subtle left border */
+[data-block-type="DIALOGUE"] {
+  margin-left: 1.5rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid hsl(var(--primary) / 0.2);
+}
+
+/* Character Entry - Bulleted list style */
+[data-block-type="CHARACTER_ENTRY"] {
+  margin-left: 2rem;
+  position: relative;
+  padding-left: 1rem;
+}
+
+[data-block-type="CHARACTER_ENTRY"]::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: hsl(var(--primary) / 0.5);
+}
+
+/* Section Divider - Gradient line */
+[data-block-type="SECTION_DIVIDER"] {
+  height: 1px;
+  border: none;
+  background: linear-gradient(90deg, transparent, hsl(var(--muted-foreground) / 0.3), transparent);
+  margin: 2rem 0;
+}
+
+/* Narration - First letter styling for novel mode */
+.novel [data-block-type="NARRATION"]:first-of-type::first-letter {
+  font-size: 2em;
+  font-weight: 600;
+  float: left;
+  line-height: 1;
+  margin-right: 0.25rem;
+  color: hsl(var(--primary));
+}
+
+/* Typing Cursor Animation */
+@keyframes cursor-blink-book {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.book-content-block .cursor-indicator {
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  background: hsl(var(--primary));
+  animation: cursor-blink-book 1s ease-in-out infinite;
+  vertical-align: middle;
+  margin-left: 1px;
+}
+
+/* Character Highlighting in Book Mode */
+.book-content-block .char-correct {
+  color: hsl(142 71% 45%);
+}
+
+.book-content-block .char-incorrect {
+  color: hsl(0 85% 60%);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.book-content-block .char-actual {
+  color: hsl(45 100% 50%);
+  font-weight: 600;
+}
+
+.book-content-block .char-pending {
+  color: hsl(var(--muted-foreground) / 0.6);
+}
+
+/* Book Header Sticky */
+.book-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Reading Progress Animations */
+@keyframes progress-fill {
+  from { width: 0%; }
+  to { width: var(--progress-value); }
+}
+
+.reading-progress-bar {
+  transition: width 0.3s ease-out;
+}
+
+/* Segment Dot Animation */
+@keyframes dot-complete {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.segment-dot-complete {
+  animation: dot-complete 0.3s ease-out;
+}
+
+/* Responsive Book Typography */
+@media (max-width: 640px) {
+  .book-content-container {
+    --book-font-size: 1rem;
+    --book-line-height: 1.7;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  [data-block-type="DIALOGUE"] {
+    margin-left: 0.75rem;
+    padding-left: 0.5rem;
+  }
+  
+  [data-block-type="CHARACTER_ENTRY"] {
+    margin-left: 1rem;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .book-content-block,
+  .book-content-structure > * {
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  .focus-mode .book-content-block[data-block-state="current"] {
+    transform: none !important;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  [data-block-type="STAGE_DIRECTION"] {
+    border-left-width: 3px;
+    border-left-color: hsl(var(--primary));
+  }
+  
+  [data-block-type="SCENE_HEADER"]::before {
+    width: 6px;
+    background: hsl(var(--primary));
+  }
+  
+  .book-content-block .char-correct {
+    color: hsl(120 100% 35%);
+  }
+  
+  .book-content-block .char-incorrect {
+    color: hsl(0 100% 50%);
+  }
+}

@@ -19,6 +19,12 @@ import { calculateWPM, calculateAccuracy } from "@/lib/typing-utils";
 import { BookCertificate } from "@/components/BookCertificate";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getTypingPerformanceRating } from "@/lib/share-utils";
+import { parseBookContent, getBlockOffset, joinBlocksToText, getNormalizedTypingText, type ParsedContent } from "@/lib/book-content-parser";
+import { BookContentBlockEnhanced } from "@/components/BookContentBlock";
+import { READING_MODES, type ReadingMode } from "@/lib/book-typography";
+import { BookHeader } from "@/components/book/BookHeader";
+import { ReadingProgress } from "@/components/book/ReadingProgress";
+import { splitIntoTypingSegments, type TypingSegment } from "@/lib/book-segment-splitter";
 
 interface CachedTopics {
   topics: string[];
@@ -40,7 +46,7 @@ function getTopicsCache(): string[] | null {
   try {
     const cached = localStorage.getItem(TOPICS_CACHE_KEY);
     if (!cached) return null;
-    
+
     const parsed: CachedTopics = JSON.parse(cached);
     if (Date.now() - parsed.timestamp < TOPICS_CACHE_TTL) {
       return parsed.topics;
@@ -56,19 +62,19 @@ function setTopicsCache(topics: string[]): void {
   try {
     const cached: CachedTopics = { topics, timestamp: Date.now() };
     localStorage.setItem(TOPICS_CACHE_KEY, JSON.stringify(cached));
-  } catch {}
+  } catch { }
 }
 
 function getParagraphCache(filters: { topic: string; difficulty: string; durationMode: number }): BookParagraph | null {
   try {
     const cached = localStorage.getItem(PARAGRAPH_CACHE_KEY);
     if (!cached) return null;
-    
+
     const parsed: CachedParagraph = JSON.parse(cached);
     if (Date.now() - parsed.timestamp < PARAGRAPH_CACHE_TTL &&
-        parsed.filters.topic === filters.topic &&
-        parsed.filters.difficulty === filters.difficulty &&
-        parsed.filters.durationMode === filters.durationMode) {
+      parsed.filters.topic === filters.topic &&
+      parsed.filters.difficulty === filters.difficulty &&
+      parsed.filters.durationMode === filters.durationMode) {
       return parsed.paragraph;
     }
     return null;
@@ -81,7 +87,7 @@ function setParagraphCache(paragraph: BookParagraph, filters: { topic: string; d
   try {
     const cached: CachedParagraph = { paragraph, filters, timestamp: Date.now() };
     localStorage.setItem(PARAGRAPH_CACHE_KEY, JSON.stringify(cached));
-  } catch {}
+  } catch { }
 }
 
 const DURATION_MODES = [
@@ -109,25 +115,25 @@ function getDifficultyColor(difficulty: string): string {
 async function fetchTopics(): Promise<{ topics: string[] }> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
-  
+
   try {
     const res = await fetch('/api/book-topics', {
       signal: controller.signal,
       credentials: 'include',
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (!res.ok) {
       throw new Error(`HTTP_${res.status}`);
     }
-    
+
     const data = await res.json();
     setTopicsCache(data.topics || []);
     return data;
   } catch (error: any) {
     clearTimeout(timeoutId);
-    
+
     if (error.name === 'AbortError') {
       throw new Error('TIMEOUT');
     }
@@ -141,33 +147,33 @@ async function fetchTopics(): Promise<{ topics: string[] }> {
 async function fetchRandomParagraph(filters: { topic: string; difficulty: string; durationMode: number }): Promise<BookParagraph> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
-  
+
   try {
     const params = new URLSearchParams();
     if (filters.topic) params.append('topic', filters.topic);
     if (filters.difficulty) params.append('difficulty', filters.difficulty);
     if (filters.durationMode) params.append('durationMode', filters.durationMode.toString());
-    
+
     const res = await fetch(`/api/book-paragraphs/random?${params}`, {
       signal: controller.signal,
       credentials: 'include',
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (!res.ok) {
       if (res.status === 404) {
         throw new Error('NO_PARAGRAPHS');
       }
       throw new Error(`HTTP_${res.status}`);
     }
-    
+
     const paragraph = await res.json();
     setParagraphCache(paragraph, filters);
     return paragraph;
   } catch (error: any) {
     clearTimeout(timeoutId);
-    
+
     if (error.name === 'AbortError') {
       throw new Error('TIMEOUT');
     }
@@ -181,27 +187,27 @@ async function fetchRandomParagraph(filters: { topic: string; difficulty: string
 async function fetchNextParagraph(bookId: number, paragraphIndex: number): Promise<BookParagraph | null> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
-  
+
   try {
     const res = await fetch(`/api/book-paragraphs/next/${bookId}/${paragraphIndex}`, {
       signal: controller.signal,
       credentials: 'include',
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (res.status === 404) {
       return null;
     }
-    
+
     if (!res.ok) {
       throw new Error(`HTTP_${res.status}`);
     }
-    
+
     return res.json();
   } catch (error: any) {
     clearTimeout(timeoutId);
-    
+
     if (error.name === 'AbortError') {
       throw new Error('TIMEOUT');
     }
@@ -280,7 +286,7 @@ function ErrorState({ error, onRetry, isRetrying, hasFilters, onResetFilters }: 
   let description = "Something went wrong while loading the book paragraph.";
   let showRetry = true;
   let showResetFilters = false;
-  
+
   switch (error) {
     case 'NETWORK_ERROR':
       icon = <WifiOff className="w-16 h-16 text-muted-foreground" />;
@@ -294,14 +300,14 @@ function ErrorState({ error, onRetry, isRetrying, hasFilters, onResetFilters }: 
     case 'NO_PARAGRAPHS':
       icon = <BookOpen className="w-16 h-16 text-muted-foreground" />;
       title = "No Paragraphs Found";
-      description = hasFilters 
+      description = hasFilters
         ? "No paragraphs match your current filters. Try different settings."
         : "The book library is still being populated. Please check back later.";
       showRetry = !hasFilters;
       showResetFilters = hasFilters;
       break;
   }
-  
+
   return (
     <TooltipProvider>
       <div className="container mx-auto py-8 px-4 max-w-6xl">
@@ -311,7 +317,7 @@ function ErrorState({ error, onRetry, isRetrying, hasFilters, onResetFilters }: 
             <h1 className="text-4xl font-bold">Book Typing Mode</h1>
           </div>
         </div>
-        
+
         <div className="flex flex-col items-center justify-center min-h-[50vh] gap-6 p-4">
           {icon}
           <div className="text-center max-w-md">
@@ -359,7 +365,7 @@ export default function BookMode() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const [filters, setFilters] = useState({ topic: '', difficulty: 'medium', durationMode: 60 });
   const [currentParagraph, setCurrentParagraph] = useState<BookParagraph | null>(null);
   const [userInput, setUserInput] = useState("");
@@ -400,11 +406,13 @@ export default function BookMode() {
     wordsTyped: number;
     difficulty: string;
   } | null>(null);
-  
+  const [parsedContent, setParsedContent] = useState<ParsedContent[]>([]);
+  const [readingMode, setReadingMode] = useState<'theater' | 'novel' | 'compact'>('theater');
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasInitiallyLoaded = useRef(false);
 
-  const { 
+  const {
     data: topicsData,
     isLoading: topicsLoading,
     isError: topicsError,
@@ -425,8 +433,8 @@ export default function BookMode() {
   const topics = topicsData?.topics || [];
   const topicOptions = useMemo(() => [
     { value: '', label: 'All Topics' },
-    ...topics.map((topic: string) => ({ 
-      value: topic, 
+    ...topics.map((topic: string) => ({
+      value: topic,
       label: topic.charAt(0).toUpperCase() + topic.slice(1).replace(/-/g, ' ')
     }))
   ], [topics]);
@@ -434,13 +442,13 @@ export default function BookMode() {
   const fetchParagraph = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
-    
+
     try {
       const paragraph = await fetchRandomParagraph(filters);
       setCurrentParagraph(paragraph);
       resetTestState();
       setRetryCount(0);
-      
+
       if (hasInitiallyLoaded.current) {
         toast({
           title: "Paragraph Loaded",
@@ -452,7 +460,7 @@ export default function BookMode() {
     } catch (error: any) {
       console.error("Error fetching paragraph:", error);
       setLoadError(error.message);
-      
+
       const cachedParagraph = getParagraphCache(filters);
       if (cachedParagraph && !currentParagraph) {
         setCurrentParagraph(cachedParagraph);
@@ -469,7 +477,7 @@ export default function BookMode() {
         } else if (error.message === 'NO_PARAGRAPHS') {
           description = "No paragraphs match your current filters. Try different settings.";
         }
-        
+
         toast({
           title: "Failed to Load Paragraph",
           description,
@@ -483,13 +491,13 @@ export default function BookMode() {
 
   const continueReading = useCallback(async () => {
     if (!currentParagraph) return;
-    
+
     setIsLoading(true);
     setLoadError(null);
-    
+
     try {
       const nextParagraph = await fetchNextParagraph(currentParagraph.bookId, currentParagraph.paragraphIndex);
-      
+
       if (nextParagraph) {
         setCurrentParagraph(nextParagraph);
         resetTestState();
@@ -506,20 +514,20 @@ export default function BookMode() {
       }
     } catch (error: any) {
       console.error("Error loading next paragraph:", error);
-      
+
       let description = "Loading a new book instead.";
       if (error.message === 'NETWORK_ERROR') {
         description = "Network error. Loading a new book...";
       } else if (error.message === 'TIMEOUT') {
         description = "Request timed out. Loading a new book...";
       }
-      
+
       toast({
         title: "Failed to Load Next Paragraph",
         description,
         variant: "destructive",
       });
-      
+
       await fetchParagraph();
     } finally {
       setIsLoading(false);
@@ -530,7 +538,7 @@ export default function BookMode() {
     mutationFn: async (result: Omit<InsertBookTypingTest, 'userId'>) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-      
+
       try {
         const res = await fetch('/api/book-tests', {
           method: 'POST',
@@ -539,9 +547,9 @@ export default function BookMode() {
           credentials: 'include',
           signal: controller.signal,
         });
-        
+
         clearTimeout(timeoutId);
-        
+
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({}));
           throw new Error(errorData.message || `HTTP ${res.status}`);
@@ -562,17 +570,17 @@ export default function BookMode() {
       setPendingResult(null);
     },
     onError: (error: any) => {
-      const isNetworkError = error.message === 'Failed to fetch' || 
-                             error.name === 'AbortError' ||
-                             error.message.includes('NetworkError');
-      
+      const isNetworkError = error.message === 'Failed to fetch' ||
+        error.name === 'AbortError' ||
+        error.message.includes('NetworkError');
+
       toast({
         title: "Failed to Save Test",
         description: error.message?.includes("401")
           ? "Please log in to save your test results."
           : isNetworkError
-          ? "Network error. Your result wasn't saved. You can retry below."
-          : "Could not save your test result. Your stats are still visible above.",
+            ? "Network error. Your result wasn't saved. You can retry below."
+            : "Could not save your test result. Your stats are still visible above.",
         variant: "destructive",
       });
     },
@@ -584,20 +592,52 @@ export default function BookMode() {
     fetchParagraph();
   }, []);
 
-  const normalizedText = useMemo(() => {
-    return (currentParagraph?.text || "").replace(/\n/g, " ").replace(/\s+/g, " ");
+  // Parse book content FIRST to preserve structure, then create normalized text
+  // This is critical - parsing must happen before normalization
+  const { normalizedText, typingSegments } = useMemo(() => {
+    if (!currentParagraph?.text) {
+      return { normalizedText: '', typingSegments: [] as TypingSegment[] };
+    }
+
+    // Parse content while preserving newlines for structure detection
+    const parsed = parseBookContent(currentParagraph.text);
+
+    // Update parsed content state
+    // Note: We return this synchronously and also update state for rendering
+
+    // Create normalized text from parsed blocks using displayText (cleaned of formatting markers)
+    const normalized = getNormalizedTypingText(parsed);
+
+    // Split into typing segments for better chunking
+    const segments = splitIntoTypingSegments(parsed, {
+      maxWords: 80,
+      minWords: 30,
+      targetWords: 60,
+    });
+
+    return { normalizedText: normalized, typingSegments: segments };
+  }, [currentParagraph]);
+
+  // Update parsedContent state when paragraph changes
+  useEffect(() => {
+    if (currentParagraph?.text) {
+      const parsed = parseBookContent(currentParagraph.text);
+      setParsedContent(parsed);
+    } else {
+      setParsedContent([]);
+    }
   }, [currentParagraph]);
 
   const stats = useMemo(() => {
     if (!isActive || !startTime || !currentParagraph) {
       return { wpm: 0, accuracy: 100, errors: 0 };
     }
-    
+
     const chars = userInput.length;
     const errorCount = userInput.split("").filter((char, i) => char !== normalizedText[i]).length;
     const correctChars = chars - errorCount;
     const timeElapsed = (Date.now() - startTime) / 1000;
-    
+
     return {
       wpm: calculateWPM(correctChars, timeElapsed),
       accuracy: calculateAccuracy(correctChars, chars),
@@ -607,13 +647,13 @@ export default function BookMode() {
 
   useEffect(() => {
     if (!isActive || isFinished) return;
-    
+
     const timer = setTimeout(() => {
       setWpm(stats.wpm);
       setAccuracy(stats.accuracy);
       setErrors(stats.errors);
     }, 50);
-    
+
     return () => clearTimeout(timer);
   }, [stats, isActive, isFinished]);
 
@@ -632,7 +672,7 @@ export default function BookMode() {
           description: "Press any key to start typing.",
         });
       }
-      
+
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !isActive) {
         e.preventDefault();
         fetchParagraph();
@@ -656,7 +696,7 @@ export default function BookMode() {
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    
+
     if (isActive && startTime) {
       interval = setInterval(() => {
         setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
@@ -664,7 +704,7 @@ export default function BookMode() {
     } else if (!isActive) {
       setElapsedTime(0);
     }
-    
+
     return () => {
       if (interval) clearInterval(interval);
     };
@@ -675,12 +715,12 @@ export default function BookMode() {
 
     setIsActive(false);
     setIsFinished(true);
-    
+
     const elapsedSeconds = Math.max(1, (Date.now() - startTime) / 1000);
     const duration = Math.round(elapsedSeconds);
-    
+
     const chars = userInput.length;
-    
+
     // Guard against empty input
     if (chars === 0) {
       setWpm(0);
@@ -688,27 +728,27 @@ export default function BookMode() {
       setErrors(0);
       return;
     }
-    
+
     const errorCount = userInput.split("").filter((char, i) => char !== normalizedText[i]).length;
     const correctChars = Math.max(0, chars - errorCount);
     const finalWpm = calculateWPM(correctChars, elapsedSeconds);
     const finalAccuracy = calculateAccuracy(correctChars, chars);
-    
+
     setWpm(finalWpm);
     setAccuracy(finalAccuracy);
     setErrors(errorCount);
-    
+
     setCompletedTestData({
       duration,
       wpm: finalWpm,
       accuracy: finalAccuracy,
       errors: errorCount,
     });
-    
+
     const words = normalizedText.split(/\s+/).length;
     const wordsTyped = Math.min(words, Math.floor(userInput.split(/\s+/).length));
     const consistency = Math.max(0, Math.min(100, Math.round(100 - (errorCount / chars) * 100)));
-    
+
     const src = currentParagraph.source || "";
     const byIdx = src.lastIndexOf(" by ");
     const parsedTitle = byIdx >= 0 ? src.slice(0, byIdx) : src;
@@ -729,7 +769,7 @@ export default function BookMode() {
       wordsTyped,
       difficulty: filters.difficulty,
     });
-    
+
     confetti({
       particleCount: 100,
       spread: 70,
@@ -771,17 +811,17 @@ export default function BookMode() {
 
   const processInput = (value: string) => {
     if (!currentParagraph || isFinished) return;
-    
+
     if (value.length > normalizedText.length) {
       if (textareaRef.current) textareaRef.current.value = userInput;
       return;
     }
-    
+
     if (!isActive && value.length > 0) {
       setIsActive(true);
       setStartTime(Date.now());
     }
-    
+
     setUserInput(value);
   };
 
@@ -816,24 +856,24 @@ export default function BookMode() {
     resetTestState();
     fetchParagraph();
   };
-  
+
   const handleResetFilters = () => {
     setFilters({ topic: '', difficulty: 'medium', durationMode: 60 });
     setLoadError(null);
     setTimeout(() => fetchParagraph(), 100);
   };
-  
+
   const handleRetrySave = () => {
     if (pendingResult) {
       saveTestMutation.mutate(pendingResult);
     }
   };
-  
+
   const hasFilters = filters.topic !== '' || filters.difficulty !== 'medium' || filters.durationMode !== 60;
 
   const highlightedText = useMemo(() => {
     if (!normalizedText) return [];
-    
+
     const expectedWords = normalizedText.split(" ");
     const typedWords = userInput.split(" ");
     const result: React.ReactNode[] = [];
@@ -937,8 +977,8 @@ export default function BookMode() {
             <h1 className="text-4xl font-bold">Book Typing Mode</h1>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Badge 
-                  variant="outline" 
+                <Badge
+                  variant="outline"
                   className="bg-gradient-to-r from-violet-500/20 to-purple-500/20 border-violet-500/50 text-violet-400 font-semibold cursor-help"
                 >
                   BETA
@@ -1094,668 +1134,469 @@ export default function BookMode() {
           </div>
         </Card>
 
-      {currentParagraph && (
-        <Card className="p-4 mb-6 border-primary/50">
-          <div className="flex flex-wrap items-center gap-3 justify-between">
-            <div className="flex items-center gap-3 flex-wrap">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2 cursor-help">
-                    <BookOpen className="w-5 h-5 text-primary" />
-                    <span className="font-semibold" data-testid="text-book-source">
-                      {currentParagraph.source}
-                    </span>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Current book title from the library</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="outline" className="capitalize cursor-help">
-                    {currentParagraph.topic.replace(/-/g, ' ')}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Book genre/category</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge variant="outline" className={`cursor-help ${getDifficultyColor(currentParagraph.difficulty)}`}>
-                    {currentParagraph.difficulty}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    {currentParagraph.difficulty === 'easy' ? 'Beginner-friendly text' :
-                     currentParagraph.difficulty === 'medium' ? 'Standard literary complexity' :
-                     'Advanced vocabulary and structure'}
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="text-sm text-muted-foreground cursor-help" data-testid="text-paragraph-progress">
-                    Paragraph {currentParagraph.paragraphIndex + 1}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Your position in the current book</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="text-sm text-muted-foreground cursor-help">
-                  {currentParagraph.lengthWords} words
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Total words in this paragraph</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </Card>
-      )}
+        {/* Book Header - Production Ready */}
+        {currentParagraph && (() => {
+          // Parse book source for title and author
+          const source = currentParagraph.source || "";
+          const byIdx = source.lastIndexOf(" by ");
+          const bookTitle = byIdx >= 0 ? source.slice(0, byIdx) : source;
+          const bookAuthor = byIdx >= 0 ? source.slice(byIdx + 4) : "Unknown Author";
+          const typingProgress = normalizedText.length > 0 ? (userInput.length / normalizedText.length) * 100 : 0;
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Card className="p-4 text-center cursor-help">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Zap className="w-4 h-4 text-yellow-500" />
-                <span className="text-sm text-muted-foreground">WPM</span>
-              </div>
-              <div className="text-3xl font-bold text-yellow-500" data-testid="text-wpm">
-                {wpm}
-              </div>
-            </Card>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Words Per Minute - your typing speed</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Card className="p-4 text-center cursor-help">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Target className="w-4 h-4 text-green-500" />
-                <span className="text-sm text-muted-foreground">Accuracy</span>
-              </div>
-              <div className="text-3xl font-bold text-green-500" data-testid="text-accuracy">
-                {accuracy}%
-              </div>
-            </Card>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Percentage of correctly typed characters</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Card className="p-4 text-center cursor-help">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <span className="text-sm text-muted-foreground">Errors</span>
-              </div>
-              <div className="text-3xl font-bold text-red-500" data-testid="text-errors">
-                {errors}
-              </div>
-            </Card>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Number of incorrect characters typed</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Card className="p-4 text-center cursor-help">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <span className="text-sm text-muted-foreground">Time</span>
-              </div>
-              <div className="text-3xl font-bold" data-testid="text-timer">
-                {formatTime(elapsedTime)}
-              </div>
-            </Card>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Total time spent typing</p>
-          </TooltipContent>
-        </Tooltip>
-      </div>
+          return (
+            <Card className="mb-6 overflow-hidden border-primary/30">
+              <BookHeader
+                title={bookTitle}
+                author={bookAuthor}
+                chapter={currentParagraph.paragraphIndex + 1}
+                topic={currentParagraph.topic}
+                difficulty={currentParagraph.difficulty as 'easy' | 'medium' | 'hard'}
+                progress={typingProgress}
+                compact={isActive}
+              />
 
-      <Card className="p-4 mb-4 bg-muted/30 border-dashed">
-        <div className="flex items-start gap-3">
-          <HelpCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-muted-foreground">
-            <p className="font-medium text-foreground mb-1">How highlighting works:</p>
-            <ul className="space-y-1 list-disc list-inside">
-              <li><span className="text-green-500">Green</span> = Correct character</li>
-              <li><span className="text-red-500 line-through">Red strikethrough</span> + <span className="text-yellow-400 font-bold">Yellow</span> = Wrong character (shows expected vs what you typed)</li>
-              <li><span className="text-muted-foreground">Gray</span> = Not typed yet</li>
-            </ul>
-            <p className="mt-2 text-xs">Tip: Use <kbd className="px-1.5 py-0.5 bg-background rounded text-xs">Backspace</kbd> to fix mistakes before continuing.</p>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-6 mb-6 relative">
-        {isLoading && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <span className="text-sm text-muted-foreground">Loading paragraph...</span>
-            </div>
-          </div>
-        )}
-
-        <div className="mb-4">
-          <pre className="font-serif text-lg leading-relaxed whitespace-pre-wrap">
-            {highlightedText}
-          </pre>
-        </div>
-
-        <Textarea
-          ref={textareaRef}
-          value={userInput}
-          onChange={handleInput}
-          onCompositionStart={handleCompositionStart}
-          onCompositionEnd={handleCompositionEnd}
-          onPaste={handlePaste}
-          onCut={handleCut}
-          placeholder={isLoading ? "Loading paragraph..." : "Start typing here..."}
-          className="min-h-[150px] font-serif text-lg resize-none"
-          disabled={isFinished || isLoading}
-          data-testid="textarea-typing"
-        />
-
-        {isFinished && (
-          <div className="mt-4 flex gap-3 justify-center flex-wrap">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={continueReading}
-                  size="lg"
-                  className="gap-2"
-                  disabled={isLoading}
-                  data-testid="button-continue-reading"
-                >
-                  <ArrowRight className="w-5 h-5" />
-                  Continue Reading
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Load the next paragraph from the same book (or press Tab)</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={resetTest}
-                  variant="outline"
-                  size="lg"
-                  className="gap-2"
-                  disabled={isLoading}
-                  data-testid="button-new-paragraph"
-                >
-                  <RotateCcw className="w-5 h-5" />
-                  New Paragraph
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Get a random paragraph from a different book based on your filters</p>
-              </TooltipContent>
-            </Tooltip>
-            {pendingResult && saveTestMutation.isError && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    onClick={handleRetrySave}
-                    variant="outline"
-                    size="lg"
-                    className="gap-2"
-                    disabled={saveTestMutation.isPending}
-                    data-testid="button-retry-save"
-                  >
-                    {saveTestMutation.isPending ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-5 h-5" />
-                    )}
-                    Retry Save
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Try saving your results again</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        )}
-      </Card>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Card className="p-4 bg-muted/50 cursor-help">
-            <div className="text-sm text-muted-foreground text-center">
-              <span className="font-semibold">Shortcuts:</span>{" "}
-              <kbd className="px-2 py-1 bg-background rounded text-xs">Esc</kbd> Reset • {" "}
-              <kbd className="px-2 py-1 bg-background rounded text-xs">Ctrl+Enter</kbd> New Paragraph • {" "}
-              <kbd className="px-2 py-1 bg-background rounded text-xs">Tab</kbd> Continue Reading (when finished)
-            </div>
-          </Card>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Use these keyboard shortcuts for quick actions while typing</p>
-        </TooltipContent>
-      </Tooltip>
-
-      <Dialog open={isFinished} onOpenChange={(open) => !open && resetTestState()}>
-        <DialogContent data-testid="dialog-results">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-2xl">
-              <Trophy className="w-6 h-6 text-yellow-500" />
-              Test Complete!
-            </DialogTitle>
-            <DialogDescription>
-              Great job! Here are your results:
-            </DialogDescription>
-          </DialogHeader>
-          {completedTestData && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-muted rounded-lg text-center">
-                  <div className="text-sm text-muted-foreground mb-1">WPM</div>
-                  <div className="text-3xl font-bold text-yellow-500">{completedTestData.wpm}</div>
-                </div>
-                <div className="p-4 bg-muted rounded-lg text-center">
-                  <div className="text-sm text-muted-foreground mb-1">Accuracy</div>
-                  <div className="text-3xl font-bold text-green-500">{completedTestData.accuracy}%</div>
-                </div>
-                <div className="p-4 bg-muted rounded-lg text-center">
-                  <div className="text-sm text-muted-foreground mb-1">Errors</div>
-                  <div className="text-3xl font-bold text-red-500">{completedTestData.errors}</div>
-                </div>
-                <div className="p-4 bg-muted rounded-lg text-center">
-                  <div className="text-sm text-muted-foreground mb-1">Time</div>
-                  <div className="text-3xl font-bold">{formatTime(completedTestData.duration)}</div>
-                </div>
-              </div>
-              
-              {saveTestMutation.isError && (
-                <div className="p-3 bg-destructive/10 rounded-lg text-center">
-                  <p className="text-sm text-destructive mb-2">Failed to save your result</p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleRetrySave}
-                    disabled={saveTestMutation.isPending}
-                    data-testid="button-dialog-retry-save"
-                  >
-                    {saveTestMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                    )}
-                    Retry Save
-                  </Button>
+              {/* Reading Progress - shows when not finished */}
+              {!isFinished && typingSegments.length > 0 && (
+                <div className="px-4 pb-4">
+                  <ReadingProgress
+                    currentSegment={0}
+                    totalSegments={typingSegments.length}
+                    segmentProgress={typingProgress}
+                    overallProgress={typingProgress}
+                    wordsTyped={userInput.split(/\s+/).filter(w => w.length > 0).length}
+                    totalWords={currentParagraph.lengthWords}
+                    compact={isActive}
+                    segments={typingSegments}
+                  />
                 </div>
               )}
-              
-              <div className="flex gap-3">
-                {lastResultSnapshot && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={() => setShareDialogOpen(true)}
-                        variant="outline"
-                        className="gap-2"
-                        data-testid="button-share-results"
-                      >
-                        <Share2 className="w-4 h-4" />
-                        Share
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p className="text-xs">Share your book typing achievement with certificate</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-                <Button
-                  onClick={continueReading}
-                  className="flex-1 gap-2"
-                  disabled={isLoading}
-                  data-testid="button-dialog-continue"
-                >
-                  <ArrowRight className="w-4 h-4" />
-                  Continue Reading
-                </Button>
-                <Button
-                  onClick={resetTest}
-                  variant="outline"
-                  className="flex-1 gap-2"
-                  disabled={isLoading}
-                  data-testid="button-dialog-new"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  New Book
-                </Button>
+            </Card>
+          );
+        })()}
+
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="p-4 text-center cursor-help">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Zap className="w-4 h-4 text-yellow-500" />
+                  <span className="text-sm text-muted-foreground">WPM</span>
+                </div>
+                <div className="text-3xl font-bold text-yellow-500" data-testid="text-wpm">
+                  {wpm}
+                </div>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Words Per Minute - your typing speed</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="p-4 text-center cursor-help">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Target className="w-4 h-4 text-green-500" />
+                  <span className="text-sm text-muted-foreground">Accuracy</span>
+                </div>
+                <div className="text-3xl font-bold text-green-500" data-testid="text-accuracy">
+                  {accuracy}%
+                </div>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Percentage of correctly typed characters</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="p-4 text-center cursor-help">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <span className="text-sm text-muted-foreground">Errors</span>
+                </div>
+                <div className="text-3xl font-bold text-red-500" data-testid="text-errors">
+                  {errors}
+                </div>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Number of incorrect characters typed</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="p-4 text-center cursor-help">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <span className="text-sm text-muted-foreground">Time</span>
+                </div>
+                <div className="text-3xl font-bold" data-testid="text-timer">
+                  {formatTime(elapsedTime)}
+                </div>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Total time spent typing</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        <Card className="p-4 mb-4 bg-muted/30 border-dashed">
+          <div className="flex items-start gap-3">
+            <HelpCircle className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-muted-foreground">
+              <p className="font-medium text-foreground mb-1">How highlighting works:</p>
+              <ul className="space-y-1 list-disc list-inside">
+                <li><span className="text-green-500">Green</span> = Correct character</li>
+                <li><span className="text-red-500 line-through">Red strikethrough</span> + <span className="text-yellow-400 font-bold">Yellow</span> = Wrong character (shows expected vs what you typed)</li>
+                <li><span className="text-muted-foreground">Gray</span> = Not typed yet</li>
+              </ul>
+              <p className="mt-2 text-xs">Tip: Use <kbd className="px-1.5 py-0.5 bg-background rounded text-xs">Backspace</kbd> to fix mistakes before continuing.</p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 mb-6 relative">
+          {isLoading && (
+            <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+              <div className="flex flex-col items-center gap-2">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <span className="text-sm text-muted-foreground">Loading paragraph...</span>
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
 
-      {/* Share Dialog with Certificate */}
-      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Share2 className="w-5 h-5" />
-              Share Your Book Typing Result
-            </DialogTitle>
-            <DialogDescription>
-              Share your {lastResultSnapshot?.bookTitle} achievement with others!
-            </DialogDescription>
-          </DialogHeader>
-          
-          {lastResultSnapshot && (
-            <Tabs defaultValue="certificate" className="w-full">
-              <TabsList className="grid w-full grid-cols-1">
+          {/* Reading Mode Selector */}
+          {parsedContent.length > 0 && (
+            <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Reading Mode:</label>
+                <Tabs value={readingMode} onValueChange={(value) => setReadingMode(value as 'theater' | 'novel' | 'compact')}>
+                  <TabsList>
+                    {READING_MODES.map(mode => (
+                      <Tooltip key={mode.id}>
+                        <TooltipTrigger asChild>
+                          <TabsTrigger value={mode.id} className="text-xs">
+                            {mode.label}
+                          </TabsTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">{mode.description}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ))}
+                  </TabsList>
+                </Tabs>
+              </div>
+            </div>
+          )}
+
+          {/* Structured Content Rendering - Production Ready */}
+          <div className="book-content-container mb-6 mx-auto px-4" style={{ maxWidth: '70ch' }}>
+            {parsedContent.length > 0 ? (
+              <div className="book-content-structure space-y-1">
+                {parsedContent.map((block, idx) => (
+                  <BookContentBlockEnhanced
+                    key={`block-${idx}-${block.type}`}
+                    block={block}
+                    userProgress={userInput.length}
+                    blockStartOffset={getBlockOffset(parsedContent, idx, true)}
+                    isActive={isActive}
+                    readingMode={readingMode}
+                    userInput={userInput}
+                    useDisplayText={true}
+                    focusMode={false}
+                    autoScroll={true}
+                  />
+                ))}
+              </div>
+            ) : currentParagraph ? (
+              // Fallback for content that couldn't be parsed - show clean display
+              <div className="font-serif text-lg leading-relaxed">
+                {normalizedText.split('').map((char, idx) => {
+                  const isTyped = idx < userInput.length;
+                  const isCorrect = isTyped && userInput[idx] === char;
+                  const isCursor = idx === userInput.length;
+
+                  return (
+                    <span
+                      key={idx}
+                      className={
+                        isTyped
+                          ? isCorrect
+                            ? 'text-green-500'
+                            : 'text-red-500'
+                          : isCursor
+                            ? 'text-muted-foreground border-l-2 border-primary animate-pulse'
+                            : 'text-muted-foreground/60'
+                      }
+                    >
+                      {char}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground py-8">
+                <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>Select a book to start typing</p>
+              </div>
+            )}
+          </div>
+
+          <Textarea
+            ref={textareaRef}
+            value={userInput}
+            onChange={handleInput}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
+            onPaste={handlePaste}
+            onCut={handleCut}
+            placeholder={isLoading ? "Loading paragraph..." : "Start typing here..."}
+            className="min-h-[150px] font-serif text-lg resize-none"
+            disabled={isFinished || isLoading}
+            data-testid="textarea-typing"
+          />
+
+          {isFinished && (
+            <div className="mt-4 flex gap-3 justify-center flex-wrap">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={continueReading}
+                    size="lg"
+                    className="gap-2"
+                    disabled={isLoading}
+                    data-testid="button-continue-reading"
+                  >
+                    <ArrowRight className="w-5 h-5" />
+                    Continue Reading
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Load the next paragraph from the same book (or press Tab)</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    onClick={resetTest}
+                    variant="outline"
+                    size="lg"
+                    className="gap-2"
+                    disabled={isLoading}
+                    data-testid="button-new-paragraph"
+                  >
+                    <RotateCcw className="w-5 h-5" />
+                    New Paragraph
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Get a random paragraph from a different book based on your filters</p>
+                </TooltipContent>
+              </Tooltip>
+              {pendingResult && saveTestMutation.isError && (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <TabsTrigger value="certificate" className="gap-2" data-testid="tab-certificate">
-                      <Award className="w-4 h-4" />
-                      Certificate
-                    </TabsTrigger>
+                    <Button
+                      onClick={handleRetrySave}
+                      variant="outline"
+                      size="lg"
+                      className="gap-2"
+                      disabled={saveTestMutation.isPending}
+                      data-testid="button-retry-save"
+                    >
+                      {saveTestMutation.isPending ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-5 h-5" />
+                      )}
+                      Retry Save
+                    </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p className="text-xs">Professional 1200×675 certificate with verification ID</p>
+                  <TooltipContent>
+                    <p>Try saving your results again</p>
                   </TooltipContent>
                 </Tooltip>
-              </TabsList>
-              
-              <TabsContent value="certificate" className="space-y-4">
-                <div className="text-center space-y-2 mb-4">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/30 mb-2">
-                    <Award className="w-8 h-8 text-yellow-400" />
+              )}
+            </div>
+          )}
+        </Card>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Card className="p-4 bg-muted/50 cursor-help">
+              <div className="text-sm text-muted-foreground text-center">
+                <span className="font-semibold">Shortcuts:</span>{" "}
+                <kbd className="px-2 py-1 bg-background rounded text-xs">Esc</kbd> Reset • {" "}
+                <kbd className="px-2 py-1 bg-background rounded text-xs">Ctrl+Enter</kbd> New Paragraph • {" "}
+                <kbd className="px-2 py-1 bg-background rounded text-xs">Tab</kbd> Continue Reading (when finished)
+              </div>
+            </Card>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Use these keyboard shortcuts for quick actions while typing</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Dialog open={isFinished} onOpenChange={(open) => !open && resetTestState()}>
+          <DialogContent data-testid="dialog-results">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-2xl">
+                <Trophy className="w-6 h-6 text-yellow-500" />
+                Test Complete!
+              </DialogTitle>
+              <DialogDescription>
+                Great job! Here are your results:
+              </DialogDescription>
+            </DialogHeader>
+            {completedTestData && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-muted rounded-lg text-center">
+                    <div className="text-sm text-muted-foreground mb-1">WPM</div>
+                    <div className="text-3xl font-bold text-yellow-500">{completedTestData.wpm}</div>
                   </div>
-                  <h3 className="text-lg font-bold">Share Your Certificate</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Show off your official Book Typing Certificate for "{lastResultSnapshot.bookTitle}"!
-                  </p>
-                </div>
-
-                {/* Certificate Stats Preview */}
-                <div className="p-4 bg-gradient-to-br from-yellow-500/10 via-orange-500/10 to-purple-500/10 rounded-xl border border-yellow-500/20">
-                  <div className="grid grid-cols-2 gap-3 text-center">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Typing Speed</p>
-                      <p className="text-2xl font-bold text-primary">{lastResultSnapshot.wpm} WPM</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
-                      <p className="text-2xl font-bold text-green-400">{lastResultSnapshot.accuracy}%</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Performance</p>
-                      <p className="text-sm font-bold text-yellow-400">{getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy).badge}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Book</p>
-                      <p className="text-sm font-bold truncate">{lastResultSnapshot.bookTitle}</p>
-                    </div>
+                  <div className="p-4 bg-muted rounded-lg text-center">
+                    <div className="text-sm text-muted-foreground mb-1">Accuracy</div>
+                    <div className="text-3xl font-bold text-green-500">{completedTestData.accuracy}%</div>
+                  </div>
+                  <div className="p-4 bg-muted rounded-lg text-center">
+                    <div className="text-sm text-muted-foreground mb-1">Errors</div>
+                    <div className="text-3xl font-bold text-red-500">{completedTestData.errors}</div>
+                  </div>
+                  <div className="p-4 bg-muted rounded-lg text-center">
+                    <div className="text-sm text-muted-foreground mb-1">Time</div>
+                    <div className="text-3xl font-bold">{formatTime(completedTestData.duration)}</div>
                   </div>
                 </div>
 
-                {/* Hidden pre-rendered certificate for sharing */}
-                <div className="absolute -z-50 w-0 h-0 overflow-hidden opacity-0 pointer-events-none" aria-hidden="true">
-                  <BookCertificate
-                    wpm={lastResultSnapshot.wpm}
-                    accuracy={lastResultSnapshot.accuracy}
-                    consistency={lastResultSnapshot.consistency}
-                    bookTitle={lastResultSnapshot.bookTitle}
-                    author={lastResultSnapshot.author}
-                    chapter={lastResultSnapshot.chapter}
-                    chapterTitle={lastResultSnapshot.chapterTitle}
-                    paragraphsCompleted={lastResultSnapshot.paragraphsCompleted}
-                    wordsTyped={lastResultSnapshot.wordsTyped}
-                    characters={lastResultSnapshot.characters}
-                    errors={lastResultSnapshot.errors}
-                    duration={lastResultSnapshot.duration}
-                    difficulty={lastResultSnapshot.difficulty}
-                    username={user?.username}
-                  />
-                </div>
-
-                {/* View & Share Certificate Buttons */}
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setShowCertificate(true)}
-                    className="py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25"
-                  >
-                    <Award className="w-5 h-5" />
-                    View Certificate
-                  </button>
-                  <button
-                    onClick={async () => {
-                      const certCanvas = document.querySelector('[data-testid="certificate-canvas"]') as HTMLCanvasElement;
-                      if (!certCanvas) {
-                        toast({ title: "Certificate not ready", description: "Please try again.", variant: "destructive" });
-                        return;
-                      }
-                      try {
-                        const blob = await new Promise<Blob>((resolve, reject) => {
-                          certCanvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Failed")), "image/png");
-                        });
-                        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-                        setCertificateImageCopied(true);
-                        setTimeout(() => setCertificateImageCopied(false), 2000);
-                        toast({ title: "Certificate Copied!", description: "Paste directly into Twitter, Discord, or LinkedIn!" });
-                      } catch {
-                        toast({ title: "Copy Failed", description: "Please download instead.", variant: "destructive" });
-                      }
-                    }}
-                    className="py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-green-500/25"
-                  >
-                    {certificateImageCopied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
-                    {certificateImageCopied ? "Copied!" : "Copy Image"}
-                  </button>
-                </div>
-
-                {/* Share Certificate with Image Button */}
-                {'share' in navigator && (
-                  <button
-                    onClick={async () => {
-                      const certCanvas = document.querySelector('[data-testid="certificate-canvas"]') as HTMLCanvasElement;
-                      if (!certCanvas) {
-                        toast({ title: "Certificate not ready", description: "Please try again.", variant: "destructive" });
-                        return;
-                      }
-                      setIsSharingCertificate(true);
-                      try {
-                        const blob = await new Promise<Blob>((resolve, reject) => {
-                          certCanvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Failed")), "image/png");
-                        });
-                        const file = new File([blob], `TypeMasterAI_Book_Certificate_${lastResultSnapshot.wpm}WPM.png`, { type: "image/png" });
-                        if (navigator.canShare?.({ files: [file] })) {
-                          const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
-                          await navigator.share({
-                            title: `TypeMasterAI Book Certificate - ${lastResultSnapshot.wpm} WPM`,
-                            text: `🎓 I earned a ${rating.badge} Certificate reading "${lastResultSnapshot.bookTitle}"!\n\n⚡ ${lastResultSnapshot.wpm} WPM | ✨ ${lastResultSnapshot.accuracy}% Accuracy\n📚 ${lastResultSnapshot.paragraphsCompleted} paragraphs\n🏆 ${rating.title}\n\n🔗 typemasterai.com/book-mode`,
-                            files: [file],
-                          });
-                          toast({ title: "Certificate Shared!", description: "Your achievement is on its way!" });
-                        }
-                      } catch (error: any) {
-                        if (error.name !== 'AbortError') {
-                          toast({ title: "Share failed", description: "Please try Copy Image instead.", variant: "destructive" });
-                        }
-                      } finally {
-                        setIsSharingCertificate(false);
-                      }
-                    }}
-                    disabled={isSharingCertificate}
-                    className="w-full py-4 bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Share2 className="w-5 h-5" />
-                    {isSharingCertificate ? "Preparing..." : "Share Certificate with Image"}
-                  </button>
+                {saveTestMutation.isError && (
+                  <div className="p-3 bg-destructive/10 rounded-lg text-center">
+                    <p className="text-sm text-destructive mb-2">Failed to save your result</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleRetrySave}
+                      disabled={saveTestMutation.isPending}
+                      data-testid="button-dialog-retry-save"
+                    >
+                      {saveTestMutation.isPending ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                      )}
+                      Retry Save
+                    </Button>
+                  </div>
                 )}
 
-                {/* Certificate Share Message Preview */}
-                <div className="relative">
-                  <div className="absolute -top-2 left-3 px-2 bg-background text-xs font-medium text-muted-foreground">
-                    Certificate Share Message
+                <div className="flex gap-3">
+                  {lastResultSnapshot && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => setShareDialogOpen(true)}
+                          variant="outline"
+                          className="gap-2"
+                          data-testid="button-share-results"
+                        >
+                          <Share2 className="w-4 h-4" />
+                          Share
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p className="text-xs">Share your book typing achievement with certificate</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  <Button
+                    onClick={continueReading}
+                    className="flex-1 gap-2"
+                    disabled={isLoading}
+                    data-testid="button-dialog-continue"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                    Continue Reading
+                  </Button>
+                  <Button
+                    onClick={resetTest}
+                    variant="outline"
+                    className="flex-1 gap-2"
+                    disabled={isLoading}
+                    data-testid="button-dialog-new"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    New Book
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Share Dialog with Certificate */}
+        <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+          <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Share2 className="w-5 h-5" />
+                Share Your Book Typing Result
+              </DialogTitle>
+              <DialogDescription>
+                Share your {lastResultSnapshot?.bookTitle} achievement with others!
+              </DialogDescription>
+            </DialogHeader>
+
+            {lastResultSnapshot && (
+              <Tabs defaultValue="certificate" className="w-full">
+                <TabsList className="grid w-full grid-cols-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <TabsTrigger value="certificate" className="gap-2" data-testid="tab-certificate">
+                        <Award className="w-4 h-4" />
+                        Certificate
+                      </TabsTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p className="text-xs">Professional 1200×675 certificate with verification ID</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TabsList>
+
+                <TabsContent value="certificate" className="space-y-4">
+                  <div className="text-center space-y-2 mb-4">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500/20 to-orange-500/20 border-2 border-yellow-500/30 mb-2">
+                      <Award className="w-8 h-8 text-yellow-400" />
+                    </div>
+                    <h3 className="text-lg font-bold">Share Your Certificate</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Show off your official Book Typing Certificate for "{lastResultSnapshot.bookTitle}"!
+                    </p>
                   </div>
-                  <div className="p-4 bg-gradient-to-br from-slate-900/50 to-slate-800/50 rounded-xl border border-yellow-500/20 text-sm leading-relaxed">
-                    <div className="space-y-2">
-                      <p className="text-base font-medium">
-                        🎓 <span className="text-yellow-400 font-bold">CERTIFIED: {lastResultSnapshot.wpm} WPM Book Typing!</span>
-                      </p>
-                      <p className="text-muted-foreground">
-                        📚 Book: <span className="text-foreground font-semibold">{lastResultSnapshot.bookTitle}</span>
-                      </p>
-                      <p className="text-muted-foreground">
-                        ⚡ Speed: <span className="text-foreground font-semibold">{lastResultSnapshot.wpm} WPM</span>
-                      </p>
-                      <p className="text-muted-foreground">
-                        ✨ Accuracy: <span className="text-foreground font-semibold">{lastResultSnapshot.accuracy}%</span>
-                      </p>
-                      <p className="text-muted-foreground">
-                        🏆 Level: <span className="text-yellow-400 font-semibold">{getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy).title}</span>
-                      </p>
-                      <p className="text-primary/80 text-xs mt-3 font-medium">
-                        Official book typing certificate earned! 📖
-                      </p>
-                      <p className="text-xs text-primary mt-2 font-medium">
-                        🔗 https://typemasterai.com/book-mode
-                      </p>
+
+                  {/* Certificate Stats Preview */}
+                  <div className="p-4 bg-gradient-to-br from-yellow-500/10 via-orange-500/10 to-purple-500/10 rounded-xl border border-yellow-500/20">
+                    <div className="grid grid-cols-2 gap-3 text-center">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Typing Speed</p>
+                        <p className="text-2xl font-bold text-primary">{lastResultSnapshot.wpm} WPM</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Accuracy</p>
+                        <p className="text-2xl font-bold text-green-400">{lastResultSnapshot.accuracy}%</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Performance</p>
+                        <p className="text-sm font-bold text-yellow-400">{getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy).badge}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Book</p>
+                        <p className="text-sm font-bold truncate">{lastResultSnapshot.bookTitle}</p>
+                      </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
-                      const text = `🎓 Just earned my TypeMasterAI Book Typing Certificate! ${lastResultSnapshot.wpm} WPM with ${lastResultSnapshot.accuracy}% accuracy 📚
 
-📖 "${lastResultSnapshot.bookTitle}" by ${lastResultSnapshot.author}
-🏆 ${rating.title}
-
-🔗 https://typemasterai.com/book-mode
-
-#TypeMasterAI #BookTyping #Reading`;
-                      navigator.clipboard.writeText(text);
-                      toast({ title: "Certificate Message Copied!", description: "Paste into your social media post" });
-                    }}
-                    className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-                  </button>
-                </div>
-
-                {/* Certificate Social Share Buttons */}
-                <div className="space-y-3">
-                  <p className="text-xs font-medium text-center text-muted-foreground uppercase tracking-wide">
-                    Share Certificate On
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      onClick={() => {
-                        const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
-                        const text = encodeURIComponent(`🎓 Just earned my TypeMasterAI Book Typing Certificate! ${lastResultSnapshot.wpm} WPM reading "${lastResultSnapshot.bookTitle}" 📚
-
-#TypeMasterAI #BookTyping`);
-                        window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent('https://typemasterai.com/book-mode')}`, '_blank', 'width=600,height=400');
-                      }}
-                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all"
-                    >
-                      <Twitter className="w-4 h-4 text-[#1DA1F2]" />
-                      <span className="text-xs font-medium">X (Twitter)</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        const text = encodeURIComponent(`🎓 I just earned my official TypeMasterAI Book Typing Certificate!
-
-Achieved ${lastResultSnapshot.wpm} WPM with ${lastResultSnapshot.accuracy}% accuracy reading "${lastResultSnapshot.bookTitle}"! 📚`);
-                        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://typemasterai.com/book-mode')}&quote=${text}`, '_blank', 'width=600,height=400');
-                      }}
-                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all"
-                    >
-                      <Facebook className="w-4 h-4 text-[#1877F2]" />
-                      <span className="text-xs font-medium">Facebook</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://typemasterai.com/book-mode')}`, '_blank', 'width=600,height=400');
-                      }}
-                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all"
-                    >
-                      <Linkedin className="w-4 h-4 text-[#0A66C2]" />
-                      <span className="text-xs font-medium">LinkedIn</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
-                        const waText = `*TypeMasterAI Book Certificate*\n\nBook: ${lastResultSnapshot.bookTitle}\nSpeed: *${lastResultSnapshot.wpm} WPM*\nAccuracy: *${lastResultSnapshot.accuracy}%*\nLevel: ${rating.title}\n\nGet yours: https://typemasterai.com/book-mode`;
-                        window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank', 'width=600,height=400');
-                      }}
-                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"
-                    >
-                      <MessageCircle className="w-4 h-4 text-[#25D366]" />
-                      <span className="text-xs font-medium">WhatsApp</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
-                        const text = `🎓 CERTIFIED!\n\n📚 "${lastResultSnapshot.bookTitle}"\n⚡ ${lastResultSnapshot.wpm} WPM | ✨ ${lastResultSnapshot.accuracy}%\n🏆 ${rating.title}`;
-                        window.open(`https://t.me/share/url?url=${encodeURIComponent('https://typemasterai.com/book-mode')}&text=${encodeURIComponent(text)}`, '_blank', 'width=600,height=400');
-                      }}
-                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 transition-all"
-                    >
-                      <Send className="w-4 h-4 text-[#0088cc]" />
-                      <span className="text-xs font-medium">Telegram</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
-                        const subject = encodeURIComponent(`🎓 TypeMasterAI Book Certificate - ${lastResultSnapshot.wpm} WPM`);
-                        const body = encodeURIComponent(`Hello!\n\nI earned a TypeMasterAI Book Typing Certificate!\n\n📚 Book: ${lastResultSnapshot.bookTitle}\n⚡ Speed: ${lastResultSnapshot.wpm} WPM\n✨ Accuracy: ${lastResultSnapshot.accuracy}%\n🏆 Level: ${rating.title}\n\n👉 Try it: https://typemasterai.com/book-mode`);
-                        window.open(`mailto:?subject=${subject}&body=${body}`);
-                      }}
-                      className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-500/10 hover:bg-gray-500/25 border border-gray-500/20 transition-all"
-                    >
-                      <Mail className="w-4 h-4 text-gray-400" />
-                      <span className="text-xs font-medium">Email</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Certificate Sharing Tips */}
-                <div className="space-y-2">
-                  <div className="p-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg border border-blue-500/20">
-                    <p className="text-xs text-center text-muted-foreground">
-                      📱 <span className="font-medium text-foreground">Mobile:</span> Use "Share Certificate with Image" to attach the certificate directly!
-                    </p>
-                  </div>
-                  <div className="p-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/20">
-                    <p className="text-xs text-center text-muted-foreground">
-                      💻 <span className="font-medium text-foreground">Desktop:</span> Use "Copy Image" then paste directly into Twitter, LinkedIn, Discord, or any social media!
-                    </p>
-                  </div>
-                </div>
-              </TabsContent>
-
-              {/* View Certificate Dialog */}
-              {showCertificate && user && lastResultSnapshot && (
-                <Dialog open={showCertificate} onOpenChange={setShowCertificate}>
-                  <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2">
-                        <Award className="w-5 h-5 text-yellow-400" />
-                        Your Book Typing Certificate
-                      </DialogTitle>
-                    </DialogHeader>
+                  {/* Hidden pre-rendered certificate for sharing */}
+                  <div className="absolute -z-50 w-0 h-0 overflow-hidden opacity-0 pointer-events-none" aria-hidden="true">
                     <BookCertificate
                       wpm={lastResultSnapshot.wpm}
                       accuracy={lastResultSnapshot.accuracy}
@@ -1771,15 +1612,260 @@ Achieved ${lastResultSnapshot.wpm} WPM with ${lastResultSnapshot.accuracy}% accu
                       duration={lastResultSnapshot.duration}
                       difficulty={lastResultSnapshot.difficulty}
                       username={user?.username}
-                      minimal={true}
                     />
-                  </DialogContent>
-                </Dialog>
-              )}
-            </Tabs>
-          )}
-        </DialogContent>
-      </Dialog>
+                  </div>
+
+                  {/* View & Share Certificate Buttons */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setShowCertificate(true)}
+                      className="py-3 bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-purple-500/25"
+                    >
+                      <Award className="w-5 h-5" />
+                      View Certificate
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const certCanvas = document.querySelector('[data-testid="certificate-canvas"]') as HTMLCanvasElement;
+                        if (!certCanvas) {
+                          toast({ title: "Certificate not ready", description: "Please try again.", variant: "destructive" });
+                          return;
+                        }
+                        try {
+                          const blob = await new Promise<Blob>((resolve, reject) => {
+                            certCanvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Failed")), "image/png");
+                          });
+                          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+                          setCertificateImageCopied(true);
+                          setTimeout(() => setCertificateImageCopied(false), 2000);
+                          toast({ title: "Certificate Copied!", description: "Paste directly into Twitter, Discord, or LinkedIn!" });
+                        } catch {
+                          toast({ title: "Copy Failed", description: "Please download instead.", variant: "destructive" });
+                        }
+                      }}
+                      className="py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-green-500/25"
+                    >
+                      {certificateImageCopied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                      {certificateImageCopied ? "Copied!" : "Copy Image"}
+                    </button>
+                  </div>
+
+                  {/* Share Certificate with Image Button */}
+                  {'share' in navigator && (
+                    <button
+                      onClick={async () => {
+                        const certCanvas = document.querySelector('[data-testid="certificate-canvas"]') as HTMLCanvasElement;
+                        if (!certCanvas) {
+                          toast({ title: "Certificate not ready", description: "Please try again.", variant: "destructive" });
+                          return;
+                        }
+                        setIsSharingCertificate(true);
+                        try {
+                          const blob = await new Promise<Blob>((resolve, reject) => {
+                            certCanvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Failed")), "image/png");
+                          });
+                          const file = new File([blob], `TypeMasterAI_Book_Certificate_${lastResultSnapshot.wpm}WPM.png`, { type: "image/png" });
+                          if (navigator.canShare?.({ files: [file] })) {
+                            const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
+                            await navigator.share({
+                              title: `TypeMasterAI Book Certificate - ${lastResultSnapshot.wpm} WPM`,
+                              text: `🎓 I earned a ${rating.badge} Certificate reading "${lastResultSnapshot.bookTitle}"!\n\n⚡ ${lastResultSnapshot.wpm} WPM | ✨ ${lastResultSnapshot.accuracy}% Accuracy\n📚 ${lastResultSnapshot.paragraphsCompleted} paragraphs\n🏆 ${rating.title}\n\n🔗 typemasterai.com/book-mode`,
+                              files: [file],
+                            });
+                            toast({ title: "Certificate Shared!", description: "Your achievement is on its way!" });
+                          }
+                        } catch (error: any) {
+                          if (error.name !== 'AbortError') {
+                            toast({ title: "Share failed", description: "Please try Copy Image instead.", variant: "destructive" });
+                          }
+                        } finally {
+                          setIsSharingCertificate(false);
+                        }
+                      }}
+                      disabled={isSharingCertificate}
+                      className="w-full py-4 bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Share2 className="w-5 h-5" />
+                      {isSharingCertificate ? "Preparing..." : "Share Certificate with Image"}
+                    </button>
+                  )}
+
+                  {/* Certificate Share Message Preview */}
+                  <div className="relative">
+                    <div className="absolute -top-2 left-3 px-2 bg-background text-xs font-medium text-muted-foreground">
+                      Certificate Share Message
+                    </div>
+                    <div className="p-4 bg-gradient-to-br from-slate-900/50 to-slate-800/50 rounded-xl border border-yellow-500/20 text-sm leading-relaxed">
+                      <div className="space-y-2">
+                        <p className="text-base font-medium">
+                          🎓 <span className="text-yellow-400 font-bold">CERTIFIED: {lastResultSnapshot.wpm} WPM Book Typing!</span>
+                        </p>
+                        <p className="text-muted-foreground">
+                          📚 Book: <span className="text-foreground font-semibold">{lastResultSnapshot.bookTitle}</span>
+                        </p>
+                        <p className="text-muted-foreground">
+                          ⚡ Speed: <span className="text-foreground font-semibold">{lastResultSnapshot.wpm} WPM</span>
+                        </p>
+                        <p className="text-muted-foreground">
+                          ✨ Accuracy: <span className="text-foreground font-semibold">{lastResultSnapshot.accuracy}%</span>
+                        </p>
+                        <p className="text-muted-foreground">
+                          🏆 Level: <span className="text-yellow-400 font-semibold">{getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy).title}</span>
+                        </p>
+                        <p className="text-primary/80 text-xs mt-3 font-medium">
+                          Official book typing certificate earned! 📖
+                        </p>
+                        <p className="text-xs text-primary mt-2 font-medium">
+                          🔗 https://typemasterai.com/book-mode
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
+                        const text = `🎓 Just earned my TypeMasterAI Book Typing Certificate! ${lastResultSnapshot.wpm} WPM with ${lastResultSnapshot.accuracy}% accuracy 📚
+
+📖 "${lastResultSnapshot.bookTitle}" by ${lastResultSnapshot.author}
+🏆 ${rating.title}
+
+🔗 https://typemasterai.com/book-mode
+
+#TypeMasterAI #BookTyping #Reading`;
+                        navigator.clipboard.writeText(text);
+                        toast({ title: "Certificate Message Copied!", description: "Paste into your social media post" });
+                      }}
+                      className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
+                  </div>
+
+                  {/* Certificate Social Share Buttons */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium text-center text-muted-foreground uppercase tracking-wide">
+                      Share Certificate On
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => {
+                          const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
+                          const text = encodeURIComponent(`🎓 Just earned my TypeMasterAI Book Typing Certificate! ${lastResultSnapshot.wpm} WPM reading "${lastResultSnapshot.bookTitle}" 📚
+
+#TypeMasterAI #BookTyping`);
+                          window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent('https://typemasterai.com/book-mode')}`, '_blank', 'width=600,height=400');
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1DA1F2]/10 hover:bg-[#1DA1F2]/25 border border-[#1DA1F2]/20 transition-all"
+                      >
+                        <Twitter className="w-4 h-4 text-[#1DA1F2]" />
+                        <span className="text-xs font-medium">X (Twitter)</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const text = encodeURIComponent(`🎓 I just earned my official TypeMasterAI Book Typing Certificate!
+
+Achieved ${lastResultSnapshot.wpm} WPM with ${lastResultSnapshot.accuracy}% accuracy reading "${lastResultSnapshot.bookTitle}"! 📚`);
+                          window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://typemasterai.com/book-mode')}&quote=${text}`, '_blank', 'width=600,height=400');
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#1877F2]/10 hover:bg-[#1877F2]/25 border border-[#1877F2]/20 transition-all"
+                      >
+                        <Facebook className="w-4 h-4 text-[#1877F2]" />
+                        <span className="text-xs font-medium">Facebook</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://typemasterai.com/book-mode')}`, '_blank', 'width=600,height=400');
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0A66C2]/10 hover:bg-[#0A66C2]/25 border border-[#0A66C2]/20 transition-all"
+                      >
+                        <Linkedin className="w-4 h-4 text-[#0A66C2]" />
+                        <span className="text-xs font-medium">LinkedIn</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
+                          const waText = `*TypeMasterAI Book Certificate*\n\nBook: ${lastResultSnapshot.bookTitle}\nSpeed: *${lastResultSnapshot.wpm} WPM*\nAccuracy: *${lastResultSnapshot.accuracy}%*\nLevel: ${rating.title}\n\nGet yours: https://typemasterai.com/book-mode`;
+                          window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank', 'width=600,height=400');
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/25 border border-[#25D366]/20 transition-all"
+                      >
+                        <MessageCircle className="w-4 h-4 text-[#25D366]" />
+                        <span className="text-xs font-medium">WhatsApp</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
+                          const text = `🎓 CERTIFIED!\n\n📚 "${lastResultSnapshot.bookTitle}"\n⚡ ${lastResultSnapshot.wpm} WPM | ✨ ${lastResultSnapshot.accuracy}%\n🏆 ${rating.title}`;
+                          window.open(`https://t.me/share/url?url=${encodeURIComponent('https://typemasterai.com/book-mode')}&text=${encodeURIComponent(text)}`, '_blank', 'width=600,height=400');
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-[#0088cc]/10 hover:bg-[#0088cc]/25 border border-[#0088cc]/20 transition-all"
+                      >
+                        <Send className="w-4 h-4 text-[#0088cc]" />
+                        <span className="text-xs font-medium">Telegram</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const rating = getTypingPerformanceRating(lastResultSnapshot.wpm, lastResultSnapshot.accuracy);
+                          const subject = encodeURIComponent(`🎓 TypeMasterAI Book Certificate - ${lastResultSnapshot.wpm} WPM`);
+                          const body = encodeURIComponent(`Hello!\n\nI earned a TypeMasterAI Book Typing Certificate!\n\n📚 Book: ${lastResultSnapshot.bookTitle}\n⚡ Speed: ${lastResultSnapshot.wpm} WPM\n✨ Accuracy: ${lastResultSnapshot.accuracy}%\n🏆 Level: ${rating.title}\n\n👉 Try it: https://typemasterai.com/book-mode`);
+                          window.open(`mailto:?subject=${subject}&body=${body}`);
+                        }}
+                        className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-500/10 hover:bg-gray-500/25 border border-gray-500/20 transition-all"
+                      >
+                        <Mail className="w-4 h-4 text-gray-400" />
+                        <span className="text-xs font-medium">Email</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Certificate Sharing Tips */}
+                  <div className="space-y-2">
+                    <div className="p-3 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-lg border border-blue-500/20">
+                      <p className="text-xs text-center text-muted-foreground">
+                        📱 <span className="font-medium text-foreground">Mobile:</span> Use "Share Certificate with Image" to attach the certificate directly!
+                      </p>
+                    </div>
+                    <div className="p-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/20">
+                      <p className="text-xs text-center text-muted-foreground">
+                        💻 <span className="font-medium text-foreground">Desktop:</span> Use "Copy Image" then paste directly into Twitter, LinkedIn, Discord, or any social media!
+                      </p>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                {/* View Certificate Dialog */}
+                {showCertificate && user && lastResultSnapshot && (
+                  <Dialog open={showCertificate} onOpenChange={setShowCertificate}>
+                    <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Award className="w-5 h-5 text-yellow-400" />
+                          Your Book Typing Certificate
+                        </DialogTitle>
+                      </DialogHeader>
+                      <BookCertificate
+                        wpm={lastResultSnapshot.wpm}
+                        accuracy={lastResultSnapshot.accuracy}
+                        consistency={lastResultSnapshot.consistency}
+                        bookTitle={lastResultSnapshot.bookTitle}
+                        author={lastResultSnapshot.author}
+                        chapter={lastResultSnapshot.chapter}
+                        chapterTitle={lastResultSnapshot.chapterTitle}
+                        paragraphsCompleted={lastResultSnapshot.paragraphsCompleted}
+                        wordsTyped={lastResultSnapshot.wordsTyped}
+                        characters={lastResultSnapshot.characters}
+                        errors={lastResultSnapshot.errors}
+                        duration={lastResultSnapshot.duration}
+                        difficulty={lastResultSnapshot.difficulty}
+                        username={user?.username}
+                        minimal={true}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </Tabs>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );
