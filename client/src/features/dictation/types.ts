@@ -286,14 +286,11 @@ export const STORAGE_KEYS = {
 // HELPER FUNCTIONS
 // ============================================================================
 
-export function getDifficultyEmoji(difficulty: string): string {
-  switch (difficulty) {
-    case 'easy': return '🟢';
-    case 'medium': return '🟡';
-    case 'hard': return '🔴';
-    default: return '';
-  }
-}
+export const getDifficultyEmoji = (difficulty: DifficultyLevel) => {
+  // Deprecated: Emojis removed for production readiness.
+  // This function is kept for backward compatibility but returns empty string.
+  return '';
+};
 
 export function getNextDifficulty(
   current: DifficultyLevel,

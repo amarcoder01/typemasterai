@@ -15,9 +15,10 @@ interface ShareCardProps {
   characters?: number;
   onClose?: () => void;
   onShareTracked?: (platform: string) => void;
+  modeLabel?: string; // e.g., "Dictation Mode", "Standard Mode"
 }
 
-export function ShareCard({ wpm, accuracy, mode, language, username, freestyle = false, consistency = 100, words = 0, characters = 0, onClose, onShareTracked }: ShareCardProps) {
+export function ShareCard({ wpm, accuracy, mode, language, username, freestyle = false, consistency = 100, words = 0, characters = 0, onClose, onShareTracked, modeLabel }: ShareCardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -108,7 +109,7 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
 
   useEffect(() => {
     void generateCard();
-  }, [wpm, accuracy, mode, language, username, freestyle, consistency, words, characters]);
+  }, [wpm, accuracy, mode, language, username, freestyle, consistency, words, characters, modeLabel]);
 
   const generateCard = async () => {
     const canvas = canvasRef.current;
@@ -192,7 +193,7 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
       ctx.font = "12px 'DM Sans', sans-serif";
       ctx.fillText("Characters", canvas.width - 140, statsY + 25);
     } else {
-      // Standard mode: show Accuracy, Duration, Language
+      // Standard/Dictation mode: show Accuracy, Duration/Mode, Language
       ctx.font = "bold 20px 'JetBrains Mono', monospace";
       ctx.fillStyle = "#22c55e";
       ctx.textAlign = "center";
@@ -201,12 +202,22 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
       ctx.font = "12px 'DM Sans', sans-serif";
       ctx.fillText("Accuracy", 140, statsY + 25);
 
+      // Middle stat: show mode label if provided, otherwise duration
       ctx.font = "bold 20px 'JetBrains Mono', monospace";
       ctx.fillStyle = "#a855f7";
-      ctx.fillText(modeDisplay, canvas.width / 2, statsY + 8);
-      ctx.fillStyle = "#64748b";
-      ctx.font = "12px 'DM Sans', sans-serif";
-      ctx.fillText("Duration", canvas.width / 2, statsY + 25);
+      if (modeLabel) {
+        // Truncate long mode labels for the card
+        const shortLabel = modeLabel.replace(" Mode", "");
+        ctx.fillText(shortLabel, canvas.width / 2, statsY + 8);
+        ctx.fillStyle = "#64748b";
+        ctx.font = "12px 'DM Sans', sans-serif";
+        ctx.fillText("Mode", canvas.width / 2, statsY + 25);
+      } else {
+        ctx.fillText(modeDisplay, canvas.width / 2, statsY + 8);
+        ctx.fillStyle = "#64748b";
+        ctx.font = "12px 'DM Sans', sans-serif";
+        ctx.fillText("Duration", canvas.width / 2, statsY + 25);
+      }
 
       ctx.font = "bold 20px 'JetBrains Mono', monospace";
       ctx.fillStyle = "#f59e0b";

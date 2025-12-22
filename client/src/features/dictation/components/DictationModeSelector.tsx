@@ -64,7 +64,7 @@ export function DictationModeSelector({
                 role="heading"
                 aria-label="Choose your practice mode"
               >
-                Dictation Mode 🎧
+                Dictation Mode
               </h1>
             </TooltipTrigger>
             <TooltipContent className="max-w-sm">

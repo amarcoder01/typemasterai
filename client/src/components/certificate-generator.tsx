@@ -22,11 +22,12 @@ interface CertificateProps {
   words?: number;
   consistency?: number;
   verificationId?: string; // Server-generated verification ID
+  modeLabel?: string; // Custom mode label (e.g., "Dictation Mode")
 }
 
 type DownloadFormat = "png" | "pdf" | "jpeg";
 
-export function CertificateGenerator({ username, wpm, accuracy, mode, date, freestyle = false, characters = 0, words = 0, consistency = 100, verificationId: serverVerificationId }: CertificateProps) {
+export function CertificateGenerator({ username, wpm, accuracy, mode, date, freestyle = false, characters = 0, words = 0, consistency = 100, verificationId: serverVerificationId, modeLabel }: CertificateProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedFormat, setSelectedFormat] = useState<DownloadFormat>("png");
   const [qrCodeImage, setQrCodeImage] = useState<HTMLImageElement | null>(null);
@@ -69,7 +70,7 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date, free
   // Regenerate certificate when dependencies change
   useEffect(() => {
     generateCertificate();
-  }, [username, wpm, accuracy, mode, date, freestyle, characters, words, consistency, verificationId, qrCodeImage]);
+  }, [username, wpm, accuracy, mode, date, freestyle, characters, words, consistency, verificationId, qrCodeImage, modeLabel]);
 
   const generateCertificate = () => {
     const canvas = canvasRef.current;
@@ -152,9 +153,14 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date, free
     ctx.fillStyle = "#94a3b8";
     ctx.font = "24px 'DM Sans', sans-serif";
     // Achievements
-    const achievementText = freestyle
-      ? "has successfully completed a freestyle typing session with"
-      : "has successfully completed a typing test with";
+    let achievementText: string;
+    if (modeLabel && modeLabel.toLowerCase().includes('dictation')) {
+      achievementText = "has successfully completed a dictation test with";
+    } else if (freestyle) {
+      achievementText = "has successfully completed a freestyle typing session with";
+    } else {
+      achievementText = "has successfully completed a typing test with";
+    }
     ctx.fillText(achievementText, canvas.width / 2, 350); // Shifted up 10px
 
     // Stats box - Shifted up 20px
@@ -212,7 +218,7 @@ export function CertificateGenerator({ username, wpm, accuracy, mode, date, free
       ctx.fillText(modeText, 800, boxY + 70);
       ctx.fillStyle = "#94a3b8";
       ctx.font = "18px 'DM Sans', sans-serif";
-      ctx.fillText("Test Duration", 800, boxY + 105);
+      ctx.fillText(modeLabel || "Test Duration", 800, boxY + 105);
     }
 
     // Date - Shifted up

@@ -2977,7 +2977,7 @@ export default function RacePage() {
                       onClick={async () => {
                         const certCanvas = document.querySelector('[data-testid="certificate-canvas"]') as HTMLCanvasElement;
                         if (!certCanvas) {
-                          toast({ title: "Certificate not ready", description: "Please try again.", variant: "destructive" });
+                          toast("Certificate not ready", { description: "Please try again." });
                           return;
                         }
                         try {
@@ -2987,9 +2987,9 @@ export default function RacePage() {
                           await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
                           setCertificateImageCopied(true);
                           setTimeout(() => setCertificateImageCopied(false), 2000);
-                          toast({ title: "Certificate Copied!", description: "Paste directly into Twitter, Discord, or LinkedIn!" });
+                          toast("Certificate Copied!", { description: "Paste directly into Twitter, Discord, or LinkedIn!" });
                         } catch {
-                          toast({ title: "Copy Failed", description: "Please download instead.", variant: "destructive" });
+                          toast("Copy Failed", { description: "Please download instead." });
                         }
                       }}
                       className="py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-green-500/25"
@@ -3005,7 +3005,7 @@ export default function RacePage() {
                       onClick={async () => {
                         const certCanvas = document.querySelector('[data-testid="certificate-canvas"]') as HTMLCanvasElement;
                         if (!certCanvas) {
-                          toast({ title: "Certificate not ready", description: "Please try again.", variant: "destructive" });
+                          toast("Certificate not ready", { description: "Please try again." });
                           return;
                         }
                         setIsSharingCertificate(true);
@@ -3021,11 +3021,11 @@ export default function RacePage() {
                               text: `🏆 I finished #${lastResultSnapshot.placement} of ${lastResultSnapshot.totalParticipants} in a TypeMasterAI Race!\n\n⚡ ${lastResultSnapshot.wpm} WPM | ✨ ${lastResultSnapshot.accuracy}% Accuracy\n🎖️ ${rating.badge} Badge\n\n🔗 typemasterai.com/race`,
                               files: [file],
                             });
-                            toast({ title: "Certificate Shared!", description: "Your achievement is on its way!" });
+                            toast("Certificate Shared!", { description: "Your achievement is on its way!" });
                           }
                         } catch (error: any) {
                           if (error.name !== 'AbortError') {
-                            toast({ title: "Share failed", description: "Please try Copy Image instead.", variant: "destructive" });
+                            toast("Share failed", { description: "Please try Copy Image instead." });
                           }
                         } finally {
                           setIsSharingCertificate(false);
@@ -3081,7 +3081,7 @@ export default function RacePage() {
 
 #TypeMasterAI #TypingRace`;
                         navigator.clipboard.writeText(text);
-                        toast({ title: "Certificate Message Copied!", description: "Paste into your social media post" });
+                        toast("Certificate Message Copied!", { description: "Paste into your social media post" });
                       }}
                       className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-background border border-border/50 transition-colors"
                     >

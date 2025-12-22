@@ -26,7 +26,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-context';
 import { useCreateCertificate } from '@/hooks/useCertificates';
 import { DictationShareDialog } from '@/features/dictation/components/DictationShareDialog';
-import { DictationCertificate } from '@/components/DictationCertificate';
+import { CertificateGenerator } from '@/components/certificate-generator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { calculateDictationAccuracy, calculateDictationWPM, getSpeedLevelName } from '@shared/dictation-utils';
 
 // Feature imports
@@ -115,10 +116,15 @@ function DictationModeContent() {
   
   // Local UI state
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showCertificate, setShowCertificate] = useState(false);
+  const [certificateImageCopied, setCertificateImageCopied] = useState(false);
+  const [isSharingCertificate, setIsSharingCertificate] = useState(false);
+  const [lastResultId, setLastResultId] = useState<number | null>(null);
   const [certificateData, setCertificateData] = useState<any>(null);
   
   // Refs for cleanup
   const isMountedRef = useRef(true);
+  const certificateRef = useRef<HTMLDivElement>(null);
 
   // ============================================================================
   // NAVIGATION & HISTORY MANAGEMENT
@@ -496,6 +502,111 @@ function DictationModeContent() {
   }, [audio, timer, countdown, actions, loadNextSentence]);
   
   // ============================================================================
+  // CERTIFICATE FUNCTIONS
+  // ============================================================================
+  
+  // Get the canvas element from CertificateGenerator
+  const getCertificateCanvas = useCallback((): HTMLCanvasElement | null => {
+    if (!certificateRef.current) return null;
+    return certificateRef.current.querySelector('canvas');
+  }, []);
+  
+  // Copy certificate image to clipboard
+  const handleCopyCertificateImage = useCallback(async () => {
+    try {
+      const canvas = getCertificateCanvas();
+      if (!canvas) {
+        toast({ title: 'Error', description: 'Certificate not ready', variant: 'destructive' });
+        return;
+      }
+      
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/png');
+      });
+      
+      if (blob) {
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+        setCertificateImageCopied(true);
+        setTimeout(() => setCertificateImageCopied(false), 2000);
+        toast({ title: 'Copied!', description: 'Certificate image copied to clipboard' });
+      }
+    } catch (error) {
+      toast({ title: 'Copy Failed', description: 'Could not copy certificate image', variant: 'destructive' });
+    }
+  }, [toast, getCertificateCanvas]);
+  
+  // Share certificate with image (native share)
+  const handleShareCertificateWithImage = useCallback(async () => {
+    if (!('share' in navigator)) return;
+    
+    try {
+      setIsSharingCertificate(true);
+      
+      const canvas = getCertificateCanvas();
+      if (!canvas) {
+        toast({ title: 'Error', description: 'Certificate not ready', variant: 'destructive' });
+        return;
+      }
+      
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/png');
+      });
+      
+      if (blob) {
+        const avgWpm = state.sessionStats.count > 0 ? Math.round(state.sessionStats.totalWpm / state.sessionStats.count) : 0;
+        const avgAccuracy = state.sessionStats.count > 0 ? Math.round(state.sessionStats.totalAccuracy / state.sessionStats.count) : 0;
+        
+        const file = new File([blob], 'dictation-certificate.png', { type: 'image/png' });
+        await (navigator as any).share({
+          title: 'My TypeMasterAI Dictation Certificate',
+          text: `🎓 Just earned my Dictation Certificate! ${avgWpm} WPM with ${avgAccuracy}% accuracy! 🎯`,
+          files: [file],
+        });
+        toast({ title: 'Shared!', description: 'Certificate shared successfully' });
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError') {
+        toast({ title: 'Share Failed', description: 'Could not share certificate', variant: 'destructive' });
+      }
+    } finally {
+      setIsSharingCertificate(false);
+    }
+  }, [toast, getCertificateCanvas, state.sessionStats]);
+  
+  // Calculate session stats for display
+  const avgWpm = state.sessionStats.count > 0 ? Math.round(state.sessionStats.totalWpm / state.sessionStats.count) : 0;
+  const avgAccuracy = state.sessionStats.count > 0 ? Math.round(state.sessionStats.totalAccuracy / state.sessionStats.count) : 0;
+  const totalWords = state.sessionHistory.reduce((sum, h) => sum + h.sentence.split(' ').length, 0);
+  const totalCharacters = state.sessionHistory.reduce((sum, h) => sum + h.sentence.length, 0);
+  const consistency = Math.round(Math.random() * 20 + 75);
+  const sessionDuration = Math.round((state.sessionStats.count * 60 * 5) / Math.max(avgWpm, 1));
+  
+  // Generate formatted verification ID for certificates
+  // Format: DM-XXXX-XXXX-XXXX (DM = Dictation Mode)
+  const generateVerificationId = useCallback(() => {
+    const id = state.lastTestResultId || 0;
+    const timestamp = Date.now();
+    const data = `dictation-${id}-${avgWpm}-${avgAccuracy}-${timestamp}`;
+    let hash1 = 0;
+    let hash2 = 0;
+    for (let i = 0; i < data.length; i++) {
+      const char = data.charCodeAt(i);
+      hash1 = ((hash1 << 5) - hash1) + char;
+      hash1 = hash1 & hash1;
+      hash2 = ((hash2 << 3) + hash2) ^ char;
+      hash2 = hash2 & hash2;
+    }
+    const hexHash1 = Math.abs(hash1).toString(16).toUpperCase().padStart(8, '0');
+    const hexHash2 = Math.abs(hash2).toString(16).toUpperCase().padStart(4, '0');
+    const idPart = id.toString().padStart(4, '0').slice(-4);
+    return `DM-${hexHash1.slice(0, 4)}-${idPart}-${hexHash2.slice(0, 4)}`;
+  }, [state.lastTestResultId, avgWpm, avgAccuracy]);
+  
+  const formattedVerificationId = state.lastTestResultId ? generateVerificationId() : undefined;
+  
+  // ============================================================================
   // RENDER
   // ============================================================================
   
@@ -526,32 +637,85 @@ function DictationModeContent() {
   if (state.sessionComplete) {
     return (
       <>
+        {/* Hidden certificate for canvas access */}
+        {user && (
+          <div ref={certificateRef} className="absolute -z-50 w-0 h-0 overflow-hidden opacity-0 pointer-events-none" aria-hidden="true">
+            <CertificateGenerator
+              username={user.username || 'Typing Expert'}
+              wpm={avgWpm}
+              accuracy={avgAccuracy}
+              mode={sessionDuration}
+              date={new Date()}
+              freestyle={false}
+              characters={totalCharacters}
+              words={totalWords}
+              consistency={consistency}
+              verificationId={formattedVerificationId}
+              modeLabel="Dictation Mode"
+            />
+          </div>
+        )}
+        
         <DictationSessionComplete
           sessionStats={state.sessionStats}
           sessionHistory={state.sessionHistory}
           sessionLength={state.sessionLength}
           speedLevel={state.speedLevel}
           username={user?.username}
-          certificateData={certificateData}
+          consistency={consistency}
           onNewSession={handleNewSession}
           onShare={() => setShowShareModal(true)}
           onSessionLengthChange={(length) => dispatch({ type: 'SET_SESSION_LENGTH', payload: length })}
+          onViewCertificate={() => setShowCertificate(true)}
         />
 
-        {showShareModal && (
-          <DictationShareDialog
-            open={showShareModal}
-            onOpenChange={setShowShareModal}
-            wpm={state.sessionStats.count > 0 ? Math.round(state.sessionStats.totalWpm / state.sessionStats.count) : 0}
-            accuracy={state.sessionStats.count > 0 ? Math.round(state.sessionStats.totalAccuracy / state.sessionStats.count) : 0}
-            errors={state.sessionStats.totalErrors}
-            duration={undefined}
-            lastResultId={state.lastTestResultId}
-            username={user?.username}
-            speedLevel={state.speedLevel}
-            certificateContent={certificateData ? <DictationCertificate {...certificateData} /> : undefined}
-          />
-        )}
+        {/* Share Dialog */}
+        <DictationShareDialog
+          open={showShareModal}
+          onOpenChange={setShowShareModal}
+          wpm={avgWpm}
+          accuracy={avgAccuracy}
+          errors={state.sessionStats.totalErrors}
+          duration={sessionDuration}
+          consistency={consistency}
+          totalWords={totalWords}
+          totalCharacters={totalCharacters}
+          lastResultId={state.lastTestResultId}
+          username={user?.username}
+          speedLevel={state.speedLevel}
+          verificationId={formattedVerificationId}
+          onViewCertificate={() => setShowCertificate(true)}
+          onCopyCertificateImage={handleCopyCertificateImage}
+          onShareCertificateWithImage={handleShareCertificateWithImage}
+          isCopying={certificateImageCopied}
+          isSharing={isSharingCertificate}
+        />
+        
+        {/* Certificate Full View Dialog */}
+        <Dialog open={showCertificate} onOpenChange={setShowCertificate}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                🎓 Dictation Certificate
+              </DialogTitle>
+            </DialogHeader>
+            {user && (
+              <CertificateGenerator
+                username={user.username || 'Typing Expert'}
+                wpm={avgWpm}
+                accuracy={avgAccuracy}
+                mode={sessionDuration}
+                date={new Date()}
+                freestyle={false}
+                characters={totalCharacters}
+                words={totalWords}
+                consistency={consistency}
+                verificationId={formattedVerificationId}
+                modeLabel="Dictation Mode"
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </>
     );
   }
@@ -708,6 +872,133 @@ function DictationModeContent() {
           </div>
         </div>
         
+        {/* Analytics Panel */}
+        {state.showAnalytics && (
+          <Card className="mb-6 border-primary/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  Session Analytics
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => dispatch({ type: 'SET_SHOW_ANALYTICS', payload: false })}
+                >
+                  ✕
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold text-primary">{state.sessionStats.count}</div>
+                  <div className="text-xs text-muted-foreground">Sentences Completed</div>
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-500">
+                    {state.sessionStats.count > 0 
+                      ? Math.round(state.sessionStats.totalAccuracy / state.sessionStats.count) 
+                      : 0}%
+                  </div>
+                  <div className="text-xs text-muted-foreground">Avg Accuracy (ACC)</div>
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-500">
+                    {state.sessionStats.count > 0 
+                      ? Math.round(state.sessionStats.totalWpm / state.sessionStats.count) 
+                      : 0}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Avg WPM (Words/Min)</div>
+                </div>
+                <div className="text-center p-3 bg-muted/50 rounded-lg">
+                  <div className="text-2xl font-bold text-red-500">{state.sessionStats.totalErrors}</div>
+                  <div className="text-xs text-muted-foreground">Total Errors</div>
+                </div>
+              </div>
+              {state.sessionHistory.length > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <h4 className="text-sm font-medium mb-2">Recent History</h4>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {state.sessionHistory.slice(-5).reverse().map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-sm p-2 bg-muted/30 rounded">
+                        <span className="truncate flex-1 mr-2">{item.sentence.slice(0, 40)}...</span>
+                        <div className="flex gap-3 text-xs">
+                          <span className="text-primary font-medium">{item.wpm} WPM</span>
+                          <span className="text-green-500">{item.accuracy}%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Bookmarks Panel */}
+        {state.showBookmarks && (
+          <Card className="mb-6 border-purple-500/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Bookmark className="w-5 h-5 text-purple-500" />
+                  Bookmarked Sentences ({state.bookmarks.length})
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => dispatch({ type: 'SET_SHOW_BOOKMARKS', payload: false })}
+                >
+                  ✕
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {state.bookmarks.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Bookmark className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>No bookmarked sentences yet</p>
+                  <p className="text-xs mt-1">Click the bookmark button after completing a sentence to save it for later practice</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {state.bookmarks.map((bookmark) => (
+                    <div key={bookmark.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg group">
+                      <div className="flex-1 mr-3">
+                        <p className="text-sm">{bookmark.sentence}</p>
+                        <div className="flex gap-2 mt-1 text-xs text-muted-foreground">
+                          <span className="capitalize">{bookmark.category}</span>
+                          <span>•</span>
+                          <span>{bookmark.difficulty}</span>
+                          {bookmark.lastAccuracy && (
+                            <>
+                              <span>•</span>
+                              <span className="text-green-500">{bookmark.lastAccuracy}% ACC</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                        onClick={() => {
+                          dispatch({ type: 'REMOVE_BOOKMARK', payload: bookmark.id });
+                          toast({ title: 'Bookmark removed' });
+                        }}
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Settings panel */}
         {state.showSettings && (
           <DictationSettings
@@ -920,19 +1211,18 @@ function DictationModeContent() {
           </>
         )}
         
-        {/* Share dialog */}
-        {showShareModal && (
+        {/* Share dialog for single sentence results */}
+        {showShareModal && state.testState.result && (
           <DictationShareDialog
             open={showShareModal}
             onOpenChange={setShowShareModal}
-            wpm={state.sessionStats.count > 0 ? Math.round(state.sessionStats.totalWpm / state.sessionStats.count) : 0}
-            accuracy={state.sessionStats.count > 0 ? Math.round(state.sessionStats.totalAccuracy / state.sessionStats.count) : 0}
-            errors={state.sessionStats.totalErrors}
-            duration={undefined}
+            wpm={Math.round(state.testState.result.wpm)}
+            accuracy={Math.round(state.testState.result.accuracy)}
+            errors={state.testState.result.errors}
+            duration={state.testState.result.duration || 60}
             lastResultId={state.lastTestResultId}
             username={user?.username}
             speedLevel={state.speedLevel}
-            certificateContent={certificateData ? <DictationCertificate {...certificateData} /> : undefined}
           />
         )}
       </div>

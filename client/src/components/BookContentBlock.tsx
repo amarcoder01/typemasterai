@@ -108,7 +108,7 @@ export function BookContentBlock({
 }: BookContentBlockProps) {
   const blockRef = useRef<HTMLElement>(null);
   const typeConfig = getTypeStyle(block.type);
-  const Element = typeConfig.element as keyof JSX.IntrinsicElements;
+  const Element = typeConfig.element as React.ElementType;
   const textToRender = useDisplayText ? block.displayText : block.text;
   const blockState = getBlockState(userProgress, blockStartOffset, textToRender.length);
   const prevStateRef = useRef(blockState);
@@ -245,7 +245,7 @@ export function BookContentBlockEnhanced({
 }: EnhancedBlockProps) {
   const blockRef = useRef<HTMLElement>(null);
   const typeConfig = getTypeStyle(block.type);
-  const Element = typeConfig.element as keyof JSX.IntrinsicElements;
+  const Element = typeConfig.element as React.ElementType;
   const textToRender = useDisplayText ? block.displayText : block.text;
   const blockState = getBlockState(userProgress, blockStartOffset, textToRender.length);
   const prevStateRef = useRef(blockState);
