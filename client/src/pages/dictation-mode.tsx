@@ -25,7 +25,8 @@ import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/comp
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth-context';
 import { useCreateCertificate } from '@/hooks/useCertificates';
-import { ShareModal } from '@/components/ShareModal';
+import { DictationShareDialog } from '@/features/dictation/components/DictationShareDialog';
+import { DictationCertificate } from '@/components/DictationCertificate';
 import { calculateDictationAccuracy, calculateDictationWPM, getSpeedLevelName } from '@shared/dictation-utils';
 
 // Feature imports
@@ -524,17 +525,34 @@ function DictationModeContent() {
   // Session complete screen
   if (state.sessionComplete) {
     return (
-      <DictationSessionComplete
-        sessionStats={state.sessionStats}
-        sessionHistory={state.sessionHistory}
-        sessionLength={state.sessionLength}
-        speedLevel={state.speedLevel}
-        username={user?.username}
-        certificateData={certificateData}
-        onNewSession={handleNewSession}
-        onShare={() => setShowShareModal(true)}
-        onSessionLengthChange={(length) => dispatch({ type: 'SET_SESSION_LENGTH', payload: length })}
-      />
+      <>
+        <DictationSessionComplete
+          sessionStats={state.sessionStats}
+          sessionHistory={state.sessionHistory}
+          sessionLength={state.sessionLength}
+          speedLevel={state.speedLevel}
+          username={user?.username}
+          certificateData={certificateData}
+          onNewSession={handleNewSession}
+          onShare={() => setShowShareModal(true)}
+          onSessionLengthChange={(length) => dispatch({ type: 'SET_SESSION_LENGTH', payload: length })}
+        />
+
+        {showShareModal && (
+          <DictationShareDialog
+            open={showShareModal}
+            onOpenChange={setShowShareModal}
+            wpm={state.sessionStats.count > 0 ? Math.round(state.sessionStats.totalWpm / state.sessionStats.count) : 0}
+            accuracy={state.sessionStats.count > 0 ? Math.round(state.sessionStats.totalAccuracy / state.sessionStats.count) : 0}
+            errors={state.sessionStats.totalErrors}
+            duration={undefined}
+            lastResultId={state.lastTestResultId}
+            username={user?.username}
+            speedLevel={state.speedLevel}
+            certificateContent={certificateData ? <DictationCertificate {...certificateData} /> : undefined}
+          />
+        )}
+      </>
     );
   }
   
@@ -844,6 +862,7 @@ function DictationModeContent() {
             isBookmarked={isBookmarked}
             coachingTip={state.currentCoachingTip}
             autoAdvanceCountdown={countdown.countdown}
+            isLastSentence={state.sessionProgress >= state.sessionLength}
             onNext={handleNextSentence}
             onReplay={() => {
               // Reset and retry same sentence
@@ -901,18 +920,19 @@ function DictationModeContent() {
           </>
         )}
         
-        {/* Share modal */}
-        {showShareModal && state.lastTestResultId && (
-          <ShareModal
+        {/* Share dialog */}
+        {showShareModal && (
+          <DictationShareDialog
             open={showShareModal}
-            onOpenChange={(open) => setShowShareModal(open)}
-            resultId={state.lastTestResultId}
-            mode="dictation"
-            stats={{
-              wpm: Math.round(state.sessionStats.totalWpm / state.sessionStats.count),
-              accuracy: Math.round(state.sessionStats.totalAccuracy / state.sessionStats.count),
-              errors: state.sessionStats.totalErrors,
-            }}
+            onOpenChange={setShowShareModal}
+            wpm={state.sessionStats.count > 0 ? Math.round(state.sessionStats.totalWpm / state.sessionStats.count) : 0}
+            accuracy={state.sessionStats.count > 0 ? Math.round(state.sessionStats.totalAccuracy / state.sessionStats.count) : 0}
+            errors={state.sessionStats.totalErrors}
+            duration={undefined}
+            lastResultId={state.lastTestResultId}
+            username={user?.username}
+            speedLevel={state.speedLevel}
+            certificateContent={certificateData ? <DictationCertificate {...certificateData} /> : undefined}
           />
         )}
       </div>

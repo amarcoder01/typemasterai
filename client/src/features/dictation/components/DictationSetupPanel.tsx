@@ -78,9 +78,12 @@ export function DictationSetupPanel({
   isLoading = false,
 }: DictationSetupPanelProps) {
   
-  // Calculate estimated duration based on session length and speed
-  // Assuming avg sentence is 10 words, avg WPM is 40
-  const estimatedMinutes = Math.ceil((sessionLength * 10) / 40);
+  // Calculate estimated duration
+  // Assuming ~30 seconds per sentence (listening + typing + checking)
+  // const totalSeconds = sessionLength * 30;
+  // const durationDisplay = totalSeconds < 60 
+  //   ? `~${totalSeconds} sec` 
+  //   : `~${Math.ceil(totalSeconds / 60)} min`;
 
   return (
     <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-3">
@@ -193,13 +196,6 @@ export function DictationSetupPanel({
 
           {/* Session Length */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Duration</h3>
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <Clock className="w-3 h-3" /> ~{estimatedMinutes} min
-              </Badge>
-            </div>
-            
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>Number of Sentences</Label>

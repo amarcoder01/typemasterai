@@ -532,11 +532,11 @@ export function DictationProvider({ children }: DictationProviderProps) {
       });
     }
     
-    // Check if session is complete
-    if (state.sessionProgress + 1 >= state.sessionLength) {
-      dispatch({ type: 'SET_SESSION_COMPLETE', payload: true });
-      clearSessionBackup();
-    }
+    // Check if session is complete - REMOVED to allow showing final results
+    // if (state.sessionProgress + 1 >= state.sessionLength) {
+    //   dispatch({ type: 'SET_SESSION_COMPLETE', payload: true });
+    //   clearSessionBackup();
+    // }
   }, [state]);
   
   const enterZenMode = useCallback(() => {

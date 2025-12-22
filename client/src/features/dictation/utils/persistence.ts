@@ -39,8 +39,16 @@ export function getStreakData(): StreakData {
 export function updateStreak(): StreakData {
   const data = getStreakData();
   const now = new Date();
-  const today = now.toISOString().split('T')[0];
-  const yesterday = new Date(now.setDate(now.getDate() - 1)).toISOString().split('T')[0];
+  const formatLocalDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const today = formatLocalDate(now);
+  const yesterdayDate = new Date(now);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = formatLocalDate(yesterdayDate);
 
   let newStreak = data.currentStreak;
   // If the last practice was NOT today (i.e., this is the first practice of the day)

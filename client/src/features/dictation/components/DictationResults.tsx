@@ -29,6 +29,7 @@ interface DictationResultsProps {
   isBookmarked: boolean;
   coachingTip: CoachingTip | null;
   autoAdvanceCountdown: number | null;
+  isLastSentence?: boolean;
   onNext: () => void;
   onReplay: () => void;
   onToggleBookmark: () => void;
@@ -54,6 +55,7 @@ export function DictationResults({
   isBookmarked,
   coachingTip,
   autoAdvanceCountdown,
+  isLastSentence = false,
   onNext,
   onReplay,
   onToggleBookmark,
@@ -282,10 +284,12 @@ export function DictationResults({
                 <Button
                   onClick={onNext}
                   size="lg"
-                  className="h-12 px-8 font-semibold shadow-lg shadow-primary/20"
+                  className={`h-12 px-8 font-semibold shadow-lg ${
+                    isLastSentence ? 'bg-primary hover:bg-primary/90' : 'shadow-primary/20'
+                  }`}
                   data-testid="button-next"
                 >
-                  Next Sentence
+                  {isLastSentence ? 'Finish Session' : 'Next Sentence'}
                   <ChevronRight className="w-5 h-5 ml-2" />
                   {autoAdvanceCountdown !== null && (
                     <Badge variant="secondary" className="ml-2">
@@ -295,7 +299,7 @@ export function DictationResults({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Continue to the next sentence (press N)</p>
+                <p>{isLastSentence ? 'Complete session and view summary' : 'Continue to the next sentence (press N)'}</p>
               </TooltipContent>
             </Tooltip>
           </div>

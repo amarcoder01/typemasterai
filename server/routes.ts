@@ -3203,6 +3203,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const test = await storage.createCodeTypingTest(parsed.data);
 
+      // Update user streak after completing a code typing test
+      try {
+        const streakResult = await storage.updateUserStreak(req.user!.id);
+        if (streakResult?.isMilestone) {
+          await notificationScheduler.notifyStreakMilestone(req.user!.id, {
+            streak: streakResult.newStreak,
+            reward: streakResult.milestoneReward,
+          });
+        }
+      } catch (streakError) {
+        console.warn('[Streak] Failed to update streak for code test:', streakError);
+      }
+
       res.status(201).json({ message: "Code typing test saved", test });
     } catch (error: any) {
       console.error("Save code test error:", error);
@@ -3847,6 +3860,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const result = await storage.createDictationTest(parsed.data);
+
+      // Update user streak after completing a dictation test
+      try {
+        const streakResult = await storage.updateUserStreak(req.user!.id);
+        if (streakResult?.isMilestone) {
+          await notificationScheduler.notifyStreakMilestone(req.user!.id, {
+            streak: streakResult.newStreak,
+            reward: streakResult.milestoneReward,
+          });
+        }
+      } catch (streakError) {
+        console.warn('[Streak] Failed to update streak for dictation test:', streakError);
+      }
+
       res.status(201).json({ message: "Dictation test saved", result });
     } catch (error: any) {
       console.error("Save dictation test error:", error);
@@ -3919,7 +3946,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Text too long (max 1000 characters)" });
       }
       
-      const apiKey = process.env.OPENAI_TTS_API_KEY;
+      // Support multiple env var names for compatibility with different deployments
+      const apiKey = process.env.OPENAI_TTS_API_KEY 
+        || process.env.OPENAI_API_KEY 
+        || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
       if (!apiKey) {
         return res.status(503).json({ 
           message: "TTS not available", 
@@ -4035,6 +4065,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Production-ready: Use upsert pattern to update if new score is higher
       // This prevents duplicate entries while maintaining the best score per difficulty
       const { result, isNewPersonalBest } = await storage.upsertStressTestBestScore(parsed.data);
+
+      // Update user streak after completing a stress test
+      try {
+        const streakResult = await storage.updateUserStreak(req.user!.id);
+        if (streakResult?.isMilestone) {
+          await notificationScheduler.notifyStreakMilestone(req.user!.id, {
+            streak: streakResult.newStreak,
+            reward: streakResult.milestoneReward,
+          });
+        }
+      } catch (streakError) {
+        console.warn('[Streak] Failed to update streak for stress test:', streakError);
+      }
       
       // Check if this score makes it to the leaderboard (top 50)
       const leaderboard = await storage.getStressTestLeaderboard(parsed.data.difficulty, 50);
@@ -4156,14 +4199,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         case 'dictation':
           const dictationTest = await storage.getDictationTestById(parsedResultId);
           if (!dictationTest) {
+            console.warn(`[Share] Dictation test ${parsedResultId} not found`);
             return res.status(404).json({ message: "Test result not found" });
           }
           if (!req.user || dictationTest.userId !== req.user.id) {
+            console.warn(`[Share] Unauthorized access to dictation test ${parsedResultId} by user ${req.user?.id}`);
             return res.status(403).json({ message: "Unauthorized: cannot share another user's result" });
           }
           
           // Validate dictation test has required fields
           if (dictationTest.wpm == null || dictationTest.accuracy == null || dictationTest.errors == null) {
+            console.error(`[Share] Incomplete dictation test data for ${parsedResultId}:`, dictationTest);
             return res.status(400).json({ message: "Incomplete test result data" });
           }
           

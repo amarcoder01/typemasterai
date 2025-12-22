@@ -219,6 +219,8 @@ export interface Achievement {
 // ============================================================================
 
 export const SESSION_LENGTH_OPTIONS = [
+  { value: 1, label: '1 sentence (Instant)' },
+  { value: 2, label: '2 sentences (Very Short)' },
   { value: 3, label: '3 sentences (Warm-up)' },
   { value: 5, label: '5 sentences (Quick)' },
   { value: 10, label: '10 sentences (Standard)' },
