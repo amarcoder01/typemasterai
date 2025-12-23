@@ -27,6 +27,7 @@ import { createNotificationRoutes } from "./notification-routes";
 import { NotificationScheduler } from "./notification-scheduler";
 import { AchievementService } from "./achievement-service";
 import { AuthSecurityService } from "./auth-security-service";
+import { Readable, PassThrough } from "node:stream";
 import {
   initializeOAuthStrategies,
   rememberMeMiddleware,
@@ -62,6 +63,7 @@ import {
 } from "./auth-error-handling";
 
 const PgSession = ConnectPgSimple(session);
+const ttsCache = new Map<string, { buffer: Buffer; expires: number }>();
 
 // Generate cool guest usernames for anonymous players
 const guestNamePrefixes = [
@@ -3960,6 +3962,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
       const selectedVoice = validVoices.includes(voice) ? voice : "alloy";
       const selectedSpeed = Math.max(0.25, Math.min(4.0, speed));
+      const cacheKey = `${selectedVoice}:${selectedSpeed}:${crypto.createHash("sha256").update(text).digest("hex")}`;
+      const now = Date.now();
+      const cached = ttsCache.get(cacheKey);
+      if (cached && cached.expires > now) {
+        res.set({
+          "Content-Type": "audio/mpeg",
+          "Content-Length": cached.buffer.byteLength.toString(),
+          "Cache-Control": "public, max-age=3600",
+        });
+        return res.send(cached.buffer);
+      }
       
       const response = await fetch("https://api.openai.com/v1/audio/speech", {
         method: "POST",
@@ -3985,21 +3998,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const audioBuffer = await response.arrayBuffer();
-      
       res.set({
         "Content-Type": "audio/mpeg",
-        "Content-Length": audioBuffer.byteLength.toString(),
         "Cache-Control": "public, max-age=3600",
       });
-      
-      res.send(Buffer.from(audioBuffer));
+      res.flushHeaders();
+      const readable = Readable.fromWeb(response.body as any);
+      const chunks: Buffer[] = [];
+      const pass = new PassThrough();
+      pass.on("data", (chunk) => {
+        chunks.push(Buffer.from(chunk));
+      });
+      pass.on("end", () => {
+        const buffer = Buffer.concat(chunks);
+        ttsCache.set(cacheKey, { buffer, expires: Date.now() + 24 * 60 * 60 * 1000 });
+      });
+      readable.pipe(pass).pipe(res);
     } catch (error: any) {
       console.error("TTS error:", error);
       res.status(503).json({ 
         message: "TTS service error", 
         fallback: true 
       });
+    }
+  });
+
+  app.get("/api/dictation/tts-stream", async (req, res) => {
+    try {
+      const text = (req.query.text as string) || "";
+      const voice = (req.query.voice as string) || "alloy";
+      const speed = parseFloat((req.query.speed as string) || "1.0");
+      if (!text || text.trim().length === 0) {
+        return res.status(400).json({ message: "Text is required" });
+      }
+      if (text.length > 1000) {
+        return res.status(400).json({ message: "Text too long (max 1000 characters)" });
+      }
+      const apiKey = process.env.OPENAI_TTS_API_KEY 
+        || process.env.OPENAI_API_KEY 
+        || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      if (!apiKey) {
+        return res.status(503).json({ message: "TTS not available", fallback: true });
+      }
+      const validVoices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"];
+      const selectedVoice = validVoices.includes(voice) ? voice : "alloy";
+      const selectedSpeed = Math.max(0.25, Math.min(4.0, isNaN(speed) ? 1.0 : speed));
+      const cacheKey = `${selectedVoice}:${selectedSpeed}:${crypto.createHash("sha256").update(text).digest("hex")}`;
+      const now = Date.now();
+      const cached = ttsCache.get(cacheKey);
+      if (cached && cached.expires > now) {
+        res.set({
+          "Content-Type": "audio/mpeg",
+          "Content-Length": cached.buffer.byteLength.toString(),
+          "Cache-Control": "public, max-age=3600",
+        });
+        return res.send(cached.buffer);
+      }
+      const response = await fetch("https://api.openai.com/v1/audio/speech", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "tts-1",
+          input: text,
+          voice: selectedVoice,
+          speed: selectedSpeed,
+          response_format: "mp3",
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("OpenAI TTS error:", response.status, errorText);
+        return res.status(503).json({ message: "TTS generation failed", fallback: true });
+      }
+      res.set({
+        "Content-Type": "audio/mpeg",
+        "Cache-Control": "public, max-age=3600",
+      });
+      res.flushHeaders();
+      const readable = Readable.fromWeb(response.body as any);
+      const chunks: Buffer[] = [];
+      const pass = new PassThrough();
+      pass.on("data", (chunk) => {
+        chunks.push(Buffer.from(chunk));
+      });
+      pass.on("end", () => {
+        const buffer = Buffer.concat(chunks);
+        ttsCache.set(cacheKey, { buffer, expires: Date.now() + 24 * 60 * 60 * 1000 });
+      });
+      readable.pipe(pass).pipe(res);
+    } catch (error: any) {
+      console.error("TTS stream error:", error);
+      res.status(503).json({ message: "TTS service error", fallback: true });
     }
   });
 

@@ -99,6 +99,7 @@ interface DictationState {
   
   // Last saved test ID
   lastTestResultId: number | null;
+  prefetchedSentence: DictationSentence | null;
 }
 
 // ============================================================================
@@ -144,7 +145,8 @@ type DictationAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'SET_LAST_TEST_RESULT_ID'; payload: number | null }
   | { type: 'RESET_SESSION' }
-  | { type: 'RESTORE_SESSION'; payload: Partial<DictationState> };
+  | { type: 'RESTORE_SESSION'; payload: Partial<DictationState> }
+  | { type: 'SET_PREFETCHED_SENTENCE'; payload: DictationSentence | null };
 
 // ============================================================================
 // INITIAL STATE
@@ -180,6 +182,7 @@ const initialState: DictationState = {
   isLoading: false,
   error: null,
   lastTestResultId: null,
+  prefetchedSentence: null,
 };
 
 // ============================================================================
@@ -272,6 +275,8 @@ function dictationReducer(state: DictationState, action: DictationAction): Dicta
       return { ...state, error: action.payload };
     case 'SET_LAST_TEST_RESULT_ID':
       return { ...state, lastTestResultId: action.payload };
+    case 'SET_PREFETCHED_SENTENCE':
+      return { ...state, prefetchedSentence: action.payload };
     case 'RESET_SESSION':
       clearSessionBackup();
       return {

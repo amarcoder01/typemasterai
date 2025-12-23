@@ -200,6 +200,7 @@ export class EmailService {
   private readonly retryConfig: RetryConfig;
   private mg: any;
   private readonly domain: string;
+  private readonly configurationErrors: string[] = [];
 
   constructor(options?: {
     rateLimitWindowMs?: number;
@@ -211,13 +212,44 @@ export class EmailService {
     retryMaxDelayMs?: number;
     retryBackoffMultiplier?: number;
   }) {
+    console.log("[EmailService] ========== CONFIGURATION CHECK ==========");
+    
+    // Validate and load required environment variables
     const apiKey = process.env.MAILGUN_API_KEY;
-    this.fromEmail = process.env.MAILGUN_FROM_EMAIL || "no-reply@typemasterai.com";
-    this.fromName = process.env.MAILGUN_FROM_NAME || "TypeMasterAI";
-    this.domain = process.env.MAILGUN_DOMAIN || "sandbox3f76c67c33064dd69234ec4b94f9895c.mailgun.org";
-    this.appUrl = process.env.APP_URL || "https://typemasterai.com";
+    const domain = process.env.MAILGUN_DOMAIN;
+    const fromEmail = process.env.MAILGUN_FROM_EMAIL;
+    const fromName = process.env.MAILGUN_FROM_NAME;
+    const appUrl = process.env.APP_URL;
 
-    if (apiKey) {
+    // Log environment variable status (mask sensitive values)
+    console.log("[EmailService] Environment Variables Status:");
+    console.log(`  MAILGUN_API_KEY: ${apiKey ? `SET (${apiKey.substring(0, 8)}...)` : "❌ NOT SET"}`);
+    console.log(`  MAILGUN_DOMAIN: ${domain ? `✅ ${domain}` : "❌ NOT SET"}`);
+    console.log(`  MAILGUN_FROM_EMAIL: ${fromEmail ? `✅ ${fromEmail}` : "⚠️ NOT SET (will use default)"}`);
+    console.log(`  MAILGUN_FROM_NAME: ${fromName ? `✅ ${fromName}` : "⚠️ NOT SET (will use default)"}`);
+    console.log(`  APP_URL: ${appUrl ? `✅ ${appUrl}` : "⚠️ NOT SET (will use default)"}`);
+
+    // Check for sandbox domain usage (should never happen in production)
+    if (domain && domain.includes("sandbox")) {
+      console.warn("[EmailService] ⚠️ WARNING: Using sandbox domain - emails will only work for authorized recipients!");
+    }
+
+    // Collect configuration errors
+    if (!apiKey) {
+      this.configurationErrors.push("MAILGUN_API_KEY is required but not set");
+    }
+    if (!domain) {
+      this.configurationErrors.push("MAILGUN_DOMAIN is required but not set - refusing to use sandbox fallback");
+    }
+
+    // Set values (use defaults only for non-critical settings)
+    this.domain = domain || ""; // No fallback - must be explicitly set
+    this.fromEmail = fromEmail || "no-reply@typemasterai.com";
+    this.fromName = fromName || "TypeMasterAI";
+    this.appUrl = appUrl || "https://typemasterai.com";
+
+    // Initialize Mailgun client only if all required vars are present
+    if (apiKey && domain) {
       const mailgun = new Mailgun(formData);
       this.mg = mailgun.client({
         username: 'api',
@@ -225,13 +257,18 @@ export class EmailService {
         url: 'https://api.mailgun.net'
       });
       this.initialized = true;
-      console.log("[EmailService] Initialized with Mailgun API");
-      console.log(`[EmailService] From Email: ${this.fromEmail}`);
-      console.log(`[EmailService] From Name: ${this.fromName}`);
-      console.log(`[EmailService] Domain: ${this.domain}`);
+      console.log("[EmailService] ✅ Mailgun client initialized successfully");
+      console.log("[EmailService] Configuration Summary:");
+      console.log(`  Domain: ${this.domain}`);
+      console.log(`  From: ${this.fromName} <${this.fromEmail}>`);
+      console.log(`  App URL: ${this.appUrl}`);
     } else {
-      console.warn("[EmailService] No Mailgun API key found - emails will be logged only");
+      console.error("[EmailService] ❌ Email service NOT initialized due to missing configuration:");
+      this.configurationErrors.forEach(error => console.error(`  - ${error}`));
+      console.warn("[EmailService] Emails will be logged only and not actually sent");
     }
+    
+    console.log("[EmailService] ==========================================");
 
     this.rateLimiter = new EmailRateLimiter(
       options?.rateLimitWindowMs ?? 60 * 1000,
@@ -409,18 +446,39 @@ export class EmailService {
     }
 
     if (!this.initialized) {
-      console.log("[EmailService] Development mode - logging email instead of sending");
-      console.log(`[EmailService] To: ${sanitizedTo}`);
-      console.log(`[EmailService] Subject: ${options.subject}`);
-      console.log(`[EmailService] Text: ${options.text || "(HTML only)"}`);
+      console.warn("[EmailService] ⚠️ Email service not initialized - email will NOT be sent");
+      console.warn("[EmailService] Missing configuration errors:");
+      this.configurationErrors.forEach(error => console.warn(`  - ${error}`));
+      console.log("[EmailService] Email details (for debugging):");
+      console.log(`  To: ${sanitizedTo}`);
+      console.log(`  Subject: ${options.subject}`);
+      console.log(`  Text preview: ${(options.text || this.htmlToText(options.html)).substring(0, 100)}...`);
       
-      this.rateLimiter.recordSend(sanitizedTo);
+      // In development/testing, we still "succeed" to not block the flow
+      // But log clearly that no email was actually sent
+      const isDevelopment = process.env.NODE_ENV !== 'production';
+      if (isDevelopment) {
+        console.log("[EmailService] Development mode - simulating success for testing");
+        this.rateLimiter.recordSend(sanitizedTo);
+        return {
+          success: true,
+          messageId: `dev-${Date.now()}`,
+          timestamp: new Date(),
+          attempts: 1,
+        };
+      }
       
+      // In production, fail explicitly if not configured
       return {
-        success: true,
-        messageId: `dev-${Date.now()}`,
+        success: false,
         timestamp: new Date(),
-        attempts: 1,
+        attempts: 0,
+        error: {
+          code: EmailErrorCode.CONFIGURATION_ERROR,
+          message: "Email service not configured - missing required environment variables (MAILGUN_API_KEY, MAILGUN_DOMAIN)",
+          retryable: false,
+          details: { errors: this.configurationErrors },
+        },
       };
     }
 
@@ -1571,18 +1629,26 @@ export class EmailService {
   }
 
   isConfigured(): boolean {
-    return this.initialized && !!this.fromEmail;
+    return this.initialized && !!this.fromEmail && !!this.domain;
+  }
+
+  getConfigurationErrors(): string[] {
+    return [...this.configurationErrors];
   }
 
   getServiceStatus(): {
     configured: boolean;
     circuitBreakerState: string;
     fromEmail: string;
+    domain: string;
+    configurationErrors: string[];
   } {
     return {
       configured: this.isConfigured(),
       circuitBreakerState: this.circuitBreaker.getState(),
       fromEmail: this.fromEmail ? `${this.fromEmail.substring(0, 3)}***` : "not set",
+      domain: this.domain || "not set",
+      configurationErrors: this.configurationErrors,
     };
   }
 }

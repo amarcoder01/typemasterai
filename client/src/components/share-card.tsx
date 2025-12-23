@@ -213,10 +213,10 @@ export function ShareCard({ wpm, accuracy, mode, language, username, freestyle =
         ctx.font = "12px 'DM Sans', sans-serif";
         ctx.fillText("Mode", canvas.width / 2, statsY + 25);
       } else {
-        ctx.fillText(modeDisplay, canvas.width / 2, statsY + 8);
-        ctx.fillStyle = "#64748b";
-        ctx.font = "12px 'DM Sans', sans-serif";
-        ctx.fillText("Duration", canvas.width / 2, statsY + 25);
+      ctx.fillText(modeDisplay, canvas.width / 2, statsY + 8);
+      ctx.fillStyle = "#64748b";
+      ctx.font = "12px 'DM Sans', sans-serif";
+      ctx.fillText("Duration", canvas.width / 2, statsY + 25);
       }
 
       ctx.font = "bold 20px 'JetBrains Mono', monospace";

@@ -62,6 +62,7 @@ export function useSpeechSynthesis(
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const resumeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const watchdogIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const voicePollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -73,6 +74,10 @@ export function useSpeechSynthesis(
     if (watchdogIntervalRef.current) {
       clearInterval(watchdogIntervalRef.current);
       watchdogIntervalRef.current = null;
+    }
+    if (voicePollingIntervalRef.current) {
+      clearInterval(voicePollingIntervalRef.current);
+      voicePollingIntervalRef.current = null;
     }
   }, []);
 
@@ -135,6 +140,20 @@ export function useSpeechSynthesis(
     if (window.speechSynthesis.onvoiceschanged !== undefined) {
       window.speechSynthesis.onvoiceschanged = loadVoices;
     }
+    if (!currentVoice || voices.length === 0) {
+      voicePollingIntervalRef.current = setInterval(() => {
+        const v = window.speechSynthesis.getVoices();
+        if (v && v.length > 0) {
+          loadVoices();
+          clearIntervals();
+        }
+      }, 300);
+      setTimeout(() => {
+        if (voicePollingIntervalRef.current) {
+          clearIntervals();
+        }
+      }, 3000);
+    }
 
     return () => {
       clearIntervals();
@@ -146,51 +165,26 @@ export function useSpeechSynthesis(
     try {
       setIsSpeaking(true);
       setError(null);
-      
-      const response = await fetch('/api/dictation/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text,
-          voice: currentOpenAIVoice,
-          speed: options.rate ?? 1.0,
-        }),
-      });
-      
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        if (data.fallback) {
-          return false;
-        }
-        throw new Error(data.message || 'TTS request failed');
-      }
-      
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      
+      const url = `/api/dictation/tts-stream?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(currentOpenAIVoice)}&speed=${encodeURIComponent(String(options.rate ?? 1.0))}`;
       if (audioRef.current) {
         audioRef.current.pause();
-        URL.revokeObjectURL(audioRef.current.src);
       }
-      
-      const audio = new Audio(audioUrl);
+      const audio = new Audio(url);
       audioRef.current = audio;
-      
-      audio.onended = () => {
-        setIsSpeaking(false);
-        URL.revokeObjectURL(audioUrl);
-      };
-      
-      audio.onerror = () => {
-        setIsSpeaking(false);
-        setError('Audio playback failed');
-        URL.revokeObjectURL(audioUrl);
-      };
-      
+      const startedPromise = new Promise<boolean>((resolve) => {
+        audio.onplaying = () => resolve(true);
+        audio.onerror = () => resolve(false);
+      });
+      const timeoutPromise = new Promise<boolean>((resolve) => {
+        setTimeout(() => resolve(false), 4000);
+      });
       await audio.play();
-      return true;
+      const ok = await Promise.race([startedPromise, timeoutPromise]);
+      if (!ok) {
+        setIsSpeaking(false);
+      }
+      return ok;
     } catch (err) {
-      console.error('OpenAI TTS error:', err);
       setIsSpeaking(false);
       return false;
     }

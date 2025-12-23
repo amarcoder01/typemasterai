@@ -320,8 +320,15 @@ function DictationModeContent() {
   
   const handleBeginSession = useCallback(async () => {
     actions.beginSession();
-    await loadNextSentence();
-  }, [actions]);
+    if (state.prefetchedSentence) {
+      dispatch({ type: 'ADD_SHOWN_SENTENCE_ID', payload: state.prefetchedSentence.id });
+      dispatch({ type: 'SET_TEST_STATE', payload: { sentence: state.prefetchedSentence } });
+      dispatch({ type: 'SET_PREFETCHED_SENTENCE', payload: null });
+      audio.speak(state.prefetchedSentence.sentence);
+    } else {
+      await loadNextSentence();
+    }
+  }, [actions, state.prefetchedSentence, dispatch, audio, loadNextSentence]);
   
   const handleRecoverSession = useCallback(() => {
     actions.recoverSession();
@@ -351,12 +358,9 @@ function DictationModeContent() {
         payload: { sentence },
       });
       
-      // Speak the sentence after a short delay
-      setTimeout(() => {
-        if (isMountedRef.current) {
-          audio.speak(sentence.sentence);
-        }
-      }, 800);
+      if (isMountedRef.current) {
+        audio.speak(sentence.sentence);
+      }
     } else {
       toast({
         title: 'Failed to load sentence',
@@ -375,6 +379,21 @@ function DictationModeContent() {
     dispatch,
     toast,
   ]);
+
+  useEffect(() => {
+    if (state.isWaitingToStart && !state.prefetchedSentence) {
+      (async () => {
+        const sentence = await fetchSentence({
+          difficulty: state.difficulty,
+          category: state.category,
+          excludeIds: state.shownSentenceIds,
+        });
+        if (sentence) {
+          dispatch({ type: 'SET_PREFETCHED_SENTENCE', payload: sentence });
+        }
+      })();
+    }
+  }, [state.isWaitingToStart, state.prefetchedSentence, state.difficulty, state.category, state.shownSentenceIds, fetchSentence, dispatch]);
   
   const handleReplay = useCallback(() => {
     if (state.testState.sentence && !audio.isSpeaking) {

@@ -190,7 +190,69 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Enhanced pool configuration with connection retry logic for production stability
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 10, // Maximum connections in pool
+  idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
+  connectionTimeoutMillis: 10000, // Wait 10s for connection before timing out
+});
+
+// Connection error handling with retry logic
+pool.on('error', (err) => {
+  console.error('[DB Pool] Unexpected error on idle client:', err.message);
+  // Pool will automatically remove the errored client and create new ones as needed
+});
+
+// Retry wrapper for database operations
+export async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | undefined;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Check if error is retryable (connection errors, not query errors)
+      const isRetryable = 
+        error.code === 'ECONNRESET' ||
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'ETIMEDOUT' ||
+        error.message?.includes('Connection terminated') ||
+        error.message?.includes('Connection refused') ||
+        error.message?.includes('timeout') ||
+        error.message?.includes('ECONNRESET');
+      
+      if (!isRetryable || attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Exponential backoff with jitter
+      const delay = baseDelayMs * Math.pow(2, attempt - 1) + Math.random() * 500;
+      console.warn(`[DB Retry] Attempt ${attempt}/${maxRetries} failed, retrying in ${Math.round(delay)}ms:`, error.message);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError;
+}
+
+// Health check function for monitoring
+export async function checkDatabaseHealth(): Promise<boolean> {
+  try {
+    const result = await pool.query('SELECT 1');
+    return result.rowCount === 1;
+  } catch (error) {
+    console.error('[DB Health] Database health check failed:', error);
+    return false;
+  }
+}
+
 export const db = drizzle({ client: pool });
 
 export interface IStorage {

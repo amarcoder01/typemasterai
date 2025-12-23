@@ -293,8 +293,18 @@ function getStreakData(): StreakData {
 
 function updateStreak(): StreakData {
   const data = getStreakData();
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const now = new Date();
+  // Use local date format to match persistence.ts (avoids UTC vs local timezone mismatch)
+  const formatLocalDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const today = formatLocalDate(now);
+  const yesterdayDate = new Date(now);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = formatLocalDate(yesterdayDate);
   
   let newStreak = data.currentStreak;
   
